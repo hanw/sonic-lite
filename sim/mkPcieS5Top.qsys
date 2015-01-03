@@ -92,12 +92,16 @@
  <interface name="dut_simu_mode_clkin" internal="DUT.simu_mode_clkin" />
  <interface name="apps_simu_mode_clkin" internal="APPS.simu_mode_clkin" />
  <interface name="apps_app_ctrl" internal="APPS.app_ctrl" />
- <interface name="refclk" internal="DUT.refclk" type="clock" dir="end" />
- <interface name="pcie_rstn" internal="DUT.npor" type="conduit" dir="end" />
+ <interface name="clk_100" internal="DUT.refclk" type="clock" dir="end" />
+ <interface name="rst_n" internal="DUT.npor" type="conduit" dir="end" />
  <interface name="reconfig_xcvr_clk" internal="APPS.reconfig_xcvr_clk" />
  <interface name="reconfig_xcvr_rst" internal="APPS.reconfig_xcvr_rst" />
- <interface name="clk" internal="clk_0.clk_in" type="clock" dir="end" />
- <interface name="reset" internal="clk_0.clk_in_reset" type="reset" dir="end" />
+ <interface name="clk_50" internal="clk_0.clk_in" type="clock" dir="end" />
+ <interface
+   name="clk_50_rst"
+   internal="clk_0.clk_in_reset"
+   type="reset"
+   dir="end" />
  <module kind="altera_pcie_sv_hip_ast" version="14.0" enabled="1" name="DUT">
   <parameter name="design_environment_hwtcl" value="QSYS" />
   <parameter name="ACDS_VERSION_HWTCL" value="14.0" />
