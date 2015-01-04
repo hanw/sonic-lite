@@ -1,0 +1,21 @@
+********************************************************************
+* Avalon Bus interfaces
+********************************************************************
+
+%AWB_START
+
+%name Avalon Bus Intefaces 
+%desc Master and Slave device for simple word-level avalon interface
+%provides avalon
+
+%attribute altera
+
+%sources -t BSV -v PUBLIC AvalonCommon.bsv
+%sources -t BSV -v PUBLIC AvalonMaster.bsv
+%sources -t BSV -v PUBLIC AvalonSlave.bsv
+%sources -t BSV -v PUBLIC AvalonConnectable.bsv
+%sources -t BSV -v PUBLIC AvalonWrapper.bsv
+
+%param DEBUG_AVALON 0 "Enable debug messages"
+
+%AWB_END
