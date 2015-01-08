@@ -11,30 +11,30 @@
 module sonic_single_port (/*AUTOARG*/
    // Outputs
    xcvr_tx_dataout,
-   counter_local,
+   cntr_local_state,
    xgmii_rx_data,
-   export_data,
-   export_valid,
-   export_delay,
+   log_data,
+   log_valid,
+   log_delay,
    // Inputs
    xcvr_rx_datain,
    xcvr_tx_clkout,
    xcvr_rx_clkout,
    xcvr_tx_ready,
    xcvr_rx_ready,
-   ctrl_bypass,
-   ctrl_disable,
-   ctrl_clear,
+   ctrl_bypass_clksync,
+   ctrl_disable_clksync,
+   ctrl_clear_local_state,
    ctrl_mode,
-   ctrl_filter_disable,
-   ctrl_thres,
-   counter_global,
+   ctrl_disable_ecc,
+   ctrl_error_bound,
+   cntr_global_state,
    xgmii_tx_data,
    clk_in,
    rst_in,
-   endec_loopback,
-   init_timeout,
-   sync_timeout
+   lpbk_endec,
+   timeout_init,
+   timeout_sync
    );
 
    // lower layer xcvr interface
@@ -44,30 +44,30 @@ module sonic_single_port (/*AUTOARG*/
    input wire          xcvr_rx_clkout;
    input wire          xcvr_tx_ready;
    input wire          xcvr_rx_ready;
-   input wire          ctrl_bypass; //ctrl_bypass clocksync
-   input wire          ctrl_disable; //disable clocksync
-   input wire          ctrl_clear; //ctrl_clear c_local counters
+   input wire          ctrl_bypass_clksync; //ctrl_bypass clocksync
+   input wire          ctrl_disable_clksync; //disable clocksync
+   input wire          ctrl_clear_local_state; //ctrl_clear_local_state c_local counters
    input wire          ctrl_mode; //0 for NIC mode, 1 for switch mode
-   input wire          ctrl_filter_disable;
-   input wire [31:0]   ctrl_thres;
+   input wire          ctrl_disable_ecc;
+   input wire [31:0]   ctrl_error_bound;
 
-   input wire [52:0]   counter_global;
-   output wire [52:0]  counter_local;
+   input wire [52:0]   cntr_global_state;
+   output wire [52:0]  cntr_local_state;
 
    // upper layer xgmii interface
    input  wire  [71:0]  xgmii_tx_data;
    output wire  [71:0]  xgmii_rx_data;
    input wire           clk_in;
 
-   output wire  [511:0] export_data;
-   output wire          export_valid;
-   output wire  [15:0]  export_delay;
+   output wire  [511:0] log_data;
+   output wire          log_valid;
+   output wire  [15:0]  log_delay;
 
    // system interface
    input wire          rst_in;
-   input wire          endec_loopback;
-   input wire [31:0]   init_timeout;
-   input wire [31:0]   sync_timeout;
+   input wire          lpbk_endec;
+   input wire [31:0]   timeout_init;
+   input wire [31:0]   timeout_sync;
 
    wire [63:0]    xgmii_txd;
    wire [7:0]     xgmii_txc;
@@ -113,26 +113,26 @@ module sonic_single_port (/*AUTOARG*/
    //       phy is valid (fifos, gearbox, etc). For testing purpose, we ignore the
    //       corner cases.
    clocksync_sm clocksync_sm (
-                              .reset(rst_in || ctrl_disable),
-                              .clear(ctrl_clear),
+                              .reset(rst_in || ctrl_disable_clksync),
+                              .clear(ctrl_clear_local_state),
                               .mode(ctrl_mode),
-                              .disable_filter(ctrl_filter_disable),
-                              .thres(ctrl_thres),
+                              .disable_filter(ctrl_disable_ecc),
+                              .thres(ctrl_error_bound),
                               .clock(clk_in),
                               .link_ok(xcvr_rx_ready && lock),
                               // axillary data saved to DDR3 ram
-                              .export_data(export_data),
-                              .export_valid(export_valid),
-                              .export_delay(export_delay),
+                              .export_data(log_data),
+                              .export_valid(log_valid),
+                              .export_delay(log_delay),
 
-                              .c_global(counter_global),
-                              .c_local_o(counter_local),
+                              .c_global(cntr_global_state),
+                              .c_local_o(cntr_local_state),
                               .encoded_datain(encoded_datain),  // data from encoder
                               .clksync_dataout(clksync_dataout), // data from clksync to txchan
                               .decoded_dataout(decoded_dataout), // data from decoder
 
-                              .init_timeout(init_timeout),
-                              .sync_timeout(sync_timeout)
+                              .init_timeout(timeout_init),
+                              .sync_timeout(timeout_sync)
                               );
 
    logic [65:0]   bypass_dataout;
@@ -142,7 +142,7 @@ module sonic_single_port (/*AUTOARG*/
                          .data1x(encoded_datain),
                          .data2x(),
                          .data3x(),
-                         .sel({1'b0, ctrl_bypass}),
+                         .sel({1'b0, ctrl_bypass_clksync}),
                          .clock(clk_in),
                          .result(bypass_dataout)
                          );
@@ -195,7 +195,7 @@ module sonic_single_port (/*AUTOARG*/
    xgmii_loopback lpbk (
                         .data0x(decoded_dataout),
                         .data1x(bypass_dataout),
-                        .sel(endec_loopback),
+                        .sel(lpbk_endec),
                         .result(loopback_dataout)
                         );
 
