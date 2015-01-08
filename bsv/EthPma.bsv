@@ -47,27 +47,27 @@ interface PhyMgmtIfc;
 endinterface
 
 interface Status#(numeric type np);
-   method Vector#(np, Bit#(1))     tx_ready;
-   method Vector#(np, Bit#(1))     rx_ready;
    method Vector#(np, Bit#(1))     pll_locked;
    method Vector#(np, Bit#(1))     rx_is_lockedtodata;
    method Vector#(np, Bit#(1))     rx_is_lockedtoref;
 endinterface
 
 interface Serial#(numeric type np);
-   method Bit#(np)    tx_serial_data;
-   method Action      rx_serial_data(Bit#(np) v);
+   method Bit#(np)             tx_serial_data;
+   method Action               rx_serial_data(Bit#(np) v);
 endinterface
 
 interface Parallel#(numeric type np);
+   method Vector#(np, Bit#(1))  tx_ready;
+   method Vector#(np, Bit#(1))  rx_ready;
+   method Vector#(np, Bit#(1))  tx_clkout;
+   method Vector#(np, Bit#(1))  rx_clkout;
    method Vector#(np, Bit#(40)) rx_parallel_data;
    method Action                tx_parallel_data(Vector#(np, Bit#(40)) v);
 endinterface
 
 (* always_ready, always_enabled *)
 interface EthPmaIfc#(numeric type np);
-   interface Vector#(np, Clock) tx_clkout;
-   interface Vector#(np, Clock) rx_clkout;
    interface PhyMgmtIfc         phy_mgmt;
    interface Status#(np)        status;
    interface Serial#(np)        serial;
@@ -114,26 +114,26 @@ module mkEthPma#(Clock phy_mgmt_clk, Clock pll_ref_clk, Reset phy_mgmt_reset, Re
    endrule
 
    /* connect all three components */
-   Vector#(PortNum, B2C1) tx_clk;
-   Vector#(PortNum, B2C1) rx_clk;
-   for (Integer i=0; i < valueOf(PortNum); i=i+1) begin
-      tx_clk[i] <- mkB2C1();
-      rx_clk[i] <- mkB2C1();
-   end
-
-   rule out_pma_clk;
-      for (Integer i=0; i < valueOf(PortNum); i=i+1) begin
-         tx_clk[i].inputclock(xcvr.tx.pma_clkout[i]);
-         rx_clk[i].inputclock(xcvr.rx.pma_clkout[i]);
-      end
-   endrule
-
-   Vector#(PortNum, Clock) out_tx_clk;
-   Vector#(PortNum, Clock) out_rx_clk;
-   for (Integer i=0; i< valueOf(PortNum); i=i+1) begin
-      out_tx_clk[i] = tx_clk[i].c;
-      out_rx_clk[i] = rx_clk[i].c;
-   end
+//   Vector#(PortNum, B2C1) tx_clk;
+//   Vector#(PortNum, B2C1) rx_clk;
+//   for (Integer i=0; i < valueOf(PortNum); i=i+1) begin
+//      tx_clk[i] <- mkB2C1();
+//      rx_clk[i] <- mkB2C1();
+//   end
+//
+//   rule out_pma_clk;
+//      for (Integer i=0; i < valueOf(PortNum); i=i+1) begin
+//         tx_clk[i].inputclock(xcvr.tx.pma_clkout[i]);
+//         rx_clk[i].inputclock(xcvr.rx.pma_clkout[i]);
+//      end
+//   endrule
+//
+//   Vector#(PortNum, Clock) out_tx_clk;
+//   Vector#(PortNum, Clock) out_rx_clk;
+//   for (Integer i=0; i< valueOf(PortNum); i=i+1) begin
+//      out_tx_clk[i] = tx_clk[i].c;
+//      out_rx_clk[i] = rx_clk[i].c;
+//   end
 
    Vector#(PortNum, Wire#(Bit#(1))) rx_serial_wires <- replicateM(mkDWire(0));
 
@@ -141,20 +141,10 @@ module mkEthPma#(Clock phy_mgmt_clk, Clock pll_ref_clk, Reset phy_mgmt_reset, Re
       return data[i];
    endfunction
 
-   interface tx_clkout = out_tx_clk;
-   interface rx_clkout = out_rx_clk;
+   //interface tx_clkout = out_tx_clk;
+   //interface rx_clkout = out_rx_clk;
 
    interface Status status;
-      method Vector#(PortNum, Bit#(1)) rx_ready();
-         Vector#(PortNum, Bit#(1)) ret_val = map(getBit(rst.rx_r.eady), genVector);
-         return ret_val;
-      endmethod
-
-      method Vector#(PortNum, Bit#(1)) tx_ready();
-         Vector#(PortNum, Bit#(1)) ret_val = map(getBit(rst.tx_r.eady), genVector);
-         return ret_val;
-      endmethod
-
       method Vector#(PortNum, Bit#(1)) pll_locked();
          Vector#(PortNum, Bit#(1)) ret_val = map(getBit(xcvr.pll.locked), genVector);
          return ret_val;
@@ -216,6 +206,26 @@ module mkEthPma#(Clock phy_mgmt_clk, Clock pll_ref_clk, Reset phy_mgmt_reset, Re
    endinterface
 
    interface Parallel parallel;
+      method Vector#(PortNum, Bit#(1)) rx_ready();
+         Vector#(PortNum, Bit#(1)) ret_val = map(getBit(rst.rx_r.eady), genVector);
+         return ret_val;
+      endmethod
+
+      method Vector#(PortNum, Bit#(1)) tx_ready();
+         Vector#(PortNum, Bit#(1)) ret_val = map(getBit(rst.tx_r.eady), genVector);
+         return ret_val;
+      endmethod
+
+      method Vector#(PortNum, Bit#(1)) tx_clkout();
+         Vector#(PortNum, Bit#(1)) ret_val = map(getBit(xcvr.tx.pma_clkout), genVector);
+         return ret_val;
+      endmethod
+
+      method Vector#(PortNum, Bit#(1)) rx_clkout();
+         Vector#(PortNum, Bit#(1)) ret_val = map(getBit(xcvr.rx.pma_clkout), genVector);
+         return ret_val;
+      endmethod
+
       method Vector#(PortNum, Bit#(40)) rx_parallel_data;
          Vector#(PortNum, Bit#(40)) ret_val;
          for(Integer i=0; i < valueOf(PortNum); i = i+1) begin
@@ -224,7 +234,7 @@ module mkEthPma#(Clock phy_mgmt_clk, Clock pll_ref_clk, Reset phy_mgmt_reset, Re
          return ret_val;
       endmethod
 
-      method Action tx_parallel_data(v);
+      method Action tx_parallel_data(Vector#(PortNum, Bit#(40)) v);
          let txp = pack(v);
 `ifdef USE_4_PORTS
          Bit#(320) ret_val = {40'h0, txp[159:120], 40'h0, txp[119:80],
