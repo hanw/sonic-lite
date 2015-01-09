@@ -3,19 +3,20 @@
 
 iCLK,
 iRST_n,
-iIn,
-oFallING_EDGE,
-oRISING_EDGE,
-oDEBOUNCE_OUT,
+iTrigger_in,
+oFalling_edge,
+oRising_edge,
+oDebounce_out,
 rst_cnt
 );
 
 input iCLK;
 input iRST_n;
 
-input iIn;
-output oFallING_EDGE;
-output oRISING_EDGE;
+input iTrigger_in;
+output oFalling_edge;
+output oRising_edge;
+output reg oDebounce_out;
 
 reg  [1:0] in_delay_reg;
 
@@ -28,13 +29,13 @@ always@(posedge iCLK or negedge iRST_n)
 			end
 		else
 			begin
-				in_delay_reg <= {in_delay_reg[0],iIn};	
+				in_delay_reg <= {in_delay_reg[0],iTrigger_in};	
 			end	
 	end
 	
 			 
-assign oFallING_EDGE = (in_delay_reg == 2'b01) ? 1'b1 : 1'b0;	
-assign oRISING_EDGE = (in_delay_reg == 2'b10) ? 1'b1 : 1'b0;	
+assign oFalling_edge = (in_delay_reg == 2'b01) ? 1'b1 : 1'b0;	
+assign oRISING_edge = (in_delay_reg == 2'b10) ? 1'b1 : 1'b0;	
 
 
 output reg [15:0] rst_cnt;
@@ -61,7 +62,7 @@ always@(posedge iCLK or negedge iRST_n)
 			begin
 				cnt_enable <= 1'b0;
 			end
-		else if (oFallING_EDGE)
+		else if (oFalling_edge)
 			begin
 				cnt_enable <= 1'b1;
 			end
@@ -72,21 +73,20 @@ always@(posedge iCLK or negedge iRST_n)
 	end
 
 
-output reg oDEBOUNCE_OUT;
 
 
 always@(posedge iCLK or negedge iRST_n)
 	begin
 		if (!iRST_n)
 			begin
-				oDEBOUNCE_OUT <= 1'b0;
+				oDebounce_out <= 1'b0;
 			end
-		else if (oFallING_EDGE && ~cnt_enable)
+		else if (oFalling_edge && ~cnt_enable)
 			begin
-				oDEBOUNCE_OUT <= 1'b1;
+				oDebounce_out <= 1'b1;
 			end
 		else 
-			oDEBOUNCE_OUT <= 1'b0;
+			oDebounce_out <= 1'b0;
 		
 	end		
 			

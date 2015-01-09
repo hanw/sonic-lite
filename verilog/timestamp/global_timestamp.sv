@@ -11,43 +11,43 @@
 
 module global_timestamp (/*AUTOARG*/
    // Outputs
-   global_ts,
+   timestamp_maximum,
    // Inputs
-   reset, clock, ts0, ts1, ts2, ts3
+   reset, clock, timestamp_p0, timestamp_p1, timestamp_p2, timestamp_p3
    ) ;
    input reset;
    input clock;
-   input logic [52:0] ts0;
-   input logic [52:0] ts1;
-   input logic [52:0] ts2;
-   input logic [52:0] ts3;
+   input logic [52:0] timestamp_p0;
+   input logic [52:0] timestamp_p1;
+   input logic [52:0] timestamp_p2;
+   input logic [52:0] timestamp_p3;
 
-   output logic [52:0] global_ts;
+   output logic [52:0] timestamp_maximum;
 
    always_ff @ (posedge clock or posedge reset) begin
       if (reset) begin
-         global_ts <= 0;
+         timestamp_maximum <= 0;
       end
       else begin
-         global_ts <= comp_global(ts0, ts1, ts2, ts3);
+         timestamp_maximum <= comp_global(timestamp_p0, timestamp_p1, timestamp_p2, timestamp_p3);
       end
    end
 
-   function [52:0] comp_global (input [52:0] ts0, ts1, ts2, ts3);
+   function [52:0] comp_global (input [52:0] timestamp_p0, timestamp_p1, timestamp_p2, timestamp_p3);
       logic [52:0]     tmp0;
       logic [52:0]     tmp1;
-      if (ts0 > ts1) begin
-         tmp0 = ts0;
+      if (timestamp_p0 > timestamp_p1) begin
+         tmp0 = timestamp_p0;
       end
       else begin
-         tmp0 = ts1;
+         tmp0 = timestamp_p1;
       end
 
-      if (ts2 > ts3) begin
-         tmp1 = ts2;
+      if (timestamp_p2 > timestamp_p3) begin
+         tmp1 = timestamp_p2;
       end
       else begin
-         tmp1 = ts3;
+         tmp1 = timestamp_p3;
       end
 
       if (tmp0 > tmp1) begin

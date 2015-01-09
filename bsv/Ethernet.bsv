@@ -23,89 +23,111 @@
 
 package Ethernet;
 
-import Clocks                        ::*;
-import Vector                        ::*;
-
-import EthPma                        ::*;
-
-import ALTERA_ETH_PORT_WRAPPER       ::*;
-
-`ifdef USE_4_PORTS
-typedef 4 PortNum;
-`elsif USE_2_PORTS
-typedef 2 PortNum;
-`endif
-
-interface Xgmii#(numeric type np);
-   method Vector#(np, Bit#(72)) rx_dc;
-   method Action tx_dc (Vector#(np, Bit#(72)) v);
+(* always_ready, always_enabled *)
+interface XGMII_RX_PCS;                               // PCS provides to MAC
+   method Bit#(72) rx_dc;
 endinterface
 
-interface Pma#(numeric type np);
-   method Action serial_rxin(Bit#(np) v);
-   method Bit#(np) serial_txout;
+(* always_ready, always_enabled *)
+interface XGMII_TX_PCS;                               // PCS provides to MAC
+   method Action tx_dc (Bit#(72) v);
 endinterface
 
-interface EthPhyIfc#(numeric type np);
-   interface Xgmii#(np) xgmii;
-   interface Pma#(np)   pma;
+(* always_ready, always_enabled *)
+interface XGMII_PCS; // top of PCS facing MAC
+   interface XGMII_RX_PCS rx;
+   interface XGMII_TX_PCS tx;
 endinterface
 
-(* synthesize *)
-module mkEthernet(EthPhyIfc#(PortNum));
-
-Clock clk_50     <- exposeCurrentClock;
-Reset rst_50     <- exposeCurrentReset;
-Clock clk_156_25 <- exposeCurrentClock;
-Reset rst_156_25 <- exposeCurrentReset;
-
-Vector#(4, EthPortWrap) pcs4 <- replicateM(mkEthPortWrap(clk_156_25, rst_156_25, rst_156_25));
-EthPmaIfc#(4)           pma4 <- mkEthPma(clk_50, clk_156_25, rst_50, rst_156_25);
-
-//pcs.cntr
-//pcs.ctrl
-//pcs.log
-//pcs.lpbk
-//pcs.timeout
-
-rule pcs_pma;
-   Vector#(PortNum, Bit#(40)) tx_dataout;
-   for (Integer i=0; i < valueOf(PortNum); i=i+1) begin
-      pcs4[i].xcvr.rx_datain(pma4.parallel.rx_parallel_data[i]);
-      pcs4[i].xcvr.rx_clkout(pma4.parallel.rx_clkout[i]);
-      pcs4[i].xcvr.tx_clkout(pma4.parallel.tx_clkout[i]);
-      pcs4[i].xcvr.tx_ready(pma4.parallel.tx_ready[i]);
-      pcs4[i].xcvr.rx_ready(pma4.parallel.rx_ready[i]);
-      tx_dataout[i] = pcs4[i].xcvr.tx_dataout;
-   end
-   pma4.parallel.tx_parallel_data(tx_dataout);
-endrule
-
-interface Pma pma;
-   method Action serial_rxin(Bit#(PortNum) v);
-      pma4.serial.rx_serial_data(v);
-   endmethod
-
-   method Bit#(PortNum) serial_txout;
-      return pma4.serial.tx_serial_data;
-   endmethod
+(* always_ready, always_enabled *)
+interface XGMII_RX_MAC;                               // MAC provides to PCS
+   method Action rx_dc (Bit#(72) v);
 endinterface
 
-interface Xgmii xgmii;
-   method Vector#(PortNum, Bit#(72)) rx_dc;
-      Vector#(PortNum, Bit#(72)) ret_val;
-      for (Integer i=0; i<valueOf(PortNum); i=i+1) begin
-         ret_val[i] = pcs4[i].xgmii.rx_data;
-      end
-      return ret_val;
-   endmethod
-
-   method Action tx_dc (Vector#(PortNum, Bit#(72)) v);
-      for (Integer i=0; i<valueOf(PortNum); i=i+1) begin
-         pcs4[i].xgmii.tx_data(v[i]);
-      end
-   endmethod
+(* always_ready, always_enabled *)
+interface XGMII_TX_MAC;                               // MAC provides to PCS
+   method Bit#(72) tx_dc;
 endinterface
 
-endmodule: mkEthernet
+(* always_ready, always_enabled *)
+interface XGMII_MAC; // bottom of MAC facing PCS
+   (* prefix = "" *)
+   interface XGMII_RX_MAC rx;
+   (* prefix = "" *)
+   interface XGMII_TX_MAC tx;
+endinterface
+
+(* always_ready, always_enabled *)
+interface XCVR_RX_PCS;                                // PCS provides to PMA
+   method Action rx_ready ( (* port = "rx_ready" *)  Bit#(1) v);
+   method Action rx_clkout( (* port = "rx_clkout" *) Bit#(1) v);
+   method Action rx_data  ( (* port = "rx_data" *)   Bit#(40) v);
+endinterface
+
+(* always_ready, always_enabled *)
+interface XCVR_TX_PCS;                                // PCS provides to PMA
+   method Action tx_ready ( (* port = "tx_ready" *)  Bit#(1) v);
+   method Action tx_clkout( (* port = "tx_clkout" *) Bit#(1) v);
+   (* prefix = "", result = "tx_data" *)
+   method Bit#(40) tx_data;
+endinterface
+
+(* always_ready, always_enabled *)
+interface XCVR_PCS;  // bottom of PCS facing PMA
+   (* prefix = "" *)
+   interface XCVR_RX_PCS rx;
+   (* prefix = "" *)
+   interface XCVR_TX_PCS tx;
+endinterface
+
+(* always_ready, always_enabled *)
+interface XCVR_RX_PMA;                                // PMA provides to PCS
+   (* prefix = "", result = "rx_ready" *)
+   method Bit#(1) rx_ready;
+   (* prefix = "", result = "rx_clkout" *)
+   method Bit#(1) rx_clkout;
+   (* prefix = "", result = "rx_data" *)
+   method Bit#(40) rx_data;
+endinterface
+
+(* always_ready, always_enabled *)
+interface XCVR_TX_PMA;                                // PMA provides to PCS
+   method Bit#(1) tx_ready;
+   method Bit#(1) tx_clkout;
+   (* prefix = "" *)
+   method Action tx_data( (* port = "tx_data" *) Bit#(40) v);
+endinterface
+
+(* always_ready, always_enabled *)
+interface XCVR_PMA; // top of PMA facing PCS
+   (* prefix = "" *)
+   interface XCVR_RX_PMA rx;
+   (* prefix = "" *)
+   interface XCVR_TX_PMA tx;
+endinterface
+
+interface MACIfc;
+   (* prefix = "" *)
+   interface XGMII_MAC xgmii;
+endinterface
+
+interface PCSIfc;
+   (* prefix = "" *)
+   interface XGMII_PCS xgmii;
+   (* prefix = "" *)
+   interface XCVR_PCS  xcvr;
+endinterface
+
+interface XCVRIfc;
+   (* prefix = "" *)
+   interface XCVR_PMA  xcvr;
+endinterface
+
+interface SerialIfc;
+   (* prefix = "" , result = "tx_data" *)
+   method Bit#(1) tx;
+   (* prefix = "" *)
+   method Action  rx ( (* port="rx_data" *) Bit#(1) v);
+endinterface
+
 endpackage: Ethernet

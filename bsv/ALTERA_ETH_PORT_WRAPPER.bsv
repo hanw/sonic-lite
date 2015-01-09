@@ -50,8 +50,8 @@ interface EthportwrapCtrl;
 endinterface
 (* always_ready, always_enabled *)
 interface EthportwrapLog;
-    method Bit#(512)     data();
-    method Bit#(16)     delay();
+    method Bit#(512)   data();
+    method Bit#(16)    delay();
     method Bit#(1)     valid();
 endinterface
 (* always_ready, always_enabled *)
