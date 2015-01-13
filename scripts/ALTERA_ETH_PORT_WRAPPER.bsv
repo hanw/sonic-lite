@@ -16,17 +16,15 @@
    -f
    xgmii
    -f
-   export
+   log
    -f
    ctrl
    -f
-   counter
+   cntr
    -f
-   init
+   timeout
    -f
-   sync
-   -f
-   endec
+   lpbk
    ../verilog/port/sonic_single_port.sv
 */
 
@@ -37,60 +35,56 @@ import GetPut::*;
 
 (* always_ready, always_enabled *)
 (* always_ready, always_enabled *)
-interface EthportwrapCounter;
-    method Action      global(wire v);
-    method wire     local();
+interface EthportwrapCntr;
+    method Action      global_state(Bit#(53) v);
+    method Bit#(53)     local_state();
 endinterface
 (* always_ready, always_enabled *)
 interface EthportwrapCtrl;
-    method Action      bypass(wire v);
-    method Action      clear(wire v);
-    method Action      disable(wire v);
-    method Action      filter_disable(wire v);
-    method Action      mode(wire v);
-    method Action      thres(wire v);
+    method Action      bypass_clksync(Bit#(1) v);
+    method Action      clear_local_state(Bit#(1) v);
+    method Action      disable_clksync(Bit#(1) v);
+    method Action      disable_ecc(Bit#(1) v);
+    method Action      error_bound(Bit#(32) v);
+    method Action      mode(Bit#(1) v);
 endinterface
 (* always_ready, always_enabled *)
-interface EthportwrapEndec;
-    method Action      loopback(wire v);
+interface EthportwrapLog;
+    method Bit#(512)     data();
+    method Bit#(16)     delay();
+    method Bit#(1)     valid();
 endinterface
 (* always_ready, always_enabled *)
-interface EthportwrapExport;
-    method wire     data();
-    method wire     delay();
-    method wire     valid();
-endinterface
-(* always_ready, always_enabled *)
-interface EthportwrapInit;
-    method Action      timeout(wire v);
+interface EthportwrapLpbk;
+    method Action      endec(Bit#(1) v);
 endinterface
 (* always_ready, always_enabled *)
 (* always_ready, always_enabled *)
-interface EthportwrapSync;
-    method Action      timeout(wire v);
+interface EthportwrapTimeout;
+    method Action      init(Bit#(32) v);
+    method Action      sync(Bit#(32) v);
 endinterface
 (* always_ready, always_enabled *)
 interface EthportwrapXcvr;
-    method Action      rx_clkout(wire v);
-    method Action      rx_datain(wire v);
-    method Action      rx_ready(wire v);
-    method Action      tx_clkout(wire v);
-    method wire     tx_dataout();
-    method Action      tx_ready(wire v);
+    method Action      rx_clkout(Bit#(1) v);
+    method Action      rx_datain(Bit#(40) v);
+    method Action      rx_ready(Bit#(1) v);
+    method Action      tx_clkout(Bit#(1) v);
+    method Bit#(40)     tx_dataout();
+    method Action      tx_ready(Bit#(1) v);
 endinterface
 (* always_ready, always_enabled *)
 interface EthportwrapXgmii;
-    method wire     rx_data();
-    method Action      tx_data(wire v);
+    method Bit#(72)     rx_data();
+    method Action      tx_data(Bit#(72) v);
 endinterface
 (* always_ready, always_enabled *)
 interface EthPortWrap;
-    interface EthportwrapCounter     counter;
+    interface EthportwrapCntr     cntr;
     interface EthportwrapCtrl     ctrl;
-    interface EthportwrapEndec     endec;
-    interface EthportwrapExport     export;
-    interface EthportwrapInit     init;
-    interface EthportwrapSync     sync;
+    interface EthportwrapLog     log;
+    interface EthportwrapLpbk     lpbk;
+    interface EthportwrapTimeout     timeout;
     interface EthportwrapXcvr     xcvr;
     interface EthportwrapXgmii     xgmii;
 endinterface
@@ -101,31 +95,29 @@ module mkEthPortWrap#(Clock clk_in, Reset clk_in_reset, Reset rst_in)(EthPortWra
         input_clock clk_in(clk_in) = clk_in;
         input_reset clk_in_reset() = clk_in_reset; /* from clock*/
         input_reset rst_in(rst_in) = rst_in;
-    interface EthportwrapCounter     counter;
-        method global(counter_global) enable((*inhigh*) EN_counter_global);
-        method counter_local local();
+    interface EthportwrapCntr     cntr;
+        method global_state(cntr_global_state) enable((*inhigh*) EN_cntr_global_state);
+        method cntr_local_state local_state();
     endinterface
     interface EthportwrapCtrl     ctrl;
-        method bypass(ctrl_bypass) enable((*inhigh*) EN_ctrl_bypass);
-        method clear(ctrl_clear) enable((*inhigh*) EN_ctrl_clear);
-        method disable(ctrl_disable) enable((*inhigh*) EN_ctrl_disable);
-        method filter_disable(ctrl_filter_disable) enable((*inhigh*) EN_ctrl_filter_disable);
+        method bypass_clksync(ctrl_bypass_clksync) enable((*inhigh*) EN_ctrl_bypass_clksync);
+        method clear_local_state(ctrl_clear_local_state) enable((*inhigh*) EN_ctrl_clear_local_state);
+        method disable_clksync(ctrl_disable_clksync) enable((*inhigh*) EN_ctrl_disable_clksync);
+        method disable_ecc(ctrl_disable_ecc) enable((*inhigh*) EN_ctrl_disable_ecc);
+        method error_bound(ctrl_error_bound) enable((*inhigh*) EN_ctrl_error_bound);
         method mode(ctrl_mode) enable((*inhigh*) EN_ctrl_mode);
-        method thres(ctrl_thres) enable((*inhigh*) EN_ctrl_thres);
     endinterface
-    interface EthportwrapEndec     endec;
-        method loopback(endec_loopback) enable((*inhigh*) EN_endec_loopback);
+    interface EthportwrapLog     log;
+        method log_data data();
+        method log_delay delay();
+        method log_valid valid();
     endinterface
-    interface EthportwrapExport     export;
-        method export_data data();
-        method export_delay delay();
-        method export_valid valid();
+    interface EthportwrapLpbk     lpbk;
+        method endec(lpbk_endec) enable((*inhigh*) EN_lpbk_endec);
     endinterface
-    interface EthportwrapInit     init;
-        method timeout(init_timeout) enable((*inhigh*) EN_init_timeout);
-    endinterface
-    interface EthportwrapSync     sync;
-        method timeout(sync_timeout) enable((*inhigh*) EN_sync_timeout);
+    interface EthportwrapTimeout     timeout;
+        method init(timeout_init) enable((*inhigh*) EN_timeout_init);
+        method sync(timeout_sync) enable((*inhigh*) EN_timeout_sync);
     endinterface
     interface EthportwrapXcvr     xcvr;
         method rx_clkout(xcvr_rx_clkout) enable((*inhigh*) EN_xcvr_rx_clkout);
@@ -139,5 +131,5 @@ module mkEthPortWrap#(Clock clk_in, Reset clk_in_reset, Reset rst_in)(EthPortWra
         method xgmii_rx_data rx_data();
         method tx_data(xgmii_tx_data) enable((*inhigh*) EN_xgmii_tx_data);
     endinterface
-    schedule (counter.global, counter.local, ctrl.bypass, ctrl.clear, ctrl.disable, ctrl.filter_disable, ctrl.mode, ctrl.thres, endec.loopback, export.data, export.delay, export.valid, init.timeout, sync.timeout, xcvr.rx_clkout, xcvr.rx_datain, xcvr.rx_ready, xcvr.tx_clkout, xcvr.tx_dataout, xcvr.tx_ready, xgmii.rx_data, xgmii.tx_data) CF (counter.global, counter.local, ctrl.bypass, ctrl.clear, ctrl.disable, ctrl.filter_disable, ctrl.mode, ctrl.thres, endec.loopback, export.data, export.delay, export.valid, init.timeout, sync.timeout, xcvr.rx_clkout, xcvr.rx_datain, xcvr.rx_ready, xcvr.tx_clkout, xcvr.tx_dataout, xcvr.tx_ready, xgmii.rx_data, xgmii.tx_data);
+    schedule (cntr.global_state, cntr.local_state, ctrl.bypass_clksync, ctrl.clear_local_state, ctrl.disable_clksync, ctrl.disable_ecc, ctrl.error_bound, ctrl.mode, log.data, log.delay, log.valid, lpbk.endec, timeout.init, timeout.sync, xcvr.rx_clkout, xcvr.rx_datain, xcvr.rx_ready, xcvr.tx_clkout, xcvr.tx_dataout, xcvr.tx_ready, xgmii.rx_data, xgmii.tx_data) CF (cntr.global_state, cntr.local_state, ctrl.bypass_clksync, ctrl.clear_local_state, ctrl.disable_clksync, ctrl.disable_ecc, ctrl.error_bound, ctrl.mode, log.data, log.delay, log.valid, lpbk.endec, timeout.init, timeout.sync, xcvr.rx_clkout, xcvr.rx_datain, xcvr.rx_ready, xcvr.tx_clkout, xcvr.tx_dataout, xcvr.tx_ready, xgmii.rx_data, xgmii.tx_data);
 endmodule

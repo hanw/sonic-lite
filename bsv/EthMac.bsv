@@ -29,12 +29,14 @@ import Vector                        ::*;
 // 4-port 10GbE MAC Qsys wrapper
 import ALTERA_MAC_WRAPPER            ::*;
 
-interface EthMacIfc;
-
+interface EthMacIfc#(numeric type np);
+   interface Vector#(np, MACIfc) xgmii;
 endinterface
 
+(* synthesize *)
 module mkEthMac (EthMacIfc);
 
+   MacWrap mac <- mkMacWrap();
 
 
 endmodule: mkEthMac
