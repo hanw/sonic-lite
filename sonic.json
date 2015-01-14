@@ -7,7 +7,7 @@
 	"PIO_DIRECTION": "OUTPUT",
 	"PCIE": "PCIE_TX_p[1]"
     },
-    "PCIE_tx_p[1]": {
+    "PCIE_tx_p[2]": {
 	"PIO_DIRECTION": "OUTPUT",
 	"PCIE": "PCIE_TX_p[2]"
     },

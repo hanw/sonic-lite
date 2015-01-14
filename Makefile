@@ -15,8 +15,8 @@ gentarget:: $(BOARD)/sources/sonic.qsf
 prebuild::
 ifeq ($(ALTERA_$(BOARD)), 1)
 	@echo "generating 10GbE Mac ..."
-	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) quartus_sh -t ../connectal-synth-pll.tcl)
-	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) quartus_sh -t ../connectal-synth-mac.tcl)
+#	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) quartus_sh -t ../connectal-synth-pll.tcl)
+#	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) quartus_sh -t ../connectal-synth-mac.tcl)
 endif
 
 $(BOARD)/sources/sonic.qsf: sonic.json $(CONNECTALDIR)/boardinfo/$(BOARD).json
