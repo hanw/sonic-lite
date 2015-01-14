@@ -4,7 +4,7 @@ INTERFACES=Simple
 BSVFILES=SimpleIF.bsv Top.bsv
 CPPFILES=testsimple.cpp
 NUMBER_OF_MASTERS =0
-
+CONNECTALFLAGS += --pinfo=`pwd`/proj.json
 # Supported Platforms:
 # {vendor}_{platform}=1
 ALTERA_de5=1
