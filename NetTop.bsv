@@ -37,11 +37,7 @@ import MemMasterEngine   :: *;
 import PcieCsr           :: *;
 import MemTypes          :: *;
 import Bscan             :: *;
-`ifdef XILINX
-import PcieEndpointX7    :: *;
-`elsif ALTERA
 import PcieEndpointS5    :: *;
-`endif
 import PcieHost         :: *;
 import HostInterface    :: *;
 
@@ -54,12 +50,16 @@ import HostInterface    :: *;
 
 typedef `PinType PinType;
 
-(* synthesize, no_default_clock, no_default_reset *)
 `ifdef ALTERA
+(* synthesize, no_default_clock, no_default_reset *)
 (* clock_prefix="", reset_prefix="" *)
 module mkNetTop #(Clock pcie_refclk_p, Clock osc_50_b3b, Reset pcie_perst_n) (PcieTop#(PinType));
-//   PcieHostTop host <- mkPcieHostTop(pcie_refclk_p, osc_50_b3b, pcie_perst_n);
-//`endif
+`elsif VSIM
+module mkNetTop #(Clock pcie_refclk_p, Clock osc_50_b3b, Reset pcie_perst_n) (PcieTop#(Pintype));
+`endif
+   PcieHostTop host <- mkPcieHostTop(pcie_refclk_p, osc_50_b3b, pcie_perst_n);
+
+   EthMacIfc mac <- mkEthMac();
 
 //`ifdef IMPORT_HOSTIF
 //   ConnectalTop#(PhysAddrWidth, DataBusWidth, PinType, NumberOfMasters) portalTop <- mkConnectalTop(host, clocked_by host.portalClock, reset_by host.portalReset);
@@ -92,8 +92,7 @@ module mkNetTop #(Clock pcie_refclk_p, Clock osc_50_b3b, Reset pcie_perst_n) (Pc
 //   method Bit#(NumLeds) leds();
 //      return portalTop.leds.leds();
 //   endmethod
-   interface Clock deleteme_unused_clockLeds = osc_50_b3b; //host.tep7.epClock125;
+//   interface Clock deleteme_unused_clockLeds = osc_50_b3b; //host.tep7.epClock125;
 //   interface pins = portalTop.pins;
 //`endif
 endmodule
-

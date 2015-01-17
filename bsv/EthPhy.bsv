@@ -34,19 +34,13 @@ import ALTERA_SI570_WRAPPER          ::*;
 import ALTERA_EDGE_DETECTOR_WRAPPER  ::*;
 import DTP_GLOBAL_TIMESTAMP_WRAPPER  ::*;
 
-`ifdef USE_4_CHANNELS
-typedef 4 N_CHAN;
-`elsif USE_2_CHANNELS
-typedef 2 N_CHAN;
-`endif
-
 interface EthPhyIfc#(numeric type np);
    interface Xgmii#(np) xgmii;
    interface Pma#(np)   pma;
 endinterface
 
 (* synthesize *)
-module mkEthPhy(EthPhyIfc#(N_CHAN));
+module mkEthPhy(EthPhyIfc#(N_CHANNEL));
 
 Clock clk_50     <- exposeCurrentClock;
 Reset rst_50     <- exposeCurrentReset;
@@ -78,7 +72,7 @@ endrule
 //pcs.timeout
 
 rule cntrs;
-   for (Integer i=0; i < valueOf(N_CHAN); i=i+1) begin
+   for (Integer i=0; i < valueOf(N_CHANNEL); i=i+1) begin
       pcs4[i].cntr.global_state(dtpg.timestamp.maximum);
    end
    dtpg.timestamp.p0(pcs4[0].cntr.local_state);
@@ -88,8 +82,8 @@ rule cntrs;
 endrule
 
 rule pcs_pma;
-   Vector#(N_CHAN, Bit#(40)) tx_dataout;
-   for (Integer i=0; i < valueOf(N_CHAN); i=i+1) begin
+   Vector#(N_CHANNEL, Bit#(40)) tx_dataout;
+   for (Integer i=0; i < valueOf(N_CHANNEL); i=i+1) begin
       pcs4[i].xcvr.rx_datain(pma4.parallel.rx_parallel_data[i]);
       pcs4[i].xcvr.rx_clkout(pma4.parallel.rx_clkout[i]);
       pcs4[i].xcvr.tx_clkout(pma4.parallel.tx_clkout[i]);
@@ -101,26 +95,26 @@ rule pcs_pma;
 endrule
 
 interface Pma pma;
-   method Action serial_rxin(Bit#(N_CHAN) v);
+   method Action serial_rxin(Bit#(N_CHANNEL) v);
       pma4.serial.rx_serial_data(v);
    endmethod
 
-   method Bit#(N_CHAN) serial_txout;
+   method Bit#(N_CHANNEL) serial_txout;
       return pma4.serial.tx_serial_data;
    endmethod
 endinterface
 
 interface Xgmii xgmii;
-   method Vector#(N_CHAN, Bit#(72)) rx_dc;
-      Vector#(N_CHAN, Bit#(72)) ret_val;
-      for (Integer i=0; i<valueOf(N_CHAN); i=i+1) begin
+   method Vector#(N_CHANNEL, Bit#(72)) rx_dc;
+      Vector#(N_CHANNEL, Bit#(72)) ret_val;
+      for (Integer i=0; i<valueOf(N_CHANNEL); i=i+1) begin
          ret_val[i] = pcs4[i].xgmii.rx_data;
       end
       return ret_val;
    endmethod
 
-   method Action tx_dc (Vector#(N_CHAN, Bit#(72)) v);
-      for (Integer i=0; i<valueOf(N_CHAN); i=i+1) begin
+   method Action tx_dc (Vector#(N_CHANNEL, Bit#(72)) v);
+      for (Integer i=0; i<valueOf(N_CHANNEL); i=i+1) begin
          pcs4[i].xgmii.tx_data(v[i]);
       end
    endmethod

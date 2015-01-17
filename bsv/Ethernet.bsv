@@ -23,6 +23,13 @@
 
 package Ethernet;
 
+`ifdef NUM_OF_CHANNELS
+typedef `NUM_OF_CHANNELS N_CHANNEL;
+`else
+typedef 4 N_CHANNEL;
+`endif
+
+
 (* always_ready, always_enabled *)
 interface XGMII_RX_PCS;                               // PCS provides to MAC
    method Bit#(72) rx_dc;
