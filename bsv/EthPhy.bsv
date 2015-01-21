@@ -25,100 +25,60 @@ package EthPhy;
 
 import Clocks                        ::*;
 import Vector                        ::*;
+import Connectable                   ::*;
 
 import Ethernet                      ::*;
 import EthPma                        ::*;
-
-import ALTERA_ETH_PORT_WRAPPER       ::*;
+import EthPcs                        ::*;
 import ALTERA_SI570_WRAPPER          ::*;
 import ALTERA_EDGE_DETECTOR_WRAPPER  ::*;
-import DTP_GLOBAL_TIMESTAMP_WRAPPER  ::*;
+
+`ifdef USE_4_CHANNELS
+typedef 4 N_CHAN;
+`elsif USE_2_CHANNELS
+typedef 2 N_CHAN;
+`endif
 
 interface EthPhyIfc#(numeric type np);
-   interface Xgmii#(np) xgmii;
-   interface Pma#(np)   pma;
+   interface Vector#(np, XGMII_PCS) xgmii;
+   interface Vector#(np, SerialIfc) serial;
 endinterface
 
 (* synthesize *)
-module mkEthPhy(EthPhyIfc#(N_CHANNEL));
+module mkEthPhy#(Clock clk_50, Reset rst_50, Clock clk_156_25, Reset rst_156_25)(EthPhyIfc#(N_CHAN));
 
-Clock clk_50     <- exposeCurrentClock;
-Reset rst_50     <- exposeCurrentReset;
-Clock clk_156_25 <- exposeCurrentClock;
-Reset rst_156_25 <- exposeCurrentReset;
+   Clock defaultClock <- exposeCurrentClock;
+   Reset defaultReset <- exposeCurrentReset;
 
-Vector#(4, EthPortWrap) pcs4 <- replicateM(mkEthPortWrap(clk_156_25, rst_156_25, rst_156_25));
-EthPmaIfc#(4)           pma4 <- mkEthPma(clk_50, clk_156_25, rst_50, rst_156_25);
+   EthPcsIfc#(N_CHAN)   pcs4 <- mkEthPcs(clk_156_25, rst_156_25);
+   EthPmaIfc#(N_CHAN)   pma4 <- mkEthPma(clk_50, clk_156_25, rst_50, rst_156_25);
 
-Si570Wrap               si570 <- mkSi570Wrap(clk_50, rst_50, rst_50);
-EdgeDetectorWrap        edgedetect <- mkEdgeDetectorWrap(clk_50, rst_50, rst_50);
-DtpGlobalWrap           dtpg <- mkDtpGlobalWrap(clk_156_25, rst_156_25, rst_156_25);
+   Si570Wrap            si570 <- mkSi570Wrap(clk_50, rst_50, rst_50);
+   EdgeDetectorWrap     edgedetect <- mkEdgeDetectorWrap(clk_50, rst_50, rst_50);
 
-rule si570_connections;
-   //ifreq_mode = 3'b000;  //100.0 MHZ
-   //ifreq_mode = 3'b001;  //125.0 MHZ
-   //ifreq_mode = 3'b010;  //156.25.0 MHZ
-   //ifreq_mode = 3'b011;  //250 MHZ
-   //ifreq_mode = 3'b100;  //312.5 MHZ
-   //ifreq_mode = 3'b101;  //322.26 MHZ
-   //ifreq_mode = 3'b110;  //644.53125 MHZ
-   si570.ifreq.mode(3'b110); //644.53125 MHZ
-   si570.istart.go(edgedetect.odebounce.out);
-endrule
+   rule si570_connections;
+      //ifreq_mode = 3'b000;  //100.0 MHZ
+      //ifreq_mode = 3'b001;  //125.0 MHZ
+      //ifreq_mode = 3'b010;  //156.25.0 MHZ
+      //ifreq_mode = 3'b011;  //250 MHZ
+      //ifreq_mode = 3'b100;  //312.5 MHZ
+      //ifreq_mode = 3'b101;  //322.26 MHZ
+      //ifreq_mode = 3'b110;  //644.53125 MHZ
+      si570.ifreq.mode(3'b110); //644.53125 MHZ
+      si570.istart.go(edgedetect.odebounce.out);
+   endrule
 
-//pcs.ctrl
-//pcs.log
-//pcs.lpbk
-//pcs.timeout
-
-rule cntrs;
-   for (Integer i=0; i < valueOf(N_CHANNEL); i=i+1) begin
-      pcs4[i].cntr.global_state(dtpg.timestamp.maximum);
+   for (Integer i=0; i< valueOf(N_CHAN); i=i+1) begin
+      mkConnection(pma4.fpga[i], pcs4.xcvr[i]);
    end
-   dtpg.timestamp.p0(pcs4[0].cntr.local_state);
-   dtpg.timestamp.p1(pcs4[1].cntr.local_state);
-   dtpg.timestamp.p2(pcs4[2].cntr.local_state);
-   dtpg.timestamp.p3(pcs4[3].cntr.local_state);
-endrule
 
-rule pcs_pma;
-   Vector#(N_CHANNEL, Bit#(40)) tx_dataout;
-   for (Integer i=0; i < valueOf(N_CHANNEL); i=i+1) begin
-      pcs4[i].xcvr.rx_datain(pma4.parallel.rx_parallel_data[i]);
-      pcs4[i].xcvr.rx_clkout(pma4.parallel.rx_clkout[i]);
-      pcs4[i].xcvr.tx_clkout(pma4.parallel.tx_clkout[i]);
-      pcs4[i].xcvr.tx_ready(pma4.parallel.tx_ready[i]);
-      pcs4[i].xcvr.rx_ready(pma4.parallel.rx_ready[i]);
-      tx_dataout[i] = pcs4[i].xcvr.tx_dataout;
-   end
-   pma4.parallel.tx_parallel_data(tx_dataout);
-endrule
+   //pcs.ctrl
+   //pcs.log
+   //pcs.lpbk
+   //pcs.timeout
 
-interface Pma pma;
-   method Action serial_rxin(Bit#(N_CHANNEL) v);
-      pma4.serial.rx_serial_data(v);
-   endmethod
-
-   method Bit#(N_CHANNEL) serial_txout;
-      return pma4.serial.tx_serial_data;
-   endmethod
-endinterface
-
-interface Xgmii xgmii;
-   method Vector#(N_CHANNEL, Bit#(72)) rx_dc;
-      Vector#(N_CHANNEL, Bit#(72)) ret_val;
-      for (Integer i=0; i<valueOf(N_CHANNEL); i=i+1) begin
-         ret_val[i] = pcs4[i].xgmii.rx_data;
-      end
-      return ret_val;
-   endmethod
-
-   method Action tx_dc (Vector#(N_CHANNEL, Bit#(72)) v);
-      for (Integer i=0; i<valueOf(N_CHANNEL); i=i+1) begin
-         pcs4[i].xgmii.tx_data(v[i]);
-      end
-   endmethod
-endinterface
+   interface serial = pma4.fiber;
+   interface xgmii = pcs4.xgmii;
 
 endmodule: mkEthPhy
 endpackage: EthPhy

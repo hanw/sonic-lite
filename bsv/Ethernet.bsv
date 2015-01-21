@@ -23,12 +23,39 @@
 
 package Ethernet;
 
+import DefaultValue          ::*;
+import Connectable           ::*;
+
 `ifdef NUM_OF_CHANNELS
 typedef `NUM_OF_CHANNELS N_CHANNEL;
 `else
 typedef 4 N_CHANNEL;
 `endif
 
+typedef 64 AVALON_DATA_WIDTH;
+typedef 8  SYMBOL_SIZE;
+typedef TLog#(AVALON_DATA_WIDTH) AVALON_EMPTY_WIDTH;
+
+typedef struct {
+   Bool                    sop;
+   Bool                    eop;
+   Bit#(1)                 err;
+   Bit#(3)                 empty; //FIXME: use TLog and shift
+   Bit#(dataT_width)       data;
+   Bool                    valid;
+} PacketData#(numeric type dataT_width) deriving (Bits, Eq);
+
+instance DefaultValue#(PacketData#(n));
+   defaultValue = 
+   PacketData {
+      sop : False,
+      eop : False,
+      err : 0,
+      empty : 0,
+      data : 0,
+      valid : False
+      };
+endinstance
 
 (* always_ready, always_enabled *)
 interface XGMII_RX_PCS;                               // PCS provides to MAC
@@ -113,22 +140,23 @@ interface XCVR_PMA; // top of PMA facing PCS
    interface XCVR_TX_PMA tx;
 endinterface
 
-interface MACIfc;
-   (* prefix = "" *)
-   interface XGMII_MAC xgmii;
-endinterface
-
-interface PCSIfc;
-   (* prefix = "" *)
-   interface XGMII_PCS xgmii;
-   (* prefix = "" *)
-   interface XCVR_PCS  xcvr;
-endinterface
-
-interface XCVRIfc;
-   (* prefix = "" *)
-   interface XCVR_PMA  xcvr;
-endinterface
+instance Connectable#(XCVR_PMA, XCVR_PCS);
+   module mkConnection#(XCVR_PMA pma, XCVR_PCS pcs)(Empty);
+      rule connect_pma_pcs;
+         pcs.rx.rx_data(pma.rx.rx_data);
+         pcs.rx.rx_clkout(pma.rx.rx_clkout);
+         pcs.tx.tx_clkout(pma.tx.tx_clkout);
+         pcs.tx.tx_ready(pma.tx.tx_ready);
+         pcs.rx.rx_ready(pma.rx.rx_ready);
+         pma.tx.tx_data(pcs.tx.tx_data);
+      endrule
+   endmodule
+endinstance
+instance Connectable#(XCVR_PCS, XCVR_PMA);
+   module mkConnection#(XCVR_PCS pcs, XCVR_PMA pma)(Empty);
+      mkConnection(pma, pcs);
+   endmodule
+endinstance
 
 interface SerialIfc;
    (* prefix = "" , result = "tx_data" *)

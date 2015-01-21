@@ -59,7 +59,7 @@ interface EthPmaIfc#(numeric type np);
    interface PhyMgmtIfc             phy_mgmt;
    interface Vector#(np, Status)    status;
    interface Vector#(np, SerialIfc) fiber;
-   interface Vector#(np, XCVRIfc)   fpga;
+   interface Vector#(np, XCVR_PMA)   fpga;
 endinterface
 
 (* synthesize *)
@@ -161,32 +161,30 @@ module mkEthPma#(Clock phy_mgmt_clk, Clock pll_ref_clk, Reset phy_mgmt_reset, Re
 
    // FPGA Fabric-Side Interface
    Vector#(N_CHAN, Wire#(Bit#(40))) p_wires <- replicateM(mkDWire(0));
-   Vector#(N_CHAN, XCVRIfc) xcvr_ifcs;
+   Vector#(N_CHAN, XCVR_PMA) xcvr_ifcs;
    for (Integer i=0; i < valueOf(N_CHAN); i=i+1) begin
-      xcvr_ifcs[i] = interface XCVRIfc;
-          interface XCVR_PMA xcvr;
-             interface XCVR_RX_PMA rx;
-                method Bit#(1) rx_ready;
-                   return rst.rx_r.eady[i];
-                endmethod
-                method Bit#(1) rx_clkout;
-                   return xcvr.rx.pma_clkout[i];
-                endmethod
-                method Bit#(40) rx_data;
-                   return xcvr.rx.pma_parallel_data[39 + 80 * i : 80 * i];
-                endmethod
-             endinterface
-             interface XCVR_TX_PMA tx;
-                method Bit#(1) tx_ready;
-                   return rst.tx_r.eady[i];
-                endmethod
-                method Bit#(1) tx_clkout;
-                   return xcvr.tx.pma_clkout[i];
-                endmethod
-                method Action tx_data (Bit#(40) v);
-                   p_wires[i] <= v;
-                endmethod
-             endinterface
+      xcvr_ifcs[i] = interface XCVR_PMA;
+          interface XCVR_RX_PMA rx;
+             method Bit#(1) rx_ready;
+                return rst.rx_r.eady[i];
+             endmethod
+             method Bit#(1) rx_clkout;
+                return xcvr.rx.pma_clkout[i];
+             endmethod
+             method Bit#(40) rx_data;
+                return xcvr.rx.pma_parallel_data[39 + 80 * i : 80 * i];
+             endmethod
+          endinterface
+          interface XCVR_TX_PMA tx;
+             method Bit#(1) tx_ready;
+                return rst.tx_r.eady[i];
+             endmethod
+             method Bit#(1) tx_clkout;
+                return xcvr.tx.pma_clkout[i];
+             endmethod
+             method Action tx_data (Bit#(40) v);
+                p_wires[i] <= v;
+             endmethod
           endinterface
        endinterface;
    end

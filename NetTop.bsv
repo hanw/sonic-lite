@@ -59,8 +59,6 @@ module mkNetTop #(Clock pcie_refclk_p, Clock osc_50_b3b, Reset pcie_perst_n) (Pc
 `endif
    PcieHostTop host <- mkPcieHostTop(pcie_refclk_p, osc_50_b3b, pcie_perst_n);
 
-   EthMacIfc mac <- mkEthMac();
-
 //`ifdef IMPORT_HOSTIF
 //   ConnectalTop#(PhysAddrWidth, DataBusWidth, PinType, NumberOfMasters) portalTop <- mkConnectalTop(host, clocked_by host.portalClock, reset_by host.portalReset);
 //`else

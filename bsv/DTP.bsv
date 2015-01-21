@@ -1,4 +1,3 @@
-
 // Copyright (c) 2014 Cornell University.
 
 // Permission is hereby granted, free of charge, to any person
@@ -21,23 +20,25 @@
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-package EthPorts;
+package DTP;
 
-import Clocks                 ::*;
-import Vector                 ::*;
+`ifdef USE_4_CHANNELS
+typedef 4 N_CHAN;
+`elsif USE_2_CHANNELS
+typedef 2 N_CHAN;
+`endif
 
-import Ethernet               ::*;
-import EthMac                 ::*;
-import EthPhy                 ::*;
-import Avalon_ST              ::*;
-
-interface EthPortIfc;
-
+interface DTP#(numeric type np);
+   Vector#(np, Bit#(54)) local_clock;
+   Bit#(54) global_clock;
 
 endinterface
 
-module mkEthPorts (Empty);
+(* synthesize *)
+module mkDTP#(Clock clk_156_25, Reset rst_156_25)(DTP#(N_CHAN));
+   DtpGlobalWrap           dtpg <- mkDtpGlobalWrap(clk_156_25, rst_156_25, rst_156_25);
 
 
-endmodule: mkEthPorts
-endpackage: EthPorts
+endmodule
+
+endpackage
