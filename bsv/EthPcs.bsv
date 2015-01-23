@@ -30,11 +30,12 @@ import ALTERA_ETH_PORT_WRAPPER       ::*;
 import DTP_GLOBAL_TIMESTAMP_WRAPPER  ::*;
 
 // TODO: implement encoding/decoding scrambling/descrambling in bsv.
-`ifdef USE_4_CHANNELS
+`ifdef N_CHAN
+typedef `N_CHAN N_CHAN;
+`else
 typedef 4 N_CHAN;
-`elsif USE_2_CHANNELS
-typedef 2 N_CHAN;
 `endif
+
 
 interface EthPcsIfc#(numeric type np);
    interface Vector#(np, XGMII_PCS) xgmii;
@@ -51,7 +52,7 @@ module mkEthPcs#(Clock clk_156_25, Reset rst_156_25)(EthPcsIfc#(N_CHAN));
    DtpGlobalWrap           dtpg <- mkDtpGlobalWrap(clk_156_25, rst_156_25, rst_156_25);
 
    rule cntrs;
-      for (Integer i=0; i < valueOf(N_CHANNEL); i=i+1) begin
+      for (Integer i=0; i < valueOf(N_CHAN); i=i+1) begin
          pcs4[i].cntr.global_state(dtpg.timestamp.maximum);
       end
       dtpg.timestamp.p0(pcs4[0].cntr.local_state);

@@ -29,16 +29,22 @@ typedef 2 N_CHAN;
 `endif
 
 interface DTP#(numeric type np);
-   Vector#(np, Bit#(54)) local_clock;
-   Bit#(54) global_clock;
-
+   method Vector#(np, Bit#(54)) local_clock;
+   method Bit#(54) global_clock;
 endinterface
 
 (* synthesize *)
 module mkDTP#(Clock clk_156_25, Reset rst_156_25)(DTP#(N_CHAN));
-   DtpGlobalWrap           dtpg <- mkDtpGlobalWrap(clk_156_25, rst_156_25, rst_156_25);
+   DtpGlobalWrap dtpg <- mkDtpGlobalWrap(clk_156_25, rst_156_25, rst_156_25);
 
-
+   interface DTP;
+      method Vector#(N_CHAN, Bit#(54)) local_clock;
+         Vector#(N_CHAN, Bit#(54)) cnt;
+         for (Integer i=0; i < N_CHAN; i=i+1) begin
+            cnt[i] = dtpg.
+         end
+      endmethod
+   endinterface
 endmodule
 
 endpackage

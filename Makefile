@@ -1,11 +1,12 @@
 
 CONNECTALDIR?=../connectal
 INTERFACES=Simple
-BSVFILES=bsv/PcieAlteraTbWrap.bsv SimpleIF.bsv Top.bsv
+BSVFILES=bsv/PcieAlteraTbWrap.bsv bsv/libs/Interconnect.bsv SimpleIF.bsv Top.bsv
 CPPFILES=testsimple.cpp
 NUMBER_OF_MASTERS =0
-CONNECTALFLAGS += --pinfo=`pwd`/proj.json
-BSVPATH+=`pwd`/bsv
+CONNECTALFLAGS += --pinfo=./proj.json
+CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/altera_mac.qip
+CONNECTALFLAGS += -V=./verilog/enc_dec/ -V=./verilog/gearbox/ -V=./verilog/port/ -V=./verilog/scramble/ -V=./verilog/si570/ -V=./verilog/timestamp/ -V=./verilog/traffic_controller/
 
 # Supported Platforms:
 # {vendor}_{platform}=1
@@ -29,6 +30,7 @@ ifeq ($(ALTERA_SIM_$(BOARD)), 1)
 	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) quartus_sh -t ../connectal-simu-pcietb.tcl)
 endif
 ifeq ($(ALTERA_SYNTH_$(BOARD)), 1)
+#	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) quartus_sh -t ../connectal-synth-pll.tcl)
 	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) quartus_sh -t ../connectal-synth-mac.tcl)
 endif
 

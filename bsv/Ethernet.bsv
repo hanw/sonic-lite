@@ -26,10 +26,10 @@ package Ethernet;
 import DefaultValue          ::*;
 import Connectable           ::*;
 
-`ifdef NUM_OF_CHANNELS
-typedef `NUM_OF_CHANNELS N_CHANNEL;
+`ifdef N_CHAN
+typedef `N_CHAN N_CHAN;
 `else
-typedef 4 N_CHANNEL;
+typedef 4 N_CHAN;
 `endif
 
 typedef 64 AVALON_DATA_WIDTH;
@@ -139,6 +139,20 @@ interface XCVR_PMA; // top of PMA facing PCS
    (* prefix = "" *)
    interface XCVR_TX_PMA tx;
 endinterface
+
+instance Connectable#(XGMII_MAC, XGMII_PCS);
+   module mkConnection#(XGMII_MAC mac, XGMII_PCS pcs)(Empty);
+      rule connect_mac_pcs;
+         mac.rx.rx_dc(pcs.rx.rx_dc);
+         pcs.tx.tx_dc(mac.tx.tx_dc);
+      endrule
+   endmodule
+endinstance
+instance Connectable#(XGMII_PCS, XGMII_MAC);
+   module mkConnection#(XGMII_PCS pcs, XGMII_MAC mac)(Empty);
+      mkConnection(mac, pcs);
+   endmodule
+endinstance
 
 instance Connectable#(XCVR_PMA, XCVR_PCS);
    module mkConnection#(XCVR_PMA pma, XCVR_PCS pcs)(Empty);

@@ -33,10 +33,10 @@ import ALTERA_ETH_PMA_WRAPPER               ::*;
 import ALTERA_ETH_PMA_RECONFIG_WRAPPER      ::*;
 import ALTERA_ETH_PMA_RESET_CONTROL_WRAPPER ::*;
 
-`ifdef USE_4_CHANNELS
+`ifdef N_CHAN
+typedef `N_CHAN N_CHAN;
+`else
 typedef 4 N_CHAN;
-`elsif USE_2_CHANNELS
-typedef 2 N_CHAN;
 `endif
 
 interface PhyMgmtIfc;

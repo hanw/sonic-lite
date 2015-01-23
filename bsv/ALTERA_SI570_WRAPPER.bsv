@@ -47,7 +47,7 @@ interface Si570wrapIstart;
 endinterface
 (* always_ready, always_enabled *)
 interface Si570wrapOcontroller;
-    method Bit#(1)     ready();
+    method Bit#(1)     rdy();
 endinterface
 (* always_ready, always_enabled *)
 interface Si570wrapOread;
@@ -84,7 +84,7 @@ module mkSi570Wrap#(Clock iclk, Reset iclk_reset, Reset irst_n)(Si570Wrap);
         method go(iStart_Go) enable((*inhigh*) EN_iStart_Go);
     endinterface
     interface Si570wrapOcontroller     ocontroller;
-        method oController_Ready ready();
+        method oController_rdy rdy();
     endinterface
     interface Si570wrapOread     oread;
         method oREAD_Data data();
@@ -92,5 +92,5 @@ module mkSi570Wrap#(Clock iclk, Reset iclk_reset, Reset irst_n)(Si570Wrap);
     interface Si570wrapOsi570     osi570;
         method oSI570_ONE_CLK_CONFIG_DONE one_clk_config_done();
     endinterface
-    schedule (i2c.clk, ifreq.mode, istart.go, ocontroller.ready, oread.data, osi570.one_clk_config_done) CF (i2c.clk, ifreq.mode, istart.go, ocontroller.ready, oread.data, osi570.one_clk_config_done);
+    schedule (i2c.clk, ifreq.mode, istart.go, ocontroller.rdy, oread.data, osi570.one_clk_config_done) CF (i2c.clk, ifreq.mode, istart.go, ocontroller.rdy, oread.data, osi570.one_clk_config_done);
 endmodule

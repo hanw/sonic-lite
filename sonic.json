@@ -67,7 +67,7 @@
 	"PIO_DIRECTION": "INPUT",
 	"PCIE": "PCIE_REFCLK_p"
     },
-    "pcie_preset_n": {
+    "pcie_perst_n": {
 	"PIO_DIRECTION": "INPUT",
 	"PCIE": "PCIE_PERST_n"
     },

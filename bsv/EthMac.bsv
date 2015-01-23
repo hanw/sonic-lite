@@ -23,24 +23,24 @@
 
 package EthMac;
 
-import Clocks                        ::*;
-import Vector                        ::*;
+import Clocks::*;
+import Vector::*;
 
-import Ethernet                      ::*;
-import AvalonStreaming               ::*;
+import Ethernet::*;
+import AvalonStreaming::*;
 
 // 4-port 10GbE MAC Qsys wrapper
-import ALTERA_MAC_WRAPPER            ::*;
+import ALTERA_MAC_WRAPPER::*;
 
-`ifdef USE_4_CHANNELS
+`ifdef N_CHAN
+typedef `N_CHAN N_CHAN;
+`else
 typedef 4 N_CHAN;
-`elsif USE_2_CHANNELS
-typedef 2 N_CHAN;
 `endif
 
 interface EthMacAvalonSTIfc;
-   interface AvalonStreamSinkPhysicalIfc#(64) asi;
-   interface AvalonStreamSourcePhysicalIfc#(64) aso;
+   interface AvalonPacketStreamSinkPhysicalIfc#(64) asi;
+   interface AvalonPacketStreamSourcePhysicalIfc#(64) aso;
 endinterface
 
 interface EthMacIfc#(numeric type np);
@@ -49,7 +49,7 @@ interface EthMacIfc#(numeric type np);
 endinterface
 
 (* synthesize *)
-module mkEthMac#(Clock clk_50, Clock clk_156_25, Reset rst_50, Reset rst_156_25)(EthMacIfc#(4));
+module mkEthMac#(Clock clk_50, Reset rst_50, Clock clk_156_25, Reset rst_156_25)(EthMacIfc#(4));
 
    Clock defaultClock <- exposeCurrentClock;
    Reset defaultReset <- exposeCurrentReset;
@@ -62,13 +62,10 @@ module mkEthMac#(Clock clk_50, Clock clk_156_25, Reset rst_50, Reset rst_156_25)
                             rst_156_25, rst_156_25, rst_156_25, rst_156_25,
                             rst_156_25, rst_156_25, rst_156_25, rst_156_25);
 
-//   Vector#(N_CHAN, AvalonStreamSinkIfc#(PacketData#(64))) rx <- replicateM(mkAvalonStreamSink2Get);
-//   Vector#(N_CHAN, AvalonStreamSourceIfc#(PacketData#(64))) tx <- replicateM(mkPut2AvalonStreamSource);
-
    Vector#(N_CHAN, EthMacAvalonSTIfc) avalon_ifcs;
    for (Integer i=0; i<valueOf(N_CHAN); i=i+1) begin
       avalon_ifcs[i] = interface EthMacAvalonSTIfc;
-         interface AvalonStreamSourcePhysicalIfc aso;
+         interface AvalonPacketStreamSourcePhysicalIfc aso;
             method stream_out_data;
                case(i)
                   0: return mac.p0_rx.fifo_out_data;
@@ -96,23 +93,23 @@ module mkEthMac#(Clock clk_50, Clock clk_156_25, Reset rst_50, Reset rst_156_25)
                endcase
             endmethod
 
-            method stream_out_empty;
-               case(i)
-                  0: return mac.p0_rx.fifo_out_empty;
-                  1: return mac.p1_rx.fifo_out_empty;
-                  2: return mac.p2_rx.fifo_out_empty;
-                  3: return mac.p3_rx.fifo_out_empty;
-               endcase
-            endmethod
+//            method stream_out_empty;
+//               case(i)
+//                  0: return mac.p0_rx.fifo_out_empty;
+//                  1: return mac.p1_rx.fifo_out_empty;
+//                  2: return mac.p2_rx.fifo_out_empty;
+//                  3: return mac.p3_rx.fifo_out_empty;
+//               endcase
+//            endmethod
 
-            method stream_out_error;
-               case(i)
-                  0: return unpack(mac.p0_rx.fifo_out_error[0]);
-                  1: return unpack(mac.p1_rx.fifo_out_error[0]);
-                  2: return unpack(mac.p2_rx.fifo_out_error[0]);
-                  3: return unpack(mac.p3_rx.fifo_out_error[0]);
-               endcase
-            endmethod
+//            method stream_out_error;
+//               case(i)
+//                  0: return unpack(mac.p0_rx.fifo_out_error[0]);
+//                  1: return unpack(mac.p1_rx.fifo_out_error[0]);
+//                  2: return unpack(mac.p2_rx.fifo_out_error[0]);
+//                  3: return unpack(mac.p3_rx.fifo_out_error[0]);
+//               endcase
+//            endmethod
 
             method stream_out_startofpacket;
                case(i)
@@ -133,8 +130,8 @@ module mkEthMac#(Clock clk_50, Clock clk_156_25, Reset rst_50, Reset rst_156_25)
             endmethod
          endinterface
 
-         interface AvalonStreamSinkPhysicalIfc asi;
-            method Action stream_in(Bit#(64) data, Bool valid);
+         interface AvalonPacketStreamSinkPhysicalIfc asi;
+            method Action stream_in(Bit#(64) data, Bool valid, Bool startofpacket, Bool endofpacket);
                case(i)
                   0: mac.p0_tx.fifo_in_data(data);
                   1: mac.p1_tx.fifo_in_data(data);
@@ -148,6 +145,20 @@ module mkEthMac#(Clock clk_50, Clock clk_156_25, Reset rst_50, Reset rst_156_25)
                   2: mac.p2_tx.fifo_in_valid(pack(valid));
                   3: mac.p3_tx.fifo_in_valid(pack(valid));
                endcase
+
+               case(i)
+                  0: mac.p0_tx.fifo_in_startofpacket(pack(startofpacket));
+                  1: mac.p1_tx.fifo_in_startofpacket(pack(startofpacket));
+                  2: mac.p2_tx.fifo_in_startofpacket(pack(startofpacket));
+                  3: mac.p3_tx.fifo_in_startofpacket(pack(startofpacket));
+               endcase
+
+               case(i)
+                  0: mac.p0_tx.fifo_in_endofpacket(pack(endofpacket));
+                  1: mac.p1_tx.fifo_in_endofpacket(pack(endofpacket));
+                  2: mac.p2_tx.fifo_in_endofpacket(pack(endofpacket));
+                  3: mac.p3_tx.fifo_in_endofpacket(pack(endofpacket));
+               endcase
             endmethod
 
             method stream_in_ready;
@@ -159,41 +170,23 @@ module mkEthMac#(Clock clk_50, Clock clk_156_25, Reset rst_50, Reset rst_156_25)
                endcase
             endmethod
 
-            method Action stream_in_empty(Bit#(3) v);
-               case(i)
-                  0: mac.p0_tx.fifo_in_empty(v);
-                  1: mac.p1_tx.fifo_in_empty(v);
-                  2: mac.p2_tx.fifo_in_empty(v);
-                  3: mac.p3_tx.fifo_in_empty(v);
-               endcase
-            endmethod
+//            method Action stream_in_empty(Bit#(3) v);
+//               case(i)
+//                  0: mac.p0_tx.fifo_in_empty(v);
+//                  1: mac.p1_tx.fifo_in_empty(v);
+//                  2: mac.p2_tx.fifo_in_empty(v);
+//                  3: mac.p3_tx.fifo_in_empty(v);
+//               endcase
+//            endmethod
 
-            method Action stream_in_startofpacket(Bool v);
-               case(i)
-                  0: mac.p0_tx.fifo_in_startofpacket(pack(v));
-                  1: mac.p1_tx.fifo_in_startofpacket(pack(v));
-                  2: mac.p2_tx.fifo_in_startofpacket(pack(v));
-                  3: mac.p3_tx.fifo_in_startofpacket(pack(v));
-               endcase
-            endmethod
-
-            method Action stream_in_endofpacket(Bool v);
-               case(i)
-                  0: mac.p0_tx.fifo_in_endofpacket(pack(v));
-                  1: mac.p1_tx.fifo_in_endofpacket(pack(v));
-                  2: mac.p2_tx.fifo_in_endofpacket(pack(v));
-                  3: mac.p3_tx.fifo_in_endofpacket(pack(v));
-               endcase
-            endmethod
-
-            method Action stream_in_error(Bool v);
-               case(i)
-                  0: mac.p0_tx.fifo_in_error(pack(v));
-                  1: mac.p1_tx.fifo_in_error(pack(v));
-                  2: mac.p2_tx.fifo_in_error(pack(v));
-                  3: mac.p3_tx.fifo_in_error(pack(v));
-               endcase
-            endmethod
+//            method Action stream_in_error(Bool v);
+//               case(i)
+//                  0: mac.p0_tx.fifo_in_error(pack(v));
+//                  1: mac.p1_tx.fifo_in_error(pack(v));
+//                  2: mac.p2_tx.fifo_in_error(pack(v));
+//                  3: mac.p3_tx.fifo_in_error(pack(v));
+//               endcase
+//            endmethod
          endinterface
       endinterface;
    end
