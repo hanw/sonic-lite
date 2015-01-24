@@ -39,10 +39,12 @@ typedef 4 N_CHAN;
 typedef 2 N_CHAN;
 `endif
 
+(* always_ready, always_enabled *)
 interface EthPhyIfc#(numeric type np);
    interface Vector#(np, XGMII_PCS) xgmii;
    interface Vector#(np, SerialIfc) serial;
 endinterface
+
 
 (* synthesize *)
 module mkEthPhy#(Clock clk_50, Reset rst_50, Clock clk_156_25, Reset rst_156_25)(EthPhyIfc#(N_CHAN));

@@ -36,7 +36,7 @@ typedef `N_CHAN N_CHAN;
 typedef 4 N_CHAN;
 `endif
 
-
+(* always_ready, always_enabled *)
 interface EthPcsIfc#(numeric type np);
    interface Vector#(np, XGMII_PCS) xgmii;
    interface Vector#(np, XCVR_PCS)  xcvr;

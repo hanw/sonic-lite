@@ -13,3 +13,7 @@ $CONNECTAL/generated/scripts/importbvi.py -o ALTERA_EDGE_DETECTOR_WRAPPER.bsv -I
     -f iTrigger -f oFall -f oRis -f oDebounce\
     ../verilog/si570/edge_detector.v
 
+$CONNECTAL/generated/scripts/importbvi.py -o ALTERA_CLK_CTRL.bsv -I AltClkCtrl -P AltClkCtrl \
+    -c inclk -c outclk\
+    ../verilog/pll/altera_clkctrl/synthesis/altera_clkctrl.v
+

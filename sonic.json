@@ -90,5 +90,9 @@
     "leds[3]": {
 	"PIO_DIRECTION": "OUTPUT",
 	"LED": "LED[3]"
+    },
+    "sfp_refclk": {
+	"PIO_DIRECTION": "INPUT",
+	"SFP": "SFP_REFCLK_p"
     }
 }

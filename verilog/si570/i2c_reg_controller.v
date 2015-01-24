@@ -259,9 +259,9 @@ edge_detector u1(
 
 .iCLK(iCLK),
 .iRST_n(iRST_n),
-.iIn(iI2C_CONTROLLER_CONFIG_DONE),
-.oFallING_EDGE(i2c_controller_config_done),
-.oRISING_EDGE()
+.iTrigger_in(iI2C_CONTROLLER_CONFIG_DONE),
+.oFalling_edge(i2c_controller_config_done),
+.oRising_edge()
 );
 
 

@@ -1,19 +1,31 @@
 
 CONNECTALDIR?=../connectal
+DTOP?=../sonic-lite
 INTERFACES=Simple
-BSVFILES=bsv/PcieAlteraTbWrap.bsv bsv/libs/Interconnect.bsv SimpleIF.bsv Top.bsv
+BSVFILES=bsv/EthPorts.bsv bsv/libs/Interconnect.bsv SimpleIF.bsv Top.bsv
 CPPFILES=testsimple.cpp
 NUMBER_OF_MASTERS =0
+#PIN_TYPE = NetTopIfc
 CONNECTALFLAGS += --pinfo=./proj.json
 CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/altera_mac.qip
-CONNECTALFLAGS += -V=./verilog/enc_dec/ -V=./verilog/gearbox/ -V=./verilog/port/ -V=./verilog/scramble/ -V=./verilog/si570/ -V=./verilog/timestamp/ -V=./verilog/traffic_controller/
-
+CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/altera_xcvr_reset_control_wrapper.qip
+CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/altera_xcvr_native_sv_wrapper.qip
+CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/altera_xgbe_pma_reconfig_wrapper.qip
+CONNECTALFLAGS += --xci=$(DTOP)/verilog/pll/altera_clkctrl/synthesis/altera_clkctrl.qip
+CONNECTALFLAGS += --verilog=$(DTOP)/verilog/enc_dec/
+CONNECTALFLAGS += --verilog=$(DTOP)/verilog/gearbox/
+CONNECTALFLAGS += --verilog=$(DTOP)/verilog/port/
+CONNECTALFLAGS += --verilog=$(DTOP)/verilog/scramble/
+CONNECTALFLAGS += --verilog=$(DTOP)/verilog/si570/
+CONNECTALFLAGS += --verilog=$(DTOP)/verilog/timestamp/
+CONNECTALFLAGS += --verilog=$(DTOP)/verilog/traffic_controller/
+CONNECTALFLAGS += --tcl=$(DTOP)/verilog/add_sv.tcl
 # Supported Platforms:
 # {vendor}_{platform}=1
 ALTERA_SIM_vsim=1
 ALTERA_SYNTH_de5=1
 
-PIN_BINDINGS?=-b PCIE:PCIE -b LED:LED -b OSC:OSC
+PIN_BINDINGS?=-b PCIE:PCIE -b LED:LED -b OSC:OSC -b SFPA:SFPA -b SFPB:SFPB -b SFPC:SFPC -b SFPD:SFPD -b SFP:SFP
 
 QSYS_SIMDIR=pcie_tbed
 QUARTUS_INSTALL_DIR="/home/hwang/altera/14.0/quartus/"

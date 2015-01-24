@@ -11,10 +11,9 @@
 	output 	wire[31:0]	avl_mm_readdata  ,
 	input 	wire[31:0]	avl_mm_writedata ,
 
-	input 	wire 		clk	,
+	input 	wire 		clk_in	,
 	input 	wire 		reset_n	,
 
-	//input	wire[38:0] 	mac_rx_status_data	,
 	input 	wire[39:0] 	mac_rx_status_data	,
 	input 	wire		mac_rx_status_valid	,
 	input 	wire		mac_rx_status_error	,
@@ -27,7 +26,7 @@
 	output 	wire[2:0]  	avl_st_tx_empty	,
 	output 	wire 		avl_st_tx_eop	,
 	output 	wire 		avl_st_tx_error	,
-	input 	wire 		avl_st_tx_ready	,
+	input 	wire 		avl_st_tx_rdy	,
 	output 	wire 		avl_st_tx_sop	,
 	output 	wire 		avl_st_tx_val	,             
 
@@ -35,9 +34,10 @@
 	input 	wire[2:0]  	avl_st_rx_empty	,
 	input 	wire 		avl_st_rx_eop	,
 	input 	wire [5:0]	avl_st_rx_error	,
-	output 	wire 		avl_st_rx_ready	,
+	output 	wire 		avl_st_rx_rdy	,
 	input 	wire 		avl_st_rx_sop	,
-	input 	wire 		avl_st_rx_val  );
+	input 	wire 		avl_st_rx_val
+    );
 
 
  // ________________________________________________
@@ -45,7 +45,7 @@
 
 	wire  avl_st_rx_lpmx_mon_eop;
 	wire[5:0]  avl_st_rx_lpmx_mon_error;
-	wire  avl_st_rx_mon_lpmx_ready;
+	wire  avl_st_rx_mon_lpmx_rdy;
 	wire  avl_st_rx_lpmx_mon_sop;
 	wire  avl_st_rx_lpmx_mon_val; 
 	wire[63:0] avl_st_rx_lpmx_mon_data;
@@ -66,7 +66,7 @@
    traffic_reset_sync reset_sync
 // _______________________________________________________________
 
-    ( .clk      (clk),
+    ( .clk      (clk_in),
       .data_in  (1'b0),
       .reset    (~reset_n),
       .data_out (sync_reset)
@@ -76,7 +76,7 @@
 // _______________________________________________________________
  	avalon_st_gen  GEN (
 // _______________________________________________________________
-	.clk         (clk), 	 			// Tx clock
+	.clk         (clk_in), 	 			// Tx clock
 	.reset       (sync_reset), 			// Reset signal
 	.address     (avl_mm_address[7:0]), 		// Avalon-MM Address
 	.write       (avl_mm_write & blk_sel_gen), 	// Avalon-MM Write Strobe
@@ -91,12 +91,12 @@
 	.tx_eop      (avl_st_tx_eop), 			// Avalon-ST EndOfPacket
 	.tx_empty    (avl_st_tx_empty), 		// Avalon-ST Empty
 	.tx_error    (avl_st_tx_error), 		// Avalon-ST Error
-	.tx_ready    (avl_st_tx_ready) 
+	.tx_ready    (avl_st_tx_rdy) 
 	);
   // ___________________________________________________________________
  	avalon_st_mon  	MON (
   // ___________________________________________________________________
-	.clk       		(clk ),     			// RX clock
+	.clk       		(clk_in ),     			// RX clock
 	.reset     		(sync_reset ),     		// Reset Signal
 	.avalon_mm_address   	(avl_mm_address[7:0]),     	// Avalon-MM Address
 	.avalon_mm_write     	(avl_mm_write & blk_sel_mon),  	// Avalon-MM Write Strobe
@@ -119,7 +119,7 @@
 	.avalon_st_rx_eop    	(avl_st_rx_eop),     	// Avalon-ST RX EndOfPacket
 	.avalon_st_rx_empty  	(avl_st_rx_empty),   	// Avalon-ST RX Data Empty
 	.avalon_st_rx_error  	(avl_st_rx_error),   	// Avalon-ST RX Error
-	.avalon_st_rx_ready  	(avl_st_rx_ready)    	// Avalon-ST RX Ready Output
+	.avalon_st_rx_ready  	(avl_st_rx_rdy)    	// Avalon-ST RX Ready Output
 	);
 
   // ___________________________________________________________________

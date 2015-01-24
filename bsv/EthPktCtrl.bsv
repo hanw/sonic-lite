@@ -33,6 +33,7 @@ import ALTERA_TRAFFIC_CONTROLLER_WRAPPER::*;
 typedef 64 DataWidth;
 typedef UInt#(32) AvalonWordT;
 
+(* always_ready, always_enabled *)
 interface EthPktCtrlIfc;
    interface AvalonPacketStreamSourcePhysicalIfc#(DataWidth) aso;
    interface AvalonPacketStreamSinkPhysicalIfc#(DataWidth) asi;

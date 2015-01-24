@@ -74,8 +74,8 @@ module sonic_single_port (/*AUTOARG*/
    wire [63:0]    xgmii_rxd;
    wire [7:0]     xgmii_rxc;
 
-   logic          lock;
-   logic [65:0]   encoded_datain, decoded_dataout, clksync_dataout, loopback_dataout;
+   wire lock;
+   wire [65:0]   encoded_datain, decoded_dataout, clksync_dataout, loopback_dataout;
 
    parameter INIT_TYPE=2'b01, ACK_TYPE=2'b10, BEACON_TYPE=2'b11;
 
@@ -135,7 +135,7 @@ module sonic_single_port (/*AUTOARG*/
                               .sync_timeout(timeout_sync)
                               );
 
-   logic [65:0]   bypass_dataout;
+   wire [65:0]   bypass_dataout;
 
    xgmii_mux mux_bypass (
                          .data0x(clksync_dataout),

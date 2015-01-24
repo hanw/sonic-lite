@@ -38,11 +38,13 @@ typedef `N_CHAN N_CHAN;
 typedef 4 N_CHAN;
 `endif
 
+(* always_ready, always_enabled *)
 interface EthMacAvalonSTIfc;
    interface AvalonPacketStreamSinkPhysicalIfc#(64) asi;
    interface AvalonPacketStreamSourcePhysicalIfc#(64) aso;
 endinterface
 
+(* always_ready, always_enabled *)
 interface EthMacIfc#(numeric type np);
    interface Vector#(np, XGMII_MAC) xgmii;
    interface Vector#(np, EthMacAvalonSTIfc) avalon;

@@ -40,8 +40,11 @@ typedef `N_CHAN N_CHAN;
 typedef 4 N_CHAN;
 `endif
 
+(* always_ready, always_enabled *)
 interface EthPortIfc;
    interface AvalonSlaveIfc#(24) avs;
+   // avalon-mm slave ifc to all four pkt gencap
+   interface Vector#(N_CHAN, SerialIfc) serial;
 endinterface
 
 (* synthesize *)
@@ -56,6 +59,8 @@ module mkEthPorts#(Clock clk_50, Clock clk_156_25, Reset rst_50, Reset rst_156_2
       mkConnection(macs.avalon[i].aso, pktctrls[i].asi);
       mkConnection(macs.xgmii[i], phys.xgmii[i]);
    end
+
+   interface serial = phys.serial;
 
 endmodule: mkEthPorts
 endpackage: EthPorts

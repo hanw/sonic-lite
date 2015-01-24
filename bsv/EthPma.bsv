@@ -39,6 +39,7 @@ typedef `N_CHAN N_CHAN;
 typedef 4 N_CHAN;
 `endif
 
+(* always_ready, always_enabled *)
 interface PhyMgmtIfc;
 (* prefix="" *) method Action      phy_mgmt_address( (* port="address" *) Bit#(7) v);
 (* prefix="" *) method Action      phy_mgmt_read   ( (* port="read" *)    Bit#(1) v);
@@ -48,6 +49,7 @@ interface PhyMgmtIfc;
 (* prefix="" *) method Action      phy_mgmt_write_data( (* port="write_data" *) Bit#(32) v);
 endinterface
 
+(* always_ready, always_enabled *)
 interface Status;
    method Bit#(1)     pll_locked;
    method Bit#(1)     rx_is_lockedtodata;
@@ -97,8 +99,6 @@ module mkEthPma#(Clock phy_mgmt_clk, Clock pll_ref_clk, Reset phy_mgmt_reset, Re
 
    rule connect_any_constants;
       rst.pll.select(2'b11);
-      xcvr.rx.set_locktodata(4'b0);
-      xcvr.rx.set_locktoref(4'b0);
    endrule
 
    /* connect all three components */
@@ -172,7 +172,7 @@ module mkEthPma#(Clock phy_mgmt_clk, Clock pll_ref_clk, Reset phy_mgmt_reset, Re
                 return xcvr.rx.pma_clkout[i];
              endmethod
              method Bit#(40) rx_data;
-                return xcvr.rx.pma_parallel_data[39 + 80 * i : 80 * i];
+                return xcvr.rx.pma_parallel_data[39 + 40 * i : 40 * i];
              endmethod
           endinterface
           interface XCVR_TX_PMA tx;
@@ -189,10 +189,7 @@ module mkEthPma#(Clock phy_mgmt_clk, Clock pll_ref_clk, Reset phy_mgmt_reset, Re
        endinterface;
    end
    rule set_parallel_data;
-      Bit#(160) txp = pack(readVReg(p_wires));
-      Bit#(320) ret = {40'h0, txp[159:120], 40'h0, txp[119:80],
-                       40'h0, txp[79:40],   40'h0, txp[39:0]};
-      xcvr.tx.pma_parallel_data(ret);
+      xcvr.tx.pma_parallel_data(pack(readVReg(p_wires)));
    endrule
 
    interface status = status_ifcs;
