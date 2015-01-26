@@ -56,10 +56,11 @@ interface NetTopIfc;
    interface Clock clk_net;
 endinterface
 
-(* synthesize, no_default_clock, no_default_reset *)
-(* clock_prefix="", reset_prefix="" *)
-module mkNetTop #(Clock clk_50, Clock clk_156_25, Reset rst_156_n) (NetTopIfc);
-   EthPortIfc ports <- mkEthPorts(clk_50, clk_156_25, rst_156_n, rst_156_n, clocked_by clk_156_25, reset_by rst_156_n);
+(* synthesize, always_ready, always_enabled *)
+(* clock_family = "default_clock, clk_156_25" *)
+module mkNetTop #(Clock clk_50, Clock clk_156_25, Clock clk_644, Reset rst_156_n) (NetTopIfc);
+   //EthPortIfc ports <- mkEthPorts(clk_50, clk_156_25, rst_156_n, rst_156_n, clocked_by clk_156_25, reset_by rst_156_n);
+   EthPortIfc ports <- mkEthPorts(clk_50, clk_156_25, clk_644, rst_156_n, rst_156_n);
 
    interface serial = ports.serial;
    interface Clock clk_net = clk_156_25;

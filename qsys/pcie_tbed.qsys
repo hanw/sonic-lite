@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<system name="$${FILENAME}">
+ <component
+   name="$${FILENAME}"
+   displayName="$${FILENAME}"
+   version="1.0"
+   description=""
+   tags=""
+   categories="System" />
+ <parameter name="bonusData"><![CDATA[bonusData 
+{
+   element $${FILENAME}
+   {
+   }
+   element DUT_pcie_tb
+   {
+      datum _sortIndex
+      {
+         value = "2";
+         type = "int";
+      }
+   }
+   element conduit_bfm_0
+   {
+      datum _sortIndex
+      {
+         value = "3";
+         type = "int";
+      }
+   }
+   element mkPcieS5Top_inst_clk_50_bfm
+   {
+      datum _sortIndex
+      {
+         value = "0";
+         type = "int";
+      }
+   }
+   element mkPcieS5Top_inst_clk_50_rst_bfm
+   {
+      datum _sortIndex
+      {
+         value = "1";
+         type = "int";
+      }
+   }
+}
+]]></parameter>
+ <parameter name="clockCrossingAdapter" value="HANDSHAKE" />
+ <parameter name="device" value="Unknown" />
+ <parameter name="deviceFamily" value="Stratix V" />
+ <parameter name="deviceSpeedGrade" value="Unknown" />
+ <parameter name="fabricMode" value="QSYS" />
+ <parameter name="generateLegacySim" value="false" />
+ <parameter name="generationId" value="0" />
+ <parameter name="globalResetBus" value="false" />
+ <parameter name="hdlLanguage" value="VERILOG" />
+ <parameter name="hideFromIPCatalog" value="false" />
+ <parameter name="maxAdditionalLatency" value="1" />
+ <parameter name="projectName" value="" />
+ <parameter name="sopcBorderPoints" value="false" />
+ <parameter name="systemHash" value="0" />
+ <parameter name="testBenchDutName" value="mkPcieS5Top" />
+ <parameter name="timeStamp" value="0" />
+ <parameter name="useTestBenchNamingPattern" value="true" />
+ <instanceScript></instanceScript>
+ <interface
+   name="xgbe_bits"
+   internal="conduit_bfm_0.conduit"
+   type="conduit"
+   dir="end" />
+ <interface name="npor" internal="DUT_pcie_tb.npor" type="conduit" dir="end" />
+ <interface name="clk" internal="DUT_pcie_tb.refclk" type="clock" dir="start" />
+ <interface
+   name="hip_pipe"
+   internal="DUT_pcie_tb.hip_pipe"
+   type="conduit"
+   dir="end" />
+ <interface
+   name="hip_serial"
+   internal="DUT_pcie_tb.hip_serial"
+   type="conduit"
+   dir="end" />
+ <interface
+   name="hip_ctrl"
+   internal="DUT_pcie_tb.hip_ctrl"
+   type="conduit"
+   dir="end" />
+ <interface
+   name="reset"
+   internal="mkPcieS5Top_inst_clk_50_rst_bfm.reset"
+   type="reset"
+   dir="start" />
+ <module
+   kind="altera_avalon_clock_source"
+   version="14.0"
+   enabled="1"
+   name="mkPcieS5Top_inst_clk_50_bfm">
+  <parameter name="CLOCK_RATE" value="50000000" />
+  <parameter name="CLOCK_UNIT" value="1" />
+ </module>
+ <module
+   kind="altera_avalon_reset_source"
+   version="14.0"
+   enabled="1"
+   name="mkPcieS5Top_inst_clk_50_rst_bfm">
+  <parameter name="ASSERT_HIGH_RESET" value="0" />
+  <parameter name="INITIAL_RESET_CYCLES" value="50" />
+ </module>
+ <module kind="altera_pcie_tbed" version="14.0" enabled="1" name="DUT_pcie_tb">
+  <parameter name="use_stratixv_tb_device" value="false" />
+  <parameter name="lane_mask_hwtcl" value="x8" />
+  <parameter name="gen123_lane_rate_mode_hwtcl" value="Gen2 (5.0 Gbps)" />
+  <parameter name="port_type_hwtcl" value="Native endpoint" />
+  <parameter name="pll_refclk_freq_hwtcl" value="100 MHz" />
+  <parameter name="apps_type_hwtcl" value="2" />
+  <parameter name="serial_sim_hwtcl" value="0" />
+  <parameter name="enable_pipe32_sim_hwtcl" value="0" />
+  <parameter name="enable_tl_only_sim_hwtcl" value="0" />
+  <parameter name="deemphasis_enable_hwtcl" value="false" />
+  <parameter name="pld_clk_MHz" value="2500" />
+  <parameter name="millisecond_cycle_count_hwtcl" value="248500" />
+  <parameter name="use_crc_forwarding_hwtcl" value="0" />
+  <parameter name="ecrc_check_capable_hwtcl" value="0" />
+  <parameter name="ecrc_gen_capable_hwtcl" value="0" />
+  <parameter name="enable_pipe32_phyip_ser_driver_hwtcl" value="0" />
+ </module>
+ <module
+   kind="altera_conduit_bfm"
+   version="14.0"
+   enabled="1"
+   name="conduit_bfm_0">
+  <parameter name="CLOCKED_SIGNAL" value="false" />
+  <parameter name="ENABLE_RESET" value="false" />
+  <parameter name="SIGNAL_ROLES">xgbe_rx_in,xgbe_txout</parameter>
+  <parameter name="SIGNAL_WIDTHS" value="1,1" />
+  <parameter name="SIGNAL_DIRECTIONS" value="input,output" />
+ </module>
+ <connection
+   kind="clock"
+   version="14.0"
+   start="mkPcieS5Top_inst_clk_50_bfm.clk"
+   end="mkPcieS5Top_inst_clk_50_rst_bfm.clk" />
+ <interconnectRequirement for="$system" name="qsys_mm.clockCrossingAdapter" value="HANDSHAKE" />
+ <interconnectRequirement for="$system" name="qsys_mm.maxAdditionalLatency" value="1" />
+ <interconnectRequirement for="$system" name="qsys_mm.insertDefaultSlave" value="FALSE" />
+</system>
