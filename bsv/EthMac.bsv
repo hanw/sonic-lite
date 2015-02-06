@@ -52,9 +52,8 @@ endinterface
 
 (* synthesize *)
 module mkEthMac#(Clock clk_50, Reset rst_50, Clock clk_156_25, Reset rst_156_25)(EthMacIfc#(4));
-
-   Clock defaultClock <- exposeCurrentClock;
-   Reset defaultReset <- exposeCurrentReset;
+   Clock default_clock <- exposeCurrentClock;
+   Reset default_reset <- exposeCurrentReset;
 
    MacWrap mac <- mkMacWrap(clk_50, clk_156_25, clk_156_25, clk_156_25, clk_156_25,
                                     clk_156_25, clk_156_25, clk_156_25, clk_156_25,

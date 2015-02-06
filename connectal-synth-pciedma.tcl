@@ -5,6 +5,7 @@ proc fpgamake_altera_synth_qsys {core_name core_version ip_name} {
 
     exec -ignorestderr -- ip-generate \
             --project-directory=$ipdir/$boardname                            \
+            --search-path=$ipdir/../../sonic-lite/qsys/,$                    \
             --output-directory=$ipdir/$boardname/synthesis                   \
             --file-set=QUARTUS_SYNTH                                         \
             --report-file=html:$ipdir/$boardname/$ip_name.html               \
@@ -17,12 +18,9 @@ proc fpgamake_altera_synth_qsys {core_name core_version ip_name} {
             --system-info=DEVICE_FAMILY=StratixV                             \
             --system-info=DEVICE=$partname                                   \
             --system-info=DEVICE_SPEEDGRADE=2_H2                             \
+            --language=VERILOG                                               \
             --component-file=$core_name                                      \
             --output-name=$ip_name
 }
 
-proc create_altera_pcietb {core_name core_version ip_name} {
-    fpgamake_altera_synth_qsys $core_name $core_version $ip_name
-}
-
-create_altera_pcietb ../qsys/pcie_dma.qsys 14.0 pcie_dma
+fpgamake_altera_synth_qsys ../qsys/pcie_dma.qsys 14.0 pcie_dma

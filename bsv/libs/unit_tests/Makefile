@@ -29,15 +29,16 @@
 # @BERI_LICENSE_HEADER_END@
 #
 
-TESTS += TestAsymmetricBRAM
-TESTS += TestBeriUGBypassFIFOF
-TESTS += TestMEM
-TESTS += TestOneWayBus
-TESTS += TestBus
-TESTS += TestCrossBar
+TESTS += TestAvalonCrossBar
+#TESTS += TestAsymmetricBRAM
+#TESTS += TestBeriUGBypassFIFOF
+#TESTS += TestMEM
+#TESTS += TestOneWayBus
+#TESTS += TestBus
+#TESTS += TestCrossBar
 #TESTS += TestInternalMemoryToInterconnect
 #TESTS += TestReorderBuffer
-TESTS += TestSingleMasterOrderedBus
+#TESTS += TestSingleMasterOrderedBus
 #TESTS += TestTLMRoutableInstances
 
 ASYMMETRIC_BRAM_DIR = ../AsymmetricBRAM
@@ -47,10 +48,11 @@ BSC = bsc
 BSV_PATH = +:%/Libraries/TLM3:%/Libraries/Axi:$(CHERILIBS_DIR):$(ASYMMETRIC_BRAM_DIR)
 BSC_FLAGS=-keep-fires -cross-info -p $(BSV_PATH)
 BSC_FLAGS+=-u +RTS -K46777216 -RTS
-BSC_FLAGS+=-bdir elab
-BSC_FLAGS+=-simdir bsim
-BSC_FLAGS+=-sched-dot -show-schedule -info-dir info
-SIMFLAGS=-sim -D BLUESIM
+#BSC_FLAGS+=-bdir elab
+#BSC_FLAGS+=-simdir bsim
+#BSC_FLAGS+=-sched-dot -show-schedule -info-dir info
+#SIMFLAGS=-sim -D BLUESIM
+SYNFLAGS=-verilog
 
 all : $(addprefix sim/,$(TESTS))
 
@@ -59,8 +61,9 @@ sim/% : %.bsv
 	mkdir -p elab
 	mkdir -p bsim
 	mkdir -p info
-	$(BSC) $(BSC_FLAGS) $(SIMFLAGS) -g mk$(notdir $@) $<
-	$(BSC) $(BSC_FLAGS) $(SIMFLAGS) -e mk$(notdir $@) -o $@
+	$(BSC) $(BSC_FLAGS) $(SYNFLAGS) -g mk$(notdir $@) $<
+#	$(BSC) $(BSC_FLAGS) $(SIMFLAGS) -g mk$(notdir $@) $<
+#	$(BSC) $(BSC_FLAGS) $(SIMFLAGS) -e mk$(notdir $@) -o $@
 
 sim/TestInternalMemoryToInterconnect: ../CheriAxi.bsv
 

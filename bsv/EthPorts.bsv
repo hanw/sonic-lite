@@ -43,16 +43,15 @@ typedef 4 N_CHAN;
 (* always_ready, always_enabled *)
 interface EthPortIfc;
    interface AvalonSlaveIfc#(24) avs;
-   // avalon-mm slave ifc to all four pkt gencap
    interface Vector#(N_CHAN, SerialIfc) serial;
 endinterface
 
 (* synthesize *)
 (* clock_family = "default_clock, clk_156_25" *)
-module mkEthPorts#(Clock clk_50, Clock clk_156_25, Reset rst_50, Reset rst_156_25)(EthPortIfc);
+module mkEthPorts#(Clock clk_50, Clock clk_156_25, Clock clk_644, Reset rst_50, Reset rst_156_25)(EthPortIfc);
    Vector#(N_CHAN, EthPktCtrlIfc) pktctrls <- replicateM(mkEthPktCtrl(clk_156_25, rst_156_25, clocked_by clk_156_25, reset_by rst_156_25));
-   EthMacIfc#(N_CHAN) macs <- mkEthMac(clk_50, rst_50, clk_156_25, rst_156_25);
-   EthPhyIfc#(N_CHAN) phys <- mkEthPhy(clk_50, rst_50, clk_156_25, rst_156_25);
+   EthMacIfc#(N_CHAN) macs <- mkEthMac(clk_50, rst_50, clk_156_25, rst_156_25, clocked_by clk_156_25, reset_by rst_156_25);
+   EthPhyIfc#(N_CHAN) phys <- mkEthPhy(clk_50, rst_50, clk_156_25, rst_156_25, clk_644, clocked_by clk_156_25, reset_by rst_156_25);
 
    for (Integer i=0; i<valueOf(N_CHAN); i=i+1) begin
       mkConnection(pktctrls[i].aso, macs.avalon[i].asi);
@@ -61,6 +60,7 @@ module mkEthPorts#(Clock clk_50, Clock clk_156_25, Reset rst_50, Reset rst_156_2
    end
 
    interface serial = phys.serial;
+   interface avs = pktctrls[0].avs;
 
 endmodule: mkEthPorts
 endpackage: EthPorts

@@ -33,8 +33,7 @@ import ConnectalClocks    ::*;
 import ALTERA_PLL_WRAPPER ::*;
 import EthPorts           ::*;
 import Ethernet           ::*;
-import MasterSlave        ::*;
-import Interconnect       ::*;
+import Avalon2ClientServer ::*;
 
 `ifndef DataBusWidth
 `define DataBusWidth 64
@@ -51,17 +50,16 @@ typedef `PinType PinType;
 
 (* always_ready, always_enabled *)
 interface NetTopIfc;
-   // avalon-mm interface to packet gencap
+   interface AvalonSlaveIfc#(24) avs;
    interface Vector#(N_CHAN, SerialIfc) serial;
    interface Clock clk_net;
 endinterface
 
 (* synthesize, always_ready, always_enabled *)
-(* clock_family = "default_clock, clk_156_25" *)
-module mkNetTop #(Clock clk_50, Clock clk_156_25, Clock clk_644, Reset rst_156_n) (NetTopIfc);
-   //EthPortIfc ports <- mkEthPorts(clk_50, clk_156_25, rst_156_n, rst_156_n, clocked_by clk_156_25, reset_by rst_156_n);
-   EthPortIfc ports <- mkEthPorts(clk_50, clk_156_25, clk_644, rst_156_n, rst_156_n);
+module mkNetTop #(Clock clk_50, Clock clk_156_25, Clock clk_644, Clock core_clk, Reset rst_50_n, Reset rst_156_n) (NetTopIfc);
+   EthPortIfc ports <- mkEthPorts(clk_50, clk_156_25, clk_644, rst_50_n, rst_156_n, clocked_by clk_156_25, reset_by rst_156_n);
 
    interface serial = ports.serial;
    interface Clock clk_net = clk_156_25;
+   interface avs = ports.avs;
 endmodule

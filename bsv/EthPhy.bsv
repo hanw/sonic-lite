@@ -47,13 +47,13 @@ endinterface
 
 
 (* synthesize *)
-module mkEthPhy#(Clock clk_50, Reset rst_50, Clock clk_156_25, Reset rst_156_25)(EthPhyIfc#(N_CHAN));
+module mkEthPhy#(Clock clk_50, Reset rst_50, Clock clk_156_25, Reset rst_156_25, Clock clk_644)(EthPhyIfc#(N_CHAN));
 
    Clock defaultClock <- exposeCurrentClock;
    Reset defaultReset <- exposeCurrentReset;
 
    EthPcsIfc#(N_CHAN)   pcs4 <- mkEthPcs(clk_156_25, rst_156_25);
-   EthPmaIfc#(N_CHAN)   pma4 <- mkEthPma(clk_50, clk_156_25, rst_50, rst_156_25);
+   EthPmaIfc#(N_CHAN)   pma4 <- mkEthPma(clk_50, clk_644, rst_50);
 
    Si570Wrap            si570 <- mkSi570Wrap(clk_50, rst_50, rst_50);
    EdgeDetectorWrap     edgedetect <- mkEdgeDetectorWrap(clk_50, rst_50, rst_50);

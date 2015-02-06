@@ -236,6 +236,8 @@ module mkTest1 (Test);
 
 endmodule
 
+
+(* synthesize *)
 module mkTestCrossBar (Empty);
 
     Test test0 <- mkTest0;

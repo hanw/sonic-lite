@@ -65,7 +65,7 @@ interface EthPmaIfc#(numeric type np);
 endinterface
 
 (* synthesize *)
-module mkEthPma#(Clock phy_mgmt_clk, Clock pll_ref_clk, Reset phy_mgmt_reset, Reset pll_ref_reset)(EthPmaIfc#(N_CHAN));
+module mkEthPma#(Clock phy_mgmt_clk, Clock pll_ref_clk, Reset phy_mgmt_reset)(EthPmaIfc#(N_CHAN));
 
    Clock defaultClock <- exposeCurrentClock();
    Reset defaultReset <- exposeCurrentReset();

@@ -20,19 +20,27 @@
          type = "int";
       }
    }
-   element mkEthPorts_0.avs
-   {
-      datum baseAddress
-      {
-         value = "1073741824";
-         type = "String";
-      }
-   }
    element clk_0
    {
       datum _sortIndex
       {
          value = "0";
+         type = "int";
+      }
+   }
+   element clock_bridge_0
+   {
+      datum _sortIndex
+      {
+         value = "5";
+         type = "int";
+      }
+   }
+   element clock_bridge_1
+   {
+      datum _sortIndex
+      {
+         value = "6";
          type = "int";
       }
    }
@@ -44,11 +52,11 @@
          type = "int";
       }
    }
-   element mkEthPorts_0
+   element mm_clock_crossing_bridge_0
    {
       datum _sortIndex
       {
-         value = "5";
+         value = "7";
          type = "int";
       }
    }
@@ -104,8 +112,8 @@
  <parameter name="timeStamp" value="0" />
  <parameter name="useTestBenchNamingPattern" value="false" />
  <instanceScript></instanceScript>
- <interface name="clk" internal="clk_0.clk_in" type="clock" dir="end" />
- <interface name="reset" internal="clk_0.clk_in_reset" type="reset" dir="end" />
+ <interface name="clk_mm" internal="clk_0.clk_in" type="clock" dir="end" />
+ <interface name="reset_mm" internal="clk_0.clk_in_reset" type="reset" dir="end" />
  <interface
    name="memory"
    internal="mem_if_ddr3_emif_0.memory"
@@ -113,7 +121,7 @@
    dir="end" />
  <interface name="oct" internal="mem_if_ddr3_emif_0.oct" type="conduit" dir="end" />
  <interface
-   name="refclk"
+   name="pcie_clk"
    internal="pcie_256_hip_avmm_0.refclk"
    type="clock"
    dir="end" />
@@ -122,9 +130,26 @@
    internal="pcie_256_hip_avmm_0.npor"
    type="conduit"
    dir="end" />
- <interface name="clk_156" internal="mkEthPorts_0.clk_156" type="clock" dir="end" />
- <interface name="clk_644" internal="mkEthPorts_0.clk_644" type="clock" dir="end" />
- <interface name="rst_156" internal="mkEthPorts_0.rst_156" type="reset" dir="end" />
+ <interface
+   name="hip_serial"
+   internal="pcie_256_hip_avmm_0.hip_serial"
+   type="conduit"
+   dir="end" />
+ <interface
+   name="core_clk"
+   internal="clock_bridge_0.out_clk"
+   type="clock"
+   dir="start" />
+ <interface
+   name="clk_net"
+   internal="clock_bridge_1.in_clk"
+   type="clock"
+   dir="end" />
+ <interface
+   name="net_avm"
+   internal="mm_clock_crossing_bridge_0.m0"
+   type="avalon"
+   dir="start" />
  <module kind="clock_source" version="14.0" enabled="1" name="clk_0">
   <parameter name="clockFrequency" value="50000000" />
   <parameter name="clockFrequencyKnown" value="true" />
@@ -158,7 +183,7 @@
   <parameter name="SLAVE_ADDRESS_MAP_1" value="0" />
   <parameter name="SLAVE_ADDRESS_MAP_2" value="30" />
   <parameter name="SLAVE_ADDRESS_MAP_3" value="0" />
-  <parameter name="SLAVE_ADDRESS_MAP_4" value="31" />
+  <parameter name="SLAVE_ADDRESS_MAP_4" value="26" />
   <parameter name="SLAVE_ADDRESS_MAP_5" value="0" />
   <parameter name="RD_SLAVE_ADDRESS_MAP" value="31" />
   <parameter name="WR_SLAVE_ADDRESS_MAP" value="30" />
@@ -732,11 +757,43 @@
   <parameter name="gui_cal_status_port" value="false" />
   <parameter name="AUTO_MGMT_CLK_CLK_CLOCK_RATE" value="50000000" />
  </module>
- <module kind="mkEthPorts" version="1.0" enabled="1" name="mkEthPorts_0">
-  <parameter name="AUTO_CLK_156_CLOCK_RATE" value="0" />
-  <parameter name="AUTO_CLK_644_CLOCK_RATE" value="0" />
-  <parameter name="AUTO_CLK_50_CLOCK_RATE" value="50000000" />
-  <parameter name="AUTO_CLK_CLOCK_RATE" value="50000000" />
+ <module
+   kind="altera_clock_bridge"
+   version="14.0"
+   enabled="1"
+   name="clock_bridge_0">
+  <parameter name="DERIVED_CLOCK_RATE" value="250000000" />
+  <parameter name="EXPLICIT_CLOCK_RATE" value="250000000" />
+  <parameter name="NUM_CLOCK_OUTPUTS" value="1" />
+ </module>
+ <module
+   kind="altera_avalon_mm_clock_crossing_bridge"
+   version="14.0"
+   enabled="1"
+   name="mm_clock_crossing_bridge_0">
+  <parameter name="DATA_WIDTH" value="32" />
+  <parameter name="SYMBOL_WIDTH" value="8" />
+  <parameter name="ADDRESS_WIDTH" value="26" />
+  <parameter name="SYSINFO_ADDR_WIDTH" value="10" />
+  <parameter name="USE_AUTO_ADDRESS_WIDTH" value="0" />
+  <parameter name="ADDRESS_UNITS" value="SYMBOLS" />
+  <parameter name="MAX_BURST_SIZE" value="1" />
+  <parameter name="COMMAND_FIFO_DEPTH" value="4" />
+  <parameter name="RESPONSE_FIFO_DEPTH" value="4" />
+  <parameter name="MASTER_SYNC_DEPTH" value="2" />
+  <parameter name="SLAVE_SYNC_DEPTH" value="2" />
+  <parameter name="AUTO_M0_CLK_CLOCK_RATE" value="250000000" />
+  <parameter name="AUTO_S0_CLK_CLOCK_RATE" value="250000000" />
+  <parameter name="AUTO_DEVICE_FAMILY" value="Stratix V" />
+ </module>
+ <module
+   kind="altera_clock_bridge"
+   version="14.0"
+   enabled="1"
+   name="clock_bridge_1">
+  <parameter name="DERIVED_CLOCK_RATE" value="0" />
+  <parameter name="EXPLICIT_CLOCK_RATE" value="250000000" />
+  <parameter name="NUM_CLOCK_OUTPUTS" value="1" />
  </module>
  <connection
    kind="clock"
@@ -895,30 +952,39 @@
   <parameter name="width" value="0" />
  </connection>
  <connection
-   kind="avalon"
+   kind="clock"
    version="14.0"
-   start="pcie_256_hip_avmm_0.Rxm_BAR4"
-   end="mkEthPorts_0.avs">
-  <parameter name="arbitrationPriority" value="1" />
-  <parameter name="baseAddress" value="0x40000000" />
-  <parameter name="defaultConnection" value="false" />
- </connection>
+   start="pcie_256_hip_avmm_0.coreclkout"
+   end="clock_bridge_0.in_clk" />
  <connection
    kind="clock"
    version="14.0"
-   start="clk_0.clk"
-   end="mkEthPorts_0.clk_50" />
+   start="pcie_256_hip_avmm_0.coreclkout"
+   end="mm_clock_crossing_bridge_0.m0_clk" />
  <connection
    kind="reset"
    version="14.0"
-   start="clk_0.clk_reset"
-   end="mkEthPorts_0.rst_50" />
- <connection kind="clock" version="14.0" start="clk_0.clk" end="mkEthPorts_0.clk" />
+   start="pcie_256_hip_avmm_0.nreset_status"
+   end="mm_clock_crossing_bridge_0.m0_reset" />
+ <connection
+   kind="clock"
+   version="14.0"
+   start="clock_bridge_1.out_clk"
+   end="mm_clock_crossing_bridge_0.s0_clk" />
  <connection
    kind="reset"
    version="14.0"
-   start="clk_0.clk_reset"
-   end="mkEthPorts_0.reset" />
+   start="pcie_256_hip_avmm_0.nreset_status"
+   end="mm_clock_crossing_bridge_0.s0_reset" />
+ <connection
+   kind="avalon"
+   version="14.0"
+   start="pcie_256_hip_avmm_0.Rxm_BAR4"
+   end="mm_clock_crossing_bridge_0.s0">
+  <parameter name="arbitrationPriority" value="1" />
+  <parameter name="baseAddress" value="0x0000" />
+  <parameter name="defaultConnection" value="false" />
+ </connection>
  <interconnectRequirement for="$system" name="qsys_mm.clockCrossingAdapter" value="HANDSHAKE" />
  <interconnectRequirement for="$system" name="qsys_mm.maxAdditionalLatency" value="1" />
  <interconnectRequirement for="$system" name="qsys_mm.insertDefaultSlave" value="FALSE" />

@@ -41,12 +41,12 @@ interface EthPktCtrlIfc;
 endinterface
 
 (* synthesize *)
-module mkEthPktCtrl#(Clock clk_156_25, Reset rst_156_25) (EthPktCtrlIfc);
+module mkEthPktCtrl#(Clock clk_host, Reset rst_host) (EthPktCtrlIfc);
 
    Clock defaultClock <- exposeCurrentClock;
    Reset defaultReset <- exposeCurrentReset;
 
-   TrafficCtrlWrap pkt_gencap <- mkTrafficCtrlWrap(clk_156_25, rst_156_25, rst_156_25);
+   TrafficCtrlWrap pkt_gencap <- mkTrafficCtrlWrap(clk_host, rst_host, rst_host);
 
    interface AvalonPacketStreamSinkPhysicalIfc asi;
       method Bool stream_in_ready;
@@ -83,6 +83,7 @@ module mkEthPktCtrl#(Clock clk_156_25, Reset rst_156_25) (EthPktCtrlIfc);
       endmethod
    endinterface
 
+   //FIXME: make sure byte address is correct.
    interface AvalonSlaveIfc avs;
       method Action s0(UInt#(24) address, AvalonWordT writedata,
          Bool write, Bool read);

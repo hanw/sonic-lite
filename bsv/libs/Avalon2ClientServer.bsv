@@ -255,9 +255,9 @@ module mkAvalonSlave2Client(AvalonSlave2ClientIfc#(word_address_width))
    // note: if outbuf FIFO is full, Avalon slave forced to wait
    rule hanlde_bus_requests ((read_w || write_w) && !ignore_further_requests);
       outbuf.enq(MemAccessPacketT{
-	 rw: read_w ? MemRead : MemWrite,
-	 addr: address_w,
-	 data: writedata_w}); // N.B. "data" is undefined for reads
+         rw: read_w ? MemRead : MemWrite,
+         addr: address_w,
+         data: writedata_w}); // N.B. "data" is undefined for reads
       ignore_further_requests <= read_w;
       // release avalonwait for writes since the request has been enqueued
       if(write_w) avalonwait_end_write.send;
@@ -272,10 +272,10 @@ module mkAvalonSlave2Client(AvalonSlave2ClientIfc#(word_address_width))
    // Avalon slave interface - just wiring
    interface AvalonSlaveIfc avs;
       method Action s0(address, writedata, write, read); // , arbiterlock); //, resetrequest);
-	 address_w     <= address;
-	 writedata_w   <= writedata;
-	 write_w       <= write;
-	 read_w        <= read;
+         address_w     <= address;
+         writedata_w   <= writedata;
+         write_w       <= write;
+         read_w        <= read;
       endmethod
       
       method s0_readdata;
@@ -300,10 +300,10 @@ module mkAvalonSlave2Client(AvalonSlave2ClientIfc#(word_address_width))
 	    // clients waited on writes until the writes had completed
 	    if(isValid(d))
 	       begin
-		  // note duality of DWire for data and PulseWire for
-		  //  associated signal
-		  datareturned <= fromMaybe(32'hdeaddead,d);
-		  avalonwait_end_read.send;
+             // note duality of DWire for data and PulseWire for
+             //  associated signal
+             datareturned <= fromMaybe(32'hdeaddead,d);
+             avalonwait_end_read.send;
 	       end
 	 endmethod
       endinterface
@@ -652,12 +652,10 @@ endmodule
  N.B. as usual the names on interfaces are chosen to match what SOPC
  builder expects, so don't change!
  ****************************************************************************/
-
 interface AvalonBridgeIfc#(numeric type word_address_width);
    interface AvalonSlaveIfc#(word_address_width) avs;
    interface AvalonMasterIfc#(word_address_width) avm;
 endinterface
-   
 
 module mkAvalonBridge(AvalonBridgeIfc#(word_address_width))
    provisos(Max#(word_address_width,30,30),
@@ -672,5 +670,55 @@ module mkAvalonBridge(AvalonBridgeIfc#(word_address_width))
    interface avm = server.avm;
 endmodule		      
 
+instance Connectable#(AvalonMasterIfc#(word_address_width), AvalonSlaveIfc#(word_address_width));
+    module mkConnection#(AvalonMasterIfc#(word_address_width) master, AvalonSlaveIfc#(word_address_width) slave)(Empty);
+     Wire#(UInt#(TAdd#(2,word_address_width))) addr <- mkBypassWire;
+     Wire#(AvalonWordT) writedata <- mkBypassWire;
+     Wire#(AvalonWordT) readdata <- mkBypassWire;
+     Wire#(Bool) read <- mkBypassWire;
+     Wire#(Bool) write <- mkBypassWire;
+     Wire#(Bool) waitrequest <- mkBypassWire;
+
+     (* no_implicit_conditions *)
+     rule do_read_m;
+       read <= master.m0_read;
+     endrule
+
+     (* no_implicit_conditions *)
+     rule do_write_m;
+       write <= master.m0_write;
+     endrule
+
+     (* no_implicit_conditions *)
+     rule do_addr_m;
+       addr <= master.m0_address;
+     endrule
+
+     (* no_implicit_conditions *)
+     rule do_rdata_m;
+       writedata <= master.m0_writedata;
+     endrule
+
+     (* no_implicit_conditions *)
+     rule do_inputs_m;
+       master.m0(readdata, waitrequest);
+     endrule
+
+     (* no_implicit_conditions *)
+     rule do_inputs_s;
+       slave.s0(truncate(addr>>2), writedata, write, read);
+     endrule
+
+     (* no_implicit_conditions *)
+     rule do_readdata_s;
+       readdata <= slave.s0_readdata;
+     endrule
+
+     (* no_implicit_conditions *)
+     rule do_waitrequest_s;
+       waitrequest <= slave.s0_waitrequest;
+     endrule
+    endmodule
+endinstance
 
 endpackage

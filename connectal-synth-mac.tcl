@@ -22,4 +22,4 @@ proc fpgamake_altera_ipcore {core_name core_version ip_name} {
             --output-name=$ip_name
 }
 
-fpgamake_altera_ipcore ../mac.qsys 14.0 altera_mac
+fpgamake_altera_ipcore ../qsys/mac.qsys 14.0 altera_mac

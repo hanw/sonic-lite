@@ -44,11 +44,11 @@ import ConnectalClocks    ::*;
 import ALTERA_PLL_WRAPPER ::*;
 import EthPorts           ::*;
 import Ethernet           ::*;
-import MasterSlave        ::*;
-import Interconnect       ::*;
 import LedTop             ::*;
 import NetTop             ::*;
 import AlteraExtra        ::*;
+import ALTERA_PCIE_DMA_WRAP ::*;
+import Avalon2ClientServer ::*;
 
 `ifndef DataBusWidth
 `define DataBusWidth 64
@@ -57,77 +57,230 @@ import AlteraExtra        ::*;
 `define PinType Empty
 `endif
 
-typedef `PinType PinType;
-
-`ifdef ALTERA
-(* synthesize, no_default_clock, no_default_reset *)
-(* clock_prefix="", reset_prefix="" *)
-module mkSonicTop #(Clock pcie_refclk_p, Clock osc_50_b3b, Reset pcie_perst_n) (PcieTop#(PinType));
-`elsif VSIM
-module mkSonicTop #(Clock pcie_refclk_p, Clock osc_50_b3b, Reset pcie_perst_n) (PcieTop#(Pintype));
+`ifdef PCIE_LANES
+typedef `PCIE_LANES PcieLanes;
+`else
+typedef 8 PcieLanes;
 `endif
 
-   // ===================================
-   // PLL:
-   // Input:    50MHz
-   // Output0: 125MHz
-   // Output1: 156.25MHz
-   //
-   // NOTE: input clock must be dedicated to PLL to avoid error:
-   // Error (175020): Illegal constraint of fractional PLL to the region (x-coordinate, y- coordinate) to (x-coordinate, y-coordinate): no valid locations in region
-   // ===================================
-   AltClkCtrl clk_50_buf <- mkAltClkCtrl(osc_50_b3b);
-   Reset rst_50   <- mkResetInverter(pcie_perst_n, clocked_by clk_50_buf.outclk);
-   B2C1 clk_156_25 <- mkB2C1(clocked_by clk_50_buf.outclk, reset_by rst_50);
-   PciePllWrap pll <- mkPciePllWrap(clk_50_buf.outclk, rst_50, rst_50, clocked_by clk_50_buf.outclk, reset_by rst_50);
-   Reset rst_156_n <- mkAsyncReset(1, pcie_perst_n, clk_156_25.c);
+typedef `PinType PinType;
 
-   rule pll_clocks;
-      clk_156_25.inputclock(pll.out.clk_0);
+(* always_ready, always_enabled *)
+interface PciewrapPci_exp#(numeric type lanes);
+(* prefix="", result="tx_p" *) method Bit#(lanes) tx_p();
+(* prefix="", result="rx_p" *) method Action rx_p(Bit#(lanes) rx_p);
+endinterface
+
+(* always_ready, always_enabled *)
+interface PcieS5NetAvm;
+    method Bit#(26)               address();
+    method Bit#(1)                read();
+    method Bit#(1)                write();
+    method Bit#(32)               writedata();
+    method Action                 readdata(Bit#(32) v);
+    method Action                 waitrequest(Bit#(1) v);
+endinterface
+
+(* always_ready, always_enabled *)
+interface PcieS5DDR3Mem;
+    method Bit#(14)               mem_a()     ;
+    method Bit#(3)                mem_ba()    ;
+    method Bit#(1)                mem_cas_n() ;
+    method Bit#(1)                mem_ck()    ;
+    method Bit#(1)                mem_ck_n()  ;
+    method Bit#(1)                mem_cke()   ;
+    method Bit#(1)                mem_cs_n()  ;
+    method Bit#(8)                mem_dm()    ;
+    method Bit#(1)                mem_odt()   ;
+    method Bit#(1)                mem_ras_n() ;
+    method Bit#(1)                mem_reset_n();
+    method Bit#(1)                mem_we_n()  ;
+    interface Inout#(Bit#(64))    mem_dq      ;
+    interface Inout#(Bit#(8))     mem_dqs     ;
+    interface Inout#(Bit#(8))     mem_dqs_n   ;
+endinterface
+
+(* always_ready, always_enabled *)
+interface PciedmawrapOct;
+    method Action      rzqin(Bit#(1) v);
+endinterface
+
+(* always_ready, always_enabled *)
+interface PcieDmaTop;
+   interface PciewrapPci_exp#(PcieLanes) pcie;
+   interface PcieS5DDR3Mem ddr;
+   interface PciedmawrapOct rzqin;
+   interface AvalonMasterIfc#(24) avm;
+   interface Clock core_clk;
+endinterface
+
+(* always_ready, always_enabled *)
+interface SonicTop;
+   (* prefix = "PCIE" *)
+   interface PciewrapPci_exp#(8) pcie;
+   (* always_ready *)
+   method Bit#(NumLeds) leds();
+   (* prefix = "DDR" *)
+   interface PcieS5DDR3Mem ddr3;
+   interface PciedmawrapOct rzqin;
+   (* prefix = "Net" *)
+   interface Vector#(N_CHAN, SerialIfc) serial;
+   interface Clock deleteme_unused_clockLeds;
+   interface Clock deleteme_unused_clockNets;
+endinterface
+
+
+module vmkPcieDmaTop#(Clock clk_100MHz, Clock clk_50MHz, Clock clk_156MHz, Reset perst_n)(PcieDmaTop);
+   Reset rst_100_n <- mkAsyncReset(2, perst_n, clk_100MHz);
+   Vector#(8, Wire#(Bit#(1))) rx_in_wires <- replicateM(mkDWire(0, clocked_by clk_100MHz, reset_by rst_100_n));
+
+   Reset rst_50_n <- mkAsyncReset(3, perst_n, clk_50MHz);
+
+   PcieDmaWrap pcie_ep <- mkPcieDmaWrap(clk_50MHz, clk_156MHz, clk_100MHz, noReset(), noReset(), noReset(), perst_n, perst_n, perst_n, clocked_by clk_100MHz, reset_by rst_100_n);
+
+   (* no_implicit_conditions *)
+   rule pcie_rx;
+      pcie_ep.hip_serial.rx_in0(rx_in_wires[0]);
+      pcie_ep.hip_serial.rx_in1(rx_in_wires[1]);
+      pcie_ep.hip_serial.rx_in2(rx_in_wires[2]);
+      pcie_ep.hip_serial.rx_in3(rx_in_wires[3]);
+      pcie_ep.hip_serial.rx_in4(rx_in_wires[4]);
+      pcie_ep.hip_serial.rx_in5(rx_in_wires[5]);
+      pcie_ep.hip_serial.rx_in6(rx_in_wires[6]);
+      pcie_ep.hip_serial.rx_in7(rx_in_wires[7]);
    endrule
 
-   PcieHostTop host <- mkPcieHostTop(pcie_refclk_p, osc_50_b3b, pcie_perst_n);
+   interface PciewrapPci_exp pcie;
+      method Bit#(PcieLanes) tx_p();
+         Vector#(8, Bit#(1)) ret_val;
+         ret_val[0] = pcie_ep.hip_serial.tx_out0;
+         ret_val[1] = pcie_ep.hip_serial.tx_out1;
+         ret_val[2] = pcie_ep.hip_serial.tx_out2;
+         ret_val[3] = pcie_ep.hip_serial.tx_out3;
+         ret_val[4] = pcie_ep.hip_serial.tx_out4;
+         ret_val[5] = pcie_ep.hip_serial.tx_out5;
+         ret_val[6] = pcie_ep.hip_serial.tx_out6;
+         ret_val[7] = pcie_ep.hip_serial.tx_out7;
+         return pack(ret_val);
+      endmethod
+      method Action rx_p(Bit#(PcieLanes) v);
+         action
+            writeVReg(rx_in_wires, unpack(v));
+         endaction
+      endmethod
+   endinterface
 
-   //NetTopIfc   nets <- mkNetTop(osc_50_b3b, clk_156_25.c, rst_156_n);
-   LedTopIfc   dbg <- mkLedTop(pcie_refclk_p, pcie_perst_n, clocked_by pcie_refclk_p, reset_by pcie_perst_n);
-   Reset rst_250_n <- mkAsyncReset(1, pcie_perst_n, host.portalClock);
+   interface PciedmawrapOct rzqin;
+      method Action rzqin(Bit#(1) v);
+         pcie_ep.oct.rzqin(v);
+      endmethod
+   endinterface
 
-   // ------------
-   // Interconnect
+   interface PcieS5DDR3Mem ddr;
+      method Bit#(14) mem_a();
+         return pcie_ep.memory.mem_a();
+      endmethod
+      method Bit#(3) mem_ba();
+         return pcie_ep.memory.mem_ba();
+      endmethod
+      method Bit#(1) mem_cas_n();
+         return pcie_ep.memory.mem_cas_n();
+      endmethod
+      method Bit#(1) mem_ck();
+         return pcie_ep.memory.mem_ck();
+      endmethod
+      method Bit#(1) mem_ck_n();
+         return pcie_ep.memory.mem_ck_n();
+      endmethod
+      method Bit#(1) mem_cke();
+         return pcie_ep.memory.mem_cke();
+      endmethod
+      method Bit#(1) mem_cs_n();
+         return pcie_ep.memory.mem_cs_n();
+      endmethod
+      method Bit#(8) mem_dm();
+         return pcie_ep.memory.mem_dm();
+      endmethod
+      method Bit#(1) mem_odt();
+         return pcie_ep.memory.mem_odt();
+      endmethod
+      method Bit#(1) mem_ras_n();
+         return pcie_ep.memory.mem_ras_n();
+      endmethod
+      method Bit#(1) mem_reset_n();
+         return pcie_ep.memory.mem_reset_n();
+      endmethod
+      method Bit#(1) mem_we_n();
+         return pcie_ep.memory.mem_we_n();
+      endmethod
+      interface mem_dq = pcie_ep.memory.mem_dq;
+      interface mem_dqs = pcie_ep.memory.mem_dqs;
+      interface mem_dqs_n = pcie_ep.memory.mem_dqs_n;
+   endinterface
 
-//`ifdef IMPORT_HOSTIF
-//   ConnectalTop#(PhysAddrWidth, DataBusWidth, PinType, NumberOfMasters) portalTop <- mkConnectalTop(host, clocked_by host.portalClock, reset_by host.portalReset);
-//`else
-//   ConnectalTop#(PhysAddrWidth, DataBusWidth, PinType, NumberOfMasters) portalTop <- mkConnectalTop(clocked_by host.portalClock, reset_by host.portalReset);
-//`endif
-//
-//   mkConnection(host.tpciehost.master, portalTop.slave, clocked_by host.portalClock, reset_by host.portalReset);
-//   if (valueOf(NumberOfMasters) > 0) begin
-//      mapM(uncurry(mkConnection),zip(portalTop.masters, host.tpciehost.slave));
-//   end
-//
-//   // going from level to edge-triggered interrupt
-//   Vector#(16, Reg#(Bool)) interruptRequested <- replicateM(mkReg(False, clocked_by host.portalClock, reset_by host.portalReset));
-//   rule interrupt_rule;
-//     Maybe#(Bit#(4)) intr = tagged Invalid;
-//     for (Integer i = 0; i < 16; i = i + 1) begin
-//	 if (portalTop.interrupt[i] && !interruptRequested[i])
-//             intr = tagged Valid fromInteger(i);
-//	 interruptRequested[i] <= portalTop.interrupt[i];
-//     end
-//     if (intr matches tagged Valid .intr_num) begin
-//        ReadOnly_MSIX_Entry msixEntry = host.tpciehost.msixEntry[intr_num];
-//        host.tpciehost.interruptRequest.put(tuple2({msixEntry.addr_hi, msixEntry.addr_lo}, msixEntry.msg_data));
-//     end
-//   endrule
-//
+   interface AvalonMasterIfc avm;
+      method Action m0(AvalonWordT readdata, Bool waitrequest);
+         action
+            pcie_ep.net_avm.readdata(pack(readdata));
+            pcie_ep.net_avm.waitrequest(pack(waitrequest));
+         endaction
+      endmethod
+      method AvalonWordT m0_writedata();
+         return unpack(pcie_ep.net_avm.writedata);
+      endmethod
+      method UInt#(TAdd#(2, word_address_width)) m0_address 
+         provisos (Bits#(UInt#(TAdd#(2, word_address_width)), 26));
+         return unpack(pcie_ep.net_avm.address);
+      endmethod
+      method Bool m0_read;
+         return unpack(pcie_ep.net_avm.read);
+      endmethod
+      method Bool m0_write;
+         return unpack(pcie_ep.net_avm.write);
+      endmethod
+   endinterface
+
+   interface core_clk = pcie_ep.core.clk_clk;
+endmodule
+
+(* no_default_clock, no_default_reset *)
+module vmkSonicTop #(Clock pcie_refclk_p, Clock osc_50_b3b, Reset pcie_perst_n) (SonicTop);
+   Reset reset_high <- mkResetInverter(pcie_perst_n, clocked_by pcie_refclk_p);
+   Reset rst_50   <- mkResetInverter(pcie_perst_n, clocked_by osc_50_b3b);
+   Reset rst_50_n <- mkAsyncReset(1, pcie_perst_n, osc_50_b3b);
+   PLL156 pll_156 <- mkPLL156(osc_50_b3b, rst_50);
+
+   Reset rst_156 <- mkAsyncReset(1, reset_high, pll_156.outclk_0);
+   Reset rst_156_n <- mkAsyncReset(1, pcie_perst_n, pll_156.outclk_0);
+   PLL644 pll_644 <- mkPLL644(pll_156.outclk_0, rst_156);
+
+   //PcieHostTop host <- mkPcieHostTop(pcie_refclk_p, osc_50_b3b, pcie_perst_n);
+   PcieDmaTop host <- vmkPcieDmaTop(pcie_refclk_p, osc_50_b3b, pll_156.outclk_0, pcie_perst_n);
+
+   Reset rst_app_n  <- mkResetInverter(pcie_perst_n, clocked_by host.core_clk);
+   NetTopIfc   nets <- mkNetTop(osc_50_b3b, pll_156.outclk_0, pll_644.outclk_0, host.core_clk, rst_156_n, rst_156_n, clocked_by pll_156.outclk_0, reset_by rst_156_n);
+   LedTopIfc   dbg  <- mkLedTop(pll_156.outclk_0, rst_156_n, clocked_by pll_156.outclk_0, reset_by rst_156_n);
+
+   Reset rst_250_n <- mkAsyncReset(1, pcie_perst_n, host.core_clk);
+   mkConnection(host.avm, nets.avs, clocked_by pll_156.outclk_0, reset_by rst_156_n);
+
 `ifndef BSIM
-   interface pcie = host.tep7.pcie;
+   interface pcie = host.pcie;
+   interface ddr3 = host.ddr;
+   interface serial = nets.serial;
+   interface rzqin = host.rzqin;
+
    method Bit#(NumLeds) leds();
       return dbg.leds.leds();
    endmethod
    interface Clock deleteme_unused_clockLeds = osc_50_b3b; //host.tep7.epClock125;
-   //interface pins = portalTop.pins;
-   //interface pins = nets;
+   interface Clock deleteme_unused_clockNets = nets.clk_net;
 `endif
+endmodule
+
+(* synthesize, no_default_clock, no_default_reset *)
+(* clock_prefix="", reset_prefix="" *)
+module mkSonicTop #(Clock pcie_refclk_p, Clock osc_50_b3b, Reset pcie_perst_n) (SonicTop);
+   SonicTop _a <- vmkSonicTop(pcie_refclk_p, osc_50_b3b, pcie_perst_n);
+   return _a;
 endmodule

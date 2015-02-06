@@ -17,3 +17,11 @@ $CONNECTAL/generated/scripts/importbvi.py -o ALTERA_CLK_CTRL.bsv -I AltClkCtrl -
     -c inclk -c outclk\
     ../verilog/pll/altera_clkctrl/synthesis/altera_clkctrl.v
 
+$CONNECTAL/generated/scripts/importbvi.py -o ALTERA_PLL_156.bsv -I PLL156 -P PLL156 \
+    -c refclk -r rst -c outclk_0 \
+    ../verilog/pll/pll_156/pll_156.v
+
+$CONNECTAL/generated/scripts/importbvi.py -o ALTERA_PLL_644.bsv -I PLL644 -P PLL644 \
+    -c refclk -r rst -c outclk_0 \
+    ../verilog/pll/pll_644/pll_644.v
+

@@ -5,13 +5,18 @@ INTERFACES=Simple
 BSVFILES=bsv/EthPorts.bsv bsv/libs/Interconnect.bsv SimpleIF.bsv Top.bsv
 CPPFILES=testsimple.cpp
 NUMBER_OF_MASTERS =0
-#PIN_TYPE = NetTopIfc
+PIN_TYPE = NetTopIfc
 CONNECTALFLAGS += --pinfo=./proj.json
 CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/altera_mac.qip
 CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/altera_xcvr_reset_control_wrapper.qip
 CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/altera_xcvr_native_sv_wrapper.qip
 CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/altera_xgbe_pma_reconfig_wrapper.qip
-CONNECTALFLAGS += --xci=$(DTOP)/verilog/pll/altera_clkctrl/synthesis/altera_clkctrl.qip
+CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/altera_pll_156.qip
+CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/altera_pll_644.qip
+CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/pcie_dma.qip
+#CONNECTALFLAGS += --xci=$(DTOP)/verilog/pll/altera_clkctrl/synthesis/altera_clkctrl.qip
+#CONNECTALFLAGS += --xci=$(DTOP)/verilog/pll/pll_156/pll_156.qip
+#CONNECTALFLAGS += --xci=$(DTOP)/verilog/pll/pll_644/pll_644.qip
 CONNECTALFLAGS += --verilog=$(DTOP)/verilog/enc_dec/
 CONNECTALFLAGS += --verilog=$(DTOP)/verilog/gearbox/
 CONNECTALFLAGS += --verilog=$(DTOP)/verilog/port/
@@ -20,12 +25,13 @@ CONNECTALFLAGS += --verilog=$(DTOP)/verilog/si570/
 CONNECTALFLAGS += --verilog=$(DTOP)/verilog/timestamp/
 CONNECTALFLAGS += --verilog=$(DTOP)/verilog/traffic_controller/
 CONNECTALFLAGS += --tcl=$(DTOP)/verilog/add_sv.tcl
+CONNECTALFLAGS += --tcl=$(DTOP)/scripts/post_map_flow.tcl
 # Supported Platforms:
 # {vendor}_{platform}=1
 ALTERA_SIM_vsim=1
 ALTERA_SYNTH_de5=1
 
-PIN_BINDINGS?=-b PCIE:PCIE -b LED:LED -b OSC:OSC -b SFPA:SFPA -b SFPB:SFPB -b SFPC:SFPC -b SFPD:SFPD -b SFP:SFP
+PIN_BINDINGS?=-b PCIE:PCIE -b LED:LED -b OSC:OSC -b SFPA:SFPA -b SFPB:SFPB -b SFPC:SFPC -b SFPD:SFPD -b SFP:SFP -b DDR3A:DDR3A -b RZQ:RZQ
 
 QSYS_SIMDIR=pcie_tbed
 QUARTUS_INSTALL_DIR="/home/hwang/altera/14.0/quartus/"
@@ -33,6 +39,11 @@ QUARTUS_INSTALL_DIR="/home/hwang/altera/14.0/quartus/"
 include tests/Makefile.pcie
 
 .PHONY: vsim
+
+postgen::
+ifeq ($(ALTERA_SYNTH_$(BOARD)), 1)
+#	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) quartus_sh -t ../connectal-synth-pciedma.tcl)
+endif
 
 gentarget:: $(BOARD)/sources/sonic.qsf
 
@@ -42,8 +53,10 @@ ifeq ($(ALTERA_SIM_$(BOARD)), 1)
 	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) quartus_sh -t ../connectal-simu-pcietb.tcl)
 endif
 ifeq ($(ALTERA_SYNTH_$(BOARD)), 1)
-#	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) quartus_sh -t ../connectal-synth-pll.tcl)
+	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) quartus_sh -t $(CONNECTALDIR)/scripts/connectal-synth-pll.tcl)
 	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) quartus_sh -t ../connectal-synth-mac.tcl)
+	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) quartus_sh -t ../connectal-synth-pciedma.tcl)
+	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) quartus_sh -t ../connectal-synth-ddr3.tcl)
 endif
 
 $(BOARD)/sources/sonic.qsf: sonic.json $(CONNECTALDIR)/boardinfo/$(BOARD).json
