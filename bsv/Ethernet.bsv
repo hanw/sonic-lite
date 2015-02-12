@@ -45,6 +45,16 @@ typedef struct {
    Bool                    valid;
 } PacketData#(numeric type dataT_width) deriving (Bits, Eq);
 
+typedef struct {
+   Bit#(8)  data;
+   Bit#(1)  control;
+} XGMII_LANES deriving (Bits);
+
+//typedef struct {
+//   Vector#(8, Bit#(8)) data;
+//   Vector#(8, Bit#(1)) control;
+//} XGMII deriving (Bits);
+
 instance DefaultValue#(PacketData#(n));
    defaultValue = 
    PacketData {
