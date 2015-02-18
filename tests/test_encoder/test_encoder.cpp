@@ -16,7 +16,7 @@
 sem_t test_sem;
 
 int burstLen = 16;
-int numWords = 0x100/4;
+int numWords = 0x1000/4;
 size_t test_sz = numWords*sizeof(unsigned long int);
 size_t alloc_sz = test_sz;
 
@@ -39,7 +39,7 @@ int main(int argc, char **argv) {
     MemServerIndication *hostMemServerIndication = new MemServerIndication(hostMemServerRequest, IfcNames_HostMemServerIndication);
     MMUIndication *hostMMUIndication = new MMUIndication(dma, IfcNames_HostMMUIndication);
 
-    const std::string path="../data/test_vector.dat";
+    const std::string path="../data/list.hex";
     std::ifstream traceinfo(path.c_str());
     std::string line;
 
