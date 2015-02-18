@@ -45,91 +45,21 @@ deriving (Bits, Eq);
 module mkDecoder#(PipeOut#(Bit#(66)) decoderIn)(Decoder);
 
    let verbose = True;
-   Reg#(Bit#(32)) cycle         <- mkReg(0);
-   FIFOF#(Bit#(66))  fifo_in    <- mkBypassFIFOF;
-   FIFOF#(Bit#(72))  fifo_out   <- mkBypassFIFOF;
-
-   //---------------------------------------------------------------------------------
-   // Signals that hold the value of the data and the coresponding control bit
-   // for each byte lane.
-   //---------------------------------------------------------------------------------
-   Reg#(Bit#(8)) byte0 <- mkReg(0);
-   Reg#(Bit#(8)) byte1 <- mkReg(0);
-   Reg#(Bit#(8)) byte2 <- mkReg(0);
-   Reg#(Bit#(8)) byte3 <- mkReg(0);
-   Reg#(Bit#(8)) byte4 <- mkReg(0);
-   Reg#(Bit#(8)) byte5 <- mkReg(0);
-   Reg#(Bit#(8)) byte6 <- mkReg(0);
-   Reg#(Bit#(8)) byte7 <- mkReg(0);
-   Reg#(Bit#(1)) c0    <- mkReg(0);
-   Reg#(Bit#(1)) c1    <- mkReg(0);
-   Reg#(Bit#(1)) c2    <- mkReg(0);
-   Reg#(Bit#(1)) c3    <- mkReg(0);
-   Reg#(Bit#(1)) c4    <- mkReg(0);
-   Reg#(Bit#(1)) c5    <- mkReg(0);
-   Reg#(Bit#(1)) c6    <- mkReg(0);
-   Reg#(Bit#(1)) c7    <- mkReg(0);
-
-   //---------------------------------------------------------------------------------
-   // Signals to hold the value in each component of the input data.
-   //---------------------------------------------------------------------------------
-   Wire#(Bit#(2)) sync_field <- mkDWire(0);
-   Wire#(Bit#(8)) type_field <- mkDWire(0);
-   Wire#(Bit#(66)) data_field<- mkDWire(0);
-   Wire#(Bit#(1)) data_word    <- mkDWire(0);
-   Wire#(Bit#(1)) control_word <- mkDWire(0);
-
-   //---------------------------------------------------------------------------------
-   // A signal for each valid type field value.
-   //---------------------------------------------------------------------------------
-   Wire#(Bit#(1)) type_1e <- mkDWire(0);
-   Wire#(Bit#(1)) type_2d <- mkDWire(0);
-   Wire#(Bit#(1)) type_33 <- mkDWire(0);
-   Wire#(Bit#(1)) type_66 <- mkDWire(0);
-   Wire#(Bit#(1)) type_55 <- mkDWire(0);
-   Wire#(Bit#(1)) type_78 <- mkDWire(0);
-   Wire#(Bit#(1)) type_4b <- mkDWire(0);
-   Wire#(Bit#(1)) type_87 <- mkDWire(0);
-   Wire#(Bit#(1)) type_99 <- mkDWire(0);
-   Wire#(Bit#(1)) type_aa <- mkDWire(0);
-   Wire#(Bit#(1)) type_b4 <- mkDWire(0);
-   Wire#(Bit#(1)) type_cc <- mkDWire(0);
-   Wire#(Bit#(1)) type_d2 <- mkDWire(0);
-   Wire#(Bit#(1)) type_e1 <- mkDWire(0);
-   Wire#(Bit#(1)) type_ff <- mkDWire(0);
-
-   Reg#(Bit#(15)) type_reg <- mkReg(0);
-
-   //---------------------------------------------------------------------------------
-   // Internal data bus signals.
-   //---------------------------------------------------------------------------------
-   Wire#(Bit#(66)) int_data_in <- mkDWire(0);
-   Reg#(Bit#(66))  data_field_reg <- mkReg(0);
-
-   //---------------------------------------------------------------------------------
-   // Signals for decoding the control characters.
-   //---------------------------------------------------------------------------------
-   Vector#(8, Reg#(Bit#(8))) control <- replicateM(mkReg(0));
-
-   //---------------------------------------------------------------------------------
-   // Signals output to the fifo to indicate when ordered sets are being received.
-   //---------------------------------------------------------------------------------
-   Reg#(Bit#(1)) lane0_seq_9c <- mkReg(0);
-   Reg#(Bit#(1)) lane0_seq_5c <- mkReg(0);
-   Reg#(Bit#(1)) lane4_seq_9c <- mkReg(0);
-   Reg#(Bit#(1)) lane4_seq_5c <- mkReg(0);
+   Reg#(Bit#(32)) cycle                 <- mkReg(0);
+   FIFOF#(Bit#(66))  fifo_in            <- mkBypassFIFOF;
+   FIFOF#(Bit#(72))  fifo_out           <- mkBypassFIFOF;
+   Vector#(8, FIFOF#(Bit#(8)))  dataFifo      <- replicateM(mkFIFOF);
+   Vector#(8, FIFOF#(Bit#(1)))  ctrlFifo      <- replicateM(mkFIFOF);
+   Vector#(8, FIFOF#(Bit#(8)))  controlFifo   <- replicateM(mkFIFOF);
+   Vector#(8, FIFOF#(Bit#(66))) dataFieldFifo <- replicateM(mkFIFOF);
+   Vector#(8, FIFOF#(Bit#(15))) typeRegFifo   <- replicateM(mkFIFOF);
+   FIFOF#(Bit#(1)) lane0Seq9cFifo       <- mkFIFOF;
+   FIFOF#(Bit#(1)) lane0Seq5cFifo       <- mkFIFOF;
+   FIFOF#(Bit#(1)) lane4Seq9cFifo       <- mkFIFOF;
+   FIFOF#(Bit#(1)) lane4Seq5cFifo       <- mkFIFOF;
 
    rule cyc;
       cycle <= cycle + 1;
-   endrule
-
-   rule incoming;
-      let v <- toGet(decoderIn).get;
-      sync_field <= v[1:0];
-      type_field <= v[9:2];
-      data_field <= v;
-      data_field_reg <= v;
-      fifo_in.enq(v);
    endrule
 
    //-------------------------------------------------------------------------------
@@ -140,384 +70,509 @@ module mkDecoder#(PipeOut#(Bit#(66)) decoderIn)(Decoder);
    // is because the other valid control characters except error are decoded
    // by the type field. The positions of each byte are given in figure 49-7 in the spec
    //-------------------------------------------------------------------------------
-   rule for_control_word;
+   rule stage1_decode;
+      let v <- toGet(decoderIn).get;
+      Bit#(2) sync_field = 0;
+      Bit#(8) type_field = 0;
+      Bit#(66) data_field = 0;
+      Bit#(1) type_1e = 0;
+      Bit#(1) type_2d = 0;
+      Bit#(1) type_33 = 0;
+      Bit#(1) type_66 = 0;
+      Bit#(1) type_55 = 0;
+      Bit#(1) type_78 = 0;
+      Bit#(1) type_4b = 0;
+      Bit#(1) type_87 = 0;
+      Bit#(1) type_99 = 0;
+      Bit#(1) type_aa = 0;
+      Bit#(1) type_b4 = 0;
+      Bit#(1) type_cc = 0;
+      Bit#(1) type_d2 = 0;
+      Bit#(1) type_e1 = 0;
+      Bit#(1) type_ff = 0;
+      Bit#(1) data_word   = 0;
+      Bit#(1) control_word = 0;
+
+      Bit#(1) lane0Seq9c = 0;
+      Bit#(1) lane0Seq5c = 0;
+      Bit#(1) lane4Seq9c = 0;
+      Bit#(1) lane4Seq5c = 0;
+
+      Bit#(15) type_reg = 0;
+
+      sync_field = v[1:0];
+      type_field = v[9:2];
+      data_field = v;
+
+      //if(verbose) $display("%d: data in %h", cycle, v);
+      Vector#(8, Bit#(8)) ctrl;
       for (Integer i=0; i<8; i=i+1) begin
          Integer idx_hi = (i+1)*7+9;
          Integer idx_lo = (i+1)*7+3;
          if (data_field[idx_hi:idx_lo] == 7'b0000000) begin
-            control[i] <= 8'b00000111 ; // Idle character.
+            ctrl[i] = 8'b00000111 ; // Idle character.
          end
          else if (data_field[idx_hi:idx_lo] == 7'b0101101) begin
-            control[i] <= 8'b00011100 ; // Reserved 0 character.
+            ctrl[i] = 8'b00011100 ; // Reserved 0 character.
          end
          else if (data_field[idx_hi:idx_lo] == 7'b0110011) begin
-            control[i] <= 8'b00111100 ; // Reserved 1 character.
+            ctrl[i] = 8'b00111100 ; // Reserved 1 character.
          end
          else if (data_field[idx_hi:idx_lo] == 7'b1001011) begin
-            control[i] <= 8'b01111100 ; // Reserved 2 character.
+            ctrl[i] = 8'b01111100 ; // Reserved 2 character.
          end
          else if (data_field[idx_hi:idx_lo] == 7'b1010101) begin
-            control[i] <= 8'b10111100 ; // Reserved 3 character.
+            ctrl[i] = 8'b10111100 ; // Reserved 3 character.
          end
          else if (data_field[idx_hi:idx_lo] == 7'b1100110) begin
-            control[i] <= 8'b11011100 ; // Reserved 4 character.
+            ctrl[i] = 8'b11011100 ; // Reserved 4 character.
          end
          else if (data_field[idx_hi:idx_lo] == 7'b1111000) begin
-            control[i] <= 8'b11110111 ; // Reserved 5 character.
+            ctrl[i] = 8'b11110111 ; // Reserved 5 character.
          end
          else begin
-            control[i] <= 8'b11111110 ; // Error character.
+            ctrl[i] = 8'b11111110 ; // Error character.
          end
+         controlFifo[i].enq(ctrl[i]);
       end
-   endrule
 
-   rule for_lane_seq;
-      lane0_seq_9c <= (sync_field[0] & ~(sync_field[1])) & ((type_66 | type_55 | type_4b) & ~(data_field[35]) & ~(data_field[34]) & ~(data_field[33]) & ~(data_field[32])) ;
-      lane0_seq_5c <= (sync_field[0] & ~(sync_field[1])) & ((type_66 | type_55 | type_4b) & data_field[35] & data_field[34] & data_field[33] & data_field[32]) ;
-      lane4_seq_9c <= (sync_field[0] & ~(sync_field[1])) & ((type_2d | type_55) & ~(data_field[39]) & ~(data_field[38]) & ~(data_field[37]) & ~(data_field[36])) ;
-      lane4_seq_5c <= (sync_field[0] & ~(sync_field[1])) & ((type_2d | type_55) & data_field[39] & data_field[38] & data_field[37] & data_field[36]) ;
-   endrule
+      //for (Integer i=0; i<8; i=i+1) begin
+      //   if(verbose) $display("%d: ctrl[%d]=%h", cycle, i, ctrl[i]);
+      //end
 
-   //-------------------------------------------------------------------------------
-   // Decode the sync field and the type field to determine what sort of data
-   // word was transmitted. The different types are given in figure 49-7 in the spec.
-   //-------------------------------------------------------------------------------
-   rule for_control_field;
-      data_word <= ~(sync_field[0]) & sync_field[1] ;
-      control_word <= sync_field[0] & ~(sync_field[1]) ;
-      type_1e <= ~(type_field[7]) & ~(type_field[6]) & ~(type_field[5]) & type_field[4] & type_field[3] & type_field[2] & type_field[1] & ~(type_field[0]) ;
-      type_2d <= ~(type_field[7]) & ~(type_field[6]) & type_field[5] & ~(type_field[4]) & type_field[3] & type_field[2] & ~(type_field[1]) & type_field[0] ;
-      type_33 <= ~(type_field[7]) & ~(type_field[6]) & type_field[5] & type_field[4] & ~(type_field[3]) & ~(type_field[2]) & type_field[1] & type_field[0] ;
-      type_66 <= ~(type_field[7]) & type_field[6] & type_field[5] & ~(type_field[4]) & ~(type_field[3]) & type_field[2] & type_field[1] & ~(type_field[0]) ;
-      type_55 <= ~(type_field[7]) & type_field[6] & ~(type_field[5]) & type_field[4] & ~(type_field[3]) & type_field[2] & ~(type_field[1]) & type_field[0] ;
-      type_78 <= ~(type_field[7]) & type_field[6] & type_field[5] & type_field[4] & type_field[3] & ~(type_field[2]) & ~(type_field[1]) & ~(type_field[0]) ;
-      type_4b <= ~(type_field[7]) & type_field[6] & ~(type_field[5]) & ~(type_field[4]) & type_field[3] & ~(type_field[2]) & type_field[1] & type_field[0] ;
-      type_87 <= type_field[7] & ~(type_field[6]) & ~(type_field[5]) & ~(type_field[4]) & ~(type_field[3]) & type_field[2] & type_field[1] & type_field[0] ;
-      type_99 <= type_field[7] & ~(type_field[6]) & ~(type_field[5]) & type_field[4] & type_field[3] & ~(type_field[2]) & ~(type_field[1]) & type_field[0] ;
-      type_aa <= type_field[7] & ~(type_field[6]) & type_field[5] & ~(type_field[4]) & type_field[3] & ~(type_field[2]) & type_field[1] & ~(type_field[0]) ;
-      type_b4 <= type_field[7] & ~(type_field[6]) & type_field[5] & type_field[4] & ~(type_field[3]) & type_field[2] & ~(type_field[1]) & ~(type_field[0]) ;
-      type_cc <= type_field[7] & type_field[6] & ~(type_field[5]) & ~(type_field[4]) & type_field[3] & type_field[2] & ~(type_field[1]) & ~(type_field[0]) ;
-      type_d2 <= type_field[7] & type_field[6] & ~(type_field[5]) & type_field[4] & ~(type_field[3]) & ~(type_field[2]) & type_field[1] & ~(type_field[0]) ;
-      type_e1 <= type_field[7] & type_field[6] & type_field[5] & ~(type_field[4]) & ~(type_field[3]) & ~(type_field[2]) & ~(type_field[1]) & type_field[0] ;
-      type_ff <= type_field[7] & type_field[6] & type_field[5] & type_field[4] & type_field[3] & type_field[2] & type_field[1] & type_field[0] ;
-   endrule
+      //-------------------------------------------------------------------------------
+      // Decode the sync field and the type field to determine what sort of data
+      // word was transmitted. The different types are given in figure 49-7 in the spec.
+      //-------------------------------------------------------------------------------
+      data_word = ~(sync_field[0]) & sync_field[1] ;
+      control_word = sync_field[0] & ~(sync_field[1]) ;
+      type_1e = ~(type_field[7]) & ~(type_field[6]) & ~(type_field[5]) & type_field[4] & type_field[3] & type_field[2] & type_field[1] & ~(type_field[0]) ;
+      type_2d = ~(type_field[7]) & ~(type_field[6]) & type_field[5] & ~(type_field[4]) & type_field[3] & type_field[2] & ~(type_field[1]) & type_field[0] ;
+      type_33 = ~(type_field[7]) & ~(type_field[6]) & type_field[5] & type_field[4] & ~(type_field[3]) & ~(type_field[2]) & type_field[1] & type_field[0] ;
+      type_66 = ~(type_field[7]) & type_field[6] & type_field[5] & ~(type_field[4]) & ~(type_field[3]) & type_field[2] & type_field[1] & ~(type_field[0]) ;
+      type_55 = ~(type_field[7]) & type_field[6] & ~(type_field[5]) & type_field[4] & ~(type_field[3]) & type_field[2] & ~(type_field[1]) & type_field[0] ;
+      type_78 = ~(type_field[7]) & type_field[6] & type_field[5] & type_field[4] & type_field[3] & ~(type_field[2]) & ~(type_field[1]) & ~(type_field[0]) ;
+      type_4b = ~(type_field[7]) & type_field[6] & ~(type_field[5]) & ~(type_field[4]) & type_field[3] & ~(type_field[2]) & type_field[1] & type_field[0] ;
+      type_87 = type_field[7] & ~(type_field[6]) & ~(type_field[5]) & ~(type_field[4]) & ~(type_field[3]) & type_field[2] & type_field[1] & type_field[0] ;
+      type_99 = type_field[7] & ~(type_field[6]) & ~(type_field[5]) & type_field[4] & type_field[3] & ~(type_field[2]) & ~(type_field[1]) & type_field[0] ;
+      type_aa = type_field[7] & ~(type_field[6]) & type_field[5] & ~(type_field[4]) & type_field[3] & ~(type_field[2]) & type_field[1] & ~(type_field[0]) ;
+      type_b4 = type_field[7] & ~(type_field[6]) & type_field[5] & type_field[4] & ~(type_field[3]) & type_field[2] & ~(type_field[1]) & ~(type_field[0]) ;
+      type_cc = type_field[7] & type_field[6] & ~(type_field[5]) & ~(type_field[4]) & type_field[3] & type_field[2] & ~(type_field[1]) & ~(type_field[0]) ;
+      type_d2 = type_field[7] & type_field[6] & ~(type_field[5]) & type_field[4] & ~(type_field[3]) & ~(type_field[2]) & type_field[1] & ~(type_field[0]) ;
+      type_e1 = type_field[7] & type_field[6] & type_field[5] & ~(type_field[4]) & ~(type_field[3]) & ~(type_field[2]) & ~(type_field[1]) & type_field[0] ;
+      type_ff = type_field[7] & type_field[6] & type_field[5] & type_field[4] & type_field[3] & type_field[2] & type_field[1] & type_field[0] ;
 
-   //-------------------------------------------------------------------------------
-   // Translate these signals to give the type of data in each byte.
-   // Prior to this the type signals above are registered as the delay through the
-   // above equations could be considerable.
-   //-------------------------------------------------------------------------------
+      //-------------------------------------------------------------------------------
+      // Translate these signals to give the type of data in each byte.
+      // Prior to this the type signals above are registered as the delay through the
+      // above equations could be considerable.
+      //-------------------------------------------------------------------------------
+      type_reg = ({(control_word & type_ff), (control_word & type_e1), (control_word & type_d2), (control_word & type_cc), (control_word & type_b4), (control_word & type_aa), (control_word & type_99), (control_word & type_87), (control_word & type_4b), (control_word & type_78), (control_word & type_55), (control_word & type_66), (control_word & type_33), (control_word & type_2d), (control_word & type_1e)}) ;
 
-   rule for_type_reg;
-      type_reg <= ({(control_word & type_ff), (control_word & type_e1), (control_word & type_d2), (control_word & type_cc), (control_word & type_b4), (control_word & type_aa), (control_word & type_99), (control_word & type_87), (control_word & type_4b), (control_word & type_78), (control_word & type_55), (control_word & type_66), (control_word & type_33), (control_word & type_2d), (control_word & type_1e)}) ;
+      //if(verbose) $display("data_field %h", data_field);
+      //if(verbose) $display("typereg %h", type_reg);
+
+      lane0Seq9c = (sync_field[0] & ~(sync_field[1])) & ((type_66 | type_55 | type_4b) & ~(data_field[35]) & ~(data_field[34]) & ~(data_field[33]) & ~(data_field[32])) ;
+      lane0Seq5c = (sync_field[0] & ~(sync_field[1])) & ((type_66 | type_55 | type_4b) & data_field[35] & data_field[34] & data_field[33] & data_field[32]) ;
+      lane4Seq9c = (sync_field[0] & ~(sync_field[1])) & ((type_2d | type_55) & ~(data_field[39]) & ~(data_field[38]) & ~(data_field[37]) & ~(data_field[36])) ;
+      lane4Seq5c = (sync_field[0] & ~(sync_field[1])) & ((type_2d | type_55) & data_field[39] & data_field[38] & data_field[37] & data_field[36]) ;
+
+      //if(verbose) $display("laneseq %d %d %d %d", lane0Seq9c, lane0Seq5c, lane4Seq9c, lane4Seq5c);
+ 
+      for (Integer i=0; i<8; i=i+1) begin
+         dataFieldFifo[i].enq(data_field);
+         typeRegFifo[i].enq(type_reg);
+      end
+      lane0Seq9cFifo.enq(lane0Seq9c);
+      lane0Seq5cFifo.enq(lane0Seq5c);
+      lane4Seq9cFifo.enq(lane4Seq9c);
+      lane4Seq5cFifo.enq(lane4Seq5c);
    endrule
 
    //-------------------------------------------------------------------------------
    // Put the input data into the correct byte lane at the output.
    //-------------------------------------------------------------------------------
    rule for_lane0;
+      let type_reg <- toGet(typeRegFifo[0]).get();
+      let control  <- toGet(controlFifo[0]).get();
+      let data_field <- toGet(dataFieldFifo[0]).get();
+      let lane0_seq_9c <- toGet(lane0Seq9cFifo).get();
+      let lane0_seq_5c <- toGet(lane0Seq5cFifo).get();
+
+      Bit#(8) data = 0;
+      Bit#(1) ctrl = 0;
       if (type_reg[2:0] != 3'b000)
       begin
-         byte0 <= control[0] ; // Control character.
-         c0 <= 1'b1 ;
+         data = control; // Control character.
+         ctrl = 1'b1 ;
       end
       else if ((type_reg[3]) == 1'b1 && lane0_seq_9c == 1'b1)
       begin
-         byte0 <= 8'b10011100 ; // Sequence field (9C).
-         c0 <= 1'b1 ;
+         data = 8'b10011100 ; // Sequence field (9C).
+         ctrl = 1'b1 ;
       end
       else if ((type_reg[3]) == 1'b1 && lane0_seq_5c == 1'b1)
       begin
-         byte0 <= 8'b01011100 ; // Sequence field (5C).
-         c0 <= 1'b1 ;
+         data = 8'b01011100 ; // Sequence field (5C).
+         ctrl = 1'b1 ;
       end
       else if ((type_reg[4]) == 1'b1 && lane0_seq_9c == 1'b1)
       begin
-         byte0 <= 8'b10011100 ; // Sequence field (9C).
-         c0 <= 1'b1 ;
+         data = 8'b10011100 ; // Sequence field (9C).
+         ctrl = 1'b1 ;
       end
       else if ((type_reg[4]) == 1'b1 && lane0_seq_5c == 1'b1)
       begin
-         byte0 <= 8'b01011100 ; // Sequence field (5C).
-         c0 <= 1'b1 ;
+         data = 8'b01011100 ; // Sequence field (5C).
+         ctrl = 1'b1 ;
       end
       else if ((type_reg[5]) == 1'b1)
       begin
-         byte0 <= 8'b11111011 ; // Start field.
-         c0 <= 1'b1 ;
+         data = 8'b11111011 ; // Start field.
+         ctrl = 1'b1 ;
       end
       else if ((type_reg[6]) == 1'b1 && lane0_seq_9c == 1'b1)
       begin
-         byte0 <= 8'b10011100 ; // Sequence field (9C).
-         c0 <= 1'b1 ;
+         data = 8'b10011100 ; // Sequence field (9C).
+         ctrl = 1'b1 ;
       end
       else if ((type_reg[6]) == 1'b1 && lane0_seq_5c == 1'b1)
       begin
-         byte0 <= 8'b01011100 ; // Sequence field (5C).
-         c0 <= 1'b1 ;
+         data = 8'b01011100 ; // Sequence field (5C).
+         ctrl = 1'b1 ;
       end
       else if ((type_reg[7]) == 1'b1)
       begin
-         byte0 <= 8'b11111101 ; // Termimation.
-         c0 <= 1'b1 ;
+         data = 8'b11111101 ; // Termimation.
+         ctrl = 1'b1 ;
       end
       else if (type_reg[14:8] != 7'b0000000)
       begin
-         byte0 <= data_field_reg[17:10] ; // Data byte 0.
-         c0 <= 1'b0 ;
+         data = data_field[17:10] ; // Data byte 0.
+         ctrl = 1'b0 ;
       end
       else
       begin
          // If the input doesn\'t contain a control character then the type field
          // is set to be the first data byte.
-         byte0 <= data_field_reg[9:2] ;
-         c0 <= 1'b0 ;
+         data = data_field[9:2] ;
+         ctrl = 1'b0 ;
       end
+      dataFifo[0].enq(data);
+      ctrlFifo[0].enq(ctrl);
    endrule
 
-   rule for_lane1;
+   rule for_lane1 ;
+      let type_reg <- toGet(typeRegFifo[1]).get();
+      let control  <- toGet(controlFifo[1]).get();
+      let data_field <- toGet(dataFieldFifo[1]).get();
+      Bit#(8) data = 0;
+      Bit#(1) ctrl = 0;
       if (type_reg[2:0] != 3'b000)
       begin
-         byte1 <= control[1] ; // Control character.
-         c1 <= 1'b1 ;
+         data = control; // Control character.
+         ctrl = 1'b1 ;
       end
       else if (type_reg[6:3] != 4'b0000)
       begin
-         byte1 <= data_field_reg[17:10] ; // Data byte 1
-         c1 <= 1'b0 ;
+         data = data_field[17:10] ; // Data byte 1
+         ctrl = 1'b0 ;
       end
       else if ((type_reg[7]) == 1'b1)
       begin
-         byte1 <= control[1] ; // Control character.
-         c1 <= 1'b1 ;
+         data = control; // Control character.
+         ctrl = 1'b1 ;
       end
       else if ((type_reg[8]) == 1'b1)
       begin
-         byte1 <= 8'b11111101 ; // Termination.
-         c1 <= 1'b1 ;
+         data = 8'b11111101 ; // Termination.
+         ctrl = 1'b1 ;
       end
       else if (type_reg[14:9] != 6'b000000)
       begin
-         byte1 <= data_field_reg[25:18] ; // Data byte 1
-         c1 <= 1'b0 ;
+         data = data_field[25:18] ; // Data byte 1
+         ctrl = 1'b0 ;
       end
       else
       begin
          // If the input doesn\'t contain a control character then the type field
          // is set to be the second data byte.
-         byte1 <= data_field_reg[17:10] ;
-         c1 <= 1'b0 ;
+         data = data_field[17:10] ;
+         ctrl = 1'b0 ;
       end
+      dataFifo[1].enq(data);
+      ctrlFifo[1].enq(ctrl);
    endrule
 
-   rule for_lane2;
+   rule for_lane2 ;
+      let type_reg <- toGet(typeRegFifo[2]).get();
+      let control  <- toGet(controlFifo[2]).get();
+      let data_field <- toGet(dataFieldFifo[2]).get();
+      Bit#(8) data = 0;
+      Bit#(1) ctrl = 0;
       if (type_reg[2:0] != 3'b000 || type_reg[8:7] != 2'b00)
       begin
-         byte2 <= control[2] ; // Control character.
-         c2 <= 1'b1 ;
+         data = control; // Control character.
+         ctrl = 1'b1 ;
       end
       else if (type_reg[6:3] != 4'b0000)
       begin
-         byte2 <= data_field_reg[25:18] ; // Data byte 2
-         c2 <= 1'b0 ;
+         data = data_field[25:18] ; // Data byte 2
+         ctrl = 1'b0 ;
       end
       else if ((type_reg[9]) == 1'b1)
       begin
-         byte2 <= 8'b11111101 ; // Termination.
-         c2 <= 1'b1 ;
+         data = 8'b11111101 ; // Termination.
+         ctrl = 1'b1 ;
       end
       else if (type_reg[14:10] != 5'b00000)
       begin
-         byte2 <= data_field_reg[33:26] ; // Data byte 2
-         c2 <= 1'b0 ;
+         data = data_field[33:26] ; // Data byte 2
+         ctrl = 1'b0 ;
       end
       else
       begin
          // If the input doesn\'t contain a control character then the type field
          // is set to be the third data byte.
-         byte2 <= data_field_reg[25:18] ;
-         c2 <= 1'b0 ;
+         data = data_field[25:18] ;
+         ctrl = 1'b0 ;
       end
+      dataFifo[2].enq(data);
+      ctrlFifo[2].enq(ctrl);
    endrule
 
-   rule for_lane3;
+   rule for_lane3 ;
+      let type_reg <- toGet(typeRegFifo[3]).get();
+      let control  <- toGet(controlFifo[3]).get();
+      let data_field <- toGet(dataFieldFifo[3]).get();
+      Bit#(8) data = 0;
+      Bit#(1) ctrl = 0;
       if (type_reg[2:0] != 3'b000 || type_reg[9:7] != 3'b000)
       begin
-         byte3 <= control[3] ; // Control character.
-         c3 <= 1'b1 ;
+         data = control; // Control character.
+         ctrl = 1'b1 ;
       end
       else if (type_reg[6:3] != 4'b0000)
       begin
-         byte3 <= data_field_reg[33:26] ; // Data byte 3
-         c3 <= 1'b0 ;
+         data = data_field[33:26] ; // Data byte 3
+         ctrl = 1'b0 ;
       end
       else if ((type_reg[10]) == 1'b1)
       begin
-         byte3 <= 8'b11111101 ; // Termination.
-         c3 <= 1'b1 ;
+         data = 8'b11111101 ; // Termination.
+         ctrl = 1'b1 ;
       end
       else if (type_reg[14:11] != 4'b0000)
       begin
-         byte3 <= data_field_reg[41:34] ; // Data byte 3
-         c3 <= 1'b0 ;
+         data = data_field[41:34] ; // Data byte 3
+         ctrl = 1'b0 ;
       end
       else
       begin
          // If the input doesn\'t contain a control character then the type field
          // is set to be the fourth data byte.
-         byte3 <= data_field_reg[33:26] ;
-         c3 <= 1'b0 ;
+         data = data_field[33:26] ;
+         ctrl = 1'b0 ;
       end
+      dataFifo[3].enq(data);
+      ctrlFifo[3].enq(ctrl);
    endrule
 
-   rule for_lane4;
+   rule for_lane4 ;
+      let type_reg <- toGet(typeRegFifo[4]).get();
+      let control  <- toGet(controlFifo[4]).get();
+      let data_field <- toGet(dataFieldFifo[4]).get();
+      let lane4_seq_9c <- toGet(lane4Seq9cFifo).get();
+      let lane4_seq_5c <- toGet(lane4Seq5cFifo).get();
+      Bit#(8) data = 0;
+      Bit#(1) ctrl = 0;
       if ((type_reg[0]) == 1'b1 || type_reg[10:6] != 5'b00000)
       begin
-         byte4 <= control[4] ; // Control character.
-         c4 <= 1'b1 ;
+         data = control; // Control character.
+         ctrl = 1'b1 ;
       end
       else if ((type_reg[1]) == 1'b1 && lane4_seq_9c == 1'b1)
       begin
-         byte4 <= 8'b10011100 ; // Sequence field.
-         c4 <= 1'b1 ;
+         data = 8'b10011100 ; // Sequence field.
+         ctrl = 1'b1 ;
       end
       else if ((type_reg[1]) == 1'b1 && lane4_seq_5c == 1'b1)
       begin
-         byte4 <= 8'b01011100 ; // Sequence field.
-         c4 <= 1'b1 ;
+         data = 8'b01011100 ; // Sequence field.
+         ctrl = 1'b1 ;
       end
       else if ((type_reg[2]) == 1'b1)
       begin
-         byte4 <= 8'b11111011 ; // Start field.
-         c4 <= 1'b1 ;
+         data = 8'b11111011 ; // Start field.
+         ctrl = 1'b1 ;
       end
       else if ((type_reg[3]) == 1'b1)
       begin
-         byte4 <= 8'b11111011 ; // Start field.
-         c4 <= 1'b1 ;
+         data = 8'b11111011 ; // Start field.
+         ctrl = 1'b1 ;
       end
       else if ((type_reg[4]) == 1'b1 && lane4_seq_9c == 1'b1)
       begin
-         byte4 <= 8'b10011100 ; // Sequence field.
-         c4 <= 1'b1 ;
+         data = 8'b10011100 ; // Sequence field.
+         ctrl = 1'b1 ;
       end
       else if ((type_reg[4]) == 1'b1 && lane4_seq_5c == 1'b1)
       begin
-         byte4 <= 8'b01011100 ; // Sequence field.
-         c4 <= 1'b1 ;
+         data = 8'b01011100 ; // Sequence field.
+         ctrl = 1'b1 ;
       end
       else if ((type_reg[5]) == 1'b1)
       begin
-         byte4 <= data_field_reg[41:34] ; // Termimation.
-         c4 <= 1'b0 ;
+         data = data_field[41:34] ; // Termimation.
+         ctrl = 1'b0 ;
       end
       else if ((type_reg[11]) == 1'b1)
       begin
-         byte4 <= 8'b11111101 ; // Termination.
-         c4 <= 1'b1 ;
+         data = 8'b11111101 ; // Termination.
+         ctrl = 1'b1 ;
       end
       else if (type_reg[14:12] != 3'b000)
       begin
-         byte4 <= data_field_reg[49:42] ; // Data byte 4.
-         c4 <= 1'b0 ;
+         data = data_field[49:42] ; // Data byte 4.
+         ctrl = 1'b0 ;
       end
       else
       begin
          // If the input doesn\'t contain a control character then the type field
          // is set to be the fifth data byte.
-         byte4 <= data_field_reg[41:34] ;
-         c4 <= 1'b0 ;
+         data = data_field[41:34] ;
+         ctrl = 1'b0 ;
       end
+      dataFifo[4].enq(data);
+      ctrlFifo[4].enq(ctrl);
    endrule
 
-   rule for_lane5;
+   rule for_lane5 ;
+      let type_reg <- toGet(typeRegFifo[5]).get();
+      let control  <- toGet(controlFifo[5]).get();
+      let data_field <- toGet(dataFieldFifo[5]).get();
+      Bit#(8) data = 0;
+      Bit#(1) ctrl = 0;
       if ((type_reg[0]) == 1'b1 || type_reg[11:6] != 6'b000000)
       begin
-         byte5 <= control[5] ; // Control character.
-         c5 <= 1'b1 ;
+         data = control; // Control character.
+         ctrl = 1'b1 ;
       end
       else if (type_reg[5:1] != 5'b00000)
       begin
-         byte5 <= data_field_reg[49:42] ; // Data byte 5
-         c5 <= 1'b0 ;
+         data = data_field[49:42] ; // Data byte 5
+         ctrl = 1'b0 ;
       end
       else if ((type_reg[12]) == 1'b1)
       begin
-         byte5 <= 8'b11111101 ; // Termination.
-         c5 <= 1'b1 ;
+         data = 8'b11111101 ; // Termination.
+         ctrl = 1'b1 ;
       end
       else if (type_reg[14:13] != 2'b00)
       begin
-         byte5 <= data_field_reg[57:50] ; // Data byte 5
-         c5 <= 1'b0 ;
+         data = data_field[57:50] ; // Data byte 5
+         ctrl = 1'b0 ;
       end
       else
       begin
          // If the input doesn\'t contain a control character then the type field
          // is set to be the sixth data byte.
-         byte5 <= data_field_reg[49:42] ;
-         c5 <= 1'b0 ;
+         data = data_field[49:42] ;
+         ctrl = 1'b0 ;
       end
+      dataFifo[5].enq(data);
+      ctrlFifo[5].enq(ctrl);
    endrule
 
-   rule for_lane6;
+   rule for_lane6 ;
+      let type_reg <- toGet(typeRegFifo[6]).get();
+      let control  <- toGet(controlFifo[6]).get();
+      let data_field <- toGet(dataFieldFifo[6]).get();
+      Bit#(8) data = 0;
+      Bit#(1) ctrl = 0;
       if ((type_reg[0]) == 1'b1 || type_reg[12:6] != 7'b0000000)
       begin
-         byte6 <= control[6] ; // Control character.
-         c6 <= 1'b1 ;
+         data = control; // Control character.
+         ctrl = 1'b1 ;
       end
       else if (type_reg[5:1] != 5'b00000)
       begin
-         byte6 <= data_field_reg[57:50] ; // Data byte 6
-         c6 <= 1'b0 ;
+         data = data_field[57:50] ; // Data byte 6
+         ctrl = 1'b0 ;
       end
       else if ((type_reg[13]) == 1'b1)
       begin
-         byte6 <= 8'b11111101 ; // Termination.
-         c6 <= 1'b1 ;
+         data = 8'b11111101 ; // Termination.
+         ctrl = 1'b1 ;
       end
       else if ((type_reg[14]) == 1'b1)
       begin
-         byte6 <= data_field_reg[65:58] ; // Data byte 6
-         c6 <= 1'b0 ;
+         data = data_field[65:58] ; // Data byte 6
+         ctrl = 1'b0 ;
       end
       else
       begin
          // If the input doesn\'t contain a control character then the type field
          // is set to be the seventh data byte.
-         byte6 <= data_field_reg[57:50] ;
-         c6 <= 1'b0 ;
+         data = data_field[57:50] ;
+         ctrl = 1'b0 ;
       end
+      dataFifo[6].enq(data);
+      ctrlFifo[6].enq(ctrl);
    endrule
 
-   rule for_lane7;
+   rule for_lane7 ;
+      let type_reg <- toGet(typeRegFifo[7]).get();
+      let control  <- toGet(controlFifo[7]).get();
+      let data_field <- toGet(dataFieldFifo[7]).get();
+      Bit#(8) data = 0;
+      Bit#(1) ctrl = 0;
       if ((type_reg[0]) == 1'b1 || type_reg[13:6] != 8'b00000000)
       begin
-         byte7 <= control[7] ; // Control character.
-         c7 <= 1'b1 ;
+         data = control; // Control character.
+         ctrl = 1'b1 ;
       end
       else if (type_reg[5:1] != 5'b00000)
       begin
-         byte7 <= data_field_reg[65:58] ; // Data byte 7
-         c7 <= 1'b0 ;
+         data = data_field[65:58] ; // Data byte 7
+         ctrl = 1'b0 ;
       end
       else if ((type_reg[14]) == 1'b1)
       begin
-         byte7 <= 8'b11111101 ; // Termination.
-         c7 <= 1'b1 ;
+         data = 8'b11111101 ; // Termination.
+         ctrl = 1'b1 ;
       end
       else
       begin
          // If the input doesn\'t contain a control character then the type field
          // is set to be the last data byte.
-         byte7 <= data_field_reg[65:58] ;
-         c7 <= 1'b0 ;
+         data = data_field[65:58] ;
+         ctrl = 1'b0 ;
       end
+      dataFifo[7].enq(data);
+      ctrlFifo[7].enq(ctrl);
    endrule
 
    rule for_output;
-      fifo_out.enq({byte7,c7,byte6,c6,byte5,c5,byte4,c4,
-                    byte3,c3,byte2,c2,byte1,c1,byte0,c0});
+      let data7 <- toGet(dataFifo[7]).get();
+      let ctrl7 <- toGet(ctrlFifo[7]).get();
+      let data6 <- toGet(dataFifo[6]).get();
+      let ctrl6 <- toGet(ctrlFifo[6]).get();
+      let data5 <- toGet(dataFifo[5]).get();
+      let ctrl5 <- toGet(ctrlFifo[5]).get();
+      let data4 <- toGet(dataFifo[4]).get();
+      let ctrl4 <- toGet(ctrlFifo[4]).get();
+      let data3 <- toGet(dataFifo[3]).get();
+      let ctrl3 <- toGet(ctrlFifo[3]).get();
+      let data2 <- toGet(dataFifo[2]).get();
+      let ctrl2 <- toGet(ctrlFifo[2]).get();
+      let data1 <- toGet(dataFifo[1]).get();
+      let ctrl1 <- toGet(ctrlFifo[1]).get();
+      let data0 <- toGet(dataFifo[0]).get();
+      let ctrl0 <- toGet(ctrlFifo[0]).get();
+
+      fifo_out.enq({ctrl7,data7,ctrl6,data6,ctrl5,data5,ctrl4,data4,
+                    ctrl3,data3,ctrl2,data2,ctrl1,data1,ctrl0,data0});
    endrule
 
    interface decoderOut=toPipeOut(fifo_out);
