@@ -1,9 +1,4 @@
 #! /usr/bin/python
-
-#
-# encoded and scrambled are tested working.
-#
-#
 import os, sys, argparse
 
 verbose=False
@@ -124,16 +119,16 @@ def pcs_encode(data, control):
                 continue
 
             # /I/
-            if data[i*8+j] == 0x70:
+            if data[i*8+j] == 0x07:
                 idle += 1
                 data[i*8+j] = 0
             # /S/
-            elif data[i*8+j] == 0x5f:
+            elif data[i*8+j] == 0xfb:
                 start = True
                 index = j
                 data[i*8+j] = 0
             # /T/
-            elif data[i*8+j] == 0x3f:
+            elif data[i*8+j] == 0xfd:
                 end=True
                 index = j
                 data[i*8+j] = 0
@@ -145,9 +140,9 @@ def pcs_encode(data, control):
         d = data[i * 8] + (data [i*8+1] << 8) + (data[i*8+2] << 16) + (data[i*8+3]<<24) + \
              (data[i*8+4]<<32) + (data[i*8+5]<<40) + (data[i*8+6]<<48) + (data[i*8+7]<<56)
 
-        sync=0x2
+        sync=0x1
         if db == 8:
-            sync=0x1
+            sync=0x2
             pass
         elif idle == 8:
             d = 0x1e
@@ -191,7 +186,7 @@ def print_pcs_encoded(data, sync, fname):
 
     for i in range(len(data)):
         low = ((data[i] << 2) & 0xffffffffffffffff) ^ sync[i]
-        high = (data[i] >> 62) & 0x3
+        high = (data[i] >> 62) & 0xf
         f.write("{:x} {:016x} {:016x}\n".format(high, low, data[i]))
 
     f.close()
@@ -217,7 +212,7 @@ def print_scrambled(data, sync, fname):
 
     for i in range(len(data)):
         low = (data[i] << 2 & 0xffffffffffffffff) ^ sync[i]
-        high = (data[i] >> 62) & 0x3
+        high = (data[i] >> 62) & 0xf
         f.write("{:x} {:016x} {:016x}\n".format(high, low, data[i]))
 
     f.close()
@@ -237,6 +232,47 @@ def xgmii_strings(n, l, idle, fname):
 
     print_scrambled(scrambled, sync, fname)
 
+def print_all(fname, xgmii, encoded, scrambled):
+    f = open(fname+'.all', 'w')
+
+    for i in range(len(encoded)):
+        f.write("{:09x} {:09x} {:016x} {:016x}\n".format(xgmii[i*2+1], xgmii[i*2], encoded[i], scrambled[i]))
+
+    f.close()
+
+
+def xgmii_file(fname):
+    f = open(fname, 'r')
+
+    data=[]
+    control=[]
+    xgmii=[]
+    for l in f:
+        tmp=l.split()
+        first = tmp[1]
+        second = tmp[0]
+        xgmii.append(int(first, 16))
+        xgmii.append(int(second, 16))
+
+    f.close()
+
+    for x in xgmii:
+        for i in range(4):
+            tmp = (x >> (i*9)) & 0x1ff
+            d = tmp & 0xff
+            c = (tmp >> 8) & 0x1
+
+            data.append(d)
+            control.append(c)
+
+    encoded, sync = pcs_encode(data, control)
+
+    scrambled = scramble(encoded)
+
+    print_pcs_encoded(encoded, sync, fname)
+    print_scrambled(scrambled, sync, fname)
+    print_all(fname, xgmii, encoded, scrambled)
+
 def main():
     global verbose
     
@@ -246,13 +282,17 @@ def main():
     parser.add_argument('-n', '--pkt_cnts', type=int, default=1)
     parser.add_argument('-i', '--idle', type=int, default=12)
     parser.add_argument('-l', '--pkt_length', type=int, default=1000)
+    parser.add_argument('-x', '--xgmii', type=str, default=None)
 
     args=parser.parse_args()
 
     if args.verbose:
         verbose=True
 
-    xgmii_strings(args.pkt_cnts, args.pkt_length, args.idle, args.filename);
+    if args.xgmii is not None:
+        xgmii_file(args.xgmii);
+    else:
+        xgmii_strings(args.pkt_cnts, args.pkt_length, args.idle, args.filename);
 
 if __name__ == "__main__":
     main()
