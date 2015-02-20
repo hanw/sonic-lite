@@ -52,8 +52,8 @@ module mkDtpTest#(DtpTestIndication indication) (DtpTest);
 //   DtpIfc sc1 <- mkDtp(toPipeOut(sc2_to_sc1), toPipeOut(write_encoder_data1), 1, 100);
 //   DtpIfc sc2 <- mkDtp(toPipeOut(sc1_to_sc2), toPipeOut(write_encoder_data2), 2, 200);
 
-   DtpIfc sc1 <- mkDtp(toPipeOut(fifo_sc2_to_sc1[delay-1]), toPipeOut(write_encoder_data1), 1, 100);
-   DtpIfc sc2 <- mkDtp(toPipeOut(fifo_sc1_to_sc2[delay-1]), toPipeOut(write_encoder_data2), 2, 200);
+   Dtp sc1 <- mkDtp(toPipeOut(fifo_sc2_to_sc1[delay-1]), toPipeOut(write_encoder_data1), 1, 100);
+   Dtp sc2 <- mkDtp(toPipeOut(fifo_sc1_to_sc2[delay-1]), toPipeOut(write_encoder_data2), 2, 200);
 
    rule init;
       let sc1_out = sc1.encoderOut.first;

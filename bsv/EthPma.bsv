@@ -61,7 +61,7 @@ interface EthPmaIfc#(numeric type np);
    interface PhyMgmtIfc             phy_mgmt;
    interface Vector#(np, Status)    status;
    interface Vector#(np, SerialIfc) fiber;
-   interface Vector#(np, XCVR_PMA)   fpga;
+   interface Vector#(np, XCVR_PMA)  fpga;
 endinterface
 
 (* synthesize *)

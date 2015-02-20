@@ -28,6 +28,7 @@ module mkScramblerTest#(ScramblerTestIndication indication) (ScramblerTest);
 
    let verbose = True;
 
+   Reg#(Bit#(32)) cycle <- mkReg(0);
    Reg#(SGLId)    pointer  <- mkReg(0);
    Reg#(Bit#(32)) numWords <- mkReg(0);
    Reg#(Bit#(32)) burstLen <- mkReg(0);
@@ -39,6 +40,10 @@ module mkScramblerTest#(ScramblerTestIndication indication) (ScramblerTest);
 
    MemreadEngineV#(128, 2, 1) re <- mkMemreadEngine;
    Scrambler sc <- mkScrambler(toPipeOut(write_data));
+
+   rule cyc;
+      cycle <= cycle + 1;
+   endrule
 
    rule start(toStart > 0);
       re.readServers[0].request.put(MemengineCmd{sglId:pointer, base:0, len:truncate(chunk), burstLen:truncate(burstLen*4)});
@@ -54,7 +59,7 @@ module mkScramblerTest#(ScramblerTestIndication indication) (ScramblerTest);
    rule out;
       let v = sc.scrambledOut.first();
       sc.scrambledOut.deq;
-      if(verbose) $display("blocksync in v=%h", v);
+      if(verbose) $display("%d: scrambled out v=%h", cycle, v);
    endrule
 
    rule finish(toFinish > 0);

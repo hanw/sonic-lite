@@ -177,11 +177,11 @@ module mkEncoder#(PipeOut#(Bit#(72)) encoderIn)(Encoder);
 
       xgmiiTxdFifo1.enq(xgmii_txd);
       xgmiiTxcFifo1.enq(xgmii_txc);
-      if(verbose) $display("%d: xgmii_txd=%h, txc=%h", cycle, xgmii_txd, xgmii_txc);
-      if(verbose) $display("%d: lane_data = %h", cycle, lane_data);
-      if(verbose) $display("%d: lane_control = %h", cycle, lane_control);
-      if(verbose) $display("%d: lane_seq = %h", cycle, lane_seq);
-      if(verbose) $display("%d: lane_idle = %h", cycle, lane_idle);
+      if(verbose) $display("%d: encoder xgmii_txd=%h, txc=%h", cycle, xgmii_txd, xgmii_txc);
+      if(verbose) $display("%d: encoder lane_data = %h", cycle, lane_data);
+      if(verbose) $display("%d: encoder lane_control = %h", cycle, lane_control);
+      if(verbose) $display("%d: encoder lane_seq = %h", cycle, lane_seq);
+      if(verbose) $display("%d: encoder lane_idle = %h", cycle, lane_idle);
    endrule
 
    //-------------------------------------------------------------------------------
@@ -480,7 +480,7 @@ module mkEncoder#(PipeOut#(Bit#(72)) encoderIn)(Encoder);
       end
 
       data_out = {data_field, type_field, sync_field};
-      if(verbose) $display("%d: data=%h type=%h sync=%h", cycle, data_field, type_field, sync_field);
+      if(verbose) $display("%d: encoder data=%h type=%h sync=%h", cycle, data_field, type_field, sync_field);
       fifo_out.enq(data_out);
    endrule
 

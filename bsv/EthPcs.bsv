@@ -22,96 +22,101 @@
 
 package EthPcs;
 
-import Clocks                  ::*;
-import Vector                  ::*;
-import Ethernet                ::*;
+import Clocks ::*;
+import Vector ::*;
+import FIFO::*;
+import FIFOF::*;
+import SpecialFIFOs::*;
+import Vector::*;
+import GetPut::*;
+import ClientServer::*;
+import Connectable::*;
 
-import ALTERA_ETH_PORT_WRAPPER       ::*;
-import DTP_GLOBAL_TIMESTAMP_WRAPPER  ::*;
+import Pipe::*;
+import MemTypes::*;
 
-// TODO: implement encoding/decoding scrambling/descrambling in bsv.
-`ifdef N_CHAN
-typedef `N_CHAN N_CHAN;
-`else
-typedef 4 N_CHAN;
-`endif
+import Ethernet ::*;
+import Dtp ::*;
+import Encoder ::*;
+import Decoder ::*;
+import Scrambler ::*;
+import Descrambler ::*;
+import BlockSync ::*;
 
 (* always_ready, always_enabled *)
-interface EthPcsIfc#(numeric type np);
-   interface Vector#(np, XGMII_PCS) xgmii;
-   interface Vector#(np, XCVR_PCS)  xcvr;
-   interface Vector#(np, Vector#(32, Bit#(1)))  ctrl;
+interface EthPcs;
+   interface PipeOut#(Bit#(72)) decoderOut;
+   interface PipeOut#(Bit#(66)) scramblerOut;
 endinterface
 
-(* synthesize *)
-module mkEthPcs#(Clock clk_156_25, Reset rst_156_25)(EthPcsIfc#(N_CHAN));
-   Clock defaultClock <- exposeCurrentClock;
-   Reset defaultReset <- exposeCurrentReset;
+module mkEthPcs#(PipeOut#(Bit#(72)) encoderIn, PipeOut#(Bit#(66)) bsyncIn, Integer id, Integer c_local)(EthPcs);
 
-   Vector#(4, EthPortWrap) pcs4 <- replicateM(mkEthPortWrap(clk_156_25, rst_156_25, rst_156_25));
-   DtpGlobalWrap           dtpg <- mkDtpGlobalWrap(clk_156_25, rst_156_25, rst_156_25);
+   let verbose = True;
 
-   rule cntrs;
-      for (Integer i=0; i < valueOf(N_CHAN); i=i+1) begin
-         pcs4[i].cntr.global_state(dtpg.timestamp.maximum);
-      end
-      dtpg.timestamp.p0(pcs4[0].cntr.local_state);
-      dtpg.timestamp.p1(pcs4[1].cntr.local_state);
-      dtpg.timestamp.p2(pcs4[2].cntr.local_state);
-      dtpg.timestamp.p3(pcs4[3].cntr.local_state);
+   // Debug variable, make sure only enable one at a time.
+   let use_dtp     = False;
+   let lpbk_enc   = False;
+   let lpbk_scram = True;
+
+   Reg#(Bit#(32)) cycle <- mkReg(0);
+   // Tx Path
+   FIFOF#(Bit#(72)) txEncoderInFifo <- mkBypassFIFOF;
+   FIFOF#(Bit#(66)) txDtpInFifo     <- mkBypassFIFOF;
+   FIFOF#(Bit#(66)) txScramInFifo   <- mkBypassFIFOF;
+   PipeIn#(Bit#(66)) txDtpPipeIn = toPipeIn(txDtpInFifo);
+   PipeIn#(Bit#(66)) txScramPipeIn = toPipeIn(txScramInFifo);
+   // Rx Path
+   FIFOF#(Bit#(72)) rxDecoderOutFifo <- mkBypassFIFOF;
+   FIFOF#(Bit#(66)) rxDtpOutFifo     <- mkBypassFIFOF;
+   FIFOF#(Bit#(66)) rxDescramOutFifo <- mkBypassFIFOF;
+   FIFOF#(Bit#(66)) rxDescramInFifo  <- mkBypassFIFOF;
+   FIFOF#(Bit#(66)) rxBlockSyncInFifo  <- mkBypassFIFOF;
+   PipeIn#(Bit#(66)) rxDtpPipeIn = toPipeIn(rxDescramOutFifo);
+   PipeIn#(Bit#(66)) rxDecoderPipeIn = toPipeIn(rxDtpOutFifo);
+   PipeIn#(Bit#(66)) rxDescramblePipeIn = toPipeIn(rxDescramInFifo);
+   PipeIn#(Bit#(66)) rxBlockSyncPipeIn = toPipeIn(rxBlockSyncInFifo);
+
+   Encoder encoder <- mkEncoder(encoderIn);
+   Scrambler scram <- mkScrambler(toPipeOut(txScramInFifo));
+   Dtp dtp <- mkDtp(toPipeOut(rxDescramOutFifo), toPipeOut(txDtpInFifo), id, c_local);
+   Decoder decoder <- mkDecoder(toPipeOut(rxDtpOutFifo));
+   Descrambler descram <- mkDescrambler(toPipeOut(rxDescramInFifo));
+   BlockSync bsync <- mkBlockSync(toPipeOut(rxBlockSyncInFifo));
+
+//   if (use_dtp) begin // use dtp
+//      mkConnection(encoder.encoderOut, txDtpPipeIn);
+//      mkConnection(dtp.encoderOut, txScramPipeIn);
+//      mkConnection(descram.descrambledOut, rxDtpPipeIn);
+//      mkConnection(dtp.decoderOut, rxDecoderPipeIn);
+//      mkConnection(bsync.dataOut, rxDescramblePipeIn);
+//      mkConnection(bsyncIn, rxBlockSyncPipeIn);
+//   end
+//   else if (lpbk_enc) begin //local loopback at encoder <-> decoder
+//      mkConnection(encoder.encoderOut, rxDecoderPipeIn);
+//   end
+//   else if (lpbk_scram) begin //local loopback at scrambler <-> descrambler
+      mkConnection(encoder.encoderOut, txScramPipeIn);
+      mkConnection(descram.descrambledOut, rxDecoderPipeIn);
+      mkConnection(bsync.dataOut, rxDescramblePipeIn);
+      mkConnection(bsyncIn, rxBlockSyncPipeIn);
+//   end
+//   else begin // bypass dtp
+//      mkConnection(encoder.encoderOut, txScramPipeIn);
+//      mkConnection(descram.descrambledOut, rxDecoderPipeIn);
+//      mkConnection(bsync.dataOut, rxDescramblePipeIn);
+//      mkConnection(bsyncIn, rxBlockSyncPipeIn);
+//   end
+
+   rule bsync_output;
+      let v = rxBlockSyncInFifo.first;
+      if(verbose) $display("%d: pcs, blocksync input=%h", cycle, v);
    endrule
 
-   Vector#(N_CHAN, XGMII_PCS) xgmii_ifcs;
-   for (Integer i=0; i < valueOf(N_CHAN); i=i+1) begin
-      xgmii_ifcs[i] = interface XGMII_PCS;
-      interface XGMII_RX_PCS rx;
-         method Bit#(72) rx_dc;
-            return pcs4[i].xgmii.rx_data;
-         endmethod
-      endinterface
+   rule cyc;
+      cycle <= cycle + 1;
+   endrule
 
-      interface XGMII_TX_PCS tx;
-         method Action tx_dc(Bit#(72) v);
-            pcs4[i].xgmii.tx_data(v);
-         endmethod
-      endinterface
-   endinterface;
-   end
-
-   Vector#(N_CHAN, XCVR_PCS) xcvr_ifcs;
-   for (Integer i=0; i < valueOf(N_CHAN); i=i+1) begin
-      xcvr_ifcs[i] = interface XCVR_PCS;
-         interface XCVR_RX_PCS rx;
-            method Action rx_ready(Bit#(1) v);
-               pcs4[i].xcvr.rx_ready(v);
-            endmethod
-            method Action rx_clkout(Bit#(1) v);
-               pcs4[i].xcvr.rx_clkout(v);
-            endmethod
-            method Action rx_data(Bit#(40) v);
-               pcs4[i].xcvr.rx_datain(v);
-            endmethod
-         endinterface
-         interface XCVR_TX_PCS tx;
-            method Action tx_ready(Bit#(1) v);
-               pcs4[i].xcvr.tx_ready(v);
-            endmethod
-            method Action tx_clkout(Bit#(1) v);
-               pcs4[i].xcvr.tx_clkout(v);
-            endmethod
-            method Bit#(40) tx_data();
-               return pcs4[i].xcvr.tx_dataout;
-            endmethod
-         endinterface
-      endinterface;
-   end
-
-   Vector#(np, Vector#(32, Bit#(1))) ctrl_ifcs;
-   for (Integer i=0; i < valueOf(N_CHAN); i=i+1) begin
-      
-   end
-
-   interface xgmii = xgmii_ifcs;
-   interface xcvr  = xcvr_ifcs;
+   interface decoderOut = decoder.decoderOut;
+   interface scramblerOut = scram.scrambledOut;
 endmodule
 endpackage: EthPcs

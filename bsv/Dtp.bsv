@@ -52,7 +52,7 @@ interface DtpIn;
    //interface PipeOut#(CmdTup)    cmdIn;
 endinterface
 
-interface DtpIfc;
+interface Dtp;
    interface PipeOut#(Bit#(66)) decoderOut;
    interface PipeOut#(Bit#(66)) encoderOut;
 //   method Vector#(N_IFCs, Bit#(TIMESTAMP_LEN)) local_clock;
@@ -66,19 +66,19 @@ typedef 2'b11 BEACON_TYPE;
 typedef 10 INIT_TIMEOUT;
 typedef 10 SYNC_TIMEOUT;
 
-typedef enum {INIT, SENT, SYNC} State
+typedef enum {INIT, SENT, SYNC} DtpState
 deriving (Bits, Eq);
 
-module mkDtp#(PipeOut#(Bit#(66)) decoderIn, PipeOut#(Bit#(66)) encoderIn, Integer id, Integer c_local_init)(DtpIfc);
+//FIXME: interface is prone to usage error.
+module mkDtp#(PipeOut#(Bit#(66)) decoderIn, PipeOut#(Bit#(66)) encoderIn, Integer id, Integer c_local_init)(Dtp);
 
    let verbose = True;
 
    Reg#(Bit#(1))   mode <- mkReg(0); // mode=0 NIC, mode=1 SWITCH
    Reg#(Bit#(32))  cycle   <- mkReg(0);
-   Reg#(State) curr_state  <- mkReg(INIT);
+   Reg#(DtpState) curr_state  <- mkReg(INIT);
 
    Reg#(Bit#(53))  c_local <- mkReg(fromInteger(c_local_init));
-//   Reg#(Bit#(53))  temp    <- mkReg(0);
    Reg#(Bit#(53))  delay   <- mkReg(0);
    Reg#(Bit#(32))  timeout_count_init <- mkReg(0);
    Reg#(Bit#(32))  timeout_count_sync <- mkReg(0);

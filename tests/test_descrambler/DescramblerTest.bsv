@@ -54,7 +54,7 @@ module mkDescramblerTest#(DescramblerTestIndication indication) (DescramblerTest
    rule out;
       let v = sc.descrambledOut.first();
       sc.descrambledOut.deq;
-      if(verbose) $display("blocksync in v=%h", v);
+      if(verbose) $display("descrambled out v=%h", v);
    endrule
 
    rule finish(toFinish > 0);

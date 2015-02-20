@@ -39,38 +39,34 @@ endinterface
 
 // Scrambler poly G(x) = 1 + x^39 + x^58;
 module mkDescrambler#(PipeOut#(Bit#(66)) descramblerIn)(Descrambler);
-   let verbose = True;
+
+   let verbose = False;
 
    Reg#(Bit#(32))       cycle <- mkReg(0);
    Reg#(Bit#(58)) scram_state <- mkReg(58'h3ff_ffff_ffff_ffff);
-   Vector#(64, Reg#(Bit#(1))) dout_w <- replicateM(mkReg(0));
-   Vector#(122, Reg#(Bit#(1))) history <- replicateM(mkReg(0));
    FIFOF#(Bit#(66))  fifo_out <- mkBypassFIFOF;
-   FIFOF#(Bit#(66))  fifo_in  <- mkBypassFIFOF;
-   Vector#(2, Reg#(Bit#(1))) synchdr <- replicateM(mkReg(0));
 
    rule cyc;
       cycle <= cycle + 1;
    endrule
 
    rule descramble;
-      let v = fifo_in.first;
-      fifo_in.deq;
-
-      writeVReg(take(synchdr), unpack(v[1:0]));
-      writeVReg(take(history), unpack({v[65:2], scram_state}));
-      for (Integer i=0; i<64; i=i+1) begin
-         dout_w[i] <= history[58+i-58] ^ history[58+i-39] ^ history[58+i];
-      end
-      scram_state <= pack(readVReg(history))[121:64];
-      fifo_out.enq({pack(readVReg(dout_w)), pack(readVReg(synchdr))});
-
-      if(verbose) $display("%d: history=%h", cycle, pack(readVReg(history)));
-   endrule
-
-   rule incoming;
       let v <- toGet(descramblerIn).get;
-      fifo_in.enq(v);
+      Bit#(2) sync_hdr = v[1:0];
+      Bit#(64) pre_descramble = v[65:2];
+      Bit#(122) history = {pre_descramble, scram_state};
+      Vector#(64, Bit#(1)) dout_w;
+      Bit#(66) descramble_out;
+      if(verbose) $display("%d: descrambler %h input=%h synchdr=%h", cycle, v, pre_descramble, v[1:0]);
+
+      for (Integer i=0; i<64; i=i+1) begin
+         dout_w[i] = history[58+i-58] ^ history[58+i-39] ^ history[58+i];
+      end
+      scram_state <= history[121:64];
+
+      descramble_out = {pack(dout_w), sync_hdr};
+      fifo_out.enq(descramble_out);
+      if(verbose) $display("%d: descrambler dataout=%h", cycle, descramble_out);
    endrule
 
    interface descrambledOut = toPipeOut(fifo_out);

@@ -39,7 +39,7 @@ int main(int argc, char **argv) {
     MemServerIndication *hostMemServerIndication = new MemServerIndication(hostMemServerRequest, IfcNames_HostMemServerIndication);
     MMUIndication *hostMMUIndication = new MMUIndication(dma, IfcNames_HostMMUIndication);
 
-    const std::string path="../data/test_vector.dat";
+    const std::string path="../../data/scrambled.data";
     std::ifstream traceinfo(path.c_str());
     std::string line;
 
