@@ -1,0 +1,5 @@
+
+
+## Generate all testing data using xgmii.py
+
+%> python xgmii.py -x xgmii.data
