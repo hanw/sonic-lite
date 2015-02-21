@@ -42,7 +42,7 @@ deriving (Bits, Eq);
 
 module mkBlockSync#(PipeOut#(Bit#(66)) blockSyncIn)(BlockSync);
 
-   let verbose = True;
+   let verbose = False;
 
    Reg#(Bit#(32)) cycle <- mkReg(0);
    Reg#(State) curr_state <- mkReg(LOCK_INIT);

@@ -44,7 +44,8 @@ deriving (Bits, Eq);
 
 module mkDecoder#(PipeOut#(Bit#(66)) decoderIn)(Decoder);
 
-   let verbose = True;
+   let verbose = False;
+
    Reg#(Bit#(32)) cycle                 <- mkReg(0);
    FIFOF#(Bit#(66))  fifo_in            <- mkBypassFIFOF;
    FIFOF#(Bit#(72))  fifo_out           <- mkBypassFIFOF;
@@ -104,7 +105,7 @@ module mkDecoder#(PipeOut#(Bit#(66)) decoderIn)(Decoder);
       type_field = v[9:2];
       data_field = v;
 
-      //if(verbose) $display("%d: data in %h", cycle, v);
+      if(verbose) $display("%d: data in %h", cycle, v);
       Vector#(8, Bit#(8)) ctrl;
       for (Integer i=0; i<8; i=i+1) begin
          Integer idx_hi = (i+1)*7+9;
@@ -169,15 +170,15 @@ module mkDecoder#(PipeOut#(Bit#(66)) decoderIn)(Decoder);
       //-------------------------------------------------------------------------------
       type_reg = ({(control_word & type_ff), (control_word & type_e1), (control_word & type_d2), (control_word & type_cc), (control_word & type_b4), (control_word & type_aa), (control_word & type_99), (control_word & type_87), (control_word & type_4b), (control_word & type_78), (control_word & type_55), (control_word & type_66), (control_word & type_33), (control_word & type_2d), (control_word & type_1e)}) ;
 
-      //if(verbose) $display("data_field %h", data_field);
-      //if(verbose) $display("typereg %h", type_reg);
+      if(verbose) $display("data_field %h", data_field);
+      if(verbose) $display("typereg %h", type_reg);
 
       lane0Seq9c = (sync_field[0] & ~(sync_field[1])) & ((type_66 | type_55 | type_4b) & ~(data_field[35]) & ~(data_field[34]) & ~(data_field[33]) & ~(data_field[32])) ;
       lane0Seq5c = (sync_field[0] & ~(sync_field[1])) & ((type_66 | type_55 | type_4b) & data_field[35] & data_field[34] & data_field[33] & data_field[32]) ;
       lane4Seq9c = (sync_field[0] & ~(sync_field[1])) & ((type_2d | type_55) & ~(data_field[39]) & ~(data_field[38]) & ~(data_field[37]) & ~(data_field[36])) ;
       lane4Seq5c = (sync_field[0] & ~(sync_field[1])) & ((type_2d | type_55) & data_field[39] & data_field[38] & data_field[37] & data_field[36]) ;
 
-      //if(verbose) $display("laneseq %d %d %d %d", lane0Seq9c, lane0Seq5c, lane4Seq9c, lane4Seq5c);
+      if(verbose) $display("laneseq %d %d %d %d", lane0Seq9c, lane0Seq5c, lane4Seq9c, lane4Seq5c);
  
       for (Integer i=0; i<8; i=i+1) begin
          dataFieldFifo[i].enq(data_field);

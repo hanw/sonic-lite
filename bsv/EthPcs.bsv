@@ -54,17 +54,19 @@ module mkEthPcs#(PipeOut#(Bit#(72)) encoderIn, PipeOut#(Bit#(66)) bsyncIn, Integ
    let verbose = True;
 
    // Debug variable, make sure only enable one at a time.
-   let use_dtp     = False;
+   let use_dtp    = True;
    let lpbk_enc   = False;
-   let lpbk_scram = True;
+   let lpbk_scram = False;
 
    Reg#(Bit#(32)) cycle <- mkReg(0);
+
    // Tx Path
    FIFOF#(Bit#(72)) txEncoderInFifo <- mkBypassFIFOF;
    FIFOF#(Bit#(66)) txDtpInFifo     <- mkBypassFIFOF;
    FIFOF#(Bit#(66)) txScramInFifo   <- mkBypassFIFOF;
    PipeIn#(Bit#(66)) txDtpPipeIn = toPipeIn(txDtpInFifo);
    PipeIn#(Bit#(66)) txScramPipeIn = toPipeIn(txScramInFifo);
+
    // Rx Path
    FIFOF#(Bit#(72)) rxDecoderOutFifo <- mkBypassFIFOF;
    FIFOF#(Bit#(66)) rxDtpOutFifo     <- mkBypassFIFOF;
@@ -83,34 +85,29 @@ module mkEthPcs#(PipeOut#(Bit#(72)) encoderIn, PipeOut#(Bit#(66)) bsyncIn, Integ
    Descrambler descram <- mkDescrambler(toPipeOut(rxDescramInFifo));
    BlockSync bsync <- mkBlockSync(toPipeOut(rxBlockSyncInFifo));
 
-//   if (use_dtp) begin // use dtp
-//      mkConnection(encoder.encoderOut, txDtpPipeIn);
-//      mkConnection(dtp.encoderOut, txScramPipeIn);
-//      mkConnection(descram.descrambledOut, rxDtpPipeIn);
-//      mkConnection(dtp.decoderOut, rxDecoderPipeIn);
-//      mkConnection(bsync.dataOut, rxDescramblePipeIn);
-//      mkConnection(bsyncIn, rxBlockSyncPipeIn);
-//   end
-//   else if (lpbk_enc) begin //local loopback at encoder <-> decoder
-//      mkConnection(encoder.encoderOut, rxDecoderPipeIn);
-//   end
-//   else if (lpbk_scram) begin //local loopback at scrambler <-> descrambler
+   if (use_dtp) begin // use dtp
+      mkConnection(encoder.encoderOut, txDtpPipeIn);
+      mkConnection(dtp.encoderOut, txScramPipeIn);
+      mkConnection(descram.descrambledOut, rxDtpPipeIn);
+      mkConnection(dtp.decoderOut, rxDecoderPipeIn);
+      mkConnection(bsync.dataOut, rxDescramblePipeIn);
+      mkConnection(bsyncIn, rxBlockSyncPipeIn);
+   end
+   else if (lpbk_enc) begin //local loopback at encoder <-> decoder
+      mkConnection(encoder.encoderOut, rxDecoderPipeIn);
+   end
+   else if (lpbk_scram) begin //local loopback at scrambler <-> descrambler
       mkConnection(encoder.encoderOut, txScramPipeIn);
       mkConnection(descram.descrambledOut, rxDecoderPipeIn);
       mkConnection(bsync.dataOut, rxDescramblePipeIn);
       mkConnection(bsyncIn, rxBlockSyncPipeIn);
-//   end
-//   else begin // bypass dtp
-//      mkConnection(encoder.encoderOut, txScramPipeIn);
-//      mkConnection(descram.descrambledOut, rxDecoderPipeIn);
-//      mkConnection(bsync.dataOut, rxDescramblePipeIn);
-//      mkConnection(bsyncIn, rxBlockSyncPipeIn);
-//   end
-
-   rule bsync_output;
-      let v = rxBlockSyncInFifo.first;
-      if(verbose) $display("%d: pcs, blocksync input=%h", cycle, v);
-   endrule
+   end
+   else begin // bypass dtp
+      mkConnection(encoder.encoderOut, txScramPipeIn);
+      mkConnection(descram.descrambledOut, rxDecoderPipeIn);
+      mkConnection(bsync.dataOut, rxDescramblePipeIn);
+      mkConnection(bsyncIn, rxBlockSyncPipeIn);
+   end
 
    rule cyc;
       cycle <= cycle + 1;

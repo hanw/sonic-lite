@@ -49,7 +49,7 @@ endinterface
 // Scrambler poly G(x) = 1 + x^39 + x^58;
 module mkScrambler#(PipeOut#(Bit#(66)) scramblerIn)(Scrambler);
 
-   let verbose = True;
+   let verbose = False;
 
    Reg#(Bit#(32)) cycle <- mkReg(0);
    Reg#(Bit#(58)) scram_state <- mkReg(58'h3ff_ffff_ffff_ffff);

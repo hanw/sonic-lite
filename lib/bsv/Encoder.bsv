@@ -44,7 +44,7 @@ deriving (Bits, Eq);
 
 module mkEncoder#(PipeOut#(Bit#(72)) encoderIn)(Encoder);
 
-   let verbose = True;
+   let verbose = False;
 
    Reg#(Bit#(32)) cycle         <- mkReg(0);
 

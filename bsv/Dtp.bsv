@@ -72,7 +72,7 @@ deriving (Bits, Eq);
 //FIXME: interface is prone to usage error.
 module mkDtp#(PipeOut#(Bit#(66)) decoderIn, PipeOut#(Bit#(66)) encoderIn, Integer id, Integer c_local_init)(Dtp);
 
-   let verbose = True;
+   let verbose = False;
 
    Reg#(Bit#(1))   mode <- mkReg(0); // mode=0 NIC, mode=1 SWITCH
    Reg#(Bit#(32))  cycle   <- mkReg(0);
@@ -197,7 +197,6 @@ module mkDtp#(PipeOut#(Bit#(66)) decoderIn, PipeOut#(Bit#(66)) encoderIn, Intege
          if (is_idle) begin
             timeout_count_init <= 0;
          end
-         //timed_out = True;
          tx_mux_sel <= init_type;
          if(verbose) $display("%d: %d, init timed_out %d", cycle, id, timeout_count_init);
       end
@@ -250,38 +249,10 @@ module mkDtp#(PipeOut#(Bit#(66)) decoderIn, PipeOut#(Bit#(66)) encoderIn, Intege
    rule state_init (curr_state == INIT);
       Bool timed_out = False;
 
-//      let init_timeout = fromInteger(valueOf(INIT_TIMEOUT));
       let init_type = fromInteger(valueOf(INIT_TYPE));
-//      let ack_type = fromInteger(valueOf(ACK_TYPE));
       cfFifo.deq;
 
-//      // Timeout driven output
-//      if (timeout_count_init > init_timeout) begin
-//         if (is_idle) begin
-//            timeout_count_init <= 0;
-//         end
-//         timed_out = True;
-//         tx_mux_sel <= init_type;
-//         if(verbose) $display("%d: %d, init timed_out %d", cycle, id, timeout_count_init);
-//      end
-//      else if (init_rcvd) begin
-//         tx_mux_sel <= ack_type;
-//      end
-//      else begin
-//         timeout_count_init <= timeout_count_init + 1;
-//         tx_mux_sel <= 2'b00;
-//      end
-//
-//      // compute delay
-//      if (ack_rcvd) begin
-//         let temp = outstandingInitRequest.first;
-//         delay <= (c_local - temp - 1) >> 1;
-//         if(verbose) $display("%d: %d update delay=%h, %h, %h", cycle, id, c_local, temp, (c_local-temp-1)>>1);
-//         outstandingInitRequest.deq;
-//      end
-
       // update states
-//      if (timed_out && is_idle) begin
       if (tx_mux_sel == init_type && is_idle) begin
          curr_state <= SENT;
       end
@@ -295,36 +266,9 @@ module mkDtp#(PipeOut#(Bit#(66)) decoderIn, PipeOut#(Bit#(66)) encoderIn, Intege
    endrule
 
    rule state_sent (curr_state == SENT);
-//      Bool timed_out = False;
-//      let init_timeout = fromInteger(valueOf(INIT_TIMEOUT));
       let init_type = fromInteger(valueOf(INIT_TYPE));
-//      let ack_type = fromInteger(valueOf(ACK_TYPE));
       cfFifo.deq;
 
-//      // Timeout driven output
-//      if (timeout_count_init > init_timeout) begin
-//         if (is_idle) begin
-//            timeout_count_init <= 0;
-//         end
-//         timed_out = True;
-//         tx_mux_sel <= init_type;
-//      end
-//      else if (init_rcvd) begin
-//         tx_mux_sel <= ack_type;
-//      end
-//      else begin
-//         timeout_count_init <= timeout_count_init + 1;
-//         tx_mux_sel <= 2'b00;
-//      end
-//
-//      // compute delay
-//      if (ack_rcvd) begin
-//         let temp = outstandingInitRequest.first;
-//         delay <= (c_local - temp - 1) >> 1;
-//         if(verbose) $display("%d: %d update delay=%h, %h, %h", cycle, id, c_local, temp, (c_local-temp-1)>>1);
-//         outstandingInitRequest.deq;
-//      end
-//
       // update states
       if (init_rcvd) begin
          curr_state <= SENT;
@@ -332,7 +276,6 @@ module mkDtp#(PipeOut#(Bit#(66)) decoderIn, PipeOut#(Bit#(66)) encoderIn, Intege
       else if (ack_rcvd) begin
          curr_state <= SYNC;
       end
-//      else if (timed_out) begin
       else if (tx_mux_sel == init_type) begin
          curr_state <= INIT;
       end
@@ -343,30 +286,6 @@ module mkDtp#(PipeOut#(Bit#(66)) decoderIn, PipeOut#(Bit#(66)) encoderIn, Intege
 
    rule state_sync (curr_state == SYNC);
       cfFifo.deq;
-//      dmFifo.deq;
-//      let sync_timeout = fromInteger(valueOf(SYNC_TIMEOUT));
-//      let beacon_type = fromInteger(valueOf(BEACON_TYPE));
-//      let ack_type = fromInteger(valueOf(ACK_TYPE));
-//      if (timeout_count_sync >= sync_timeout) begin
-//         if (is_idle) begin
-//            timeout_count_sync <= 0;
-//         end
-//         tx_mux_sel <= beacon_type;
-//      end
-//      else if (init_rcvd) begin
-//         tx_mux_sel <= ack_type;
-//      end
-//      else begin
-//         timeout_count_sync <= timeout_count_sync + 1;
-//         tx_mux_sel <= 2'b00;
-//      end
-//
-//      if (ack_rcvd) begin
-//         let temp = outstandingInitRequest.first;
-//         delay <= (c_local - temp - 1) >> 1;
-//         if(verbose) $display("%d: %d update delay=%h, %h, %h", cycle, id, c_local, temp, (c_local-temp-1)>>1);
-//         outstandingInitRequest.deq;
-//      end
       // update states
       if (init_rcvd) begin
          curr_state <= SYNC;
@@ -376,6 +295,8 @@ module mkDtp#(PipeOut#(Bit#(66)) decoderIn, PipeOut#(Bit#(66)) encoderIn, Intege
       end
    endrule
 
+   // Parse received DTP frame
+   // Remove DTP timestamp before passing frame to MAC.
    rule rx_stage1;
       let init_type   = fromInteger(valueOf(INIT_TYPE));
       let ack_type    = fromInteger(valueOf(ACK_TYPE));
@@ -383,6 +304,7 @@ module mkDtp#(PipeOut#(Bit#(66)) decoderIn, PipeOut#(Bit#(66)) encoderIn, Intege
       let v <- toGet(decoderIn).get();
       Bit#(1)  parity = ^v[65:13];
       Bit#(53) c_remote = v[65:13];
+      Bit#(66) vo = v;
 
       if (v[9:2] == 8'h1e) begin
          if (v[11:10] == init_type) begin
@@ -390,6 +312,7 @@ module mkDtp#(PipeOut#(Bit#(66)) decoderIn, PipeOut#(Bit#(66)) encoderIn, Intege
                init_rcvd <= True;
                ack_rcvd <= False;
                beacon_rcvd <= False;
+               vo[65:10] = 56'h0;
                if(verbose) $display("%d: %d init_rcvd %h %h", cycle, id, c_remote, c_local);
             end
             else begin
@@ -401,6 +324,7 @@ module mkDtp#(PipeOut#(Bit#(66)) decoderIn, PipeOut#(Bit#(66)) encoderIn, Intege
                init_rcvd <= False;
                ack_rcvd <= True;
                beacon_rcvd <= False;
+               vo[65:10] = 56'h0;
                if(verbose) $display("%d: %d ack_rcvd %h %h", cycle, id, c_remote, c_local);
             end
             else begin
@@ -412,6 +336,7 @@ module mkDtp#(PipeOut#(Bit#(66)) decoderIn, PipeOut#(Bit#(66)) encoderIn, Intege
                init_rcvd <= False;
                ack_rcvd <= False;
                beacon_rcvd <= True;
+               vo[65:10] = 56'h0;
                localCompareRemoteFifo.enq(c_local + 1);
                remoteCompareLocalFifo.enq(c_remote + 1);
                if(verbose) $display("%d: %d beacon_rcvd %h %h", cycle, id, c_remote, c_local);
@@ -435,7 +360,7 @@ module mkDtp#(PipeOut#(Bit#(66)) decoderIn, PipeOut#(Bit#(66)) encoderIn, Intege
       end
       if(verbose) $display("%d: %d decoderIn=%h", cycle, id, v);
       if(verbose) $display("%d: %d curr_state=%h", cycle, id, curr_state);
-      decoderOutFifo.enq(v);
+      decoderOutFifo.enq(vo);
    endrule
 
    rule rx_stage2 (mode==0 || mode==1);
