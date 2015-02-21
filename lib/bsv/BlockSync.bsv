@@ -44,32 +44,40 @@ module mkBlockSync#(PipeOut#(Bit#(66)) blockSyncIn)(BlockSync);
 
    let verbose = True;
 
+   Reg#(Bit#(32)) cycle <- mkReg(0);
    Reg#(State) curr_state <- mkReg(LOCK_INIT);
    Reg#(Bool) block_lock  <- mkReg(False);
    Reg#(Bool) slip_done   <- mkReg(False);
    Reg#(Bool) sh_valid    <- mkReg(False);
    Reg#(Bit#(32)) sh_cnt  <- mkReg(0);
    Reg#(Bit#(32)) sh_invalid_cnt <- mkReg(0);
-   Reg#(Bit#(8)) offset   <- mkReg(0);
 
    Reg#(Bit#(66)) rx_b1   <- mkReg(0);
    Reg#(Bit#(66)) rx_b2   <- mkReg(0);
-   Reg#(Bit#(66)) rx_slipped <- mkReg(0);
 
-   Reg#(Bit#(32)) cycle <- mkReg(0);
-   FIFOF#(Bit#(66)) fifo_out <- mkBypassFIFOF;
-   FIFOF#(void)   test_sh <- mkBypassFIFOF;
-
-   function Action slip(Bit#(66) datain, Bit#(8) _offset) =
-   action
-      rx_b1 <= datain;
-      rx_b2 <= rx_b1;
-      rx_slipped <= (rx_b1 << _offset) | rx_b2 >> (66 - _offset);
-      if(verbose) $display("%d: blocksync r0=%h r1=%h rs=%h", cycle, rx_b1, rx_b2, rx_slipped);
-   endaction;
+   Reg#(Bit#(8)) offset   <- mkReg(0);
+   FIFOF#(Bit#(66)) fifo_out <- mkFIFOF;
+   FIFOF#(Bit#(66)) cfFifo <- mkFIFOF;
 
    rule cyc;
       cycle <= cycle + 1;
+   endrule
+
+   rule slip_data;// (curr_state != LOCK_INIT && curr_state != TEST_SH);
+      Bit#(66) rx_b1_shifted;
+      Bit#(66) rx_b2_shifted;
+      Bit#(66) shifted;
+      let v <- toGet(blockSyncIn).get;
+      if(verbose) $display("%d: blocksync dataIn=%h", cycle, v);
+      rx_b1_shifted = rx_b1 << offset;
+      rx_b2_shifted = rx_b2 >> (66 - offset);
+      shifted = rx_b1_shifted | rx_b2_shifted;
+
+      rx_b1 <= v;
+      rx_b2 <= rx_b1;
+
+      cfFifo.enq(shifted);
+      if(verbose) $display("%d: blocksync r1=%h r2=%h rs=%h", cycle, rx_b1_shifted, rx_b2_shifted, shifted);
    endrule
 
    (* fire_when_enabled, no_implicit_conditions *)
@@ -80,8 +88,8 @@ module mkBlockSync#(PipeOut#(Bit#(66)) blockSyncIn)(BlockSync);
       if(verbose) $display("%d: blocksync state_lock_init %d", cycle, curr_state);
    endrule
 
-   rule state_reset_cnt (curr_state == RESET_CNT && test_sh.notEmpty);
-      test_sh.deq;
+   rule state_reset_cnt (curr_state == RESET_CNT);
+      let v <- toGet(cfFifo).get;
       sh_cnt <= 0;
       sh_invalid_cnt <= 0;
       slip_done <= False;
@@ -90,9 +98,10 @@ module mkBlockSync#(PipeOut#(Bit#(66)) blockSyncIn)(BlockSync);
    endrule
 
    // Optimized-away VALID_SH and INVALID_SH state
-   rule state_test_sh (curr_state == TEST_SH && test_sh.notEmpty);
-      Bool sh_valid = unpack(rx_slipped[0] ^ rx_slipped[1]);
-      test_sh.deq;
+   rule state_test_sh (curr_state == TEST_SH);
+      let v <- toGet(cfFifo).get;
+      Bool sh_valid = unpack(v[0] ^ v[1]);
+      if(verbose) $display("%d: test_sh %d %h", cycle, sh_cnt, v);
 
       // VALID_SH
       if (sh_valid) begin
@@ -116,7 +125,15 @@ module mkBlockSync#(PipeOut#(Bit#(66)) blockSyncIn)(BlockSync);
             curr_state <= RESET_CNT;
          end
          else if (sh_invalid_cnt == 16 || !block_lock) begin
-            curr_state <= SLIP;
+            block_lock <= False;
+            if (offset < 65) begin
+               offset <= offset + 1;
+            end
+            else if (offset >= 65) begin
+               offset <= 0;
+            end
+            curr_state <= RESET_CNT;
+            if(verbose) $display("%d: blocksync state_slip %d offset=%d", cycle, curr_state, offset);
          end
          else if (sh_cnt < 64 && sh_invalid_cnt < 16 && block_lock) begin
             curr_state <= TEST_SH;
@@ -127,31 +144,11 @@ module mkBlockSync#(PipeOut#(Bit#(66)) blockSyncIn)(BlockSync);
    endrule
 
    rule state_good_64 (curr_state == GOOD_64);
+      let v = cfFifo.first;
+      cfFifo.deq;
       block_lock <= True;
-      test_sh.deq;
-      fifo_out.enq(rx_slipped);
-      if(verbose) $display("%d: blocksync state_good_64 %d, %d, enqueue %h", cycle, curr_state, pack(block_lock), rx_slipped);
-   endrule
-
-   (* fire_when_enabled, no_implicit_conditions *)
-   rule state_slip (curr_state == SLIP);
-      block_lock <= False;
-      if (offset >= 66) begin
-         offset <= 0;
-      end
-      else if (offset < 66) begin
-         offset <= offset + 1;
-      end
-      curr_state <= RESET_CNT;
-      if(verbose) $display("%d: blocksync state_slip %d offset=%d", cycle, curr_state, offset);
-   endrule
-
-   rule slip_data;// (curr_state != LOCK_INIT && curr_state != TEST_SH);
-      let v = blockSyncIn.first;
-      blockSyncIn.deq;
-      test_sh.enq(?);
-      slip(v, offset);
-      if(verbose) $display("%d: blocksync dataIn=%h", cycle, v);
+      fifo_out.enq(v);
+      if(verbose) $display("%d: blocksync state_good_64 %d, %d, enqueue %h", cycle, curr_state, pack(block_lock), v);
    endrule
 
    interface dataOut = toPipeOut(fifo_out);
