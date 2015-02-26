@@ -3,3 +3,6 @@
 ## Generate all testing data using xgmii.py
 
 %> python xgmii.py -x xgmii.data
+
+## Create L2 packet trace
+tshark -r ethernet-example.erf -x
