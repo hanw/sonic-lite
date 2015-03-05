@@ -44,6 +44,7 @@ import ConnectalClocks    ::*;
 import ALTERA_PCIE_TB_WRAPPER ::*;
 import AlteraExtra        ::*;
 import AlteraPcieTestbench ::*;
+import PS5LIB ::*;
 
 `ifndef DataBusWidth
 `define DataBusWidth 64
@@ -55,19 +56,20 @@ import AlteraPcieTestbench ::*;
 
 typedef `PinType PinType;
 
-(* synthesize *)
+(* synthesize, no_default_clock, no_default_reset *)
 module mkSonicSimTop (Empty);
-   Clock clk_100Mhz <- mkAbsoluteClock(5, 10);
-   Clock clk_50Mhz <- mkAbsoluteClock(5, 20);
-   let single_reset <- mkReset(2, True, clk_100Mhz);
-   Reset singleReset = single_reset.new_rst;
+   Clock clk_100Mhz   <- mkAbsoluteClock(5, 10);
+   Clock clk_50Mhz    <- mkAbsoluteClock(5, 20);
+   Reset reset_init   <- mkInitialReset(20, clocked_by clk_100Mhz);
 
-   PcieS5HipTbPipe tb <- mkAlteraPcieTb();
-   // mkConnection(tb.pipe, host.pipe)
+   PcieS5HipTbPipe tb <- mkAlteraPcieTb(clocked_by clk_100Mhz, reset_by reset_init);
+   PcieHostTop host <- mkPcieHostTop(clk_100Mhz, clk_50Mhz, reset_init);
 
-   PcieHostTop host <- mkPcieHostTop(clk_100Mhz, clk_50Mhz, singleReset);
+   mkConnection(tb, host.tep7.pipe);
 
-   Reset rst_250_n <- mkAsyncReset(1, singleReset, host.portalClock);
+   rule simu_hip_ctrl;
+      host.tep7.ctrl.simu_mode_pipe(1'b1); //1 for pipe mode
+   endrule
 
 `ifdef IMPORT_HOSTIF
    ConnectalTop#(PhysAddrWidth, DataBusWidth, PinType, NumberOfMasters) portalTop <- mkConnectalTop(host, clocked_by host.portalClock, reset_by host.portalReset);

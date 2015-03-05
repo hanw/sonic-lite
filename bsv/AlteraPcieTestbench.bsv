@@ -26,6 +26,7 @@ import Connectable   ::*;
 import ConnectalAlteraCells ::*;
 import ConnectalClocks      ::*;
 
+import PS5LIB ::*;
 import ALTERA_PCIE_TB_WRAPPER                 ::*;
 
 interface PcieS5HipTbPipe;
@@ -49,6 +50,7 @@ interface PcieS5HipTbPipe;
    method Action sim_ltssmstate(Bit#(5) v);
    method Action sim_pipe_rate (Bit#(2) v);
    method Bit#(1) sim_pipe_pclk_in();
+   method Bit#(32) test_in();
 endinterface
 
 module mkAlteraPcieTb(PcieS5HipTbPipe);
@@ -305,4 +307,34 @@ module mkAlteraPcieTb(PcieS5HipTbPipe);
    endmethod
 endmodule
 
+instance Connectable#(PcieS5HipTbPipe, PcieS5HipPipe);
+module mkConnection#(PcieS5HipTbPipe tb, PcieS5HipPipe dut)(Empty);
+   (* no_implicit_conditions, fire_when_enabled *)
+   rule tb_to_dut;
+      dut.rxdata(tb.rxdata);
+      dut.rxdatak(tb.rxdatak);
+      dut.rxelecidle(tb.rxelecidle);
+      dut.rxstatus(tb.rxstatus);
+      dut.rxvalid(tb.rxvalid);
+      dut.phystatus(tb.phystatus);
+      dut.sim_pipe_pclk_in(tb.sim_pipe_pclk_in);
+   endrule
 
+   (* no_implicit_conditions, fire_when_enabled *)
+   rule dut_to_tb;
+      tb.rxpolarity(dut.rxpolarity);
+      tb.txcompl(dut.txcompl);
+      tb.txdata(dut.txdata);
+      tb.txdatak(dut.txdatak);
+      tb.txdeemph(dut.txdeemph);
+      tb.txdetectrx(dut.txdetectrx);
+      tb.txelecidle(dut.txelecidle);
+      tb.txmargin(dut.txmargin);
+      tb.txswing(dut.txswing);
+      tb.powerdown(dut.powerdown);
+      tb.eidleinfersel(dut.eidleinfersel);
+      tb.sim_ltssmstate(dut.sim_ltssmstate);
+      tb.sim_pipe_rate(dut.sim_pipe_rate);
+   endrule
+endmodule
+endinstance
