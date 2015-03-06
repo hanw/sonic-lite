@@ -1,0 +1,3 @@
+# Enable MSI-X
+setpci --dumpregs
+sudo setpci -G -d 1be7:c100 0x68.L=800a7811
