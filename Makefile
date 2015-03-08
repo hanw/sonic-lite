@@ -2,8 +2,8 @@
 CONNECTALDIR?=../connectal
 DTOP?=../sonic-lite
 INTERFACES=Simple
-BSVFILES=bsv/LedTop.bsv SimpleIF.bsv Top.bsv
-CPPFILES=testsimple.cpp
+BSVFILES=hw/bsv/LedTop.bsv hw/SimpleIF.bsv hw/Top.bsv
+CPPFILES=sw/testsimple.cpp
 NUMBER_OF_MASTERS =0
 #PIN_TYPE = NetTopIfc
 CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/altera_mac.qip
@@ -29,18 +29,18 @@ ALTERA_SYNTH_de5=1
 .PHONY: vsim
 
 ifeq ($(ALTERA_SIM_$(BOARD)), 1)
-CONNECTALFLAGS += --pinfo=./sim.json
+CONNECTALFLAGS += --pinfo=boards/sim.json
 CONNECTALFLAGS += --bscflags="+RTS -K46777216 -RTS -demote-errors G0066:G0045 -suppress-warnings G0046:G0020:S0015:S0080:S0039"
 endif
 ifeq ($(ALTERA_SYNTH_$(BOARD)), 1)
-CONNECTALFLAGS += --pinfo=./synth.json
+CONNECTALFLAGS += --pinfo=boards/synth.json
 endif
 
 PIN_BINDINGS?=-b PCIE:PCIE -b LED:LED -b OSC:OSC -b SFPA:SFPA -b SFPB:SFPB -b SFPC:SFPC -b SFPD:SFPD -b SFP:SFP -b DDR3A:DDR3A -b RZQ:RZQ
 
 PORTAL_DUMP_MAP="Simple"
 
-gentarget:: $(BOARD)/sources/sonic.qsf
+#gentarget:: $(BOARD)/sources/sonic.qsf
 
 prebuild::
 ifeq ($(ALTERA_SIM_$(BOARD)), 1)
@@ -52,11 +52,11 @@ ifeq ($(ALTERA_SYNTH_$(BOARD)), 1)
 	#(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) quartus_sh -t ../scripts/connectal-synth-mac.tcl)
 endif
 
-$(BOARD)/sources/sonic.qsf: sonic.json $(CONNECTALDIR)/boardinfo/$(BOARD).json
-ifeq ($(ALTERA_SYNTH_$(BOARD)), 1)
-	mkdir -p $(BOARD)/sources
-	$(CONNECTALDIR)/scripts/generate-constraints.py -f altera $(PIN_BINDINGS) -o $(BOARD)/sources/$(BOARD).qsf $(CONNECTALDIR)/boardinfo/$(BOARD).json sonic.json
-endif
+#$(BOARD)/sources/sonic.qsf: hw/settings/sonic.json $(CONNECTALDIR)/boardinfo/$(BOARD).json
+#ifeq ($(ALTERA_SYNTH_$(BOARD)), 1)
+#	mkdir -p $(BOARD)/sources
+#	$(CONNECTALDIR)/scripts/generate-constraints.py -f altera $(PIN_BINDINGS) -o $(BOARD)/sources/$(BOARD).qsf $(CONNECTALDIR)/boardinfo/$(BOARD).json hw/settings/sonic.json
+#endif
 
 BSV_VERILOG_FILES+=$(PCIE_TBED_VERILOG_FILES)
 
