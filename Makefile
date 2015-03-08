@@ -11,14 +11,14 @@ CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/altera_xcvr_reset_control_wr
 CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/altera_xcvr_native_sv_wrapper.qip
 CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/altera_xgbe_pma_reconfig_wrapper.qip
 CONNECTALFLAGS += --xci=$(DTOP)/verilog/pll/altera_clkctrl/synthesis/altera_clkctrl.qip
-CONNECTALFLAGS += --verilog=$(DTOP)/verilog/enc_dec/
-CONNECTALFLAGS += --verilog=$(DTOP)/verilog/gearbox/
-CONNECTALFLAGS += --verilog=$(DTOP)/verilog/port/
-CONNECTALFLAGS += --verilog=$(DTOP)/verilog/scramble/
-CONNECTALFLAGS += --verilog=$(DTOP)/verilog/si570/
-CONNECTALFLAGS += --verilog=$(DTOP)/verilog/timestamp/
-CONNECTALFLAGS += --verilog=$(DTOP)/verilog/traffic_controller/
-CONNECTALFLAGS += --tcl=$(DTOP)/verilog/add_sv.tcl
+#CONNECTALFLAGS += --verilog=$(DTOP)/verilog/enc_dec/
+#CONNECTALFLAGS += --verilog=$(DTOP)/verilog/gearbox/
+#CONNECTALFLAGS += --verilog=$(DTOP)/verilog/port/
+#CONNECTALFLAGS += --verilog=$(DTOP)/verilog/scramble/
+#CONNECTALFLAGS += --verilog=$(DTOP)/verilog/si570/
+#CONNECTALFLAGS += --verilog=$(DTOP)/verilog/timestamp/
+#CONNECTALFLAGS += --verilog=$(DTOP)/verilog/traffic_controller/
+#CONNECTALFLAGS += --tcl=$(DTOP)/verilog/add_sv.tcl
 CONNECTALFLAGS += --chipscope=$(DTOP)/avalon.stp
 
 # Supported Platforms:

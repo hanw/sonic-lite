@@ -60,7 +60,7 @@ typedef `PinType PinType;
 module mkSonicSimTop (Empty);
    Clock clk_100Mhz   <- mkAbsoluteClock(5, 10);
    Clock clk_50Mhz    <- mkAbsoluteClock(5, 20);
-   Reset reset_init   <- mkInitialReset(20, clocked_by clk_100Mhz);
+   Reset reset_init   <- mkInitialReset(300, clocked_by clk_100Mhz);
 
    PcieS5HipTbPipe tb <- mkAlteraPcieTb(clocked_by clk_100Mhz, reset_by reset_init);
    PcieHostTop host <- mkPcieHostTop(clk_100Mhz, clk_50Mhz, reset_init);
