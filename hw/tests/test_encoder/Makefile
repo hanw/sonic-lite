@@ -1,4 +1,4 @@
-CONNECTAL_DIR ?= ../../../connectal
+CONNECTAL_DIR ?= ../../../../connectal
 INTERFACES = EncoderTestRequest EncoderTestIndication
 BSVFILES = Top.bsv EncoderTest.bsv ../../lib/bsv/Encoder.bsv ../../bsv/Ethernet.bsv
 CPPFILES = test_encoder.cpp

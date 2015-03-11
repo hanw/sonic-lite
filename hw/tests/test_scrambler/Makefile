@@ -1,4 +1,4 @@
-CONNECTAL_DIR ?= ../../../connectal
+CONNECTAL_DIR ?= ../../../../connectal
 INTERFACES = ScramblerTestRequest ScramblerTestIndication
 BSVFILES = Top.bsv ScramblerTest.bsv ../../lib/bsv/Scrambler.bsv
 CPPFILES = test_scrambler.cpp

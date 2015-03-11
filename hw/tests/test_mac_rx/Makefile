@@ -1,4 +1,4 @@
-CONNECTAL_DIR ?= ../../../connectal
+CONNECTAL_DIR ?= ../../../../connectal
 INTERFACES = MacRxTestRequest MacRxTestIndication
 BSVFILES = Top.bsv MacRxTest.bsv ../../lib/bsv/MacRx.bsv ../../bsv/Ethernet.bsv
 CPPFILES = test_mac_rx.cpp
