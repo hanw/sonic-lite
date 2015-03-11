@@ -33,3 +33,4 @@ examples/*/de5
 examples/*/zedboard
 examples/*/zybo
 generated/xilinx/*
+bluesim

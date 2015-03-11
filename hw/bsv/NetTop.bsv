@@ -33,7 +33,7 @@ import ConnectalClocks    ::*;
 import ALTERA_PLL_WRAPPER ::*;
 import EthPorts           ::*;
 import Ethernet           ::*;
-import Avalon2ClientServer ::*;
+//import Avalon2ClientServer ::*;
 
 `ifndef DataBusWidth
 `define DataBusWidth 64

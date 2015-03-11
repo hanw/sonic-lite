@@ -42,12 +42,10 @@ import PcieHost         :: *;
 import HostInterface    :: *;
 import ConnectalClocks    ::*;
 import ALTERA_PLL_WRAPPER ::*;
-//import EthPorts           ::*;
-//import Ethernet           ::*;
-//import MasterSlave        ::*;
-//import Interconnect       ::*;
+import EthPorts           ::*;
+import Ethernet           ::*;
 import LedTop             ::*;
-//import NetTop             ::*;
+import NetTop             ::*;
 import AlteraExtra        ::*;
 
 `ifndef DataBusWidth
@@ -73,17 +71,18 @@ module mkSonicTop #(Clock pcie_refclk_p, Clock osc_50_b3b, Reset pcie_perst_n) (
    // NOTE: input clock must be dedicated to PLL to avoid error:
    // Error (175020): Illegal constraint of fractional PLL to the region (x-coordinate, y- coordinate) to (x-coordinate, y-coordinate): no valid locations in region
    // ===================================
-   //AltClkCtrl clk_50_buf <- mkAltClkCtrl(osc_50_b3b);
-   //Reset rst_50   <- mkResetInverter(pcie_perst_n, clocked_by clk_50_buf.outclk);
-   //B2C1 clk_156_25 <- mkB2C1(clocked_by clk_50_buf.outclk, reset_by rst_50);
-   //PciePllWrap pll <- mkPciePllWrap(clk_50_buf.outclk, rst_50, rst_50, clocked_by clk_50_buf.outclk, reset_by rst_50);
-   //Reset rst_156_n <- mkAsyncReset(1, pcie_perst_n, clk_156_25.c);
-   //rule pll_clocks;
-   //   clk_156_25.inputclock(pll.out.clk_0);
-   //endrule
+   AltClkCtrl clk_50_buf <- mkAltClkCtrl(osc_50_b3b);
+   Reset rst_50   <- mkResetInverter(pcie_perst_n, clocked_by clk_50_buf.outclk);
+   B2C1 clk_156_25 <- mkB2C1(clocked_by clk_50_buf.outclk, reset_by rst_50);
+   PciePllWrap pll <- mkPciePllWrap(clk_50_buf.outclk, rst_50, rst_50, clocked_by clk_50_buf.outclk, reset_by rst_50);
+   Reset rst_156_n <- mkAsyncReset(1, pcie_perst_n, clk_156_25.c);
+   rule pll_clocks;
+      clk_156_25.inputclock(pll.out.clk_0);
+   endrule
+
    PcieHostTop host <- mkPcieHostTop(pcie_refclk_p, osc_50_b3b, pcie_perst_n);
 
-   //NetTopIfc   nets <- mkNetTop(osc_50_b3b, clk_156_25.c, rst_156_n);
+   NetTopIfc   nets <- mkNetTop(osc_50_b3b, clk_156_25.c, rst_156_n);
    LedTopIfc   dbg <- mkLedTop(pcie_refclk_p, pcie_perst_n, clocked_by pcie_refclk_p, reset_by pcie_perst_n);
    Reset rst_250_n <- mkAsyncReset(1, pcie_perst_n, host.portalClock);
 
@@ -120,6 +119,6 @@ module mkSonicTop #(Clock pcie_refclk_p, Clock osc_50_b3b, Reset pcie_perst_n) (
 //   endmethod
    interface Clock deleteme_unused_clockLeds = osc_50_b3b; //host.tep7.epClock125;
    //interface pins = portalTop.pins;
-   //interface pins = nets;
+   interface pins = nets;
 `endif
 endmodule

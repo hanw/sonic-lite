@@ -1,4 +1,4 @@
-CONNECTAL_DIR ?= ../../../connectal
+CONNECTAL_DIR ?= ../../../../connectal
 INTERFACES = BlockSyncTestRequest BlockSyncTestIndication
 BSVFILES = Top.bsv BlockSyncTest.bsv ../../lib/bsv/BlockSync.bsv
 CPPFILES = test_blocksync.cpp

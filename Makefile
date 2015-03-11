@@ -1,25 +1,21 @@
 
 CONNECTALDIR?=../connectal
 DTOP?=../sonic-lite
-INTERFACES=Simple
-BSVFILES=hw/bsv/LedTop.bsv hw/SimpleIF.bsv hw/Top.bsv
+S2H_INTERFACES=SimpleRequest:Simple.request
+H2S_INTERFACES=SimpleRequest:Simple
+#INTERFACES=Simple
+BSVFILES=hw/bsv/LedTop.bsv hw/Simple.bsv hw/lib/bsv/Scrambler.bsv hw/bsv/libs/AvalonStreaming.bsv
 CPPFILES=sw/testsimple.cpp
 NUMBER_OF_MASTERS =0
-#PIN_TYPE = NetTopIfc
-CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/altera_mac.qip
+PIN_BINDINGS?=-b PCIE:PCIE -b LED:LED -b OSC:OSC -b SFPA:SFPA -b SFPB:SFPB -b SFPC:SFPC -b SFPD:SFPD -b SFP:SFP -b DDR3A:DDR3A -b RZQ:RZQ
+
+PIN_TYPE = NetTopIfc
+#CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/altera_mac.qip
 CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/altera_xcvr_reset_control_wrapper.qip
 CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/altera_xcvr_native_sv_wrapper.qip
 CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/altera_xgbe_pma_reconfig_wrapper.qip
 CONNECTALFLAGS += --xci=$(DTOP)/verilog/pll/altera_clkctrl/synthesis/altera_clkctrl.qip
-#CONNECTALFLAGS += --verilog=$(DTOP)/verilog/enc_dec/
-#CONNECTALFLAGS += --verilog=$(DTOP)/verilog/gearbox/
-#CONNECTALFLAGS += --verilog=$(DTOP)/verilog/port/
-#CONNECTALFLAGS += --verilog=$(DTOP)/verilog/scramble/
-#CONNECTALFLAGS += --verilog=$(DTOP)/verilog/si570/
-#CONNECTALFLAGS += --verilog=$(DTOP)/verilog/timestamp/
-#CONNECTALFLAGS += --verilog=$(DTOP)/verilog/traffic_controller/
-#CONNECTALFLAGS += --tcl=$(DTOP)/verilog/add_sv.tcl
-CONNECTALFLAGS += --chipscope=$(DTOP)/avalon.stp
+CONNECTALFLAGS += --chipscope=$(DTOP)/hw/portal.stp
 
 # Supported Platforms:
 # {vendor}_{platform}=1
@@ -36,31 +32,24 @@ ifeq ($(ALTERA_SYNTH_$(BOARD)), 1)
 CONNECTALFLAGS += --pinfo=boards/synth.json
 endif
 
-PIN_BINDINGS?=-b PCIE:PCIE -b LED:LED -b OSC:OSC -b SFPA:SFPA -b SFPB:SFPB -b SFPC:SFPC -b SFPD:SFPD -b SFP:SFP -b DDR3A:DDR3A -b RZQ:RZQ
-
-PORTAL_DUMP_MAP="Simple"
-
-#gentarget:: $(BOARD)/sources/sonic.qsf
+#PORTAL_DUMP_MAP="Simple"
 
 prebuild::
 ifeq ($(ALTERA_SIM_$(BOARD)), 1)
 #	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) quartus_sh -t ../scripts/connectal-synth-pll.tcl)
-	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) quartus_sh -t ../scripts/connectal-simu-pcietb.tcl)
+	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) quartus_sh -t $(DTOP)/hw/scripts/connectal-simu-pcietb.tcl)
 endif
 ifeq ($(ALTERA_SYNTH_$(BOARD)), 1)
 	#(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) quartus_sh -t $(CONNECTALDIR)/scripts/connectal-synth-pll.tcl)
 	#(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) quartus_sh -t ../scripts/connectal-synth-mac.tcl)
 endif
 
-#$(BOARD)/sources/sonic.qsf: hw/settings/sonic.json $(CONNECTALDIR)/boardinfo/$(BOARD).json
-#ifeq ($(ALTERA_SYNTH_$(BOARD)), 1)
-#	mkdir -p $(BOARD)/sources
-#	$(CONNECTALDIR)/scripts/generate-constraints.py -f altera $(PIN_BINDINGS) -o $(BOARD)/sources/$(BOARD).qsf $(CONNECTALDIR)/boardinfo/$(BOARD).json hw/settings/sonic.json
-#endif
-
-BSV_VERILOG_FILES+=$(PCIE_TBED_VERILOG_FILES)
+#BSV_VERILOG_FILES+=$(PCIE_TBED_VERILOG_FILES)
 
 vsim: gen.vsim prebuild
 	make -C $@ vsim
+
+boards-de5:
+	make -C boards/de5 program
 
 include $(CONNECTALDIR)/Makefile.connectal
