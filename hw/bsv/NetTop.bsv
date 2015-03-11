@@ -36,22 +36,27 @@ import Ethernet           ::*;
 //import Avalon2ClientServer ::*;
 
 `ifndef DataBusWidth
-`define DataBusWidth 64
-`endif
-`ifndef PinType
-`define PinType Empty
-`endif
-`ifndef N_CHAN
-`define N_CHAN 4
+typedef `DataBusWidth DataBusWidth;
+`else
+typedef 64 DataBusWidth;
 `endif
 
-typedef `N_CHAN  N_CHAN;
+`ifdef NUMBER_OF_10G_PORTS
+typedef `NUMBER_OF_10G_PORTS NumPorts;
+`else
+typedef 4 NumPorts;
+`endif
+
+`ifdef PinType
 typedef `PinType PinType;
+`else
+typedef Empty PinType;
+`endif
 
 (* always_ready, always_enabled *)
 interface NetTopIfc;
    interface AvalonSlaveIfc#(24) avs;
-   interface Vector#(N_CHAN, SerialIfc) serial;
+   interface Vector#(NumPorts, SerialIfc) serial;
    interface Clock clk_net;
 endinterface
 

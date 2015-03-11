@@ -26,10 +26,10 @@ package Ethernet;
 import DefaultValue          ::*;
 import Connectable           ::*;
 
-`ifdef N_CHAN
-typedef `N_CHAN N_CHAN;
+`ifdef NUMBER_OF_10G_PORTS
+typedef `NUMBER_OF_10G_PORTS NumPorts;
 `else
-typedef 4 N_CHAN;
+typedef 4 NumPorts;
 `endif
 
 typedef 64 AVALON_DATA_WIDTH;

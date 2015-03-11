@@ -33,10 +33,10 @@ import EthPcs                        ::*;
 import ALTERA_SI570_WRAPPER          ::*;
 import ALTERA_EDGE_DETECTOR_WRAPPER  ::*;
 
-`ifdef USE_4_CHANNELS
-typedef 4 N_CHAN;
-`elsif USE_2_CHANNELS
-typedef 2 N_CHAN;
+`ifdef NUMBER_OF_10G_PORTS
+typedef `NUMBER_OF_10G_PORTS NumPorts;
+`else
+typedef 4 NumPorts;
 `endif
 
 (* always_ready, always_enabled *)
@@ -47,13 +47,14 @@ endinterface
 
 
 (* synthesize *)
-module mkEthPhy#(Clock clk_50, Reset rst_50, Clock clk_156_25, Reset rst_156_25, Clock clk_644)(EthPhyIfc#(N_CHAN));
+module mkEthPhy#(Clock clk_50, Reset rst_50, Clock clk_156_25, Reset rst_156_25, Clock clk_644)(EthPhyIfc#(NumPorts));
 
    Clock defaultClock <- exposeCurrentClock;
    Reset defaultReset <- exposeCurrentReset;
 
-   EthPcsIfc#(N_CHAN)   pcs4 <- mkEthPcs(clk_156_25, rst_156_25);
-   EthPmaIfc#(N_CHAN)   pma4 <- mkEthPma(clk_50, clk_644, rst_50);
+   Vector#(NumPorts)
+   EthPcsIfc#(NumPorts)   pcs4 <- mkEthPcs(clk_156_25, rst_156_25);
+   EthPmaIfc#(NumPorts)   pma4 <- mkEthPma(clk_50, clk_644, rst_50);
 
    Si570Wrap            si570 <- mkSi570Wrap(clk_50, rst_50, rst_50);
    EdgeDetectorWrap     edgedetect <- mkEdgeDetectorWrap(clk_50, rst_50, rst_50);
@@ -70,7 +71,7 @@ module mkEthPhy#(Clock clk_50, Reset rst_50, Clock clk_156_25, Reset rst_156_25,
       si570.istart.go(edgedetect.odebounce.out);
    endrule
 
-   for (Integer i=0; i< valueOf(N_CHAN); i=i+1) begin
+   for (Integer i=0; i< valueOf(NumPorts); i=i+1) begin
       mkConnection(pma4.fpga[i], pcs4.xcvr[i]);
    end
 

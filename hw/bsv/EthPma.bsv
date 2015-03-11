@@ -33,10 +33,10 @@ import ALTERA_ETH_PMA_WRAPPER               ::*;
 import ALTERA_ETH_PMA_RECONFIG_WRAPPER      ::*;
 import ALTERA_ETH_PMA_RESET_CONTROL_WRAPPER ::*;
 
-`ifdef N_CHAN
-typedef `N_CHAN N_CHAN;
+`ifdef NUMBER_OF_10G_PORTS
+typedef `NUMBER_OF_10G_PORTS NumPorts;
 `else
-typedef 4 N_CHAN;
+typedef 4 NumPorts;
 `endif
 
 (* always_ready, always_enabled *)
@@ -65,7 +65,7 @@ interface EthPmaIfc#(numeric type np);
 endinterface
 
 (* synthesize *)
-module mkEthPma#(Clock phy_mgmt_clk, Clock pll_ref_clk, Reset phy_mgmt_reset)(EthPmaIfc#(N_CHAN));
+module mkEthPma#(Clock phy_mgmt_clk, Clock pll_ref_clk, Reset phy_mgmt_reset)(EthPmaIfc#(NumPorts));
 
    Clock defaultClock <- exposeCurrentClock();
    Reset defaultReset <- exposeCurrentReset();
@@ -102,23 +102,23 @@ module mkEthPma#(Clock phy_mgmt_clk, Clock pll_ref_clk, Reset phy_mgmt_reset)(Et
    endrule
 
    /* connect all three components */
-//   Vector#(N_CHAN, B2C1) tx_clk;
-//   Vector#(N_CHAN, B2C1) rx_clk;
-//   for (Integer i=0; i < valueOf(N_CHAN); i=i+1) begin
+//   Vector#(NumPorts, B2C1) tx_clk;
+//   Vector#(NumPorts, B2C1) rx_clk;
+//   for (Integer i=0; i < valueOf(NumPorts); i=i+1) begin
 //      tx_clk[i] <- mkB2C1();
 //      rx_clk[i] <- mkB2C1();
 //   end
 //
 //   rule out_pma_clk;
-//      for (Integer i=0; i < valueOf(N_CHAN); i=i+1) begin
+//      for (Integer i=0; i < valueOf(NumPorts); i=i+1) begin
 //         tx_clk[i].inputclock(xcvr.tx.pma_clkout[i]);
 //         rx_clk[i].inputclock(xcvr.rx.pma_clkout[i]);
 //      end
 //   endrule
 //
-//   Vector#(N_CHAN, Clock) out_tx_clk;
-//   Vector#(N_CHAN, Clock) out_rx_clk;
-//   for (Integer i=0; i< valueOf(N_CHAN); i=i+1) begin
+//   Vector#(NumPorts, Clock) out_tx_clk;
+//   Vector#(NumPorts, Clock) out_rx_clk;
+//   for (Integer i=0; i< valueOf(NumPorts); i=i+1) begin
 //      out_tx_clk[i] = tx_clk[i].c;
 //      out_rx_clk[i] = rx_clk[i].c;
 //   end
@@ -126,8 +126,8 @@ module mkEthPma#(Clock phy_mgmt_clk, Clock pll_ref_clk, Reset phy_mgmt_reset)(Et
 //   interface rx_clkout = out_rx_clk;
 
    // Status
-   Vector#(N_CHAN, Status) status_ifcs;
-   for (Integer i=0; i < valueOf(N_CHAN); i=i+1) begin
+   Vector#(NumPorts, Status) status_ifcs;
+   for (Integer i=0; i < valueOf(NumPorts); i=i+1) begin
       status_ifcs[i] = interface Status;
           method Bit#(1) pll_locked;
              return xcvr.pll.locked[i];
@@ -142,9 +142,9 @@ module mkEthPma#(Clock phy_mgmt_clk, Clock pll_ref_clk, Reset phy_mgmt_reset)(Et
    end
 
    // Use Wire to pass data from interface expression to other rules.
-   Vector#(N_CHAN, Wire#(Bit#(1))) wires <- replicateM(mkDWire(0));
-   Vector#(N_CHAN, SerialIfc) serial_ifcs;
-   for (Integer i=0; i < valueOf(N_CHAN); i=i+1) begin
+   Vector#(NumPorts, Wire#(Bit#(1))) wires <- replicateM(mkDWire(0));
+   Vector#(NumPorts, SerialIfc) serial_ifcs;
+   for (Integer i=0; i < valueOf(NumPorts); i=i+1) begin
        serial_ifcs[i] = interface SerialIfc;
           method Action rx (Bit#(1) v);
              wires[i] <= v;
@@ -160,9 +160,9 @@ module mkEthPma#(Clock phy_mgmt_clk, Clock pll_ref_clk, Reset phy_mgmt_reset)(Et
    endrule
 
    // FPGA Fabric-Side Interface
-   Vector#(N_CHAN, Wire#(Bit#(40))) p_wires <- replicateM(mkDWire(0));
-   Vector#(N_CHAN, XCVR_PMA) xcvr_ifcs;
-   for (Integer i=0; i < valueOf(N_CHAN); i=i+1) begin
+   Vector#(NumPorts, Wire#(Bit#(40))) p_wires <- replicateM(mkDWire(0));
+   Vector#(NumPorts, XCVR_PMA) xcvr_ifcs;
+   for (Integer i=0; i < valueOf(NumPorts); i=i+1) begin
       xcvr_ifcs[i] = interface XCVR_PMA;
           interface XCVR_RX_PMA rx;
              method Bit#(1) rx_ready;

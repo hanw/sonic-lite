@@ -34,26 +34,26 @@ import EthPktCtrl::*;
 import Avalon2ClientServer::*;
 import AvalonStreaming::*;
 
-`ifdef N_CHAN
-typedef `N_CHAN N_CHAN;
+`ifdef NUMBER_OF_10G_PORTS
+typedef `NUMBER_OF_10G_PORTS NumPorts;
 `else
-typedef 4 N_CHAN;
+typedef 4 NumPorts;
 `endif
 
 (* always_ready, always_enabled *)
 interface EthPortIfc;
    interface AvalonSlaveIfc#(24) avs;
-   interface Vector#(N_CHAN, SerialIfc) serial;
+   interface Vector#(NumPorts, SerialIfc) serial;
 endinterface
 
 (* synthesize *)
 (* clock_family = "default_clock, clk_156_25" *)
 module mkEthPorts#(Clock clk_50, Clock clk_156_25, Clock clk_644, Reset rst_50, Reset rst_156_25)(EthPortIfc);
-   Vector#(N_CHAN, EthPktCtrlIfc) pktctrls <- replicateM(mkEthPktCtrl(clk_156_25, rst_156_25, clocked_by clk_156_25, reset_by rst_156_25));
-   EthMacIfc#(N_CHAN) macs <- mkEthMac(clk_50, rst_50, clk_156_25, rst_156_25, clocked_by clk_156_25, reset_by rst_156_25);
-   EthPhyIfc#(N_CHAN) phys <- mkEthPhy(clk_50, rst_50, clk_156_25, rst_156_25, clk_644, clocked_by clk_156_25, reset_by rst_156_25);
+   Vector#(NumPorts, EthPktCtrlIfc) pktctrls <- replicateM(mkEthPktCtrl(clk_156_25, rst_156_25, clocked_by clk_156_25, reset_by rst_156_25));
+   EthMacIfc#(NumPorts) macs <- mkEthMac(clk_50, rst_50, clk_156_25, rst_156_25, clocked_by clk_156_25, reset_by rst_156_25);
+   EthPhyIfc#(NumPorts) phys <- mkEthPhy(clk_50, rst_50, clk_156_25, rst_156_25, clk_644, clocked_by clk_156_25, reset_by rst_156_25);
 
-   for (Integer i=0; i<valueOf(N_CHAN); i=i+1) begin
+   for (Integer i=0; i<valueOf(NumPorts); i=i+1) begin
       mkConnection(pktctrls[i].aso, macs.avalon[i].asi);
       mkConnection(macs.avalon[i].aso, pktctrls[i].asi);
       mkConnection(macs.xgmii[i], phys.xgmii[i]);

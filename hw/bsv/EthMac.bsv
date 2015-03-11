@@ -32,10 +32,10 @@ import AvalonStreaming::*;
 // 4-port 10GbE MAC Qsys wrapper
 import ALTERA_MAC_WRAPPER::*;
 
-`ifdef N_CHAN
-typedef `N_CHAN N_CHAN;
+`ifdef NUMBER_OF_10G_PORTS
+typedef `NUMBER_OF_10G_PORTS NumPorts;
 `else
-typedef 4 N_CHAN;
+typedef 4 NumPorts;
 `endif
 
 (* always_ready, always_enabled *)
@@ -63,8 +63,8 @@ module mkEthMac#(Clock clk_50, Reset rst_50, Clock clk_156_25, Reset rst_156_25)
                             rst_156_25, rst_156_25, rst_156_25, rst_156_25,
                             rst_156_25, rst_156_25, rst_156_25, rst_156_25);
 
-   Vector#(N_CHAN, EthMacAvalonSTIfc) avalon_ifcs;
-   for (Integer i=0; i<valueOf(N_CHAN); i=i+1) begin
+   Vector#(NumPorts, EthMacAvalonSTIfc) avalon_ifcs;
+   for (Integer i=0; i<valueOf(NumPorts); i=i+1) begin
       avalon_ifcs[i] = interface EthMacAvalonSTIfc;
          interface AvalonPacketStreamSourcePhysicalIfc aso;
             method stream_out_data;
@@ -192,8 +192,8 @@ module mkEthMac#(Clock clk_50, Reset rst_50, Clock clk_156_25, Reset rst_156_25)
       endinterface;
    end
 
-   Vector#(N_CHAN, XGMII_MAC) xgmii_ifcs;
-   for (Integer i=0; i<valueOf(N_CHAN); i=i+1) begin
+   Vector#(NumPorts, XGMII_MAC) xgmii_ifcs;
+   for (Integer i=0; i<valueOf(NumPorts); i=i+1) begin
       xgmii_ifcs[i] = interface XGMII_MAC;
          interface XGMII_RX_MAC rx;
             method Action rx_dc(Bit#(72) v);
