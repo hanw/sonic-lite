@@ -25,10 +25,13 @@ package EthPma;
 import Clocks                               ::*;
 import Vector                               ::*;
 import Connectable                          ::*;
+import FIFOF ::*;
+import SpecialFIFOs ::*;
+import Pipe ::*;
+import GetPut ::*;
 
 import ConnectalClocks                      ::*;
 import Ethernet                             ::*;
-
 import ALTERA_ETH_PMA_WRAPPER               ::*;
 import ALTERA_ETH_PMA_RECONFIG_WRAPPER      ::*;
 import ALTERA_ETH_PMA_RESET_CONTROL_WRAPPER ::*;
@@ -57,15 +60,25 @@ interface Status;
 endinterface
 
 (* always_ready, always_enabled *)
-interface EthPmaIfc#(numeric type np);
+interface EthPmaInternal#(numeric type np);
    interface PhyMgmtIfc             phy_mgmt;
    interface Vector#(np, Status)    status;
-   interface Vector#(np, SerialIfc) fiber;
+   interface Vector#(np, SerialIfc) pmd;
    interface Vector#(np, XCVR_PMA)  fpga;
 endinterface
 
-(* synthesize *)
-module mkEthPma#(Clock phy_mgmt_clk, Clock pll_ref_clk, Reset phy_mgmt_reset)(EthPmaIfc#(NumPorts));
+interface EthPma#(numeric type numPorts);
+   interface Vector#(numPorts, PipeOut#(Bit#(40))) rx;
+   interface Vector#(numPorts, PipeIn#(Bit#(40)))  tx;
+   interface Vector#(numPorts, Bool)  rx_ready;
+   interface Vector#(numPorts, Clock) rx_clkout;
+   interface Vector#(numPorts, Bool)  tx_ready;
+   interface Vector#(numPorts, Clock) tx_clkout;
+   interface Vector#(numPorts, SerialIfc) pmd;
+endinterface
+
+//(* synthesize *)
+module mkEthPmaInternal#(Clock phy_mgmt_clk, Clock pll_ref_clk, Reset phy_mgmt_reset)(EthPmaInternal#(NumPorts));
 
    Clock defaultClock <- exposeCurrentClock();
    Reset defaultReset <- exposeCurrentReset();
@@ -100,30 +113,6 @@ module mkEthPma#(Clock phy_mgmt_clk, Clock pll_ref_clk, Reset phy_mgmt_reset)(Et
    rule connect_any_constants;
       rst.pll.select(2'b11);
    endrule
-
-   /* connect all three components */
-//   Vector#(NumPorts, B2C1) tx_clk;
-//   Vector#(NumPorts, B2C1) rx_clk;
-//   for (Integer i=0; i < valueOf(NumPorts); i=i+1) begin
-//      tx_clk[i] <- mkB2C1();
-//      rx_clk[i] <- mkB2C1();
-//   end
-//
-//   rule out_pma_clk;
-//      for (Integer i=0; i < valueOf(NumPorts); i=i+1) begin
-//         tx_clk[i].inputclock(xcvr.tx.pma_clkout[i]);
-//         rx_clk[i].inputclock(xcvr.rx.pma_clkout[i]);
-//      end
-//   endrule
-//
-//   Vector#(NumPorts, Clock) out_tx_clk;
-//   Vector#(NumPorts, Clock) out_rx_clk;
-//   for (Integer i=0; i< valueOf(NumPorts); i=i+1) begin
-//      out_tx_clk[i] = tx_clk[i].c;
-//      out_rx_clk[i] = rx_clk[i].c;
-//   end
-//   interface tx_clkout = out_tx_clk;
-//   interface rx_clkout = out_rx_clk;
 
    // Status
    Vector#(NumPorts, Status) status_ifcs;
@@ -193,7 +182,7 @@ module mkEthPma#(Clock phy_mgmt_clk, Clock pll_ref_clk, Reset phy_mgmt_reset)(Et
    endrule
 
    interface status = status_ifcs;
-   interface fiber  = serial_ifcs;
+   interface pmd    = serial_ifcs;
    interface fpga   = xcvr_ifcs;
 
    interface PhyMgmtIfc phy_mgmt;
@@ -222,5 +211,72 @@ module mkEthPma#(Clock phy_mgmt_clk, Clock pll_ref_clk, Reset phy_mgmt_reset)(Et
       endmethod
    endinterface
 
+endmodule: mkEthPmaInternal
+
+module mkEthPma(EthPma#(NumPorts) intf);
+   Clock defaultClock <- exposeCurrentClock();
+   Reset defaultReset <- exposeCurrentReset();
+   EthPmaInternal#(NumPorts) pma <- mkEthPmaInternal(defaultClock, defaultClock, defaultReset);
+
+   Vector#(NumPorts, FIFOF#(Bit#(40))) rxFifo <- replicateM(mkFIFOF());
+   Vector#(NumPorts, FIFOF#(Bit#(40))) txFifo <- replicateM(mkFIFOF());
+   Vector#(NumPorts, PipeOut#(Bit#(40))) vRxPipe = newVector;
+   Vector#(NumPorts, PipeIn#(Bit#(40))) vTxPipe = newVector;
+   for (Integer i=0; i<valueOf(NumPorts); i=i+1) begin
+      vRxPipe[i] = toPipeOut(rxFifo[i]);
+      vTxPipe[i] = toPipeIn(txFifo[i]);
+   end
+   rule receive (True);
+      for(Integer i=0; i<valueOf(NumPorts); i=i+1) begin
+         rxFifo[i].enq(pma.fpga[i].rx.rx_data);
+      end
+   endrule
+   rule transmit (True);
+      for(Integer i=0; i<valueOf(NumPorts); i=i+1) begin
+         let v <- toGet(txFifo[i]).get;
+         pma.fpga[i].tx.tx_data(v);
+      end
+   endrule
+
+   Vector#(NumPorts, Bool) rxReady = newVector;
+   Vector#(NumPorts, Bool) txReady = newVector;
+   for(Integer i=0; i<valueOf(NumPorts); i=i+1) begin
+      rxReady[i] = unpack(pma.fpga[i].rx.rx_ready);
+      txReady[i] = unpack(pma.fpga[i].tx.tx_ready);
+   end
+
+   Vector#(NumPorts, B2C1) tx_clk;
+   Vector#(NumPorts, B2C1) rx_clk;
+   for (Integer i=0; i < valueOf(NumPorts); i=i+1) begin
+      tx_clk[i] <- mkB2C1();
+      rx_clk[i] <- mkB2C1();
+   end
+   rule out_pma_clk;
+      for (Integer i=0; i < valueOf(NumPorts); i=i+1) begin
+         tx_clk[i].inputclock(pma.fpga[i].tx.tx_clkout);
+         rx_clk[i].inputclock(pma.fpga[i].rx.rx_clkout);
+      end
+   endrule
+
+   Vector#(NumPorts, Clock) out_tx_clk;
+   Vector#(NumPorts, Clock) out_rx_clk;
+   for (Integer i=0; i< valueOf(NumPorts); i=i+1) begin
+      out_tx_clk[i] = tx_clk[i].c;
+      out_rx_clk[i] = rx_clk[i].c;
+   end
+
+   interface tx_clkout = out_tx_clk;
+   interface rx_clkout = out_rx_clk;
+   interface rx_ready  = rxReady;
+   interface tx_ready  = txReady;
+   interface rx        = vRxPipe;
+   interface tx        = vTxPipe;
+   interface pmd       = pma.pmd;
 endmodule: mkEthPma
+
+(* synthesize *)
+module mkEthPmaTop(EthPma#(4));
+   EthPma#(4) _a <- mkEthPma(); return _a;
+endmodule
+
 endpackage: EthPma
