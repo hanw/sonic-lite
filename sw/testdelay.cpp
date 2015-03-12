@@ -22,97 +22,29 @@
 #include <stdio.h>
 #include <assert.h>
 
-#include "Simple.h"
+#include "SonicUserRequest.h"
 
-#define NUMBER_OF_TESTS 8
+#define NUMBER_OF_TESTS 1
 
-int v1a = 42;
-
-int v2a = 2;
-int v2b = 4;
-
-S2 s2 = {7, 8, 9};
-
-S1 s1 = {3, 6};
-
-uint32_t v5a = 0x00000000;
-uint64_t v5b = 0xDEADBEEFFECAFECA;
-uint32_t v5c = 0x00000001;
-
-uint32_t v6a = 0xBBBBBBBB;
-uint64_t v6b = 0x000000EFFECAFECA;
-uint32_t v6c = 0xCCCCCCCC;
-
-uint32_t v7a = 0xDADADADA;
-E1 v7b = E1_E1Choice2;
-S3 s3 = { a: v7a, e1: v7b };
-
-
-class Simple : public SimpleWrapper
-{  
+class SonicUser : public SonicUserRequestWrapper
+{
 public:
   uint32_t cnt;
   void incr_cnt(){
     if (++cnt == NUMBER_OF_TESTS)
       exit(0);
   }
-  virtual void say1(uint32_t a) {
-    fprintf(stderr, "say1(%d)\n", a);
-    assert(a == v1a);
+  virtual void snapshot(uint32_t a) {
+    fprintf(stderr, "snapshot(%d)\n", a);
     incr_cnt();
   }
-  virtual void say2(uint32_t a, uint32_t b) {
-    fprintf(stderr, "say2(%d %d)\n", a, b);
-    assert(a == v2a);
-    assert(b == v2b);
-    incr_cnt();
-  }
-  virtual void say3(S1 s){
-    fprintf(stderr, "say3(S1{a:%d,b:%d})\n", s.a, s.b);
-    assert(s.a == s1.a);
-    assert(s.b == s1.b);
-    incr_cnt();
-  }
-  virtual void say4(S2 s){
-    fprintf(stderr, "say4(S2{a:%d,b:%d,c:%d})\n", s.a,s.b,s.c);
-    assert(s.a == s2.a);
-    assert(s.b == s2.b);
-    assert(s.c == s2.c);
-    incr_cnt();
-  }
-  virtual void say5(uint32_t a, uint64_t b, uint32_t c) {
-    fprintf(stderr, "say5(%08x, %016llx, %08x)\n", a, (long long)b, c);
-    assert(a == v5a);
-    assert(b == v5b);
-    assert(c == v5c);
-    incr_cnt();
-  }
-  virtual void say6(uint32_t a, uint64_t b, uint32_t c) {
-    fprintf(stderr, "say6(%08x, %016llx, %08x)\n", a, (long long)b, c);
-    assert(a == v6a);
-    assert(b == v6b);
-    assert(c == v6c);
-    incr_cnt();
-  }
-  virtual void say7(S3 v) {
-    fprintf(stderr, "say7(%08x, %08x)\n", v.a, v.e1);
-    assert(v.a == v7a);
-    assert(v.e1 == v7b);
-    incr_cnt();
-  }
-  virtual void say8 ( const bsvvector_Luint32_t_L128 v ) {
-    fprintf(stderr, "say8\n");
-    for (int i = 0; i < 128; i++)
-        fprintf(stderr, "    [%d] = 0x%x\n", i, v[i]);
-    incr_cnt();
-  }
-  Simple(unsigned int id) : SimpleWrapper(id), cnt(0){}
+  SonicUser(unsigned int id) : SonicUserRequestWrapper(id), cnt(0){}
 };
 
 int main(int argc, const char **argv)
 {
-  Simple *indication = new Simple(IfcNames_SimpleIndication);
-  SimpleProxy *device = new SimpleProxy(IfcNames_SimpleRequest);
+  SonicUser *indication = new SonicUser(IfcNames_SonicUserRequestS2H);
+  SonicUserRequestProxy *device = new SonicUserRequestProxy(IfcNames_SonicUserRequestH2S);
   device->pint.busyType = BUSY_SPIN;   /* spin until request portal 'notFull' */
 
   portalExec_start();

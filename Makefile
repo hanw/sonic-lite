@@ -1,11 +1,11 @@
 
 CONNECTALDIR?=../connectal
 DTOP?=../sonic-lite
-S2H_INTERFACES=SimpleRequest:Simple.request
-H2S_INTERFACES=SimpleRequest:Simple
-#INTERFACES=Simple
-BSVFILES=hw/bsv/LedTop.bsv hw/Simple.bsv hw/lib/bsv/Scrambler.bsv hw/bsv/libs/AvalonStreaming.bsv
-CPPFILES=sw/testsimple.cpp
+S2H_INTERFACES=SonicUserRequest:SonicUser.request
+H2S_INTERFACES=SonicUserRequest:SonicUser
+#INTERFACES=SonicUser
+BSVFILES=hw/bsv/LedTop.bsv hw/SonicUser.bsv hw/lib/bsv/Scrambler.bsv hw/bsv/libs/AvalonStreaming.bsv
+CPPFILES=sw/testdelay.cpp
 NUMBER_OF_MASTERS =0
 PIN_BINDINGS?=-b PCIE:PCIE -b LED:LED -b OSC:OSC -b SFPA:SFPA -b SFPB:SFPB -b SFPC:SFPC -b SFPD:SFPD -b SFP:SFP -b DDR3A:DDR3A -b RZQ:RZQ
 
@@ -32,7 +32,7 @@ ifeq ($(ALTERA_SYNTH_$(BOARD)), 1)
 CONNECTALFLAGS += --pinfo=boards/synth.json
 endif
 
-#PORTAL_DUMP_MAP="Simple"
+#PORTAL_DUMP_MAP="SonicUser"
 
 prebuild::
 ifeq ($(ALTERA_SIM_$(BOARD)), 1)
