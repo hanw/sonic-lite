@@ -30,22 +30,14 @@ import GetPut::*;
 import ClientServer::*;
 
 import Pipe::*;
-import MemTypes::*;
-
-typedef 33 N_STATE;
 
 interface Gearbox_40_66;
    interface PipeOut#(Bit#(66)) gbOut;
 endinterface
 
-(* mutually_exclusive = "state0, state1, state2, state3, state4, state5, state6, state7, state8, state9, state10, state11, state12, state13, state14, state15, state16, state17, state18, state19, state20, state21, state22, state23, state24, state25, state26, state27, state28, state29, state30, state31, state32" *)
 module mkGearbox40to66#(PipeOut#(Bit#(40)) pmaOut) (Gearbox_40_66);
 
    let verbose = False;
-
-   function Bit#(N_STATE) toState(Integer st);
-      return 1 << st;
-   endfunction
 
    FIFOF#(Bit#(40)) cf <- mkSizedFIFOF(1);
    Vector#(66, Reg#(Bit#(1))) sr0        <- replicateM(mkReg(0));
@@ -54,301 +46,103 @@ module mkGearbox40to66#(PipeOut#(Bit#(40)) pmaOut) (Gearbox_40_66);
    FIFOF#(Bit#(66)) fifo_out <- mkFIFOF;
    PipeOut#(Bit#(66)) pipe_out = toPipeOut(fifo_out);
 
-   Reg#(Bit#(N_STATE)) state <- mkReg(toState(0));
+   Reg#(Bit#(6)) state <- mkReg(0);
+   Reg#(Int#(8)) sh_offset <- mkReg(0);
+   Reg#(Int#(8)) sh_len    <- mkReg(0);
+   Reg#(Bit#(1)) sh_use0   <- mkReg(0);
+   Reg#(Bit#(1)) sh_use_sr <- mkReg(0);
 
-   function ActionValue#(Vector#(66, Bit#(1))) updateSR1(Bit#(66) reg0, Bit#(66) reg1, Bit#(40) din, Integer offset, Integer len, Bool use0) = actionvalue
-      Vector#(66, Bit#(1)) sr = unpack(0);
+   rule state_machine (cf.notEmpty);
+      let value = cf.first;
+      cf.deq;
+      let next_state = state;
+      let offset     = sh_offset;
+      let len        = sh_len;
+      let useSr0     = sh_use0;
+      let updateSr   = sh_use_sr;
 
-      if (use0) begin
-         sr = unpack(reg0);
+      case (state)
+          32:      next_state = 0;
+          default: next_state = next_state + 1;
+      endcase
+
+      if (offset + 40 > 66) begin
+         len = 66 - offset;
+         useSr0 = True;
       end
       else begin
-         sr = unpack(reg1);
+         len = 40;
+         useSr0 = False;
       end
 
-      for (Integer idx = offset; idx < offset + len; idx = idx+1) begin
-         sr[idx] = din[idx - offset];
+      offset = offset + 40;
+      if (offset > 66) begin
+         offset = offset - 66;
       end
-      if (verbose) $display("SR1: %h, %h, %h, %h", sr, din, offset, len);
-      return sr;
-   endactionvalue;
 
-   function ActionValue#(Vector#(66, Bit#(1))) updateSR0(Bit#(40) din, Integer len, Bool update) = actionvalue
-      Vector#(66, Bit#(1)) sr = unpack(0);
+      if (len + sh_offset == 66) begin
+         updateSr = True;
+      end
+      else begin
+         updateSr = False;
+      end
 
-      if (update) begin
-         for (Integer idx = 0; idx < len; idx = idx + 1) begin
-            Integer d_start = 40 - len;
-            sr[idx] = din[d_start + idx];
+      Vector#(66, Bit#(1)) sr1_next = unpack(0);
+      if (unpack(sh_use0)) begin
+         sr1_next = readVReg(sr0);
+         $display("state %h: shift sr0 to sr1", state);
+      end
+      else begin
+         sr1_next = readVReg(sr1);
+         $display("state %h: keep sr1", state);
+      end
+
+      function Bit#(1) value_sub(Integer i);
+         Bit#(1) v = 0;
+         if (fromInteger(i) < sh_offset) begin
+            v = sr1_next[i];
          end
+         else if (fromInteger(i) < sh_offset + len) begin
+            v = value[fromInteger(i)-sh_offset];
+         end
+         else begin
+            v = sr1_next[i];
+         end
+         return v;
+      endfunction
+      Vector#(66, Bit#(1)) next_sr1 = genWith(value_sub);
+      writeVReg(take(sr1), next_sr1);
+
+      function Bit#(1) value_sub_sr0(Integer i);
+         Bit#(1) v;
+         Int#(8) d_start = 40 - len;
+         if (updateSr && fromInteger(i) < d_start) begin
+            v = value[fromInteger(i) + len];
+         end
+         else begin
+            v = 0;
+         end
+         return v;
+      endfunction
+      Vector#(66, Bit#(1)) next_sr0 = genWith(value_sub_sr0);
+      writeVReg(take(sr0), next_sr0);
+
+      if (verbose) $display("state %h: curr_sr0=%h next_sr0=%h curr_sr1=%h next_sr1=%h sh_offset=%d len=%d use0=%d update=", state, pack(readVReg(sr0)), pack(next_sr0), pack(readVReg(sr1)), pack(next_sr1), sh_offset, len, sh_use0, updateSr);
+
+      state     <= next_state;
+      sh_offset <= offset;
+      sh_len    <= len;
+      sh_use0   <= pack(useSr0);
+      sh_use_sr <= pack(updateSr);
+
+      if (useSr0) begin
+         fifo_out.enq(pack(next_sr1));
       end
-      if (verbose) $display("SR0: %h, %h, %h", sr, din, len);
-      return sr;
-   endactionvalue;
-
-   function ActionValue#(Vector#(66, Bit#(1))) updateSR(Bit#(66) sr0_packed, Bit#(66) sr1_packed, Bit#(40) din, Integer offset, Integer len, Bool use0, Bool update) = actionvalue
-      let sr1_next <- updateSR1(sr0_packed, sr1_packed, din, offset, len, use0);
-      writeVReg(take(sr1), sr1_next);
-      let sr0_next <- updateSR0(din, 40-len, update);
-      writeVReg(take(sr0), sr0_next);
-      return sr1_next;
-   endactionvalue;
-
-   rule state0 (state[0] == 1 && cf.notEmpty);
-      let value = cf.first();
-      cf.deq;
-      let sr <- updateSR(pack(readVReg(sr0)), pack(readVReg(sr1)), value, 0, 40, False, False);
-      state <= toState(1);
-      if (verbose) $display("state %h: %h", state, pack(sr));
-   endrule
-   rule state1 (state[1] == 1 && cf.notEmpty);
-      let value = cf.first();
-      cf.deq;
-      let sr <- updateSR(pack(readVReg(sr0)), pack(readVReg(sr1)), value, 40, 26, False, True);
-      fifo_out.enq(pack(sr));
-      state <= toState(2);
-      if (verbose) $display("state %h: %h", state, pack(sr));
-   endrule
-   rule state2 (state[2] == 1 && cf.notEmpty);
-      let value = cf.first();
-      cf.deq;
-      let sr <- updateSR(pack(readVReg(sr0)), pack(readVReg(sr1)), value, 14, 40, True, False);
-      state <= toState(3);
-      if (verbose) $display("state %h: %h", state, pack(sr));
-   endrule
-   rule state3 (state[3] == 1 && cf.notEmpty);
-      let value = cf.first();
-      cf.deq;
-      let sr <- updateSR(pack(readVReg(sr0)), pack(readVReg(sr1)), value, 54, 12, False, True);
-      fifo_out.enq(pack(sr));
-      state <= toState(4);
-      if (verbose) $display("state %h: %h", state, pack(sr));
-   endrule
-   rule state4 (state[4] == 1 && cf.notEmpty);
-      let value = cf.first();
-      cf.deq;
-      let sr <- updateSR(pack(readVReg(sr0)), pack(readVReg(sr1)), value, 28, 38, True, True);
-      fifo_out.enq(pack(sr));
-      state <= toState(5);
-      if (verbose) $display("state %h: %h", state, pack(sr));
-   endrule
-   rule state5 (state[5] == 1 && cf.notEmpty);
-      let value = cf.first();
-      cf.deq;
-      let sr <- updateSR(pack(readVReg(sr0)), pack(readVReg(sr1)), value, 2, 40, True, False);
-      state <= toState(6);
-      if (verbose) $display("state %h: %h", state, pack(sr));
-   endrule
-   rule state6 (state[6] == 1);
-      let value = cf.first();
-      cf.deq;
-      let sr <- updateSR(pack(readVReg(sr0)), pack(readVReg(sr1)), value, 42, 24, False, True);
-      fifo_out.enq(pack(sr));
-      state <= toState(7);
-      if (verbose) $display("state %h: %h, %h", state, readVReg(sr0), readVReg(sr1));
-   endrule
-   rule state7 (state[7] == 1);
-      let value = cf.first();
-      cf.deq;
-      let sr <- updateSR(pack(readVReg(sr0)), pack(readVReg(sr1)), value, 16, 40, True, False);
-      state <= toState(8);
-      if (verbose) $display("state %h: %h, %h", state, readVReg(sr0), readVReg(sr1));
-   endrule
-   rule state8 (state[8] == 1);
-      let value = cf.first();
-      cf.deq;
-      let sr <- updateSR(pack(readVReg(sr0)), pack(readVReg(sr1)), value, 56, 10, False, True);
-      fifo_out.enq(pack(sr));
-      state <= toState(9);
-      if (verbose) $display("state %h: %h, %h", state, readVReg(sr0), readVReg(sr1));
-   endrule
-   rule state9 (state[9] == 1);
-      let value = cf.first();
-      cf.deq;
-      let sr <- updateSR(pack(readVReg(sr0)), pack(readVReg(sr1)), value, 30, 36, True, True);
-      fifo_out.enq(pack(sr));
-      state <= toState(10);
-      if (verbose) $display("state %h: %h, %h", state, readVReg(sr0), readVReg(sr1));
-   endrule
-   rule state10 (state[10] == 1);
-      let value = cf.first();
-      cf.deq;
-      let sr <- updateSR(pack(readVReg(sr0)), pack(readVReg(sr1)), value, 4, 40, True, False);
-      state <= toState(11);
-      if (verbose) $display("state %h: %h, %h", state, readVReg(sr0), readVReg(sr1));
-   endrule
-   rule state11 (state[11] == 1);
-      let value = cf.first();
-      cf.deq;
-      let sr <- updateSR(pack(readVReg(sr0)), pack(readVReg(sr1)), value, 44, 22, False, True);
-      fifo_out.enq(pack(sr));
-      state <= toState(12);
-      if (verbose) $display("state %h: %h, %h", state, readVReg(sr0), readVReg(sr1));
-   endrule
-   rule state12 (state[12] == 1);
-      let value = cf.first();
-      cf.deq;
-      let sr <- updateSR(pack(readVReg(sr0)), pack(readVReg(sr1)), value, 18, 40, True, False);
-      state <= toState(13);
-      if (verbose) $display("state %h: %h, %h", state, readVReg(sr0), readVReg(sr1));
-   endrule
-   rule state13 (state[13] == 1);
-      let value = cf.first();
-      cf.deq;
-      let sr <- updateSR(pack(readVReg(sr0)), pack(readVReg(sr1)), value, 58, 8, False, True);
-      fifo_out.enq(pack(sr));
-      state <= toState(14);
-      if (verbose) $display("state %h: %h, %h", state, readVReg(sr0), readVReg(sr1));
-   endrule
-   rule state14 (state[14] == 1);
-      let value = cf.first();
-      cf.deq;
-      let sr <- updateSR(pack(readVReg(sr0)), pack(readVReg(sr1)), value, 32, 34, False, True);
-      fifo_out.enq(pack(sr));
-      state <= toState(15);
-      if (verbose) $display("state %h: %h, %h", state, readVReg(sr0), readVReg(sr1));
-   endrule
-   rule state15 (state[15] == 1);
-      let value = cf.first();
-      cf.deq;
-      let sr <- updateSR(pack(readVReg(sr0)), pack(readVReg(sr1)), value, 6, 40, True, False);
-      state <= toState(16);
-      if (verbose) $display("state %h: %h, %h", state, readVReg(sr0), readVReg(sr1));
-   endrule
-   rule state16 (state[16] == 1);
-      let value = cf.first();
-      cf.deq;
-      let sr <- updateSR(pack(readVReg(sr0)), pack(readVReg(sr1)), value, 46, 20, False, True);
-      fifo_out.enq(pack(sr));
-      state <= toState(17);
-      if (verbose) $display("state %h: %h, %h", state, readVReg(sr0), readVReg(sr1));
-   endrule
-   rule state17 (state[17] == 1);
-      let value = cf.first();
-      cf.deq;
-      let sr <- updateSR(pack(readVReg(sr0)), pack(readVReg(sr1)), value, 20, 40, True, False);
-      state <= toState(18);
-      if (verbose) $display("state %h: %h, %h", state, readVReg(sr0), readVReg(sr1));
-   endrule
-   rule state18 (state[18] == 1);
-      let value = cf.first();
-      cf.deq;
-      let sr <- updateSR(pack(readVReg(sr0)), pack(readVReg(sr1)), value, 60, 6, False, True);
-      fifo_out.enq(pack(sr));
-      state <= toState(19);
-      if (verbose) $display("state %h: %h, %h", state, readVReg(sr0), readVReg(sr1));
-   endrule
-   rule state19 (state[19] == 1);
-      let value = cf.first();
-      cf.deq;
-      let sr <- updateSR(pack(readVReg(sr0)), pack(readVReg(sr1)), value, 34, 32, True, True);
-      fifo_out.enq(pack(sr));
-      state <= toState(20);
-      if (verbose) $display("state %h: %h, %h", state, readVReg(sr0), readVReg(sr1));
-   endrule
-   rule state20 (state[20] == 1);
-      let value = cf.first();
-      cf.deq;
-      let sr <- updateSR(pack(readVReg(sr0)), pack(readVReg(sr1)), value, 8, 40, True, False);
-      state <= toState(21);
-      if (verbose) $display("state %h: %h, %h", state, readVReg(sr0), readVReg(sr1));
-   endrule
-   rule state21 (state[21] == 1);
-      let value = cf.first();
-      cf.deq;
-      let sr <- updateSR(pack(readVReg(sr0)), pack(readVReg(sr1)), value, 48, 18, False, True);
-      fifo_out.enq(pack(sr));
-      state <= toState(22);
-      if (verbose) $display("state %h: %h, %h", state, readVReg(sr0), readVReg(sr1));
-   endrule
-   rule state22 (state[22] == 1);
-      let value = cf.first();
-      cf.deq;
-      let sr <- updateSR(pack(readVReg(sr0)), pack(readVReg(sr1)), value, 22, 40, True, False);
-      state <= toState(23);
-      if (verbose) $display("state %h: %h, %h", state, readVReg(sr0), readVReg(sr1));
-   endrule
-   rule state23 (state[23] == 1);
-      let value = cf.first();
-      cf.deq;
-      let sr <- updateSR(pack(readVReg(sr0)), pack(readVReg(sr1)), value, 62, 4, False, True);
-      fifo_out.enq(pack(sr));
-      state <= toState(24);
-      if (verbose) $display("state %h: %h, %h", state, readVReg(sr0), readVReg(sr1));
-   endrule
-   rule state24 (state[24] == 1);
-      let value = cf.first();
-      cf.deq;
-      let sr <- updateSR(pack(readVReg(sr0)), pack(readVReg(sr1)), value, 36, 30, True, True);
-      fifo_out.enq(pack(sr));
-      state <= toState(25);
-      if (verbose) $display("state %h: %h, %h", state, readVReg(sr0), readVReg(sr1));
-   endrule
-   rule state25 (state[25] == 1);
-      let value = cf.first();
-      cf.deq;
-      let sr <- updateSR(pack(readVReg(sr0)), pack(readVReg(sr1)), value, 10, 40, True, False);
-      state <= toState(26);
-      if (verbose) $display("state %h: %h, %h", state, readVReg(sr0), readVReg(sr1));
-   endrule
-   rule state26 (state[26] == 1);
-      let value = cf.first();
-      cf.deq;
-      let sr <- updateSR(pack(readVReg(sr0)), pack(readVReg(sr1)), value, 50, 16, False, True);
-      fifo_out.enq(pack(sr));
-      state <= toState(27);
-      if (verbose) $display("state %h: %h, %h", state, readVReg(sr0), readVReg(sr1));
-   endrule
-   rule state27 (state[27] == 1);
-      let value = cf.first();
-      cf.deq;
-      let sr <- updateSR(pack(readVReg(sr0)), pack(readVReg(sr1)), value, 24, 40, True, False);
-      state <= toState(28);
-      if (verbose) $display("state %h: %h, %h", state, readVReg(sr0), readVReg(sr1));
-   endrule
-   rule state28 (state[28] == 1);
-      let value = cf.first();
-      cf.deq;
-      let sr <- updateSR(pack(readVReg(sr0)), pack(readVReg(sr1)), value, 64, 2, False, True);
-      fifo_out.enq(pack(sr));
-      state <= toState(29);
-      if (verbose) $display("state %h: %h, %h", state, readVReg(sr0), readVReg(sr1));
-   endrule
-   rule state29 (state[29] == 1);
-      let value = cf.first();
-      cf.deq;
-      let sr <- updateSR(pack(readVReg(sr0)), pack(readVReg(sr1)), value, 38, 28, True, True);
-      fifo_out.enq(pack(sr));
-      state <= toState(30);
-      if (verbose) $display("state %h: %h, %h", state, readVReg(sr0), readVReg(sr1));
-   endrule
-   rule state30 (state[30] == 1);
-      let value = cf.first();
-      cf.deq;
-      let sr <- updateSR(pack(readVReg(sr0)), pack(readVReg(sr1)), value, 12, 40, True, False);
-      state <= toState(31);
-      if (verbose) $display("state %h: %h, %h", state, readVReg(sr0), readVReg(sr1));
-   endrule
-   rule state31 (state[31] == 1);
-      let value = cf.first();
-      cf.deq;
-      let sr <- updateSR(pack(readVReg(sr0)), pack(readVReg(sr1)), value, 52, 14, False, True);
-      fifo_out.enq(pack(sr));
-      state <= toState(32);
-      if (verbose) $display("state %h: %h, %h", state, readVReg(sr0), readVReg(sr1));
-   endrule
-   rule state32 (state[32] == 1);
-      let value = cf.first();
-      cf.deq;
-      let sr <- updateSR(pack(readVReg(sr0)), pack(readVReg(sr1)), value, 26, 40, True, False);
-      fifo_out.enq(pack(sr));
-      state <= toState(0);
-      if (verbose) $display("state %h: %h, %h", state, readVReg(sr0), readVReg(sr1));
    endrule
 
    rule pma_out;
       let v <- toGet(pmaOut).get;
-      //if(verbose) $display("Rx Pma Out: %h", v);
+      if(verbose) $display("Rx Pma Out: %h", v);
       cf.enq(v);
    endrule
 
