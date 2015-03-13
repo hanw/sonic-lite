@@ -9,7 +9,7 @@ CPPFILES=sw/testdelay.cpp
 NUMBER_OF_MASTERS =0
 PIN_BINDINGS?=-b PCIE:PCIE -b LED:LED -b OSC:OSC -b SFPA:SFPA -b SFPB:SFPB -b SFPC:SFPC -b SFPD:SFPD -b SFP:SFP -b DDR3A:DDR3A -b RZQ:RZQ
 
-PIN_TYPE = NetTopIfc
+#PIN_TYPE = NetTopIfc
 #CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/altera_mac.qip
 CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/altera_xcvr_reset_control_wrapper.qip
 CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/altera_xcvr_native_sv_wrapper.qip

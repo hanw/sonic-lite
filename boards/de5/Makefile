@@ -25,5 +25,5 @@ program:
 	$(NIOS2EDS_ROOTDIR)/nios2_command_shell.sh sof2flash --input=$(PROJDIR)/mkSonicTop.sof --output=flash_hw.flash --offset=0x20C0000 --pfl --optionbit=0x00030000 --programmingmode=PS
 
 	# programming with .flash
-	$(NIOS2EDS_ROOTDIR)/nios2_command_shell.sh nios2-flash-programmer --base=0x0 flash_hw.flash
-	$(NIOS2EDS_ROOTDIR)/nios2_command_shell.sh nios2-flash-programmer --base=0x0 S5_OptionBits.flash
+	$(NIOS2EDS_ROOTDIR)/nios2_command_shell.sh nios2-flash-programmer $(BOARD_USB) --base=0x0 flash_hw.flash
+	$(NIOS2EDS_ROOTDIR)/nios2_command_shell.sh nios2-flash-programmer $(BOARD_USB) --base=0x0 S5_OptionBits.flash

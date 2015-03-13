@@ -34,8 +34,12 @@ public:
     if (++cnt == NUMBER_OF_TESTS)
       exit(0);
   }
-  virtual void snapshot(uint32_t a) {
-    fprintf(stderr, "snapshot(%d)\n", a);
+  virtual void readCycleCount(uint64_t a) {
+    fprintf(stderr, "readCycleCount(%d)\n", a);
+    incr_cnt();
+  }
+  virtual void writeDelay(uint64_t a) {
+    fprintf(stderr, "writeDelay(%d)\n", a);
     incr_cnt();
   }
   SonicUser(unsigned int id) : SonicUserRequestWrapper(id), cnt(0){}
