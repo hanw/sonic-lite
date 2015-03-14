@@ -31,7 +31,6 @@ import GetPut::*;
 import ClientServer::*;
 
 import Pipe::*;
-import MemTypes::*;
 
 typedef 33 N_STATE;
 
@@ -39,303 +38,117 @@ interface Gearbox_66_40;
    interface PipeOut#(Bit#(40)) gbOut;
 endinterface
 
-(* mutually_exclusive = "state0, state1, state2, state3, state4, state5, state6, state7, state8, state9, state10, state11, state12, state13, state14, state15, state16, state17, state18, state19, state20, state21, state22, state23, state24, state25, state26, state27, state28, state29, state30, state31, state32" *)
 module mkGearbox66to40#(PipeOut#(Bit#(66)) gbIn) (Gearbox_66_40);
 
-   let verbose = False;
+   let verbose = True;
 
-   function Bit#(N_STATE) toState(Integer st);
-      return 1 << st;
-   endfunction
-
-   FIFOF#(Bit#(66)) cf <- mkBypassFIFOF;
    Vector#(104, Reg#(Bit#(1))) stor      <- replicateM(mkReg(0));
 
    FIFOF#(Bit#(40)) fifo_out <- mkFIFOF;
    PipeOut#(Bit#(40)) pipe_out = toPipeOut(fifo_out);
 
-   Reg#(Bit#(N_STATE)) state <- mkReg(toState(0));
-   Reg#(Bit#(32)) cycle <- mkReg(0);
+   Reg#(Bit#(6))  state <- mkReg(0);
 
-   function ActionValue#(Vector#(104, Bit#(1))) updateStor(Bit#(104) _stor, Bit#(66) din, Integer offset, Bool shift40) = actionvalue
-      Vector#(104, Bit#(1)) _stor_next = unpack(0);
+   rule state_machine;
+      let next_state = state;
+      let offset;
+      let din;
 
-      if (shift40) begin
-         _stor_next = unpack(zeroExtend(_stor[103:40]));
+      case (state)
+         32:       next_state = 0;
+         default:  next_state = next_state + 1;
+      endcase
+
+      case (state)
+          0: offset = 0;
+          1: offset = 26;
+          2: offset = 0;
+          3: offset = 12;
+          4: offset = 38;
+          5: offset = 0;
+          6: offset = 24;
+          7: offset = 0;
+          8: offset = 10;
+          9: offset = 36;
+         10: offset = 0;
+         11: offset = 22;
+         12: offset = 0;
+         13: offset = 8;
+         14: offset = 34;
+         15: offset = 0;
+         16: offset = 20;
+         17: offset = 0;
+         18: offset = 16;
+         19: offset = 32;
+         20: offset = 0;
+         21: offset = 18;
+         22: offset = 0;
+         23: offset = 4;
+         24: offset = 30;
+         25: offset = 0;
+         26: offset = 16;
+         27: offset = 0;
+         28: offset = 2;
+         29: offset = 28;
+         30: offset = 0;
+         31: offset = 14;
+         32: offset = 0;
+         default: offset = 0;
+      endcase
+
+      if (state == 0) begin
+         din <- toGet(gbIn).get;
       end
       else begin
-         for (Integer idx = 0; idx < offset; idx=idx+1) begin
-            _stor_next[idx] = _stor[40+idx];
+         if (offset != 0) begin
+            din <- toGet(gbIn).get;
          end
-         for (Integer idx = 0; idx < 66; idx=idx+1) begin
-            _stor_next[offset+idx] = din[idx];
+         else begin
+            din = unpack(0);
          end
       end
-      //if(verbose) $display("%h %h", _stor, _stor_next);
-      return _stor_next;
-   endactionvalue;
+      if(verbose) $display("state %h: offset=%d din=%h stor=%h", state, offset, din, readVReg(stor));
 
-   function Action updateState(Bit#(104) _stor) = action
-      writeVReg(take(stor), unpack(_stor));
-      if (fifo_out.notFull) begin //FIXME: may drop data if fifo_out is full.
-         fifo_out.enq(pack(_stor[39:0]));
+      function Bit#(1) value_stor(Integer i);
+         Bit#(1) v = 0;
+         Bool shift40;
+         if (state == 0) begin
+            shift40 = False;
+         end
+         else begin
+            shift40 = (offset == 0);
+         end
+
+         if (shift40) begin
+            if (fromInteger(i) < 64) begin
+               v = readVReg(stor)[40+i];
+            end
+            else begin
+               v = 0;
+            end
+         end
+         else begin
+            if (fromInteger(i) < offset) begin
+               v = readVReg(stor)[40+i];
+            end
+            else if (fromInteger(i) < offset + 66) begin
+               v = din[i-offset];
+            end
+            else begin
+               v = 0;
+            end
+         end
+         return v;
+      endfunction
+      Vector#(104, Bit#(1)) next_stor = genWith(value_stor);
+      if(verbose) $display("state %h: stor=%h", state, next_stor);
+      writeVReg(take(stor), next_stor);
+
+      if (fifo_out.notFull) begin
+         fifo_out.enq(pack(next_stor)[39:0]);
       end
-      //if(verbose) $display("%h", _stor);
-   endaction;
 
-   rule cyc;
-      cycle <= cycle + 1;
-   endrule
-
-   rule state0(state[0] == 1);
-      let v <- toGet(gbIn).get;
-      let sr <- updateStor(pack(readVReg(stor)), v, 0, False);
-      updateState(pack(sr));
-      state <= toState(1);
-      if(verbose) $display("%d: state %h %h, %h", cycle, state, v, pack(sr));
-   endrule
-
-   rule state1(state[1] == 1);
-      let v <- toGet(gbIn).get;
-      let sr <- updateStor(pack(readVReg(stor)), v, 26, False);
-      updateState(pack(sr));
-      state <= toState(2);
-      if(verbose) $display("%d: state %h %h, %h", cycle, state, v, pack(sr));
-   endrule
-
-   rule state2(state[2] == 1);
-      let sr <- updateStor(pack(readVReg(stor)), 0, 0, True);
-      updateState(pack(sr));
-      state <= toState(3);
-      if(verbose) $display("%d: state %h, %h", cycle, state, pack(sr));
-   endrule
-
-   rule state3(state[3] == 1);
-      let v <- toGet(gbIn).get;
-      let sr <- updateStor(pack(readVReg(stor)), v, 12, False);
-      updateState(pack(sr));
-      state <= toState(4);
-      if(verbose) $display("%d: state %h %h, %h", cycle, state, v, pack(sr));
-   endrule
-
-   rule state4(state[4] == 1);
-      let v <- toGet(gbIn).get;
-      let sr <- updateStor(pack(readVReg(stor)), v, 38, False);
-      updateState(pack(sr));
-      state <= toState(5);
-      if(verbose) $display("%d: state %h %h, %h", cycle, state, v, pack(sr));
-   endrule
-
-   rule state5(state[5] == 1);
-      let sr <- updateStor(pack(readVReg(stor)), 0, 0, True);
-      updateState(pack(sr));
-      state <= toState(6);
-      if(verbose) $display("%d: state %h, %h", cycle, state, pack(sr));
-   endrule
-
-   rule state6(state[6] == 1);
-      let v <- toGet(gbIn).get;
-      let sr <- updateStor(pack(readVReg(stor)), v, 24, False);
-      updateState(pack(sr));
-      state <= toState(7);
-      if(verbose) $display("%d: state %h %h, %h", cycle, state, v, pack(sr));
-   endrule
-
-   rule state7(state[7] == 1);
-      let sr <- updateStor(pack(readVReg(stor)), 0, 0, True);
-      updateState(pack(sr));
-      state <= toState(8);
-      if(verbose) $display("%d: state %h, %h", cycle, state, pack(sr));
-   endrule
-
-   rule state8(state[8] == 1);
-      let v <- toGet(gbIn).get;
-      let sr <- updateStor(pack(readVReg(stor)), v, 10, False);
-      updateState(pack(sr));
-      state <= toState(9);
-      if(verbose) $display("%d: state %h %h, %h", cycle, state, v, pack(sr));
-   endrule
-
-   rule state9(state[9] == 1);
-      let v <- toGet(gbIn).get;
-      let sr <- updateStor(pack(readVReg(stor)), v, 36, False);
-      updateState(pack(sr));
-      state <= toState(10);
-      if(verbose) $display("%d: state %h %h, %h", cycle, state, v, pack(sr));
-   endrule
-
-   rule state10(state[10] == 1);
-      let sr <- updateStor(pack(readVReg(stor)), 0, 0, True);
-      updateState(pack(sr));
-      state <= toState(11);
-      if(verbose) $display("%d: state %h, %h", cycle, state, pack(sr));
-   endrule
-
-   rule state11(state[11] == 1);
-      let v <- toGet(gbIn).get;
-      let sr <- updateStor(pack(readVReg(stor)), v, 22, False);
-      updateState(pack(sr));
-      state <= toState(12);
-      if(verbose) $display("%d: state %h %h, %h", cycle, state, v, pack(sr));
-   endrule
-
-   rule state12(state[12] == 1);
-      let sr <- updateStor(pack(readVReg(stor)), 0, 0, True);
-      updateState(pack(sr));
-      state <= toState(13);
-      if(verbose) $display("%d: state %h, %h", cycle, state, pack(sr));
-   endrule
-
-   rule state13(state[13] == 1);
-      let v <- toGet(gbIn).get;
-      let sr <- updateStor(pack(readVReg(stor)), v, 8, False);
-      updateState(pack(sr));
-      state <= toState(14);
-      if(verbose) $display("%d: state %h %h, %h", cycle, state, v, pack(sr));
-   endrule
-
-   rule state14(state[14] == 1);
-      let v <- toGet(gbIn).get;
-      let sr <- updateStor(pack(readVReg(stor)), v, 34, False);
-      updateState(pack(sr));
-      state <= toState(15);
-      if(verbose) $display("%d: state %h %h, %h", cycle, state, v, pack(sr));
-   endrule
-
-   rule state15(state[15] == 1);
-      let sr <- updateStor(pack(readVReg(stor)), 0, 0, True);
-      updateState(pack(sr));
-      state <= toState(16);
-      if(verbose) $display("%d: state %h, %h", cycle, state, pack(sr));
-   endrule
-
-   rule state16(state[16] == 1);
-      let v <- toGet(gbIn).get;
-      let sr <- updateStor(pack(readVReg(stor)), v, 20, False);
-      updateState(pack(sr));
-      state <= toState(17);
-      if(verbose) $display("%d: state %h %h, %h", cycle, state, v, pack(sr));
-   endrule
-
-   rule state17(state[17] == 1);
-      let sr <- updateStor(pack(readVReg(stor)), 0, 0, True);
-      updateState(pack(sr));
-      state <= toState(18);
-      if(verbose) $display("%d: state %h, %h", cycle, state, pack(sr));
-   endrule
-
-   rule state18(state[18] == 1);
-      let v <- toGet(gbIn).get;
-      let sr <- updateStor(pack(readVReg(stor)), v, 16, False);
-      updateState(pack(sr));
-      state <= toState(19);
-      if(verbose) $display("%d: state %h %h, %h", cycle, state, v, pack(sr));
-   endrule
-
-   rule state19(state[19] == 1);
-      let v <- toGet(gbIn).get;
-      let sr <- updateStor(pack(readVReg(stor)), v, 32, False);
-      updateState(pack(sr));
-      state <= toState(20);
-      if(verbose) $display("%d: state %h %h, %h", cycle, state, v, pack(sr));
-   endrule
-
-   rule state20(state[20] == 1);
-      let sr <- updateStor(pack(readVReg(stor)), 0, 0, True);
-      updateState(pack(sr));
-      state <= toState(21);
-      if(verbose) $display("%d: state %h, %h", cycle, state, pack(sr));
-   endrule
-
-   rule state21(state[21] == 1);
-      let v <- toGet(gbIn).get;
-      let sr <- updateStor(pack(readVReg(stor)), v, 18, False);
-      updateState(pack(sr));
-      state <= toState(22);
-      if(verbose) $display("%d: state %h %h, %h", cycle, state, v, pack(sr));
-   endrule
-
-   rule state22(state[22] == 1);
-      let sr <- updateStor(pack(readVReg(stor)), 0, 0, True);
-      updateState(pack(sr));
-      state <= toState(23);
-      if(verbose) $display("%d: state %h, %h", cycle, state, pack(sr));
-   endrule
-
-   rule state23(state[23] == 1);
-      let v <- toGet(gbIn).get;
-      let sr <- updateStor(pack(readVReg(stor)), v, 4, False);
-      updateState(pack(sr));
-      state <= toState(24);
-      if(verbose) $display("%d: state %h %h, %h", cycle, state, v, pack(sr));
-   endrule
-
-   rule state24(state[24] == 1);
-      let v <- toGet(gbIn).get;
-      let sr <- updateStor(pack(readVReg(stor)), v, 30, False);
-      updateState(pack(sr));
-      state <= toState(25);
-      if(verbose) $display("%d: state %h %h, %h", cycle, state, v, pack(sr));
-   endrule
-
-   rule state25(state[25] == 1);
-      let sr <- updateStor(pack(readVReg(stor)), 0, 0, True);
-      updateState(pack(sr));
-      state <= toState(26);
-      if(verbose) $display("%d: state %h, %h", cycle, state, pack(sr));
-   endrule
-
-   rule state26(state[26] == 1);
-      let v <- toGet(gbIn).get;
-      let sr <- updateStor(pack(readVReg(stor)), v, 16, False);
-      updateState(pack(sr));
-      state <= toState(27);
-      if(verbose) $display("%d: state %h %h, %h", cycle, state, v, pack(sr));
-   endrule
-
-   rule state27(state[27] == 1);
-      let sr <- updateStor(pack(readVReg(stor)), 0, 0, True);
-      updateState(pack(sr));
-      state <= toState(28);
-      if(verbose) $display("%d: state %h, %h", cycle, state, pack(sr));
-   endrule
-
-   rule state28(state[28] == 1);
-      let v <- toGet(gbIn).get;
-      let sr <- updateStor(pack(readVReg(stor)), v, 2, False);
-      updateState(pack(sr));
-      state <= toState(29);
-      if(verbose) $display("%d: state %h %h, %h", cycle, state, v, pack(sr));
-   endrule
-
-   rule state29(state[29] == 1);
-      let v <- toGet(gbIn).get;
-      let sr <- updateStor(pack(readVReg(stor)), v, 28, False);
-      updateState(pack(sr));
-      state <= toState(30);
-      if(verbose) $display("%d: state %h %h, %h", cycle, state, v, pack(sr));
-   endrule
-
-   rule state30(state[30] == 1);
-      let sr <- updateStor(pack(readVReg(stor)), 0, 0, True);
-      updateState(pack(sr));
-      state <= toState(31);
-      if(verbose) $display("%d: state %h, %h", cycle, state, pack(sr));
-   endrule
-
-   rule state31(state[31] == 1);
-      let v <- toGet(gbIn).get;
-      let sr <- updateStor(pack(readVReg(stor)), v, 14, False);
-      updateState(pack(sr));
-      state <= toState(32);
-      if(verbose) $display("%d: state %h %h, %h", cycle, state, v, pack(sr));
-   endrule
-
-   rule state32(state[32] == 1);
-      let sr <- updateStor(pack(readVReg(stor)), 0, 0, True);
-      updateState(pack(sr));
-      state <= toState(0);
-      if(verbose) $display("%d: state %h, %h", cycle, state, pack(sr));
+      state <= next_state;
    endrule
 
    interface gbOut = pipe_out;
@@ -385,6 +198,7 @@ endpackage
 //			5'h1d : begin stor[93:28] <= din[65:0]; stor[27:0] <= stor[67:40];   end   // holding 54
 //			5'h1e : begin stor <= {40'h0,stor[103:40]};  end   // holding 14
 //			5'h1f : begin stor[79:14] <= din[65:0]; stor[13:0] <= stor[53:40];   end   // holding 40
+//			5'h20 : begin stor <= {40'h0, stor[103:40]};   end   // holding 40
 //		endcase
 //	end
 //end
