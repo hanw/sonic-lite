@@ -25,7 +25,8 @@ import FIFO::*;
 import Vector::*;
 
 interface SonicUserRequest;
-    method Action snapshot(Bit#(32) v);
+    method Action readCycleCount(Bit#(64) cmd);
+    method Action writeDelay(Bit#(64) host_cnt);
 endinterface
 
 interface SonicUser;
@@ -34,12 +35,20 @@ endinterface
 
 module mkSonicUser#(SonicUserRequest indication)(SonicUser);
    let verbose = False;
+   Reg#(Bit#(64))  cycle_count <- mkReg(0);
+   Reg#(Bit#(64))  last_count  <- mkReg(0);
+
+   rule count;
+      cycle_count <= cycle_count + 1;
+   endrule
 
    interface SonicUserRequest request;
-   method Action snapshot(Bit#(32) v);
-      if (verbose) $display("mkSonicUser::snapshot");
-      // Get Current SonicUser Register.
-      indication.snapshot(v);
+   method Action readCycleCount(Bit#(64) cmd);
+      indication.readCycleCount(truncate(cycle_count));
+   endmethod
+   method Action writeDelay(Bit#(64) host_cnt);
+      Bit#(64) delay = (host_cnt - cycle_count) >> 1;
+      indication.writeDelay(truncate(delay));
    endmethod
    endinterface
 endmodule
