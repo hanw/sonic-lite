@@ -42,16 +42,20 @@ module mkGearbox66to40#(PipeOut#(Bit#(66)) gbIn) (Gearbox_66_40);
 
    let verbose = True;
 
-   Vector#(104, Reg#(Bit#(1))) stor      <- replicateM(mkReg(0));
+   Vector#(144, Reg#(Bit#(1))) stor      <- replicateM(mkReg(0));
 
    FIFOF#(Bit#(40)) fifo_out <- mkFIFOF;
    PipeOut#(Bit#(40)) pipe_out = toPipeOut(fifo_out);
 
    Reg#(Bit#(6))  state <- mkReg(0);
+   Reg#(Bit#(7))  sh_offset <- mkReg(0);
+   Reg#(Bit#(7))  total <- mkReg(0);
 
    rule state_machine;
       let next_state = state;
-      let offset;
+      let curr_total = total;
+      let next_total;
+      let next_offset;
       let din;
 
       case (state)
@@ -59,55 +63,70 @@ module mkGearbox66to40#(PipeOut#(Bit#(66)) gbIn) (Gearbox_66_40);
          default:  next_state = next_state + 1;
       endcase
 
-      case (state)
-          0: offset = 0;
-          1: offset = 26;
-          2: offset = 0;
-          3: offset = 12;
-          4: offset = 38;
-          5: offset = 0;
-          6: offset = 24;
-          7: offset = 0;
-          8: offset = 10;
-          9: offset = 36;
-         10: offset = 0;
-         11: offset = 22;
-         12: offset = 0;
-         13: offset = 8;
-         14: offset = 34;
-         15: offset = 0;
-         16: offset = 20;
-         17: offset = 0;
-         18: offset = 16;
-         19: offset = 32;
-         20: offset = 0;
-         21: offset = 18;
-         22: offset = 0;
-         23: offset = 4;
-         24: offset = 30;
-         25: offset = 0;
-         26: offset = 16;
-         27: offset = 0;
-         28: offset = 2;
-         29: offset = 28;
-         30: offset = 0;
-         31: offset = 14;
-         32: offset = 0;
-         default: offset = 0;
-      endcase
+      if (curr_total == 0) begin
+         next_total = 66;
+         next_offset= 0;
+      end
+      else if (curr_total < 80)  begin
+         next_total = curr_total - 40 + 66;
+         next_offset = curr_total - 40;
+      end
+      else begin
+         next_total = curr_total - 40;
+         next_offset = 0;
+      end
+
+      if(verbose) $display("curr_total = %d, next_offset = %d, next_total=%d", curr_total, next_offset, next_total);
+//
+//      case (state)
+//          0: offset = 0;
+//          1: offset = 26;
+//          2: offset = 0;
+//          3: offset = 12;
+//          4: offset = 38;
+//          5: offset = 0;
+//          6: offset = 24;
+//          7: offset = 0;
+//          8: offset = 10;
+//          9: offset = 36;
+//         10: offset = 0;
+//         11: offset = 22;
+//         12: offset = 0;
+//         13: offset = 8;
+//         14: offset = 34;
+//         15: offset = 0;
+//         16: offset = 20;
+//         17: offset = 0;
+//         18: offset = 6;
+//         19: offset = 32;
+//         20: offset = 0;
+//         21: offset = 18;
+//         22: offset = 0;
+//         23: offset = 4;
+//         24: offset = 30;
+//         25: offset = 0;
+//         26: offset = 16;
+//         27: offset = 0;
+//         28: offset = 2;
+//         29: offset = 28;
+//         30: offset = 0;
+//         31: offset = 14;
+//         32: offset = 0;
+//         default: offset = 0;
+//      endcase
 
       if (state == 0) begin
          din <- toGet(gbIn).get;
       end
       else begin
-         if (offset != 0) begin
+         if (sh_offset != 0) begin
             din <- toGet(gbIn).get;
          end
          else begin
             din = unpack(0);
          end
       end
-      if(verbose) $display("state %h: offset=%d din=%h stor=%h", state, offset, din, readVReg(stor));
+      if(verbose) $display("state %h: sh_offset=%d din=%h stor=%h", state, sh_offset, din, readVReg(stor));
 
       function Bit#(1) value_stor(Integer i);
          Bit#(1) v = 0;
@@ -116,7 +135,7 @@ module mkGearbox66to40#(PipeOut#(Bit#(66)) gbIn) (Gearbox_66_40);
             shift40 = False;
          end
          else begin
-            shift40 = (offset == 0);
+            shift40 = (sh_offset == 0);
          end
 
          if (shift40) begin
@@ -128,11 +147,11 @@ module mkGearbox66to40#(PipeOut#(Bit#(66)) gbIn) (Gearbox_66_40);
             end
          end
          else begin
-            if (fromInteger(i) < offset) begin
+            if (fromInteger(i) < sh_offset) begin
                v = readVReg(stor)[40+i];
             end
-            else if (fromInteger(i) < offset + 66) begin
-               v = din[i-offset];
+            else if (fromInteger(i) < sh_offset + 66) begin
+               v = din[fromInteger(i)-sh_offset];
             end
             else begin
                v = 0;
@@ -148,6 +167,8 @@ module mkGearbox66to40#(PipeOut#(Bit#(66)) gbIn) (Gearbox_66_40);
          fifo_out.enq(pack(next_stor)[39:0]);
       end
 
+      total <= next_total;
+      sh_offset <= next_offset;
       state <= next_state;
    endrule
 
