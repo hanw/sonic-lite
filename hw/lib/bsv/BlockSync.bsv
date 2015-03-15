@@ -31,7 +31,6 @@ import GetPut::*;
 import ClientServer::*;
 
 import Pipe::*;
-import MemTypes::*;
 
 interface BlockSync;
    interface PipeOut#(Bit#(66)) dataOut;

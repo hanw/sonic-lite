@@ -20,7 +20,7 @@
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-package EthPma;
+package EthSonicPma;
 
 import Clocks                               ::*;
 import Vector                               ::*;
@@ -32,9 +32,7 @@ import GetPut ::*;
 
 import ConnectalClocks                      ::*;
 import Ethernet                             ::*;
-import ALTERA_ETH_PMA_WRAPPER               ::*;
-import ALTERA_ETH_PMA_RECONFIG_WRAPPER      ::*;
-import ALTERA_ETH_PMA_RESET_CONTROL_WRAPPER ::*;
+import ALTERA_ETH_SONIC_PMA                 ::*;
 
 `ifdef NUMBER_OF_10G_PORTS
 typedef `NUMBER_OF_10G_PORTS NumPorts;
@@ -60,14 +58,13 @@ interface Status;
 endinterface
 
 (* always_ready, always_enabled *)
-interface EthPmaInternal#(numeric type np);
-   interface PhyMgmtIfc             phy_mgmt;
+interface EthSonicPmaInternal#(numeric type np);
    interface Vector#(np, Status)    status;
    interface Vector#(np, SerialIfc) pmd;
    interface Vector#(np, XCVR_PMA)  fpga;
 endinterface
 
-interface EthPma#(numeric type numPorts);
+interface EthSonicPma#(numeric type numPorts);
    interface Vector#(numPorts, PipeOut#(Bit#(40))) rx;
    interface Vector#(numPorts, PipeIn#(Bit#(40)))  tx;
    interface Vector#(numPorts, Bool)  rx_ready;
@@ -78,60 +75,31 @@ interface EthPma#(numeric type numPorts);
 endinterface
 
 (* always_ready, always_enabled *)
-interface EthPmaTopIfc;
+interface EthSonicPmaTopIfc;
    interface Vector#(NumPorts, SerialIfc) serial;
-   interface Clock clk_pma;
+   interface Clock clk_phy;
 endinterface
 
 //(* synthesize *)
-module mkEthPmaInternal#(Clock phy_mgmt_clk, Clock pll_refclk, Reset phy_mgmt_reset)(EthPmaInternal#(NumPorts));
+module mkEthSonicPmaInternal#(Clock phy_mgmt_clk, Clock pll_ref_clk, Reset phy_mgmt_reset)(EthSonicPmaInternal#(NumPorts));
 
-   Clock defaultClock <- exposeCurrentClock();
-   Reset defaultReset <- exposeCurrentReset();
+   //Clock defaultClock <- exposeCurrentClock();
+   //Reset defaultReset <- exposeCurrentReset();
 
-   EthXcvrWrap         xcvr  <- mkEthXcvrWrap();
-   EthXcvrReconfigWrap cfg   <- mkEthXcvrReconfigWrap(phy_mgmt_clk, phy_mgmt_reset, phy_mgmt_reset);
-   EthXcvrResetWrap    rst   <- mkEthXcvrResetWrap(phy_mgmt_clk, phy_mgmt_reset, phy_mgmt_reset);
-
-   C2B c2b <- mkC2B(pll_refclk);
-   rule convert_clk_to_bit;
-      xcvr.tx.pll_refclk(c2b.o);
-      xcvr.rx.cdr_refclk(c2b.o);
-   endrule
-
-   rule connect_xcvr_reconfig;
-      cfg.reconfig.from_xcvr(xcvr.reconfig.from_xcvr);
-      xcvr.reconfig.to_xcvr(cfg.reconfig.to_xcvr);
-   endrule
-
-   rule connect_xcvr_and_reset_controller;
-      xcvr.rx.analogreset(rst.rx.analogreset);
-      xcvr.rx.digitalreset(rst.rx.digitalreset);
-      xcvr.tx.analogreset(rst.tx.analogreset);
-      xcvr.tx.digitalreset(rst.tx.digitalreset);
-      rst.rx.cal_busy(xcvr.rx.cal_busy);
-      rst.tx.cal_busy(xcvr.tx.cal_busy);
-      rst.rx.is_lockedtodata(xcvr.rx.is_lockedtodata);
-      rst.pll.locked(xcvr.pll.locked);
-      xcvr.pll.powerdown(rst.pll.powerdown);
-   endrule
-
-   rule connect_any_constants;
-      rst.pll.select(2'b11);
-   endrule
+   EthSonicPmaWrap phy10g <- mkEthSonicPmaWrap(phy_mgmt_clk, pll_ref_clk, phy_mgmt_reset);
 
    // Status
    Vector#(NumPorts, Status) status_ifcs;
    for (Integer i=0; i < valueOf(NumPorts); i=i+1) begin
       status_ifcs[i] = interface Status;
           method Bit#(1) pll_locked;
-             return xcvr.pll.locked[i];
+             return phy10g.pll.locked[i];
           endmethod
           method Bit#(1) rx_is_lockedtodata;
-             return xcvr.rx.is_lockedtodata[i];
+             return phy10g.rx.is_lockedtodata[i];
           endmethod
           method Bit#(1) rx_is_lockedtoref;
-             return xcvr.rx.is_lockedtoref[i];
+             return phy10g.rx.is_lockedtoref[i];
           endmethod
        endinterface;
    end
@@ -145,13 +113,13 @@ module mkEthPmaInternal#(Clock phy_mgmt_clk, Clock pll_refclk, Reset phy_mgmt_re
              wires[i] <= v;
           endmethod
           method Bit#(1) tx;
-             return xcvr.tx.serial_data[i];
+             return phy10g.tx.serial_data[i];
           endmethod
        endinterface;
    end
    rule set_serial_data;
       // Use readVReg to read Vector of Wires.
-      xcvr.rx.serial_data(pack(readVReg(wires)));
+      phy10g.rx.serial_data(pack(readVReg(wires)));
    endrule
 
    // FPGA Fabric-Side Interface
@@ -161,21 +129,21 @@ module mkEthPmaInternal#(Clock phy_mgmt_clk, Clock pll_refclk, Reset phy_mgmt_re
       xcvr_ifcs[i] = interface XCVR_PMA;
           interface XCVR_RX_PMA rx;
              method Bit#(1) rx_ready;
-                return rst.rx_r.eady[i];
+                return phy10g.rx_r.eady[i];
              endmethod
              method Bit#(1) rx_clkout;
-                return xcvr.rx.pma_clkout[i];
+                return phy10g.rx.clkout[i];
              endmethod
              method Bit#(40) rx_data;
-                return xcvr.rx.pma_parallel_data[39 + 40 * i : 40 * i];
+                return phy10g.rx.parallel_data[39 + 40 * i : 40 * i];
              endmethod
           endinterface
           interface XCVR_TX_PMA tx;
              method Bit#(1) tx_ready;
-                return rst.tx_r.eady[i];
+                return phy10g.tx_r.eady[i];
              endmethod
              method Bit#(1) tx_clkout;
-                return xcvr.tx.pma_clkout[i];
+                return phy10g.tx.clkout[i];
              endmethod
              method Action tx_data (Bit#(40) v);
                 p_wires[i] <= v;
@@ -184,45 +152,19 @@ module mkEthPmaInternal#(Clock phy_mgmt_clk, Clock pll_refclk, Reset phy_mgmt_re
        endinterface;
    end
    rule set_parallel_data;
-      xcvr.tx.pma_parallel_data(pack(readVReg(p_wires)));
+      phy10g.tx.parallel_data(pack(readVReg(p_wires)));
    endrule
 
    interface status = status_ifcs;
    interface pmd    = serial_ifcs;
    interface fpga   = xcvr_ifcs;
 
-   interface PhyMgmtIfc phy_mgmt;
-      method Action phy_mgmt_address(v);
-         cfg.reconfig.mgmt_address(v);
-      endmethod
+endmodule: mkEthSonicPmaInternal
 
-      method Action phy_mgmt_read(v);
-         cfg.reconfig.mgmt_read(v);
-      endmethod
-
-      method Bit#(32) phy_mgmt_readdata;
-         return cfg.reconfig.mgmt_readdata;
-      endmethod
-
-      method Bit#(1) phy_mgmt_waitrequest;
-         return cfg.reconfig.mgmt_waitrequest;
-      endmethod
-
-      method Action phy_mgmt_write(v);
-         cfg.reconfig.mgmt_write(v);
-      endmethod
-
-      method Action phy_mgmt_write_data(v);
-         cfg.reconfig.mgmt_writedata(v);
-      endmethod
-   endinterface
-
-endmodule: mkEthPmaInternal
-
-module mkEthPma#(Clock mgmt_clk, Clock pll_refclk, Reset mgmt_clk_reset)(EthPma#(NumPorts) intf);
-//   Clock defaultClock <- exposeCurrentClock();
-//   Reset defaultReset <- exposeCurrentReset();
-   EthPmaInternal#(NumPorts) pma <- mkEthPmaInternal(mgmt_clk, pll_refclk, mgmt_clk_reset);
+module mkEthSonicPma#(Clock mgmt_clk, Clock pll_ref_clk, Reset mgmt_clk_reset)(EthSonicPma#(NumPorts) intf);
+   //Clock defaultClock <- exposeCurrentClock();
+   //Reset defaultReset <- exposeCurrentReset();
+   EthSonicPmaInternal#(NumPorts) pma <- mkEthSonicPmaInternal(mgmt_clk, pll_ref_clk, mgmt_clk_reset);
 
    Vector#(NumPorts, FIFOF#(Bit#(40))) rxFifo <- replicateM(mkFIFOF());
    Vector#(NumPorts, FIFOF#(Bit#(40))) txFifo <- replicateM(mkFIFOF());
@@ -278,33 +220,12 @@ module mkEthPma#(Clock mgmt_clk, Clock pll_refclk, Reset mgmt_clk_reset)(EthPma#
    interface rx        = vRxPipe;
    interface tx        = vTxPipe;
    interface pmd       = pma.pmd;
-endmodule: mkEthPma
+endmodule: mkEthSonicPma
 
-//(* synthesize *)
-//module mkEthPmaTop(EthPma#(4));
-//   EthPma#(4) _a <- mkEthPma(); return _a;
-//endmodule
-
-module mkEthPmaTop#(Clock mgmt_clk, Clock pll_refclk, Reset mgmt_clk_reset)(EthPmaTopIfc);
-   EthPma#(NumPorts) _a <- mkEthPma(mgmt_clk, pll_refclk, mgmt_clk_reset);
-
-   Vector#(NumPorts, FIFOF#(Bit#(40))) tx_fifo <- replicateM(mkFIFOF());
-   Vector#(NumPorts, PipeOut#(Bit#(40))) txPipe;
-
-   rule tx_parallel_data;
-      for (Integer i=0; i<valueOf(NumPorts); i=i+1) begin
-         tx_fifo[i].enq(40'b0);
-      end
-   endrule
-
-   for (Integer i=0; i<valueOf(NumPorts); i=i+1) begin
-      txPipe[i] = toPipeOut(tx_fifo[i]);
-      mkConnection(txPipe[i], _a.tx[i]);
-   end
-
+module mkEthSonicPmaTop#(Clock mgmt_clk, Clock pll_refclk, Reset mgmt_reset)(EthSonicPmaTopIfc);
+   EthSonicPma#(4) _a <- mkEthSonicPma(mgmt_clk, pll_refclk, mgmt_reset);
    interface serial = _a.pmd;
-   interface Clock clk_pma = mgmt_clk;
-
+   interface Clock clk_phy = mgmt_clk;
 endmodule
 
-endpackage: EthPma
+endpackage: EthSonicPma

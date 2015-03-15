@@ -51,9 +51,11 @@ interface EthMacIfc#(numeric type np);
 endinterface
 
 (* synthesize *)
-module mkEthMac#(Clock clk_50, Reset rst_50, Clock clk_156_25, Reset rst_156_25)(EthMacIfc#(4));
-   Clock default_clock <- exposeCurrentClock;
-   Reset default_reset <- exposeCurrentReset;
+module mkEthMac#(Clock clk_50, Clock clk_156_25)(EthMacIfc#(4));
+   Clock defaultClock <- exposeCurrentClock;
+   Reset defaultReset <- exposeCurrentReset;
+   Reset rst_50      <- mkAsyncReset(1, defaultReset, clk_50);
+   Reset rst_156_25  <- mkAsyncReset(1, defaultReset, clk_156_25);
 
    MacWrap mac <- mkMacWrap(clk_50, clk_156_25, clk_156_25, clk_156_25, clk_156_25,
                                     clk_156_25, clk_156_25, clk_156_25, clk_156_25,

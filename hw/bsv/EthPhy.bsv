@@ -26,10 +26,15 @@ package EthPhy;
 import Clocks                        ::*;
 import Vector                        ::*;
 import Connectable                   ::*;
-
+import Pipe                          ::*;
+import FIFOF                         ::*;
+import GetPut                        ::*;
 import Ethernet                      ::*;
 import EthPma                        ::*;
+import EthSonicPma                   ::*;
 import EthPcs                        ::*;
+import Gearbox_40_66                 ::*;
+import Gearbox_66_40                 ::*;
 import ALTERA_SI570_WRAPPER          ::*;
 import ALTERA_EDGE_DETECTOR_WRAPPER  ::*;
 
@@ -39,49 +44,52 @@ typedef `NUMBER_OF_10G_PORTS NumPorts;
 typedef 4 NumPorts;
 `endif
 
-(* always_ready, always_enabled *)
-interface EthPhyIfc#(numeric type np);
-   interface Vector#(np, XGMII_PCS) xgmii;
-   interface Vector#(np, SerialIfc) serial;
+interface EthPhyIfc#(numeric type numPorts);
+   interface Vector#(numPorts, PipeOut#(Bit#(72))) rx;
+   interface Vector#(numPorts, PipeIn#(Bit#(72)))  tx;
+   (* always_ready, always_enabled *)
+   interface Vector#(numPorts, SerialIfc) serial;
 endinterface
 
-
 (* synthesize *)
-module mkEthPhy#(Clock clk_50, Reset rst_50, Clock clk_156_25, Reset rst_156_25, Clock clk_644)(EthPhyIfc#(NumPorts));
+module mkEthPhy#(Clock mgmt_clk, Clock clk_156_25, Clock clk_644)(EthPhyIfc#(NumPorts));
 
    Clock defaultClock <- exposeCurrentClock;
    Reset defaultReset <- exposeCurrentReset;
 
-   Vector#(NumPorts)
-   EthPcsIfc#(NumPorts)   pcs4 <- mkEthPcs(clk_156_25, rst_156_25);
-   EthPmaIfc#(NumPorts)   pma4 <- mkEthPma(clk_50, clk_644, rst_50);
+   Vector#(NumPorts, EthPcs) pcs;
+   //EthPma#(NumPorts)         pma4 <- mkEthPma(mgmt_clk, clk_644, defaultReset);
+   EthSonicPma#(NumPorts)      pma4 <- mkEthSonicPma(mgmt_clk, clk_644, defaultReset);
 
-   Si570Wrap            si570 <- mkSi570Wrap(clk_50, rst_50, rst_50);
-   EdgeDetectorWrap     edgedetect <- mkEdgeDetectorWrap(clk_50, rst_50, rst_50);
+   Vector#(NumPorts, Gearbox_40_66) gearboxUp;
+   Vector#(NumPorts, Gearbox_66_40) gearboxDn;
 
-   rule si570_connections;
-      //ifreq_mode = 3'b000;  //100.0 MHZ
-      //ifreq_mode = 3'b001;  //125.0 MHZ
-      //ifreq_mode = 3'b010;  //156.25.0 MHZ
-      //ifreq_mode = 3'b011;  //250 MHZ
-      //ifreq_mode = 3'b100;  //312.5 MHZ
-      //ifreq_mode = 3'b101;  //322.26 MHZ
-      //ifreq_mode = 3'b110;  //644.53125 MHZ
-      si570.ifreq.mode(3'b110); //644.53125 MHZ
-      si570.istart.go(edgedetect.odebounce.out);
-   endrule
+   Vector#(NumPorts, FIFOF#(Bit#(72))) txFifo <- replicateM(mkFIFOF());
+   Vector#(NumPorts, FIFOF#(Bit#(72))) rxFifo <- replicateM(mkFIFOF());
+   Vector#(NumPorts, PipeOut#(Bit#(72))) vRxPipe = newVector;
+   Vector#(NumPorts, PipeIn#(Bit#(72)))  vTxPipe = newVector;
 
-   for (Integer i=0; i< valueOf(NumPorts); i=i+1) begin
-      mkConnection(pma4.fpga[i], pcs4.xcvr[i]);
+   for (Integer i=0; i<valueOf(NumPorts); i=i+1) begin
+      gearboxUp[i] <- mkGearbox40to66(pma4.rx[i]);
+      pcs[i]       <- mkEthPcs(toPipeOut(txFifo[i]), gearboxUp[i].gbOut, 0, 0);
+      gearboxDn[i] <- mkGearbox66to40(pcs[i].scramblerOut);
    end
 
-   //pcs.ctrl
-   //pcs.log
-   //pcs.lpbk
-   //pcs.timeout
+   for (Integer i=0; i<valueOf(NumPorts); i=i+1) begin
+      vRxPipe[i] = toPipeOut(rxFifo[i]);
+      vTxPipe[i] = toPipeIn(txFifo[i]);
+   end
 
-   interface serial = pma4.fiber;
-   interface xgmii = pcs4.xgmii;
+   rule receive (True);
+      for (Integer i=0; i<valueOf(NumPorts); i=i+1) begin
+         let v <- toGet(pcs[i].decoderOut).get;
+         rxFifo[i].enq(v);
+      end
+   endrule
+
+   interface serial = pma4.pmd;
+   interface rx = vRxPipe;
+   interface tx = vTxPipe;
 
 endmodule: mkEthPhy
 endpackage: EthPhy

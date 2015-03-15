@@ -33,9 +33,10 @@ import ConnectalClocks    ::*;
 import ALTERA_PLL_WRAPPER ::*;
 import EthPorts           ::*;
 import Ethernet           ::*;
-//import Avalon2ClientServer ::*;
+import Avalon2ClientServer ::*;
+import ALTERA_SI570_WRAPPER          ::*;
 
-`ifndef DataBusWidth
+`ifdef DataBusWidth
 typedef `DataBusWidth DataBusWidth;
 `else
 typedef 64 DataBusWidth;
@@ -47,24 +48,23 @@ typedef `NUMBER_OF_10G_PORTS NumPorts;
 typedef 4 NumPorts;
 `endif
 
-`ifdef PinType
-typedef `PinType PinType;
-`else
-typedef Empty PinType;
-`endif
-
 (* always_ready, always_enabled *)
 interface NetTopIfc;
-   interface AvalonSlaveIfc#(24) avs;
+   //interface AvalonSlaveIfc#(24) avs;
    interface Vector#(NumPorts, SerialIfc) serial;
    interface Clock clk_net;
 endinterface
 
-(* synthesize, always_ready, always_enabled *)
-module mkNetTop #(Clock clk_50, Clock clk_156_25, Clock clk_644, Clock core_clk, Reset rst_50_n, Reset rst_156_n) (NetTopIfc);
-   EthPortIfc ports <- mkEthPorts(clk_50, clk_156_25, clk_644, rst_50_n, rst_156_n, clocked_by clk_156_25, reset_by rst_156_n);
+(* synthesize *)
+(* clock_family = "default_clock, clk_156_25" *)
+module mkNetTop #(Clock clk_50, Clock clk_156_25, Clock clk_644) (NetTopIfc);
+   Clock defaultClock <- exposeCurrentClock;
+   Reset defaultReset <- exposeCurrentReset;
+   Reset rst_156_n <- mkAsyncReset(1, defaultReset, clk_156_25);
+
+   EthPortIfc ports <- mkEthPorts(clk_50, clk_156_25, clk_644, clocked_by clk_156_25, reset_by rst_156_n);
 
    interface serial = ports.serial;
    interface Clock clk_net = clk_156_25;
-   interface avs = ports.avs;
+   //interface avs = ports.avs;
 endmodule

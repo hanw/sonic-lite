@@ -31,7 +31,7 @@ import ClientServer::*;
 import FShow::*;
 
 import Pipe::*;
-import MemTypes::*;
+//import MemTypes::*;
 
 typedef 54 TIMESTAMP_LEN;
 typedef 4  N_IFCs;

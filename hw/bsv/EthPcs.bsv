@@ -33,7 +33,7 @@ import ClientServer::*;
 import Connectable::*;
 
 import Pipe::*;
-import MemTypes::*;
+//import MemTypes::*;
 
 import Ethernet ::*;
 import Dtp ::*;

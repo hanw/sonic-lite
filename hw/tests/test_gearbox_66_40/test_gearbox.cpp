@@ -13,7 +13,7 @@
 sem_t test_sem;
 
 int burstLen = 16;
-int numWords = 0x100/4;
+int numWords = 0x200/4;
 size_t test_sz = numWords*sizeof(unsigned int);
 size_t alloc_sz = test_sz;
 
@@ -42,8 +42,11 @@ int main(int argc, char **argv) {
 
     portalExec_start();
 
-    for (int i = 0; i < numWords; i++)
-        srcBuffer[i] = i | (i+1) << 8 | (i+2) << 16 | (i+3) << 24;
+	int j = 0;
+    for (int i = 0; i < numWords; i++) {
+        srcBuffer[i] = j | (j+1) << 8 | (j+2) << 16 | (j+3) << 24;
+		j += 4;
+	}
 
     portalDCacheFlushInval(srcAlloc, alloc_sz, srcBuffer);
     unsigned int ref_srcAlloc = dma->reference(srcAlloc);

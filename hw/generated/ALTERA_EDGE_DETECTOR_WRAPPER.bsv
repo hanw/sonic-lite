@@ -52,12 +52,11 @@ interface EdgeDetectorWrap;
     interface EdgedetectorwrapOris     oris;
 endinterface
 import "BVI" edge_detector =
-module mkEdgeDetectorWrap#(Clock iclk, Reset iclk_reset, Reset irst_n)(EdgeDetectorWrap);
+module mkEdgeDetectorWrap#(Clock iclk, Reset iclk_reset)(EdgeDetectorWrap);
     default_clock clk();
     default_reset rst();
     input_clock iclk(iCLK) = iclk;
-    input_reset iclk_reset() = iclk_reset; /* from clock*/
-        input_reset irst_n(iRST_n) = irst_n;
+    input_reset iclk_reset(iRST_n) = iclk_reset; /* from clock*/
     interface EdgedetectorwrapItrigger     itrigger;
         method in(iTrigger_in) enable((*inhigh*) EN_iTrigger_in);
     endinterface

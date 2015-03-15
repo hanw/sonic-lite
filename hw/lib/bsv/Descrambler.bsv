@@ -31,7 +31,6 @@ import GetPut::*;
 import ClientServer::*;
 
 import Pipe::*;
-import MemTypes::*;
 
 interface Descrambler;
    interface PipeOut#(Bit#(66)) descrambledOut;

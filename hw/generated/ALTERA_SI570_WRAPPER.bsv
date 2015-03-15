@@ -67,12 +67,11 @@ interface Si570Wrap;
     interface Si570wrapOsi570     osi570;
 endinterface
 import "BVI" si570_controller =
-module mkSi570Wrap#(Clock iclk, Reset iclk_reset, Reset irst_n)(Si570Wrap);
+module mkSi570Wrap#(Clock iclk, Reset iclk_reset)(Si570Wrap);
     default_clock clk();
     default_reset rst();
     input_clock iclk(iCLK) = iclk;
-    input_reset iclk_reset() = iclk_reset; /* from clock*/
-        input_reset irst_n(iRST_n) = irst_n;
+    input_reset iclk_reset(iRST_n) = iclk_reset; /* from clock*/
     interface Si570wrapI2c     i2c;
         method I2C_CLK clk();
         ifc_inout data(I2C_DATA);

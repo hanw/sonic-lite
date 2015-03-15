@@ -42,8 +42,13 @@ int main(int argc, char **argv) {
 
     portalExec_start();
 
-    for (int i = 0; i < numWords; i++)
-        srcBuffer[i] = i | (i+1) << 8 | (i+2) << 16 | (i+3) << 24;
+	int j = 0;
+    for (int i = 0; i < numWords; i++) {
+        srcBuffer[i] = j | (j+1) << 8 | (j+2) << 16 | (j+3) << 24;
+		j = j+4;
+		printf("%lx\n", srcBuffer[i]);
+	}
+
 
     portalDCacheFlushInval(srcAlloc, alloc_sz, srcBuffer);
     unsigned int ref_srcAlloc = dma->reference(srcAlloc);
