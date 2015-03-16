@@ -32,10 +32,12 @@ import ClientServer::*;
 import Pipe::*;
 
 interface Gearbox_40_66;
+   interface PipeIn#(Bit#(40)) gbIn;
    interface PipeOut#(Bit#(66)) gbOut;
 endinterface
 
-module mkGearbox40to66#(PipeOut#(Bit#(40)) pmaOut) (Gearbox_40_66);
+(* synthesize *)
+module mkGearbox40to66(Gearbox_40_66);
 
    let verbose = False;
 
@@ -140,12 +142,7 @@ module mkGearbox40to66#(PipeOut#(Bit#(40)) pmaOut) (Gearbox_40_66);
       end
    endrule
 
-   rule pma_out;
-      let v <- toGet(pmaOut).get;
-      if(verbose) $display("Rx Pma Out: %h", v);
-      cf.enq(v);
-   endrule
-
+   interface gbIn = toPipeIn(cf);
    interface gbOut = pipe_out;
 endmodule
 
