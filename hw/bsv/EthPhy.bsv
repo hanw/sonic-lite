@@ -70,7 +70,8 @@ module mkEthPhy#(Clock mgmt_clk, Clock clk_156_25, Clock clk_644)(EthPhyIfc#(Num
    Vector#(NumPorts, PipeIn#(Bit#(72)))  vTxPipe = newVector;
 
    for (Integer i=0; i<valueOf(NumPorts); i=i+1) begin
-      gearboxUp[i] <- mkGearbox40to66(pma4.rx[i]);
+      gearboxUp[i] <- mkGearbox40to66;
+      mkConnection(pma4.rx[i], gearboxUp[i]);
       pcs[i]       <- mkEthPcs(toPipeOut(txFifo[i]), gearboxUp[i].gbOut, 0, 0);
       gearboxDn[i] <- mkGearbox66to40(pcs[i].scramblerOut);
    end
