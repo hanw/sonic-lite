@@ -66,31 +66,41 @@ module mkEthPhy#(Clock mgmt_clk, Clock clk_156_25, Clock clk_644)(EthPhyIfc#(Num
 
    Vector#(NumPorts, FIFOF#(Bit#(72))) txFifo <- replicateM(mkFIFOF());
    Vector#(NumPorts, FIFOF#(Bit#(72))) rxFifo <- replicateM(mkFIFOF());
-   Vector#(NumPorts, PipeOut#(Bit#(72))) vRxPipe = newVector;
-   Vector#(NumPorts, PipeIn#(Bit#(72)))  vTxPipe = newVector;
+   Vector#(NumPorts, PipeIn#(Bit#(72)))  vRxPipeIn = newVector;
+   Vector#(NumPorts, PipeOut#(Bit#(72))) vRxPipeOut = newVector;
+   Vector#(NumPorts, PipeIn#(Bit#(72)))  vTxPipeIn = newVector;
+   Vector#(NumPorts, PipeOut#(Bit#(72))) vTxPipeOut = newVector;
 
    for (Integer i=0; i<valueOf(NumPorts); i=i+1) begin
       gearboxUp[i] <- mkGearbox40to66;
-      mkConnection(pma4.rx[i], gearboxUp[i]);
-      pcs[i]       <- mkEthPcs(toPipeOut(txFifo[i]), gearboxUp[i].gbOut, 0, 0);
-      gearboxDn[i] <- mkGearbox66to40(pcs[i].scramblerOut);
+      mkConnection(pma4.rx[i], gearboxUp[i].gbIn);
+
+      pcs[i]       <- mkEthPcs(i);
+      mkConnection(vTxPipeOut[i], pcs[i].encoderIn);
+      mkConnection(gearboxUp[i].gbOut, pcs[i].bsyncIn);
+
+      gearboxDn[i] <- mkGearbox66to40;
+      mkConnection(pcs[i].scramblerOut, gearboxDn[i].gbIn);
+      mkConnection(gearboxDn[i].gbOut, pma4.tx[i]);
    end
 
    for (Integer i=0; i<valueOf(NumPorts); i=i+1) begin
-      vRxPipe[i] = toPipeOut(rxFifo[i]);
-      vTxPipe[i] = toPipeIn(txFifo[i]);
+      vRxPipeIn[i]  = toPipeIn(rxFifo[i]);
+      vRxPipeOut[i] = toPipeOut(rxFifo[i]);
+      vTxPipeIn[i]  = toPipeIn(txFifo[i]);
+      vTxPipeOut[i] = toPipeOut(txFifo[i]);
    end
 
    rule receive (True);
       for (Integer i=0; i<valueOf(NumPorts); i=i+1) begin
          let v <- toGet(pcs[i].decoderOut).get;
-         rxFifo[i].enq(v);
+         vRxPipeIn[i].enq(v);
       end
    endrule
 
    interface serial = pma4.pmd;
-   interface rx = vRxPipe;
-   interface tx = vTxPipe;
+   interface rx = vRxPipeOut;
+   interface tx = vTxPipeIn;
 
 endmodule: mkEthPhy
 endpackage: EthPhy

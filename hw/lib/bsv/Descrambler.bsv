@@ -33,16 +33,19 @@ import ClientServer::*;
 import Pipe::*;
 
 interface Descrambler;
+   interface PipeIn#(Bit#(66)) descramblerIn;
    interface PipeOut#(Bit#(66)) descrambledOut;
 endinterface
 
 // Scrambler poly G(x) = 1 + x^39 + x^58;
-module mkDescrambler#(PipeOut#(Bit#(66)) descramblerIn)(Descrambler);
+(* synthesize *)
+module mkDescrambler(Descrambler);
 
    let verbose = False;
 
    Reg#(Bit#(32))       cycle <- mkReg(0);
    Reg#(Bit#(58)) scram_state <- mkReg(58'h3ff_ffff_ffff_ffff);
+   FIFOF#(Bit#(66))  fifo_in <- mkFIFOF;
    FIFOF#(Bit#(66))  fifo_out <- mkBypassFIFOF;
 
    rule cyc;
@@ -50,7 +53,7 @@ module mkDescrambler#(PipeOut#(Bit#(66)) descramblerIn)(Descrambler);
    endrule
 
    rule descramble;
-      let v <- toGet(descramblerIn).get;
+      let v <- toGet(fifo_in).get;
       Bit#(2) sync_hdr = v[1:0];
       Bit#(64) pre_descramble = v[65:2];
       Bit#(122) history = {pre_descramble, scram_state};
@@ -68,6 +71,7 @@ module mkDescrambler#(PipeOut#(Bit#(66)) descramblerIn)(Descrambler);
       if(verbose) $display("%d: descrambler dataout=%h", cycle, descramble_out);
    endrule
 
+   interface descramblerIn = toPipeIn(fifo_in);
    interface descrambledOut = toPipeOut(fifo_out);
 endmodule
 endpackage

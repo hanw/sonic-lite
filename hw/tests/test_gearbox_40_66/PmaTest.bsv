@@ -36,9 +36,12 @@ module mkPmaTest#(PmaTestIndication indication) (PmaTest);
    FIFO#(void)          cf <- mkSizedFIFO(1);
    Bit#(MemOffsetSize) chunk = extend(numWords)*4;
    FIFOF#(Bit#(40)) write_data <- mkFIFOF;
+   PipeOut#(Bit#(40)) pipe_out = toPipeOut(write_data);
 
    MemreadEngineV#(64, 2, 1) re <- mkMemreadEngine;
-   Gearbox_40_66 gb <- mkGearbox40to66(toPipeOut(write_data));
+   Gearbox_40_66 gb <- mkGearbox40to66;
+
+   mkConnection(pipe_out, gb.gbIn);
 
    rule start(toStart > 0);
       re.readServers[0].request.put(MemengineCmd{sglId:pointer, base:0, len:truncate(chunk), burstLen:truncate(burstLen*4)});

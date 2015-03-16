@@ -49,7 +49,6 @@ int main(int argc, char **argv) {
 		printf("%lx\n", srcBuffer[i]);
 	}
 
-
     portalDCacheFlushInval(srcAlloc, alloc_sz, srcBuffer);
     unsigned int ref_srcAlloc = dma->reference(srcAlloc);
     printf( "Main::starting read %08x\n", numWords);

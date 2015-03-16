@@ -47,12 +47,12 @@ typedef struct {
 } CmdTup deriving (Eq, Bits, FShow);
 
 interface DtpIn;
-   interface PipeOut#(Bit#(66))  decoderIn;
-   interface PipeOut#(Bit#(66))  encoderIn;
    //interface PipeOut#(CmdTup)    cmdIn;
 endinterface
 
 interface Dtp;
+   interface PipeIn#(Bit#(66))  decoderIn;
+   interface PipeIn#(Bit#(66))  encoderIn;
    interface PipeOut#(Bit#(66)) decoderOut;
    interface PipeOut#(Bit#(66)) encoderOut;
 //   method Vector#(N_IFCs, Bit#(TIMESTAMP_LEN)) local_clock;
@@ -70,15 +70,18 @@ typedef enum {INIT, SENT, SYNC} DtpState
 deriving (Bits, Eq);
 
 //FIXME: interface is prone to usage error.
-module mkDtp#(PipeOut#(Bit#(66)) decoderIn, PipeOut#(Bit#(66)) encoderIn, Integer id, Integer c_local_init)(Dtp);
+module mkDtp#(Integer id)(Dtp);
 
    let verbose = False;
+
+   FIFOF#(Bit#(66)) decoderInFifo <- mkFIFOF;
+   FIFOF#(Bit#(66)) encoderInFifo <- mkFIFOF;
 
    Reg#(Bit#(1))   mode <- mkReg(0); // mode=0 NIC, mode=1 SWITCH
    Reg#(Bit#(32))  cycle   <- mkReg(0);
    Reg#(DtpState) curr_state  <- mkReg(INIT);
 
-   Reg#(Bit#(53))  c_local <- mkReg(fromInteger(c_local_init));
+   Reg#(Bit#(53))  c_local <- mkReg(0); //fromInteger(c_local_init));
    Reg#(Bit#(53))  delay   <- mkReg(0);
    Reg#(Bit#(32))  timeout_count_init <- mkReg(0);
    Reg#(Bit#(32))  timeout_count_sync <- mkReg(0);
@@ -91,7 +94,7 @@ module mkDtp#(PipeOut#(Bit#(66)) decoderIn, PipeOut#(Bit#(66)) encoderIn, Intege
    Wire#(Bit#(2))  tx_mux_sel   <- mkDWire(0);
 
    // Tx Stage 1
-   FIFOF#(Bit#(66)) encoderInFifo <- mkFIFOF;
+   FIFOF#(Bit#(66)) encoderInPipelineFifo <- mkFIFOF;
    FIFOF#(Bit#(1))  parityFifo    <- mkFIFOF;
    FIFOF#(Bit#(53)) cLocalFifo    <- mkFIFOF;
    FIFOF#(Bit#(66)) encoderOutFifo <- mkFIFOF;
@@ -129,7 +132,7 @@ module mkDtp#(PipeOut#(Bit#(66)) decoderIn, PipeOut#(Bit#(66)) encoderIn, Intege
    endrule
 
    rule tx_stage1;
-      let v <- toGet(encoderIn).get();
+      let v <- toGet(encoderInFifo).get();
       Bit#(1) parity;
       Bool    mux_sel;
       Bit#(53) c_local_out;
@@ -151,14 +154,14 @@ module mkDtp#(PipeOut#(Bit#(66)) decoderIn, PipeOut#(Bit#(66)) encoderIn, Intege
       isIdleFifo.enq(mux_sel);
       parityFifo.enq(parity);
       cLocalFifo.enq(c_local+1);
-      encoderInFifo.enq(v);
+      encoderInPipelineFifo.enq(v);
    endrule
 
    rule tx_stage2;
       let mux_sel <- toGet(isIdleFifo).get();
       let c_local <- toGet(cLocalFifo).get();
       let parity  <- toGet(parityFifo).get();
-      let v <- toGet(encoderInFifo).get();
+      let v <- toGet(encoderInPipelineFifo).get();
 
       Bit#(10) block_type;
       Bit#(66) encodeOut;
@@ -301,7 +304,7 @@ module mkDtp#(PipeOut#(Bit#(66)) decoderIn, PipeOut#(Bit#(66)) encoderIn, Intege
       let init_type   = fromInteger(valueOf(INIT_TYPE));
       let ack_type    = fromInteger(valueOf(ACK_TYPE));
       let beacon_type = fromInteger(valueOf(BEACON_TYPE));
-      let v <- toGet(decoderIn).get();
+      let v <- toGet(decoderInFifo).get();
       Bit#(1)  parity = ^v[65:13];
       Bit#(53) c_remote = v[65:13];
       Bit#(66) vo = v;
@@ -463,6 +466,8 @@ module mkDtp#(PipeOut#(Bit#(66)) decoderIn, PipeOut#(Bit#(66)) encoderIn, Intege
       end
    endrule
 
+   interface decoderIn = toPipeIn(decoderInFifo);
+   interface encoderIn = toPipeIn(encoderInFifo);
    interface decoderOut = toPipeOut(decoderOutFifo);
    interface encoderOut = toPipeOut(encoderOutFifo);
 endmodule

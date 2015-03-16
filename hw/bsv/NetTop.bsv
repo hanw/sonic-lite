@@ -52,18 +52,20 @@ typedef 4 NumPorts;
 interface NetTopIfc;
    //interface AvalonSlaveIfc#(24) avs;
    interface Vector#(NumPorts, SerialIfc) serial;
+   interface SfpCtrlIfc#(NumPorts) sfpctrl;
    interface Clock clk_net;
 endinterface
 
 (* synthesize *)
 (* clock_family = "default_clock, clk_156_25" *)
-module mkNetTop #(Clock clk_50, Clock clk_156_25, Clock clk_644) (NetTopIfc);
+module mkNetTop #(Clock clk_50, Clock clk_156_25, Clock clk_644)(NetTopIfc);
    Clock defaultClock <- exposeCurrentClock;
    Reset defaultReset <- exposeCurrentReset;
    Reset rst_156_n <- mkAsyncReset(1, defaultReset, clk_156_25);
 
    EthPortIfc ports <- mkEthPorts(clk_50, clk_156_25, clk_644, clocked_by clk_156_25, reset_by rst_156_n);
 
+   interface sfpctrl = ports.sfpctrl;
    interface serial = ports.serial;
    interface Clock clk_net = clk_156_25;
    //interface avs = ports.avs;

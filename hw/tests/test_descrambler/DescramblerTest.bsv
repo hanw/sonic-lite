@@ -36,9 +36,11 @@ module mkDescramblerTest#(DescramblerTestIndication indication) (DescramblerTest
    FIFO#(void)          cf <- mkSizedFIFO(1);
    Bit#(MemOffsetSize) chunk = extend(numWords)*4;
    FIFOF#(Bit#(66)) write_data <- mkFIFOF;
+   PipeOut#(Bit#(66)) pipe_out = toPipeOut(write_data);
 
    MemreadEngineV#(128, 2, 1) re <- mkMemreadEngine;
-   Descrambler sc <- mkDescrambler(toPipeOut(write_data));
+   Descrambler sc <- mkDescrambler;
+   mkConnection(pipe_out, sc.descramblerIn);
 
    rule start(toStart > 0);
       re.readServers[0].request.put(MemengineCmd{sglId:pointer, base:0, len:truncate(chunk), burstLen:truncate(burstLen*4)});

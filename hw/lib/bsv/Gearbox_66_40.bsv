@@ -35,15 +35,18 @@ import Pipe::*;
 typedef 33 N_STATE;
 
 interface Gearbox_66_40;
+   interface PipeIn#(Bit#(66)) gbIn;
    interface PipeOut#(Bit#(40)) gbOut;
 endinterface
 
-module mkGearbox66to40#(PipeOut#(Bit#(66)) gbIn) (Gearbox_66_40);
+(* synthesize *)
+module mkGearbox66to40(Gearbox_66_40);
 
-   let verbose = True;
+   let verbose = False;
 
-   Vector#(144, Reg#(Bit#(1))) stor      <- replicateM(mkReg(0));
+   Vector#(144, Reg#(Bit#(1))) stor <- replicateM(mkReg(0));
 
+   FIFOF#(Bit#(66)) cf <- mkFIFOF;
    FIFOF#(Bit#(40)) fifo_out <- mkFIFOF;
    PipeOut#(Bit#(40)) pipe_out = toPipeOut(fifo_out);
 
@@ -77,50 +80,13 @@ module mkGearbox66to40#(PipeOut#(Bit#(66)) gbIn) (Gearbox_66_40);
       end
 
       if(verbose) $display("curr_total = %d, next_offset = %d, next_total=%d", curr_total, next_offset, next_total);
-//
-//      case (state)
-//          0: offset = 0;
-//          1: offset = 26;
-//          2: offset = 0;
-//          3: offset = 12;
-//          4: offset = 38;
-//          5: offset = 0;
-//          6: offset = 24;
-//          7: offset = 0;
-//          8: offset = 10;
-//          9: offset = 36;
-//         10: offset = 0;
-//         11: offset = 22;
-//         12: offset = 0;
-//         13: offset = 8;
-//         14: offset = 34;
-//         15: offset = 0;
-//         16: offset = 20;
-//         17: offset = 0;
-//         18: offset = 6;
-//         19: offset = 32;
-//         20: offset = 0;
-//         21: offset = 18;
-//         22: offset = 0;
-//         23: offset = 4;
-//         24: offset = 30;
-//         25: offset = 0;
-//         26: offset = 16;
-//         27: offset = 0;
-//         28: offset = 2;
-//         29: offset = 28;
-//         30: offset = 0;
-//         31: offset = 14;
-//         32: offset = 0;
-//         default: offset = 0;
-//      endcase
 
       if (state == 0) begin
-         din <- toGet(gbIn).get;
+         din <- toGet(cf).get;
       end
       else begin
          if (sh_offset != 0) begin
-            din <- toGet(gbIn).get;
+            din <- toGet(cf).get;
          end
          else begin
             din = unpack(0);
@@ -172,6 +138,7 @@ module mkGearbox66to40#(PipeOut#(Bit#(66)) gbIn) (Gearbox_66_40);
       state <= next_state;
    endrule
 
+   interface gbIn = toPipeIn(cf);
    interface gbOut = pipe_out;
 endmodule
 endpackage

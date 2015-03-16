@@ -38,8 +38,10 @@ module mkDecoderTest#(DecoderTestIndication indication) (DecoderTest);
    Bit#(MemOffsetSize) chunk = extend(numWords)*4;
    FIFOF#(Bit#(66)) write_data <- mkFIFOF;
 
+   PipeOut#(Bit#(66)) pipe_out = toPipeOut(write_data);
    MemreadEngineV#(128, 2, 1) re <- mkMemreadEngine;
-   Decoder sc <- mkDecoder(toPipeOut(write_data));
+   Decoder sc <- mkDecoder;
+   mkConnection(pipe_out, sc.decoderIn);
 
    rule cyc;
       cycle <= cycle + 1;

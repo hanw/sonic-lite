@@ -37,9 +37,11 @@ module mkScramblerTest#(ScramblerTestIndication indication) (ScramblerTest);
    FIFO#(void)          cf <- mkSizedFIFO(1);
    Bit#(MemOffsetSize) chunk = extend(numWords)*4;
    FIFOF#(Bit#(66)) write_data <- mkFIFOF;
+   PipeOut#(Bit#(66)) pipe_out = toPipeOut(write_data);
 
    MemreadEngineV#(128, 2, 1) re <- mkMemreadEngine;
-   Scrambler sc <- mkScrambler(toPipeOut(write_data));
+   Scrambler sc <- mkScrambler;
+   mkConnection(pipe_out, sc.scramblerIn);
 
    rule cyc;
       cycle <= cycle + 1;

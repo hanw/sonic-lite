@@ -33,13 +33,15 @@ import ClientServer::*;
 import Pipe::*;
 
 interface BlockSync;
+   interface PipeIn#(Bit#(66)) blockSyncIn;
    interface PipeOut#(Bit#(66)) dataOut;
 endinterface
 
 typedef enum {LOCK_INIT, RESET_CNT, TEST_SH, GOOD_64, SLIP} State
 deriving (Bits, Eq);
 
-module mkBlockSync#(PipeOut#(Bit#(66)) blockSyncIn)(BlockSync);
+(* synthesize *)
+module mkBlockSync(BlockSync);
 
    let verbose = False;
 
@@ -55,6 +57,7 @@ module mkBlockSync#(PipeOut#(Bit#(66)) blockSyncIn)(BlockSync);
    Reg#(Bit#(66)) rx_b2   <- mkReg(0);
 
    Reg#(Bit#(8)) offset   <- mkReg(0);
+   FIFOF#(Bit#(66)) fifo_in <- mkFIFOF;
    FIFOF#(Bit#(66)) fifo_out <- mkFIFOF;
    FIFOF#(Bit#(66)) cfFifo <- mkFIFOF;
 
@@ -66,7 +69,7 @@ module mkBlockSync#(PipeOut#(Bit#(66)) blockSyncIn)(BlockSync);
       Bit#(66) rx_b1_shifted;
       Bit#(66) rx_b2_shifted;
       Bit#(66) shifted;
-      let v <- toGet(blockSyncIn).get;
+      let v <- toGet(fifo_in).get;
       if(verbose) $display("%d: blocksync dataIn=%h", cycle, v);
       rx_b1_shifted = rx_b1 << offset;
       rx_b2_shifted = rx_b2 >> (66 - offset);
@@ -150,6 +153,7 @@ module mkBlockSync#(PipeOut#(Bit#(66)) blockSyncIn)(BlockSync);
       if(verbose) $display("%d: blocksync state_good_64 %d, %d, enqueue %h", cycle, curr_state, pack(block_lock), v);
    endrule
 
+   interface blockSyncIn = toPipeIn(fifo_in);
    interface dataOut = toPipeOut(fifo_out);
 endmodule
 endpackage

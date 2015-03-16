@@ -35,13 +35,15 @@ import Pipe::*;
 import Ethernet::*;
 
 interface Decoder;
+   interface PipeIn#(Bit#(66)) decoderIn;
    interface PipeOut#(Bit#(72)) decoderOut;
 endinterface
 
 typedef enum {CONTROL, START, DATA, TERMINATE, ERROR} State
 deriving (Bits, Eq);
 
-module mkDecoder#(PipeOut#(Bit#(66)) decoderIn)(Decoder);
+(* synthesize *)
+module mkDecoder(Decoder);
 
    let verbose = False;
 
@@ -71,7 +73,7 @@ module mkDecoder#(PipeOut#(Bit#(66)) decoderIn)(Decoder);
    // by the type field. The positions of each byte are given in figure 49-7 in the spec
    //-------------------------------------------------------------------------------
    rule stage1_decode;
-      let v <- toGet(decoderIn).get;
+      let v <- toGet(fifo_in).get;
       Bit#(2) sync_field = 0;
       Bit#(8) type_field = 0;
       Bit#(66) data_field = 0;
@@ -575,6 +577,7 @@ module mkDecoder#(PipeOut#(Bit#(66)) decoderIn)(Decoder);
                     ctrl3,data3,ctrl2,data2,ctrl1,data1,ctrl0,data0});
    endrule
 
+   interface decoderIn=toPipeIn(fifo_in);
    interface decoderOut=toPipeOut(fifo_out);
 endmodule
 

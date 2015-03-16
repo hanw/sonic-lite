@@ -42,6 +42,9 @@ module mkDtpTest#(DtpTestIndication indication) (DtpTest);
    FIFOF#(Bit#(66)) write_encoder_data1 <- mkFIFOF;
    FIFOF#(Bit#(66)) write_encoder_data2 <- mkFIFOF;
 
+   PipeOut#(Bit#(66)) pipe_encoder_out1 = toPipeOut(write_encoder_data1);
+   PipeOut#(Bit#(66)) pipe_encoder_out2 = toPipeOut(write_encoder_data2);
+
    MemreadEngineV#(128, 2, 1) re <- mkMemreadEngine;
 //   FIFOF#(Bit#(66)) sc1_to_sc2 <- mkFIFOF;
 //   FIFOF#(Bit#(66)) sc2_to_sc1 <- mkFIFOF;
@@ -49,12 +52,18 @@ module mkDtpTest#(DtpTestIndication indication) (DtpTest);
    Vector#(Delay, FIFOF#(Bit#(66))) fifo_sc1_to_sc2 <- replicateM(mkFIFOF);
    Vector#(Delay, FIFOF#(Bit#(66))) fifo_sc2_to_sc1 <- replicateM(mkFIFOF);
 
+   PipeOut#(Bit#(66)) pipe_decoder_out1 = toPipeOut(fifo_sc1_to_sc2[delay-1]);
+   PipeOut#(Bit#(66)) pipe_decoder_out2 = toPipeOut(fifo_sc2_to_sc1[delay-1]);
+
 //   DtpIfc sc1 <- mkDtp(toPipeOut(sc2_to_sc1), toPipeOut(write_encoder_data1), 1, 100);
 //   DtpIfc sc2 <- mkDtp(toPipeOut(sc1_to_sc2), toPipeOut(write_encoder_data2), 2, 200);
+   Dtp sc1 <- mkDtp(1);//toPipeOut(fifo_sc2_to_sc1[delay-1]), toPipeOut(write_encoder_data1), 1, 100);
+   Dtp sc2 <- mkDtp(2);//toPipeOut(fifo_sc1_to_sc2[delay-1]), toPipeOut(write_encoder_data2), 2, 200);
 
-   Dtp sc1 <- mkDtp(toPipeOut(fifo_sc2_to_sc1[delay-1]), toPipeOut(write_encoder_data1), 1, 100);
-   Dtp sc2 <- mkDtp(toPipeOut(fifo_sc1_to_sc2[delay-1]), toPipeOut(write_encoder_data2), 2, 200);
-
+   mkConnection(pipe_encoder_out1, sc1.encoderIn);
+   mkConnection(pipe_encoder_out2, sc2.encoderIn);
+   mkConnection(pipe_decoder_out1, sc2.decoderIn);
+   mkConnection(pipe_decoder_out2, sc1.decoderIn);
    rule init;
       let sc1_out = sc1.encoderOut.first;
       sc1.encoderOut.deq;

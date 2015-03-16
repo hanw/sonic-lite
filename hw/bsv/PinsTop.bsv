@@ -33,10 +33,14 @@ interface PinsTopIfc;
    interface NetTopIfc nets;
    (* prefix="i2c" *)
    interface Si570wrapI2c i2c;
-   (* prefix="" *)
-   interface LedTopIfc leds;
+   interface LedOutIfc led0;
+   interface LedOutIfc led1;
+   interface LedOutIfc led2;
+   interface LedOutIfc led3;
    (* prefix="" *)
    interface ButtonInIfc buttons;
+   (* prefix="sw" *)
+   interface SwitchInIfc switches;
    interface Clock clk_si570;
 endinterface
 
@@ -60,7 +64,7 @@ interface ButtonIfc;
 endinterface
 
 module mkButton(ButtonIfc);
-   Vector#(4, Reg#(Bit#(1))) buttons <- replicateM(mkReg(0));
+   Vector#(4, Wire#(Bit#(1))) buttons <- replicateM(mkDWire(0));
 
    interface out = (interface ButtonOutIfc;
       method Bit#(1) getButton0();
@@ -92,3 +96,57 @@ module mkButton(ButtonIfc);
       endmethod
    endinterface);
 endmodule
+
+interface SwitchInIfc;
+   method Action switch0(Bit#(1) v);
+   method Action switch1(Bit#(1) v);
+   method Action switch2(Bit#(1) v);
+   method Action switch3(Bit#(1) v);
+endinterface
+
+interface SwitchOutIfc;
+   method Bit#(1) getSwitch0();
+   method Bit#(1) getSwitch1();
+   method Bit#(1) getSwitch2();
+   method Bit#(1) getSwitch3();
+endinterface
+
+interface SwitchIfc;
+   interface SwitchOutIfc out;
+   interface SwitchInIfc  in;
+endinterface
+
+module mkSwitch(SwitchIfc);
+   Vector#(4, Wire#(Bit#(1))) switches <- replicateM(mkDWire(0));
+
+   interface out = (interface SwitchOutIfc;
+      method Bit#(1) getSwitch0();
+         return switches[0];
+      endmethod
+      method Bit#(1) getSwitch1();
+         return switches[1];
+      endmethod
+      method Bit#(1) getSwitch2();
+         return switches[2];
+      endmethod
+      method Bit#(1) getSwitch3();
+         return switches[3];
+      endmethod
+   endinterface);
+
+   interface in = (interface SwitchInIfc;
+      method Action switch0 (Bit#(1) v);
+         switches[0] <= v;
+      endmethod
+      method Action switch1 (Bit#(1) v);
+         switches[1] <= v;
+      endmethod
+      method Action switch2 (Bit#(1) v);
+         switches[2] <= v;
+      endmethod
+      method Action switch3 (Bit#(1) v);
+         switches[3] <= v;
+      endmethod
+   endinterface);
+endmodule
+

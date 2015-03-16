@@ -28,7 +28,7 @@ import Vector::*;
 import Connectable::*;
 
 import Ethernet::*;
-//import EthMac::*;
+import EthMac::*;
 import EthPhy::*;
 import EthPktCtrl::*;
 import Avalon2ClientServer::*;
@@ -40,10 +40,21 @@ typedef `NUMBER_OF_10G_PORTS NumPorts;
 typedef 4 NumPorts;
 `endif
 
+interface SfpCtrlIfc#(numeric type numPorts);
+   method Action los(Bit#(numPorts) v);
+   method Action mod0_presnt_n(Bit#(numPorts) v);
+   // SCL/SDA not implemented
+   method Bit#(numPorts) ratesel0();
+   method Bit#(numPorts) ratesel1();
+   method Bit#(numPorts) txdisable();
+   method Action txfault(Bit#(numPorts) v);
+endinterface
+
 (* always_ready, always_enabled *)
 interface EthPortIfc;
    interface AvalonSlaveIfc#(24) avs;
    interface Vector#(NumPorts, SerialIfc) serial;
+   interface SfpCtrlIfc#(NumPorts) sfpctrl;
 endinterface
 
 (* synthesize *)
@@ -51,21 +62,39 @@ endinterface
 module mkEthPorts#(Clock clk_50, Clock clk_156_25, Clock clk_644)(EthPortIfc);
    Clock defaultClock <- exposeCurrentClock;
    Reset defaultReset <- exposeCurrentReset;
-   Reset rst_50     <- mkAsyncReset(2, defaultReset, clk_50);
+   Reset rst_50     <- mkAsyncResetFromCR(2, clk_50);
    Reset rst_156_25 <- mkAsyncReset(2, defaultReset, clk_156_25);
 
 //   Vector#(NumPorts, EthPktCtrlIfc) pktctrls <- replicateM(mkEthPktCtrl(clk_156_25, rst_156_25, clocked_by clk_156_25, reset_by rst_156_25));
 //
-//   EthMacIfc#(NumPorts) macs <- mkEthMac(clk_50, clk_156_25, clocked_by clk_156_25, reset_by rst_156_25);
+   EthMacIfc#(NumPorts) macs <- mkEthMac(clk_50, clk_156_25, clocked_by clk_156_25, reset_by rst_156_25);
    EthPhyIfc#(NumPorts) phys <- mkEthPhy(clk_50, clk_156_25, clk_644, clocked_by clk_156_25, reset_by rst_156_25);
 
-//   for (Integer i=0; i<valueOf(NumPorts); i=i+1) begin
+   for (Integer i=0; i<valueOf(NumPorts); i=i+1) begin
 //      mkConnection(pktctrls[i].aso, macs.avalon[i].asi);
 //      mkConnection(macs.avalon[i].aso, pktctrls[i].asi);
-//      //mkConnection(macs.xgmii[i], phys.xgmii[i]);
-//   end
+      mkConnection(macs.tx[i], phys.tx[i]);
+      mkConnection(phys.rx[i], macs.rx[i]);
+   end
 
    interface serial = phys.serial;
+   interface sfpctrl = (interface SfpCtrlIfc;
+      method Action los (Bit#(NumPorts) v);
+      endmethod
+      method Action mod0_presnt_n(Bit#(NumPorts) v);
+      endmethod
+      method Bit#(NumPorts) ratesel0();
+         return 4'hf;
+      endmethod
+      method Bit#(NumPorts) ratesel1();
+         return 4'hf;
+      endmethod
+      method Bit#(NumPorts) txdisable();
+         return 4'h0;
+      endmethod
+      method Action txfault(Bit#(NumPorts) v);
+      endmethod
+   endinterface);
 //   interface avs = pktctrls[0].avs;
 
 endmodule: mkEthPorts

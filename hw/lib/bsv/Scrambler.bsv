@@ -33,26 +33,20 @@ import ClientServer::*;
 import Pipe::*;
 
 interface Scrambler;
-   // inputs
-   // outputs
+   interface PipeIn#(Bit#(66)) scramblerIn;
    interface PipeOut#(Bit#(66)) scrambledOut;
 endinterface
 
-// check bluespec-80211atransmitter scrambler.bsv
-//(* synthesize *)
-//module mkScrambler(Scrambler);
-//   let _s <- _mkScrambler(sIn);
-//   return (_s);
-//endmodule
-
 // Scrambler poly G(x) = 1 + x^39 + x^58;
-module mkScrambler#(PipeOut#(Bit#(66)) scramblerIn)(Scrambler);
+(* synthesize *)
+module mkScrambler(Scrambler);
 
    let verbose = False;
 
    Reg#(Bit#(32)) cycle <- mkReg(0);
    Reg#(Bit#(58)) scram_state <- mkReg(58'h3ff_ffff_ffff_ffff);
    FIFOF#(Bit#(122)) cfFifo <- mkBypassFIFOF;
+   FIFOF#(Bit#(66)) fifo_in <- mkFIFOF;
    FIFOF#(Bit#(66)) fifo_out <- mkBypassFIFOF;
    FIFOF#(Bit#(2)) shFifo <- mkBypassFIFOF;
 
@@ -61,7 +55,7 @@ module mkScrambler#(PipeOut#(Bit#(66)) scramblerIn)(Scrambler);
    endrule
 
    rule scramble;
-      let v <- toGet(scramblerIn).get;
+      let v <- toGet(fifo_in).get;
       Bit#(64) pre_scramble = v[65:2];
       Bit#(2) sync_hdr      = v[1:0];
       Vector#(122, Bit#(1)) scram_history;
@@ -95,6 +89,7 @@ module mkScrambler#(PipeOut#(Bit#(66)) scramblerIn)(Scrambler);
       if(verbose) $display("%d: scrambler history=%h synchdr=%h", cycle, v, sh);
    endrule
 
+   interface scramblerIn = toPipeIn(fifo_in);
    interface scrambledOut = toPipeOut(fifo_out);
 endmodule
 

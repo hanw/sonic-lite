@@ -37,9 +37,11 @@ module mkEncoderTest#(EncoderTestIndication indication) (EncoderTest);
    FIFO#(void)          cf <- mkSizedFIFO(1);
    Bit#(MemOffsetSize) chunk = extend(numWords)*4;
    FIFOF#(Bit#(72)) write_data <- mkFIFOF;
+   PipeOut#(Bit#(72)) pipe_out = toPipeOut(write_data);
 
    MemreadEngineV#(128, 2, 1) re <- mkMemreadEngine;
-   Encoder sc <- mkEncoder(toPipeOut(write_data));
+   Encoder sc <- mkEncoder;
+   mkConnection(pipe_out, sc.encoderIn);
 
    rule cyc;
       cycle <= cycle + 1;

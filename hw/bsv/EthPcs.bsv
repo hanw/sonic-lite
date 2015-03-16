@@ -45,75 +45,68 @@ import BlockSync ::*;
 
 (* always_ready, always_enabled *)
 interface EthPcs;
+   interface PipeIn#(Bit#(72)) encoderIn;
+   interface PipeIn#(Bit#(66)) bsyncIn;
    interface PipeOut#(Bit#(72)) decoderOut;
    interface PipeOut#(Bit#(66)) scramblerOut;
 endinterface
 
-module mkEthPcs#(PipeOut#(Bit#(72)) encoderIn, PipeOut#(Bit#(66)) bsyncIn, Integer id, Integer c_local)(EthPcs);
+module mkEthPcs#(Integer id)(EthPcs);
 
-   let verbose = True;
+   let verbose = False;
 
    // Debug variable, make sure only enable one at a time.
-   let use_dtp    = True;
-   let lpbk_enc   = False;
-   let lpbk_scram = False;
+   let use_dtp    = False;//unpack(debug[0]);
+   let lpbk_enc   = True;//unpack(debug[1]);
+   let lpbk_scm   = False;//unpack(debug[1]);
+   let lpbk_ext   = False;//unpack(debug[2]);
 
    Reg#(Bit#(32)) cycle <- mkReg(0);
 
-   // Tx Path
-   FIFOF#(Bit#(72)) txEncoderInFifo <- mkBypassFIFOF;
-   FIFOF#(Bit#(66)) txDtpInFifo     <- mkBypassFIFOF;
-   FIFOF#(Bit#(66)) txScramInFifo   <- mkBypassFIFOF;
-   PipeIn#(Bit#(66)) txDtpPipeIn = toPipeIn(txDtpInFifo);
-   PipeIn#(Bit#(66)) txScramPipeIn = toPipeIn(txScramInFifo);
-
-   // Rx Path
-   FIFOF#(Bit#(72)) rxDecoderOutFifo <- mkBypassFIFOF;
-   FIFOF#(Bit#(66)) rxDtpOutFifo     <- mkBypassFIFOF;
-   FIFOF#(Bit#(66)) rxDescramOutFifo <- mkBypassFIFOF;
-   FIFOF#(Bit#(66)) rxDescramInFifo  <- mkBypassFIFOF;
-   FIFOF#(Bit#(66)) rxBlockSyncInFifo  <- mkBypassFIFOF;
-   PipeIn#(Bit#(66)) rxDtpPipeIn = toPipeIn(rxDescramOutFifo);
-   PipeIn#(Bit#(66)) rxDecoderPipeIn = toPipeIn(rxDtpOutFifo);
-   PipeIn#(Bit#(66)) rxDescramblePipeIn = toPipeIn(rxDescramInFifo);
-   PipeIn#(Bit#(66)) rxBlockSyncPipeIn = toPipeIn(rxBlockSyncInFifo);
-
-   Encoder encoder <- mkEncoder(encoderIn);
-   Scrambler scram <- mkScrambler(toPipeOut(txScramInFifo));
-   Dtp dtp <- mkDtp(toPipeOut(rxDescramOutFifo), toPipeOut(txDtpInFifo), id, c_local);
-   Decoder decoder <- mkDecoder(toPipeOut(rxDtpOutFifo));
-   Descrambler descram <- mkDescrambler(toPipeOut(rxDescramInFifo));
-   BlockSync bsync <- mkBlockSync(toPipeOut(rxBlockSyncInFifo));
+   Encoder encoder     <- mkEncoder;
+   Scrambler scram     <- mkScrambler;
+   Dtp dtp             <- mkDtp(0);
+   Decoder decoder     <- mkDecoder;
+   Descrambler descram <- mkDescrambler;
+   BlockSync bsync     <- mkBlockSync;
 
    if (use_dtp) begin // use dtp
-      mkConnection(encoder.encoderOut, txDtpPipeIn);
-      mkConnection(dtp.encoderOut, txScramPipeIn);
-      mkConnection(descram.descrambledOut, rxDtpPipeIn);
-      mkConnection(dtp.decoderOut, rxDecoderPipeIn);
-      mkConnection(bsync.dataOut, rxDescramblePipeIn);
-      mkConnection(bsyncIn, rxBlockSyncPipeIn);
+      // Tx Path
+      mkConnection(encoder.encoderOut,     dtp.encoderIn);
+      mkConnection(dtp.encoderOut,         scram.scramblerIn);
+      // Rx Path
+      mkConnection(dtp.decoderOut,         decoder.decoderIn);
+      mkConnection(descram.descrambledOut, dtp.decoderIn);
+      mkConnection(bsync.dataOut,          descram.descramblerIn);
    end
    else if (lpbk_enc) begin //local loopback at encoder <-> decoder
-      mkConnection(encoder.encoderOut, rxDecoderPipeIn);
+      // Loopback
+      mkConnection(encoder.encoderOut, decoder.decoderIn);
    end
-   else if (lpbk_scram) begin //local loopback at scrambler <-> descrambler
-      mkConnection(encoder.encoderOut, txScramPipeIn);
-      mkConnection(descram.descrambledOut, rxDecoderPipeIn);
-      mkConnection(bsync.dataOut, rxDescramblePipeIn);
-      mkConnection(bsyncIn, rxBlockSyncPipeIn);
+   else if (lpbk_scm) begin //local loopback at scrambler <-> descrambler
+      // Loopback
+      mkConnection(encoder.encoderOut,     scram.scramblerIn);
+      mkConnection(descram.descrambledOut, decoder.decoderIn);
+      mkConnection(bsync.dataOut,          descram.descramblerIn);
+   end
+   else if (lpbk_ext) begin //external loopback at scrambler <-> descrambler
+      // Loopback
+      mkConnection(descram.descrambledOut, scram.scramblerIn);
+      mkConnection(bsync.dataOut,          descram.descramblerIn);
    end
    else begin // bypass dtp
-      mkConnection(encoder.encoderOut, txScramPipeIn);
-      mkConnection(descram.descrambledOut, rxDecoderPipeIn);
-      mkConnection(bsync.dataOut, rxDescramblePipeIn);
-      mkConnection(bsyncIn, rxBlockSyncPipeIn);
+      mkConnection(encoder.encoderOut,     scram.scramblerIn);
+      mkConnection(descram.descrambledOut, decoder.decoderIn);
+      mkConnection(bsync.dataOut,          descram.descramblerIn);
    end
 
    rule cyc;
       cycle <= cycle + 1;
    endrule
 
-   interface decoderOut = decoder.decoderOut;
+   interface encoderIn    = encoder.encoderIn;
+   interface bsyncIn      = bsync.blockSyncIn;
+   interface decoderOut   = decoder.decoderOut;
    interface scramblerOut = scram.scrambledOut;
 endmodule
 endpackage: EthPcs

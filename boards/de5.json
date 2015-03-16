@@ -1,4 +1,12 @@
 {
+    "pcie_refclk_p": {
+	"PIO_DIRECTION": "INPUT",
+	"PCIE": "PCIE_REFCLK_p"
+    },
+    "pcie_perst_n": {
+	"PIO_DIRECTION": "INPUT",
+	"PCIE": "PCIE_PERST_n"
+    },
     "osc_50_b3b": {
 	"PIO_DIRECTION": "INPUT",
 	"OSC": "OSC_50_B3B"
@@ -31,19 +39,19 @@
 	"PIO_DIRECTION": "INPUT",
 	"OSC": "OSC_50_B8D"
     },
-    "leds[0]": {
+    "led0_led": {
 	"PIO_DIRECTION": "OUTPUT",
 	"LED": "LED[0]"
     },
-    "leds[1]": {
+    "led1_led": {
 	"PIO_DIRECTION": "OUTPUT",
 	"LED": "LED[1]"
     },
-    "leds[2]": {
+    "led2_led": {
 	"PIO_DIRECTION": "OUTPUT",
 	"LED": "LED[2]"
     },
-    "leds[3]": {
+    "led3_led": {
 	"PIO_DIRECTION": "OUTPUT",
 	"LED": "LED[3]"
     },
@@ -55,6 +63,30 @@
 	"PIO_DIRECTION": "OUTPUT",
 	"SFPA": "SFPA_TX_p"
     },
+	"sfpctrl_los_v[0]": {
+	"PIO_DIRECTION": "INPUT",
+	"SFPA": "SFPA_LOS"
+	},
+	"sfpctrl_mod0_presnt_n_v[0]": {
+	"PIO_DIRECTION": "INPUT",
+	"SFPA": "SFPA_MOD0_PRSNT_n"
+	},
+	"sfpctrl_txfault_v[0]": {
+	"PIO_DIRECTION": "INPUT",
+	"SFPA": "SFPA_TXFAULT"
+	},
+	"sfpctrl_txdisable[0]": {
+	"PIO_DIRECTION": "OUTPUT",
+	"SFPA": "SFPA_TXDISABLE"
+	},
+	"sfpctrl_ratesel0[0]": {
+	"PIO_DIRECTION": "OUTPUT",
+	"SFPA": "SFPA_RATESEL[0]"
+	},
+	"sfpctrl_ratesel1[0]": {
+	"PIO_DIRECTION": "OUTPUT",
+	"SFPA": "SFPA_RATESEL[1]"
+	},
     "serial_1_rx_data": {
 	"PIO_DIRECTION": "INPUT",
 	"SFPB": "SFPB_RX_p"
@@ -63,6 +95,30 @@
 	"PIO_DIRECTION": "OUTPUT",
 	"SFPB": "SFPB_TX_p"
     },
+	"sfpctrl_los_v[1]": {
+	"PIO_DIRECTION": "INPUT",
+	"SFPB": "SFPB_LOS"
+	},
+	"sfpctrl_mod0_presnt_n_v[1]": {
+	"PIO_DIRECTION": "INPUT",
+	"SFPB": "SFPB_MOD0_PRSNT_n"
+	},
+	"sfpctrl_txfault_v[1]": {
+	"PIO_DIRECTION": "INPUT",
+	"SFPB": "SFPB_TXFAULT"
+	},
+	"sfpctrl_txdisable[1]": {
+	"PIO_DIRECTION": "OUTPUT",
+	"SFPB": "SFPB_TXDISABLE"
+	},
+	"sfpctrl_ratesel0[1]": {
+	"PIO_DIRECTION": "OUTPUT",
+	"SFPB": "SFPB_RATESEL[0]"
+	},
+	"sfpctrl_ratesel1[1]": {
+	"PIO_DIRECTION": "OUTPUT",
+	"SFPB": "SFPB_RATESEL[1]"
+	},
     "serial_2_rx_data": {
 	"PIO_DIRECTION": "INPUT",
 	"SFPC": "SFPC_RX_p"
@@ -71,6 +127,30 @@
 	"PIO_DIRECTION": "OUTPUT",
 	"SFPC": "SFPC_TX_p"
     },
+	"sfpctrl_los_v[2]": {
+	"PIO_DIRECTION": "INPUT",
+	"SFPC": "SFPC_LOS"
+	},
+	"sfpctrl_mod0_presnt_n_v[2]": {
+	"PIO_DIRECTION": "INPUT",
+	"SFPC": "SFPC_MOD0_PRSNT_n"
+	},
+	"sfpctrl_txfault_v[2]": {
+	"PIO_DIRECTION": "INPUT",
+	"SFPC": "SFPC_TXFAULT"
+	},
+	"sfpctrl_txdisable[2]": {
+	"PIO_DIRECTION": "OUTPUT",
+	"SFPC": "SFPC_TXDISABLE"
+	},
+	"sfpctrl_ratesel0[2]": {
+	"PIO_DIRECTION": "OUTPUT",
+	"SFPC": "SFPC_RATESEL[0]"
+	},
+	"sfpctrl_ratesel1[2]": {
+	"PIO_DIRECTION": "OUTPUT",
+	"SFPC": "SFPC_RATESEL[1]"
+	},
     "serial_3_rx_data": {
 	"PIO_DIRECTION": "INPUT",
 	"SFPD": "SFPD_RX_p"
@@ -79,6 +159,30 @@
 	"PIO_DIRECTION": "OUTPUT",
 	"SFPD": "SFPD_TX_p"
     },
+	"sfpctrl_los_v[3]": {
+	"PIO_DIRECTION": "INPUT",
+	"SFPD": "SFPD_LOS"
+	},
+	"sfpctrl_mod0_presnt_n_v[3]": {
+	"PIO_DIRECTION": "INPUT",
+	"SFPD": "SFPD_MOD0_PRSNT_n"
+	},
+	"sfpctrl_txfault_v[3]": {
+	"PIO_DIRECTION": "INPUT",
+	"SFPD": "SFPD_TXFAULT"
+	},
+	"sfpctrl_txdisable[3]": {
+	"PIO_DIRECTION": "OUTPUT",
+	"SFPD": "SFPD_TXDISABLE"
+	},
+	"sfpctrl_ratesel0[3]": {
+	"PIO_DIRECTION": "OUTPUT",
+	"SFPD": "SFPD_RATESEL[0]"
+	},
+	"sfpctrl_ratesel1[3]": {
+	"PIO_DIRECTION": "OUTPUT",
+	"SFPD": "SFPD_RATESEL[1]"
+	},
 	"sfp_refclk": {
 	"PIO_DIRECTION": "INPUT",
 	"SFP": "SFP_REFCLK_p"
@@ -106,5 +210,21 @@
 	"button3_v": {
 	"PIO_DIRECTION": "INPUT",
 	"BUTTON": "BUTTON[3]"
+	},
+	"sw_switch0_v": {
+	"PIO_DIRECTION": "INPUT",
+	"SW": "SW[0]"
+	},
+	"sw_switch1_v": {
+	"PIO_DIRECTION": "INPUT",
+	"SW": "SW[1]"
+	},
+	"sw_switch2_v": {
+	"PIO_DIRECTION": "INPUT",
+	"SW": "SW[2]"
+	},
+	"sw_switch3_v": {
+	"PIO_DIRECTION": "INPUT",
+	"SW": "SW[3]"
 	}
 }

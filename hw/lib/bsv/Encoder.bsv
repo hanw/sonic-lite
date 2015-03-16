@@ -35,19 +35,22 @@ import Pipe::*;
 import Ethernet::*;
 
 interface Encoder;
+   interface PipeIn#(Bit#(72)) encoderIn;
    interface PipeOut#(Bit#(66)) encoderOut;
 endinterface
 
 typedef enum {CONTROL, START, DATA, TERMINATE, ERROR} State
 deriving (Bits, Eq);
 
-module mkEncoder#(PipeOut#(Bit#(72)) encoderIn)(Encoder);
+(* synthesize *)
+module mkEncoder(Encoder);
 
    let verbose = False;
 
    Reg#(Bit#(32)) cycle         <- mkReg(0);
 
-   FIFOF#(Bit#(66))  fifo_out   <- mkBypassFIFOF;
+   FIFOF#(Bit#(72)) fifo_in    <- mkFIFOF;
+   FIFOF#(Bit#(66)) fifo_out   <- mkBypassFIFOF;
    //---------------------------------------------------------------------------------
    // Signals used to indicate what type of data is in each of the pre-xgmii data lanes.
    //---------------------------------------------------------------------------------
@@ -110,7 +113,7 @@ module mkEncoder#(PipeOut#(Bit#(72)) encoderIn)(Encoder);
       Bit#(64) xgmii_txd;
       Bit#(8)  xgmii_txc;
 
-      let v <- toGet(encoderIn).get;
+      let v <- toGet(fifo_in).get;
       for (Integer i=0; i<8; i=i+1) begin
          txd[i] = v[9*i+7 : 9*i];
          txc[i] = v[9*i+8];
@@ -483,6 +486,7 @@ module mkEncoder#(PipeOut#(Bit#(72)) encoderIn)(Encoder);
       fifo_out.enq(data_out);
    endrule
 
+   interface encoderIn = toPipeIn(fifo_in);
    interface encoderOut = toPipeOut(fifo_out);
 endmodule
 
