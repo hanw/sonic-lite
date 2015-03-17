@@ -41,7 +41,7 @@ interface PinsTopIfc;
    interface ButtonInIfc buttons;
    (* prefix="sw" *)
    interface SwitchInIfc switches;
-   interface Clock clk_si570;
+   interface Clock clk_b4a;
 endinterface
 
 interface ButtonInIfc;

@@ -26,6 +26,8 @@ package EthPorts;
 import Clocks::*;
 import Vector::*;
 import Connectable::*;
+import GetPut::*;
+import Pipe::*;
 
 import Ethernet::*;
 import EthMac::*;
@@ -63,19 +65,32 @@ module mkEthPorts#(Clock clk_50, Clock clk_156_25, Clock clk_644)(EthPortIfc);
    Clock defaultClock <- exposeCurrentClock;
    Reset defaultReset <- exposeCurrentReset;
    Reset rst_50     <- mkAsyncResetFromCR(2, clk_50);
-   Reset rst_156_25 <- mkAsyncReset(2, defaultReset, clk_156_25);
+   Reset rst_156_25_n <- mkAsyncReset(2, defaultReset, clk_156_25);
 
 //   Vector#(NumPorts, EthPktCtrlIfc) pktctrls <- replicateM(mkEthPktCtrl(clk_156_25, rst_156_25, clocked_by clk_156_25, reset_by rst_156_25));
 //
-   EthMacIfc#(NumPorts) macs <- mkEthMac(clk_50, clk_156_25, clocked_by clk_156_25, reset_by rst_156_25);
-   EthPhyIfc#(NumPorts) phys <- mkEthPhy(clk_50, clk_156_25, clk_644, clocked_by clk_156_25, reset_by rst_156_25);
+   //EthMacIfc#(NumPorts) macs <- mkEthMac(clk_50, clk_156_25, clocked_by clk_156_25, reset_by rst_156_25);
+   EthPhyIfc#(NumPorts) phys <- mkEthPhy(clk_50, clk_156_25, clk_644, rst_156_25_n);//, clocked_by clk_156_25, reset_by rst_156_25);
 
-   for (Integer i=0; i<valueOf(NumPorts); i=i+1) begin
-//      mkConnection(pktctrls[i].aso, macs.avalon[i].asi);
-//      mkConnection(macs.avalon[i].aso, pktctrls[i].asi);
-      mkConnection(macs.tx[i], phys.tx[i]);
-      mkConnection(phys.rx[i], macs.rx[i]);
-   end
+//   for (Integer i=0; i<valueOf(NumPorts); i=i+1) begin
+//      mkConnection(macs.tx[i], phys.tx[i]);
+//      mkConnection(phys.rx[i], macs.rx[i]);
+//   end
+
+   rule drain;
+      let v0 <- toGet(phys.rx[0]).get;
+      let v1 <- toGet(phys.rx[1]).get;
+      let v2 <- toGet(phys.rx[2]).get;
+      let v3 <- toGet(phys.rx[3]).get;
+   endrule
+
+   rule source;
+      for (Integer i=0; i<valueOf(NumPorts); i=i+1) begin
+         if (phys.tx[i].notFull) begin
+            phys.tx[i].enq(72'h83c1e0f0783c1e0f07);
+         end
+      end
+   endrule
 
    interface serial = phys.serial;
    interface sfpctrl = (interface SfpCtrlIfc;

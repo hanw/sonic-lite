@@ -70,10 +70,15 @@ endinterface
 interface EthPma#(numeric type numPorts);
    interface Vector#(numPorts, PipeOut#(Bit#(40))) rx;
    interface Vector#(numPorts, PipeIn#(Bit#(40)))  tx;
+   (* always_ready, always_enabled *)
    interface Vector#(numPorts, Bool)  rx_ready;
+   (* always_ready, always_enabled *)
    interface Vector#(numPorts, Clock) rx_clkout;
+   (* always_ready, always_enabled *)
    interface Vector#(numPorts, Bool)  tx_ready;
+   (* always_ready, always_enabled *)
    interface Vector#(numPorts, Clock) tx_clkout;
+   (* always_ready, always_enabled *)
    interface Vector#(numPorts, SerialIfc) pmd;
 endinterface
 

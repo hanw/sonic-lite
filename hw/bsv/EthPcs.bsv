@@ -57,7 +57,7 @@ module mkEthPcs#(Integer id)(EthPcs);
 
    // Debug variable, make sure only enable one at a time.
    let use_dtp    = False;//unpack(debug[0]);
-   let lpbk_enc   = True;//unpack(debug[1]);
+   let lpbk_enc   = False;//unpack(debug[1]);
    let lpbk_scm   = False;//unpack(debug[1]);
    let lpbk_ext   = False;//unpack(debug[2]);
 
@@ -65,18 +65,18 @@ module mkEthPcs#(Integer id)(EthPcs);
 
    Encoder encoder     <- mkEncoder;
    Scrambler scram     <- mkScrambler;
-   Dtp dtp             <- mkDtp(0);
+   Dtp dtp             <- mkDtpTop;
    Decoder decoder     <- mkDecoder;
    Descrambler descram <- mkDescrambler;
    BlockSync bsync     <- mkBlockSync;
 
    if (use_dtp) begin // use dtp
       // Tx Path
-      mkConnection(encoder.encoderOut,     dtp.encoderIn);
-      mkConnection(dtp.encoderOut,         scram.scramblerIn);
+      mkConnection(encoder.encoderOut,     dtp.dtpTxIn);
+      mkConnection(dtp.dtpTxOut,         scram.scramblerIn);
       // Rx Path
-      mkConnection(dtp.decoderOut,         decoder.decoderIn);
-      mkConnection(descram.descrambledOut, dtp.decoderIn);
+      mkConnection(dtp.dtpRxOut,         decoder.decoderIn);
+      mkConnection(descram.descrambledOut, dtp.dtpRxIn);
       mkConnection(bsync.dataOut,          descram.descramblerIn);
    end
    else if (lpbk_enc) begin //local loopback at encoder <-> decoder

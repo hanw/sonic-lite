@@ -25,10 +25,13 @@ package Gearbox_40_66;
 
 import FIFO::*;
 import FIFOF::*;
-import Vector::*;
+import Clocks::*;
+import SpecialFIFOs::*;
 import GetPut::*;
+import Vector::*;
 import ClientServer::*;
 
+import Connectable::*;
 import Pipe::*;
 
 interface Gearbox_40_66;
@@ -37,9 +40,11 @@ interface Gearbox_40_66;
 endinterface
 
 (* synthesize *)
-module mkGearbox40to66(Gearbox_40_66);
+module mkGearbox40to66#(Clock clk_156_25)(Gearbox_40_66);
 
-   let verbose = False;
+   let verbose = True;
+
+   Reg#(Bit#(32)) cycle         <- mkReg(0);
 
    FIFOF#(Bit#(40)) cf <- mkSizedFIFOF(1);
    Vector#(66, Reg#(Bit#(1))) sr0        <- replicateM(mkReg(0));
@@ -48,11 +53,20 @@ module mkGearbox40to66(Gearbox_40_66);
    FIFOF#(Bit#(66)) fifo_out <- mkFIFOF;
    PipeOut#(Bit#(66)) pipe_out = toPipeOut(fifo_out);
 
+   SyncFIFOIfc#(Bit#(66)) syncFifo <- mkSyncFIFOFromCC(2, clk_156_25);
+   PipeIn#(Bit#(66)) syncFifoIn = toPipeIn(syncFifo);
+
    Reg#(Bit#(6)) state <- mkReg(0);
    Reg#(Int#(8)) sh_offset <- mkReg(0);
    Reg#(Int#(8)) sh_len    <- mkReg(0);
    Reg#(Bit#(1)) sh_use0   <- mkReg(0);
    Reg#(Bit#(1)) sh_use_sr <- mkReg(0);
+
+   mkConnection(pipe_out, syncFifoIn);
+
+   rule cyc;
+      cycle <= cycle + 1;
+   endrule
 
    rule state_machine (cf.notEmpty);
       let value = cf.first;
@@ -92,11 +106,11 @@ module mkGearbox40to66(Gearbox_40_66);
       Vector#(66, Bit#(1)) sr1_next = unpack(0);
       if (unpack(sh_use0)) begin
          sr1_next = readVReg(sr0);
-         $display("state %h: shift sr0 to sr1", state);
+         if(verbose) $display("%d: state %h, shift sr0 to sr1", cycle, state);
       end
       else begin
          sr1_next = readVReg(sr1);
-         $display("state %h: keep sr1", state);
+         if(verbose) $display("%d: state %h, keep sr1", cycle, state);
       end
 
       function Bit#(1) value_sub(Integer i);
@@ -129,7 +143,7 @@ module mkGearbox40to66(Gearbox_40_66);
       Vector#(66, Bit#(1)) next_sr0 = genWith(value_sub_sr0);
       writeVReg(take(sr0), next_sr0);
 
-      if (verbose) $display("state %h: curr_sr0=%h next_sr0=%h curr_sr1=%h next_sr1=%h sh_offset=%d len=%d use0=%d update=", state, pack(readVReg(sr0)), pack(next_sr0), pack(readVReg(sr1)), pack(next_sr1), sh_offset, len, sh_use0, updateSr);
+      if (verbose) $display("%d: state %h, curr_sr0=%h next_sr0=%h curr_sr1=%h next_sr1=%h sh_offset=%d len=%d use0=%d update=", cycle, state, pack(readVReg(sr0)), pack(next_sr0), pack(readVReg(sr1)), pack(next_sr1), sh_offset, len, sh_use0, updateSr);
 
       state     <= next_state;
       sh_offset <= offset;
@@ -143,7 +157,7 @@ module mkGearbox40to66(Gearbox_40_66);
    endrule
 
    interface gbIn = toPipeIn(cf);
-   interface gbOut = pipe_out;
+   interface gbOut = toPipeOut(syncFifo);//pipe_out;
 endmodule
 
 endpackage

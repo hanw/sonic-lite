@@ -25,14 +25,14 @@ package Gearbox_66_40;
 
 import FIFO::*;
 import FIFOF::*;
+import Clocks::*;
 import SpecialFIFOs::*;
-import Vector::*;
 import GetPut::*;
+import Vector::*;
 import ClientServer::*;
 
+import Connectable::*;
 import Pipe::*;
-
-typedef 33 N_STATE;
 
 interface Gearbox_66_40;
    interface PipeIn#(Bit#(66)) gbIn;
@@ -40,10 +40,15 @@ interface Gearbox_66_40;
 endinterface
 
 (* synthesize *)
-module mkGearbox66to40(Gearbox_66_40);
+module mkGearbox66to40#(Clock clk_156_25)(Gearbox_66_40);
 
-   let verbose = False;
+   let verbose = True;
 
+   Clock defaultClock <- exposeCurrentClock;
+   Reset defaultReset <- exposeCurrentReset;
+   Reset rst_156_25 <- mkAsyncReset(2, defaultReset, clk_156_25);
+
+   Reg#(Bit#(32)) cycle         <- mkReg(0);
    Vector#(144, Reg#(Bit#(1))) stor <- replicateM(mkReg(0));
 
    FIFOF#(Bit#(66)) cf <- mkFIFOF;
@@ -51,8 +56,19 @@ module mkGearbox66to40(Gearbox_66_40);
    PipeOut#(Bit#(40)) pipe_out = toPipeOut(fifo_out);
 
    Reg#(Bit#(6))  state <- mkReg(0);
-   Reg#(Bit#(7))  sh_offset <- mkReg(0);
-   Reg#(Bit#(7))  total <- mkReg(0);
+   Reg#(Int#(8))  sh_offset <- mkReg(0);
+   Reg#(Int#(8))  total <- mkReg(0);
+
+   let syncFifo <- mkSyncFIFOToCC(2, clk_156_25, rst_156_25);
+
+   rule cyc;
+      cycle <= cycle + 1;
+   endrule
+
+   rule fifo2cf;
+      let v <- toGet(syncFifo).get;
+      cf.enq(v);
+   endrule
 
    rule state_machine;
       let next_state = state;
@@ -66,20 +82,25 @@ module mkGearbox66to40(Gearbox_66_40);
          default:  next_state = next_state + 1;
       endcase
 
-      if (curr_total == 0) begin
-         next_total = 66;
-         next_offset= 0;
-      end
-      else if (curr_total < 80)  begin
-         next_total = curr_total - 40 + 66;
-         next_offset = curr_total - 40;
-      end
-      else begin
-         next_total = curr_total - 40;
-         next_offset = 0;
+      if (state == 0) begin
+         curr_total = 66;
       end
 
-      if(verbose) $display("curr_total = %d, next_offset = %d, next_total=%d", curr_total, next_offset, next_total);
+      if (curr_total - 40 > 40) begin
+         next_total = curr_total - 40;
+      end
+      else begin
+         next_total = curr_total - 40 + 66;
+      end
+
+      if (curr_total - 40 > 40) begin
+         next_offset = 0;
+      end
+      else begin
+         next_offset = curr_total - 40;
+      end
+
+      if(verbose) $display("%d: state %h, curr_total = %d, next_offset = %d, next_total=%d", cycle, state, curr_total, next_offset, next_total);
 
       if (state == 0) begin
          din <- toGet(cf).get;
@@ -92,7 +113,7 @@ module mkGearbox66to40(Gearbox_66_40);
             din = unpack(0);
          end
       end
-      if(verbose) $display("state %h: sh_offset=%d din=%h stor=%h", state, sh_offset, din, readVReg(stor));
+      if(verbose) $display("%d: state %h, sh_offset=%d din=%h stor=%h", cycle, state, sh_offset, din, readVReg(stor));
 
       function Bit#(1) value_stor(Integer i);
          Bit#(1) v = 0;
@@ -126,7 +147,7 @@ module mkGearbox66to40(Gearbox_66_40);
          return v;
       endfunction
       Vector#(104, Bit#(1)) next_stor = genWith(value_stor);
-      if(verbose) $display("state %h: stor=%h", state, next_stor);
+      if(verbose) $display("%d: state %h, stor=%h", cycle, state, next_stor);
       writeVReg(take(stor), next_stor);
 
       if (fifo_out.notFull) begin
@@ -138,7 +159,7 @@ module mkGearbox66to40(Gearbox_66_40);
       state <= next_state;
    endrule
 
-   interface gbIn = toPipeIn(cf);
+   interface gbIn = toPipeIn(syncFifo);
    interface gbOut = pipe_out;
 endmodule
 endpackage

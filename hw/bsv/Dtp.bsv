@@ -51,10 +51,10 @@ interface DtpIn;
 endinterface
 
 interface Dtp;
-   interface PipeIn#(Bit#(66))  decoderIn;
-   interface PipeIn#(Bit#(66))  encoderIn;
-   interface PipeOut#(Bit#(66)) decoderOut;
-   interface PipeOut#(Bit#(66)) encoderOut;
+   interface PipeIn#(Bit#(66))  dtpRxIn;
+   interface PipeIn#(Bit#(66))  dtpTxIn;
+   interface PipeOut#(Bit#(66)) dtpRxOut;
+   interface PipeOut#(Bit#(66)) dtpTxOut;
 //   method Vector#(N_IFCs, Bit#(TIMESTAMP_LEN)) local_clock;
 //   method Bit#(TIMESTAMP_LEN) global_clock;
 endinterface
@@ -69,13 +69,18 @@ typedef 10 SYNC_TIMEOUT;
 typedef enum {INIT, SENT, SYNC} DtpState
 deriving (Bits, Eq);
 
-//FIXME: interface is prone to usage error.
+(* synthesize *)
+module mkDtpTop (Dtp);
+   Dtp _a <- mkDtp(0);
+   return _a;
+endmodule
+
 module mkDtp#(Integer id)(Dtp);
 
    let verbose = False;
 
-   FIFOF#(Bit#(66)) decoderInFifo <- mkFIFOF;
-   FIFOF#(Bit#(66)) encoderInFifo <- mkFIFOF;
+   FIFOF#(Bit#(66)) dtpRxInFifo <- mkFIFOF;
+   FIFOF#(Bit#(66)) dtpTxInFifo <- mkFIFOF;
 
    Reg#(Bit#(1))   mode <- mkReg(0); // mode=0 NIC, mode=1 SWITCH
    Reg#(Bit#(32))  cycle   <- mkReg(0);
@@ -94,17 +99,17 @@ module mkDtp#(Integer id)(Dtp);
    Wire#(Bit#(2))  tx_mux_sel   <- mkDWire(0);
 
    // Tx Stage 1
-   FIFOF#(Bit#(66)) encoderInPipelineFifo <- mkFIFOF;
+   FIFOF#(Bit#(66)) dtpTxInPipelineFifo <- mkFIFOF;
    FIFOF#(Bit#(1))  parityFifo    <- mkFIFOF;
    FIFOF#(Bit#(53)) cLocalFifo    <- mkFIFOF;
-   FIFOF#(Bit#(66)) encoderOutFifo <- mkFIFOF;
+   FIFOF#(Bit#(66)) dtpTxOutFifo <- mkFIFOF;
    FIFOF#(Bool)     isIdleFifo    <- mkFIFOF;
 
    FIFOF#(Bit#(53)) outstandingInitRequest <- mkSizedFIFOF(8);
 
    FIFOF#(Bit#(2))  dtpEventFifo   <- mkFIFOF;
    FIFOF#(Bit#(2))  dtpEventOutputFifo   <- mkFIFOF;
-   FIFOF#(Bit#(66)) decoderOutFifo <- mkFIFOF;
+   FIFOF#(Bit#(66)) dtpRxOutFifo <- mkFIFOF;
 
    FIFOF#(Bit#(53)) localCompareRemoteFifo  <- mkFIFOF;
    FIFOF#(Bit#(53)) localCompareGlobalFifo  <- mkFIFOF;
@@ -132,7 +137,7 @@ module mkDtp#(Integer id)(Dtp);
    endrule
 
    rule tx_stage1;
-      let v <- toGet(encoderInFifo).get();
+      let v <- toGet(dtpTxInFifo).get();
       Bit#(1) parity;
       Bool    mux_sel;
       Bit#(53) c_local_out;
@@ -148,20 +153,20 @@ module mkDtp#(Integer id)(Dtp);
          is_idle <= False;
       end
 
-      if(verbose) $display("%d: %d encoderIn=%h, c_local=%h is_idle=%h", cycle, id, v, c_local, mux_sel);
+      if(verbose) $display("%d: %d dtpTxIn=%h, c_local=%h is_idle=%h", cycle, id, v, c_local, mux_sel);
       cfFifo.enq(?);
       dmFifo.enq(?);
       isIdleFifo.enq(mux_sel);
       parityFifo.enq(parity);
       cLocalFifo.enq(c_local+1);
-      encoderInPipelineFifo.enq(v);
+      dtpTxInPipelineFifo.enq(v);
    endrule
 
    rule tx_stage2;
       let mux_sel <- toGet(isIdleFifo).get();
       let c_local <- toGet(cLocalFifo).get();
       let parity  <- toGet(parityFifo).get();
-      let v <- toGet(encoderInPipelineFifo).get();
+      let v <- toGet(dtpTxInPipelineFifo).get();
 
       Bit#(10) block_type;
       Bit#(66) encodeOut;
@@ -185,8 +190,8 @@ module mkDtp#(Integer id)(Dtp);
       else begin
          encodeOut = v;
       end
-      if(verbose) $display("%d: %d encoderOut=%h %h %h", cycle, id, c_local, parity, encodeOut[11:10]);
-      encoderOutFifo.enq(encodeOut);
+      if(verbose) $display("%d: %d dtpTxOut=%h %h %h", cycle, id, c_local, parity, encodeOut[11:10]);
+      dtpTxOutFifo.enq(encodeOut);
    endrule
 
    // delay measurement
@@ -304,7 +309,7 @@ module mkDtp#(Integer id)(Dtp);
       let init_type   = fromInteger(valueOf(INIT_TYPE));
       let ack_type    = fromInteger(valueOf(ACK_TYPE));
       let beacon_type = fromInteger(valueOf(BEACON_TYPE));
-      let v <- toGet(decoderInFifo).get();
+      let v <- toGet(dtpRxInFifo).get();
       Bit#(1)  parity = ^v[65:13];
       Bit#(53) c_remote = v[65:13];
       Bit#(66) vo = v;
@@ -361,9 +366,9 @@ module mkDtp#(Integer id)(Dtp);
          beacon_rcvd <= False;
          dtpEventFifo.enq(2'b0);
       end
-      if(verbose) $display("%d: %d decoderIn=%h", cycle, id, v);
+      if(verbose) $display("%d: %d dtpRxIn=%h", cycle, id, v);
       if(verbose) $display("%d: %d curr_state=%h", cycle, id, curr_state);
-      decoderOutFifo.enq(vo);
+      dtpRxOutFifo.enq(vo);
    endrule
 
    rule rx_stage2 (mode==0 || mode==1);
@@ -466,9 +471,9 @@ module mkDtp#(Integer id)(Dtp);
       end
    endrule
 
-   interface decoderIn = toPipeIn(decoderInFifo);
-   interface encoderIn = toPipeIn(encoderInFifo);
-   interface decoderOut = toPipeOut(decoderOutFifo);
-   interface encoderOut = toPipeOut(encoderOutFifo);
+   interface dtpRxIn = toPipeIn(dtpRxInFifo);
+   interface dtpTxIn = toPipeIn(dtpTxInFifo);
+   interface dtpRxOut = toPipeOut(dtpRxOutFifo);
+   interface dtpTxOut = toPipeOut(dtpTxOutFifo);
 endmodule
 endpackage

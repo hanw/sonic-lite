@@ -50,12 +50,23 @@ module mkPcsTest#(PcsTestIndication indication) (PcsTest);
    FIFOF#(Bit#(72)) write_data2 <- mkFIFOF;
 //   FIFOF#(Bit#(66)) scrambled_data2 <- mkFIFOF;
 
+   PipeOut#(Bit#(72)) pipe_out1 = toPipeOut(write_data1);
+   PipeOut#(Bit#(72)) pipe_out2 = toPipeOut(write_data2);
+
    Vector#(Delay, FIFOF#(Bit#(66))) fifo_sc1_to_sc2 <- replicateM(mkFIFOF);
    Vector#(Delay, FIFOF#(Bit#(66))) fifo_sc2_to_sc1 <- replicateM(mkFIFOF);
 
+   PipeOut#(Bit#(66)) pipe_fifo_sc1_to_sc2 = toPipeOut(fifo_sc1_to_sc2[delay-1]);
+   PipeOut#(Bit#(66)) pipe_fifo_sc2_to_sc1 = toPipeOut(fifo_sc2_to_sc1[delay-1]);
+
    MemreadEngineV#(256, 2, 1) re <- mkMemreadEngine;
-   EthPcs sc1 <- mkEthPcs(toPipeOut(write_data1), toPipeOut(fifo_sc2_to_sc1[delay-1]), 0, 100);
-   EthPcs sc2 <- mkEthPcs(toPipeOut(write_data2), toPipeOut(fifo_sc1_to_sc2[delay-1]), 1, 200);
+   EthPcs sc1 <- mkEthPcs(0);//toPipeOut(write_data1), toPipeOut(fifo_sc2_to_sc1[delay-1]), 0, 100);
+   EthPcs sc2 <- mkEthPcs(1);//toPipeOut(write_data2), toPipeOut(fifo_sc1_to_sc2[delay-1]), 1, 200);
+
+   mkConnection(pipe_out1, sc1.encoderIn);
+   mkConnection(pipe_out2, sc2.encoderIn);
+   mkConnection(pipe_fifo_sc2_to_sc1, sc1.bsyncIn);
+   mkConnection(pipe_fifo_sc1_to_sc2, sc2.bsyncIn);
 
    rule init;
       let sc1_out = sc1.scramblerOut.first;

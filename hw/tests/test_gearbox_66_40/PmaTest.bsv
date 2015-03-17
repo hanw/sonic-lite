@@ -40,7 +40,7 @@ module mkPmaTest#(PmaTestIndication indication) (PmaTest);
    PipeOut#(Bit#(66)) pipe_out = toPipeOut(write_data);
 
    MemreadEngineV#(64, 2, 1) re <- mkMemreadEngine;
-   Gearbox_66_40 gb <- mkGearbox66to40;//toPipeOut(write_data));
+   Gearbox_66_40 gb <- mkGearbox66to40;
 
    mkConnection(pipe_out, gb.gbIn);
 

@@ -50,7 +50,7 @@ int main(int argc, char **argv) {
 
     portalDCacheFlushInval(srcAlloc, alloc_sz, srcBuffer);
     unsigned int ref_srcAlloc = dma->reference(srcAlloc);
-    printf( "Main::starting read %08x\n", numWords);
+    printf("Main::starting read %08x\n", numWords);
     device->startPma(ref_srcAlloc, numWords, burstLen, 1);
     sem_wait(&test_sem);
     return 0;
