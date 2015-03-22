@@ -24,6 +24,7 @@
 package Gearbox_66_40;
 
 import FIFO::*;
+import BRAMFIFO::*;
 import FIFOF::*;
 import Clocks::*;
 import SpecialFIFOs::*;
@@ -51,23 +52,23 @@ module mkGearbox66to40#(Clock clk_156_25)(Gearbox_66_40);
    Reg#(Bit#(32)) cycle         <- mkReg(0);
    Vector#(144, Reg#(Bit#(1))) stor <- replicateM(mkReg(0));
 
-   FIFOF#(Bit#(66)) cf <- mkFIFOF;
+   FIFOF#(Bit#(66)) fifo_in <- mkSizedFIFOF(2);
    FIFOF#(Bit#(40)) fifo_out <- mkFIFOF;
-   PipeOut#(Bit#(40)) pipe_out = toPipeOut(fifo_out);
+   SyncFIFOIfc#(Bit#(66)) synchronizer <- mkSyncBRAMFIFOToCC(10, clk_156_25, rst_156_25);
 
    Reg#(Bit#(6))  state <- mkReg(0);
    Reg#(Int#(8))  sh_offset <- mkReg(0);
    Reg#(Int#(8))  total <- mkReg(0);
 
-   let syncFifo <- mkSyncFIFOToCC(2, clk_156_25, rst_156_25);
-
    rule cyc;
       cycle <= cycle + 1;
    endrule
 
-   rule fifo2cf;
-      let v <- toGet(syncFifo).get;
-      cf.enq(v);
+   //Wire#(Bit#(66)) din_wires <- mkDWire(0);
+   rule deqSynchronizer;
+      let v <- toGet(synchronizer).get;
+      //din_wires <= v;
+      fifo_in.enq(v);//pack(din_wires));
    endrule
 
    rule state_machine;
@@ -75,7 +76,7 @@ module mkGearbox66to40#(Clock clk_156_25)(Gearbox_66_40);
       let curr_total = total;
       let next_total;
       let next_offset;
-      let din;
+      let din;// <- toGet(fifo_in).get;
 
       case (state)
          32:       next_state = 0;
@@ -86,14 +87,14 @@ module mkGearbox66to40#(Clock clk_156_25)(Gearbox_66_40);
          curr_total = 66;
       end
 
-      if (curr_total - 40 > 40) begin
+      if (curr_total - 40 >= 40) begin
          next_total = curr_total - 40;
       end
       else begin
          next_total = curr_total - 40 + 66;
       end
 
-      if (curr_total - 40 > 40) begin
+      if (curr_total - 40 >= 40) begin
          next_offset = 0;
       end
       else begin
@@ -103,11 +104,11 @@ module mkGearbox66to40#(Clock clk_156_25)(Gearbox_66_40);
       if(verbose) $display("%d: state %h, curr_total = %d, next_offset = %d, next_total=%d", cycle, state, curr_total, next_offset, next_total);
 
       if (state == 0) begin
-         din <- toGet(cf).get;
+         din <- toGet(fifo_in).get;
       end
       else begin
          if (sh_offset != 0) begin
-            din <- toGet(cf).get;
+            din <- toGet(fifo_in).get;
          end
          else begin
             din = unpack(0);
@@ -159,8 +160,8 @@ module mkGearbox66to40#(Clock clk_156_25)(Gearbox_66_40);
       state <= next_state;
    endrule
 
-   interface gbIn = toPipeIn(syncFifo);
-   interface gbOut = pipe_out;
+   interface gbIn = toPipeIn(synchronizer);//fifo_in);
+   interface gbOut = toPipeOut(fifo_out);
 endmodule
 endpackage
 

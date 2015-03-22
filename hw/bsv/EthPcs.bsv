@@ -51,24 +51,25 @@ interface EthPcs;
    interface PipeOut#(Bit#(66)) scramblerOut;
 endinterface
 
-module mkEthPcs#(Integer id)(EthPcs);
+module mkEthPcs#(Integer id, Reset rx_pcs_reset_n, Reset tx_pcs_reset_n)(EthPcs);
 
    let verbose = False;
 
    // Debug variable, make sure only enable one at a time.
-   let use_dtp    = False;//unpack(debug[0]);
-   let lpbk_enc   = False;//unpack(debug[1]);
-   let lpbk_scm   = False;//unpack(debug[1]);
-   let lpbk_ext   = False;//unpack(debug[2]);
+   let use_dtp    = False;
+   let lpbk_enc   = False;
+   let lpbk_scm   = False;
+   let lpbk_ext   = False;
+   let bypass     = False;
 
    Reg#(Bit#(32)) cycle <- mkReg(0);
 
-   Encoder encoder     <- mkEncoder;
-   Scrambler scram     <- mkScrambler;
-   Dtp dtp             <- mkDtpTop;
-   Decoder decoder     <- mkDecoder;
-   Descrambler descram <- mkDescrambler;
-   BlockSync bsync     <- mkBlockSync;
+   Encoder encoder     <- mkEncoder (reset_by tx_pcs_reset_n);
+   Scrambler scram     <- mkScrambler (reset_by tx_pcs_reset_n);
+   Dtp dtp             <- mkDtpTop (reset_by tx_pcs_reset_n);
+   Decoder decoder     <- mkDecoder (reset_by rx_pcs_reset_n);
+   Descrambler descram <- mkDescrambler (reset_by rx_pcs_reset_n);
+   BlockSync bsync     <- mkBlockSync (reset_by rx_pcs_reset_n);
 
    if (use_dtp) begin // use dtp
       // Tx Path
@@ -94,11 +95,23 @@ module mkEthPcs#(Integer id)(EthPcs);
       mkConnection(descram.descrambledOut, scram.scramblerIn);
       mkConnection(bsync.dataOut,          descram.descramblerIn);
    end
-   else begin // bypass dtp
+   else if (bypass) begin // bypass dtp
       mkConnection(encoder.encoderOut,     scram.scramblerIn);
       mkConnection(descram.descrambledOut, decoder.decoderIn);
       mkConnection(bsync.dataOut,          descram.descramblerIn);
    end
+   else begin //For testing purpose.
+      // scram -> descram loopback
+      //mkConnection(scram.scrambledOut,     descram.descramblerIn);
+      mkConnection(encoder.encoderOut,     scram.scramblerIn);
+      mkConnection(descram.descrambledOut, decoder.decoderIn);
+      mkConnection(bsync.dataOut,          descram.descramblerIn);
+   end
+
+   // Fake Data into Scrambler
+//   rule transmit_tx;
+//      scram.scramblerIn.enq(66'h00000000000000079);
+//   endrule
 
    rule cyc;
       cycle <= cycle + 1;

@@ -29,8 +29,14 @@ interface SonicUserRequest;
     method Action writeDelay(Bit#(64) host_cnt);
 endinterface
 
+interface SonicPmaMgmt;
+    method Action xcvrConfigRead(Bit#(32) address);
+    method Action xcvrConfigWrite(Bit#(32) address, Bit#(32) data);
+endinterface
+
 interface SonicUser;
    interface SonicUserRequest request;
+   interface SonicPmaMgmt     mgmt;
 endinterface
 
 module mkSonicUser#(SonicUserRequest indication)(SonicUser);
@@ -51,4 +57,14 @@ module mkSonicUser#(SonicUserRequest indication)(SonicUser);
       indication.writeDelay(truncate(delay));
    endmethod
    endinterface
+
+   interface SonicPmaMgmt mgmt;
+   method Action xcvrConfigRead(Bit#(32) address);
+
+   endmethod
+   method Action xcvrConfigWrite(Bit#(32) address, Bit#(32) data);
+
+   endmethod
+   endinterface
+
 endmodule

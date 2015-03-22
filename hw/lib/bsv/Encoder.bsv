@@ -42,48 +42,88 @@ endinterface
 typedef enum {CONTROL, START, DATA, TERMINATE, ERROR} State
 deriving (Bits, Eq);
 
+typedef struct {
+   Bit#(8) laneData;
+   Bit#(8) laneControl;
+   Bit#(8) laneIdle;
+   Bit#(8) laneTerminate;
+   Bit#(8) laneRes0;
+   Bit#(8) laneRes1;
+   Bit#(8) laneRes2;
+   Bit#(8) laneRes3;
+   Bit#(8) laneRes4;
+   Bit#(8) laneRes5;
+   Bit#(8) laneStart;
+   Bit#(8) laneError;
+   Bit#(8) laneSeq;
+   Bit#(8) laneSeqr;
+   Bit#(64) xgmiiTxd;
+   Bit#(8)  xgmiiTxc;
+} LaneInfo deriving (Eq, Bits, FShow);
+
+typedef struct {
+   Bit#(7) laneCode0;
+   Bit#(7) laneCode1;
+   Bit#(7) laneCode2;
+   Bit#(7) laneCode3;
+   Bit#(7) laneCode4;
+   Bit#(7) laneCode5;
+   Bit#(7) laneCode6;
+   Bit#(7) laneCode7;
+   Bit#(17) typeReg;
+   Bit#(4)  oCode0;
+   Bit#(4)  oCode4;
+   Bit#(64) xgmiiTxd;
+   Bit#(8)  xgmiiTxc;
+} TypeInfo deriving (Eq, Bits, FShow);
+
 (* synthesize *)
 module mkEncoder(Encoder);
 
-   let verbose = False;
+   let verbose = True;
 
    Reg#(Bit#(32)) cycle         <- mkReg(0);
 
    FIFOF#(Bit#(72)) fifo_in    <- mkFIFOF;
-   FIFOF#(Bit#(66)) fifo_out   <- mkBypassFIFOF;
+   FIFOF#(Bit#(66)) fifo_out   <- mkFIFOF;
+
+   // TODO: remove all these fifos.
    //---------------------------------------------------------------------------------
    // Signals used to indicate what type of data is in each of the pre-xgmii data lanes.
    //---------------------------------------------------------------------------------
-   FIFOF#(Bit#(8)) laneDataFifo      <- mkFIFOF;
-   FIFOF#(Bit#(8)) laneControlFifo   <- mkFIFOF;
-   FIFOF#(Bit#(8)) laneIdleFifo      <- mkFIFOF;
-   FIFOF#(Bit#(8)) laneTerminateFifo <- mkFIFOF;
-   FIFOF#(Bit#(8)) laneRes0Fifo      <- mkFIFOF;
-   FIFOF#(Bit#(8)) laneRes1Fifo      <- mkFIFOF;
-   FIFOF#(Bit#(8)) laneRes2Fifo      <- mkFIFOF;
-   FIFOF#(Bit#(8)) laneRes3Fifo      <- mkFIFOF;
-   FIFOF#(Bit#(8)) laneRes4Fifo      <- mkFIFOF;
-   FIFOF#(Bit#(8)) laneRes5Fifo      <- mkFIFOF;
-
-   FIFOF#(Bit#(8)) laneStartFifo     <- mkFIFOF;
-   FIFOF#(Bit#(8)) laneErrorFifo     <- mkFIFOF;
-   FIFOF#(Bit#(8)) laneSeqFifo       <- mkFIFOF;
-   FIFOF#(Bit#(8)) laneSeqrFifo      <- mkFIFOF;
+//   FIFOF#(Bit#(8)) laneDataFifo      <- mkBypassFIFOF;
+//   FIFOF#(Bit#(8)) laneControlFifo   <- mkBypassFIFOF;
+//   FIFOF#(Bit#(8)) laneIdleFifo      <- mkBypassFIFOF;
+//   FIFOF#(Bit#(8)) laneTerminateFifo <- mkBypassFIFOF;
+//   FIFOF#(Bit#(8)) laneRes0Fifo      <- mkBypassFIFOF;
+//   FIFOF#(Bit#(8)) laneRes1Fifo      <- mkBypassFIFOF;
+//   FIFOF#(Bit#(8)) laneRes2Fifo      <- mkBypassFIFOF;
+//   FIFOF#(Bit#(8)) laneRes3Fifo      <- mkBypassFIFOF;
+//   FIFOF#(Bit#(8)) laneRes4Fifo      <- mkBypassFIFOF;
+//   FIFOF#(Bit#(8)) laneRes5Fifo      <- mkBypassFIFOF;
+//
+//   FIFOF#(Bit#(8)) laneStartFifo     <- mkBypassFIFOF;
+//   FIFOF#(Bit#(8)) laneErrorFifo     <- mkBypassFIFOF;
+//   FIFOF#(Bit#(8)) laneSeqFifo       <- mkBypassFIFOF;
+//   FIFOF#(Bit#(8)) laneSeqrFifo      <- mkBypassFIFOF;
 
    //---------------------------------------------------------------------------------
    // Internal data and control bus signals.
    //---------------------------------------------------------------------------------
-   FIFOF#(Bit#(64)) xgmiiTxdFifo1 <- mkFIFOF;
-   FIFOF#(Bit#(8))  xgmiiTxcFifo1 <- mkFIFOF;
-   FIFOF#(Bit#(64)) xgmiiTxdFifo2 <- mkFIFOF;
-   FIFOF#(Bit#(8))  xgmiiTxcFifo2 <- mkFIFOF;
-   //---------------------------------------------------------------------------------
-   // Signals for the type field generation.
-   //---------------------------------------------------------------------------------
-   FIFOF#(Bit#(17)) typeRegFifo    <- mkFIFOF;
-   FIFOF#(Bit#(4))  oCode0Fifo     <- mkFIFOF;
-   FIFOF#(Bit#(4))  oCode4Fifo     <- mkFIFOF;
-   FIFOF#(Vector#(8, Bit#(7))) laneCodeFifo <- mkFIFOF;
+//   FIFOF#(Bit#(64)) xgmiiTxdFifo1 <- mkBypassFIFOF;
+//   FIFOF#(Bit#(8))  xgmiiTxcFifo1 <- mkBypassFIFOF;
+//   FIFOF#(Bit#(64)) xgmiiTxdFifo2 <- mkBypassFIFOF;
+//   FIFOF#(Bit#(8))  xgmiiTxcFifo2 <- mkBypassFIFOF;
+//   //---------------------------------------------------------------------------------
+//   // Signals for the type field generation.
+//   //---------------------------------------------------------------------------------
+//   FIFOF#(Bit#(17)) typeRegFifo    <- mkBypassFIFOF;
+//   FIFOF#(Bit#(4))  oCode0Fifo     <- mkBypassFIFOF;
+//   FIFOF#(Bit#(4))  oCode4Fifo     <- mkBypassFIFOF;
+//   FIFOF#(Vector#(8, Bit#(7))) laneCodeFifo <- mkBypassFIFOF;
+
+   FIFO#(LaneInfo) laneInfoFifo <- mkFIFO;
+   FIFO#(TypeInfo) typeInfoFifo <- mkFIFO;
 
    rule cyc;
       cycle <= cycle + 1;
@@ -93,7 +133,7 @@ module mkEncoder(Encoder);
    // Generate the lane 0 data and control signals. These are dependent on just the
    // TXC(0) input from the MAC. 0 indicates data, 1 indicates control.
    //-------------------------------------------------------------------------------
-   rule stage1;
+   rule generateLaneInfo;
       Vector#(8, Bit#(8)) txd;
       Vector#(8, Bit#(1)) txc;
       Bit#(8) lane_data;
@@ -162,23 +202,39 @@ module mkEncoder(Encoder);
                            txd[i][3] & txd[i][2] & ~(txd[i][1]) & ~(txd[i][0]) & txc[i][0];
       end
 
-      laneDataFifo.enq(lane_data);
-      laneControlFifo.enq(lane_control);
-      laneIdleFifo.enq(lane_idle);
-      laneTerminateFifo.enq(lane_terminate);
-      laneRes0Fifo.enq(lane_res0);
-      laneRes1Fifo.enq(lane_res1);
-      laneRes2Fifo.enq(lane_res2);
-      laneRes3Fifo.enq(lane_res3);
-      laneRes4Fifo.enq(lane_res4);
-      laneRes5Fifo.enq(lane_res5);
-      laneStartFifo.enq(lane_start);
-      laneErrorFifo.enq(lane_error);
-      laneSeqFifo.enq(lane_seq);
-      laneSeqrFifo.enq(lane_seqr);
-
-      xgmiiTxdFifo1.enq(xgmii_txd);
-      xgmiiTxcFifo1.enq(xgmii_txc);
+      laneInfoFifo.enq(LaneInfo{laneData      : lane_data,
+                                laneControl   : lane_control,
+                                laneIdle      : lane_idle,
+                                laneTerminate : lane_terminate,
+                                laneRes0      : lane_res0,
+                                laneRes1      : lane_res1,
+                                laneRes2      : lane_res2,
+                                laneRes3      : lane_res3,
+                                laneRes4      : lane_res4,
+                                laneRes5      : lane_res5,
+                                laneStart     : lane_start,
+                                laneError     : lane_error,
+                                laneSeq       : lane_seq,
+                                laneSeqr      : lane_seqr,
+                                xgmiiTxd      : xgmii_txd,
+                                xgmiiTxc      : xgmii_txc});
+//      laneDataFifo.enq(lane_data);
+//      laneControlFifo.enq(lane_control);
+//      laneIdleFifo.enq(lane_idle);
+//      laneTerminateFifo.enq(lane_terminate);
+//      laneRes0Fifo.enq(lane_res0);
+//      laneRes1Fifo.enq(lane_res1);
+//      laneRes2Fifo.enq(lane_res2);
+//      laneRes3Fifo.enq(lane_res3);
+//      laneRes4Fifo.enq(lane_res4);
+//      laneRes5Fifo.enq(lane_res5);
+//      laneStartFifo.enq(lane_start);
+//      laneErrorFifo.enq(lane_error);
+//      laneSeqFifo.enq(lane_seq);
+//      laneSeqrFifo.enq(lane_seqr);
+//
+//      xgmiiTxdFifo1.enq(xgmii_txd);
+//      xgmiiTxcFifo1.enq(xgmii_txc);
       if(verbose) $display("%d: encoder xgmii_txd=%h, txc=%h", cycle, xgmii_txd, xgmii_txc);
       if(verbose) $display("%d: encoder lane_data = %h", cycle, lane_data);
       if(verbose) $display("%d: encoder lane_control = %h", cycle, lane_control);
@@ -214,23 +270,41 @@ module mkEncoder(Encoder);
       Bit#(17) type_reg;
       Vector#(8, Bit#(7)) lane_code;
 
-      let lane_data    <- toGet(laneDataFifo).get();
-      let lane_control <- toGet(laneControlFifo).get();
-      let lane_idle    <- toGet(laneIdleFifo).get();
-      let lane_terminate <- toGet(laneTerminateFifo).get();
-      let lane_res0    <- toGet(laneRes0Fifo).get();
-      let lane_res1    <- toGet(laneRes1Fifo).get();
-      let lane_res2    <- toGet(laneRes2Fifo).get();
-      let lane_res3    <- toGet(laneRes3Fifo).get();
-      let lane_res4    <- toGet(laneRes4Fifo).get();
-      let lane_res5    <- toGet(laneRes5Fifo).get();
-      let lane_start   <- toGet(laneStartFifo).get();
-      let lane_error   <- toGet(laneErrorFifo).get();
-      let lane_seq     <- toGet(laneSeqFifo).get();
-      let lane_seqr    <- toGet(laneSeqrFifo).get();
+      let lane_info <- toGet(laneInfoFifo).get();
+      let lane_data      =  lane_info.laneData;
+      let lane_control   =  lane_info.laneControl;
+      let lane_idle      =  lane_info.laneIdle;
+      let lane_terminate =  lane_info.laneTerminate;
+      let lane_res0      =  lane_info.laneRes0;
+      let lane_res1      =  lane_info.laneRes1;
+      let lane_res2      =  lane_info.laneRes2;
+      let lane_res3      =  lane_info.laneRes3;
+      let lane_res4      =  lane_info.laneRes4;
+      let lane_res5      =  lane_info.laneRes5;
+      let lane_start     =  lane_info.laneStart;
+      let lane_error     =  lane_info.laneError;
+      let lane_seq       =  lane_info.laneSeq;
+      let lane_seqr      =  lane_info.laneSeqr;
+      let xgmii_txd      =  lane_info.xgmiiTxd;
+      let xgmii_txc      =  lane_info.xgmiiTxc;
 
-      let xgmii_txd <- toGet(xgmiiTxdFifo1).get();
-      let xgmii_txc <- toGet(xgmiiTxcFifo1).get();
+//      let lane_data    <- toGet(laneDataFifo).get();
+//      let lane_control <- toGet(laneControlFifo).get();
+//      let lane_idle    <- toGet(laneIdleFifo).get();
+//      let lane_terminate <- toGet(laneTerminateFifo).get();
+//      let lane_res0    <- toGet(laneRes0Fifo).get();
+//      let lane_res1    <- toGet(laneRes1Fifo).get();
+//      let lane_res2    <- toGet(laneRes2Fifo).get();
+//      let lane_res3    <- toGet(laneRes3Fifo).get();
+//      let lane_res4    <- toGet(laneRes4Fifo).get();
+//      let lane_res5    <- toGet(laneRes5Fifo).get();
+//      let lane_start   <- toGet(laneStartFifo).get();
+//      let lane_error   <- toGet(laneErrorFifo).get();
+//      let lane_seq     <- toGet(laneSeqFifo).get();
+//      let lane_seqr    <- toGet(laneSeqrFifo).get();
+//
+//      let xgmii_txd <- toGet(xgmiiTxdFifo1).get();
+//      let xgmii_txc <- toGet(xgmiiTxcFifo1).get();
 
       // All the data is control characters (usually idles) :-
       type_1e = lane_control[0] & ~(lane_terminate[0]) & ~(lane_error[0]) & lane_control[1] & lane_control[2] & lane_control[3] & lane_control[4] & lane_control[5] & lane_control[6] & lane_control[7] ;
@@ -325,12 +399,26 @@ module mkEncoder(Encoder);
             lane_code[i] =  7'b0011110 ;
          end
       end
-      laneCodeFifo.enq(lane_code);
-      typeRegFifo.enq(type_reg);
-      oCode0Fifo.enq(o_code0);
-      oCode4Fifo.enq(o_code4);
-      xgmiiTxdFifo2.enq(xgmii_txd);
-      xgmiiTxcFifo2.enq(xgmii_txc);
+
+      typeInfoFifo.enq(TypeInfo{laneCode0 : lane_code[0],
+                                laneCode1 : lane_code[1],
+                                laneCode2 : lane_code[2],
+                                laneCode3 : lane_code[3],
+                                laneCode4 : lane_code[4],
+                                laneCode5 : lane_code[5],
+                                laneCode6 : lane_code[6],
+                                laneCode7 : lane_code[7],
+                                typeReg   : type_reg,
+                                oCode0    : o_code0,
+                                oCode4    : o_code4,
+                                xgmiiTxd  : xgmii_txd,
+                                xgmiiTxc  : xgmii_txc});
+//      laneCodeFifo.enq(lane_code);
+//      typeRegFifo.enq(type_reg);
+//      oCode0Fifo.enq(o_code0);
+//      oCode4Fifo.enq(o_code4);
+//      xgmiiTxdFifo2.enq(xgmii_txd);
+//      xgmiiTxcFifo2.enq(xgmii_txc);
    endrule
 
    rule stage3_generate_fields;
@@ -338,13 +426,22 @@ module mkEncoder(Encoder);
       Bit#(2)  sync_field;
       Bit#(56) data_field;
       Bit#(66) data_out;
+      Vector#(8, Bit#(7)) lane_code;
 
-      let type_reg <- toGet(typeRegFifo).get();
-      let xgmii_txd <- toGet(xgmiiTxdFifo2).get();
-      let xgmii_txc <- toGet(xgmiiTxcFifo2).get();
-      let o_code0 <- toGet(oCode0Fifo).get();
-      let o_code4 <- toGet(oCode4Fifo).get();
-      let lane_code <- toGet(laneCodeFifo).get();
+      let typeinfo <- toGet(typeInfoFifo).get;
+      let type_reg  = typeinfo.typeReg;
+      let xgmii_txd = typeinfo.xgmiiTxd;
+      let xgmii_txc = typeinfo.xgmiiTxc;
+      let o_code0   = typeinfo.oCode0;
+      let o_code4   = typeinfo.oCode4;
+      lane_code[0] = typeinfo.laneCode0;
+      lane_code[1] = typeinfo.laneCode1;
+      lane_code[2] = typeinfo.laneCode2;
+      lane_code[3] = typeinfo.laneCode3;
+      lane_code[4] = typeinfo.laneCode4;
+      lane_code[5] = typeinfo.laneCode5;
+      lane_code[6] = typeinfo.laneCode6;
+      lane_code[7] = typeinfo.laneCode7;
 
       if ((type_reg[0]) == 1'b1) begin
          type_field =  8'b00011110 ;

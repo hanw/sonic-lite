@@ -33,10 +33,14 @@ interface PinsTopIfc;
    interface NetTopIfc nets;
    (* prefix="i2c" *)
    interface Si570wrapI2c i2c;
-   interface LedOutIfc led0;
-   interface LedOutIfc led1;
-   interface LedOutIfc led2;
-   interface LedOutIfc led3;
+   interface Bit#(1) led0;
+   interface Bit#(1) led1;
+   interface Bit#(1) led2;
+   interface Bit#(1) led3;
+//   interface LedOutIfc led0;
+//   interface LedOutIfc led1;
+//   interface LedOutIfc led2;
+//   interface LedOutIfc led3;
    (* prefix="" *)
    interface ButtonInIfc buttons;
    (* prefix="sw" *)

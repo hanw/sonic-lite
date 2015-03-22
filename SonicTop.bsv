@@ -43,7 +43,6 @@ import NetTop             :: *;
 import HostInterface      :: *;
 import ConnectalClocks    :: *;
 import ALTERA_PLL_156     :: *;
-import ALTERA_PLL_644     :: *;
 import EthPorts           :: *;
 import Ethernet           :: *;
 import LedTop             :: *;
@@ -77,7 +76,8 @@ module mkSonicTop #(Clock pcie_refclk_p,
                     Clock osc_50_b8a,
                     Clock osc_50_b8d,
                     Clock sfp_refclk,
-                    Reset pcie_perst_n) (PcieTop#(PinType));
+                    Reset pcie_perst_n,
+                    Reset user_reset_n) (PcieTop#(PinType));
 
    // ===================================
    // PLL:
@@ -90,19 +90,25 @@ module mkSonicTop #(Clock pcie_refclk_p,
    //PcieHostTop host <- mkPcieHostTop(pcie_refclk_p, osc_50_b3b, pcie_perst_n);
 
    AltClkCtrl clk_50_b4a_buf <- mkAltClkCtrl(osc_50_b4a);
-   Reset rst_50   <- mkResetInverter(pcie_perst_n, clocked_by clk_50_b4a_buf.outclk);
-   Reset rst_50_n <- mkAsyncReset(2, pcie_perst_n, clk_50_b4a_buf.outclk);
+   Reset rst_50   <- mkResetInverter(user_reset_n, clocked_by clk_50_b4a_buf.outclk);
+   Reset rst_50_n <- mkAsyncReset(2, user_reset_n, clk_50_b4a_buf.outclk);
+   Reset rst_644   <- mkResetInverter(user_reset_n, clocked_by sfp_refclk);
+   Reset rst_644_n <- mkAsyncReset(2, user_reset_n, sfp_refclk);
+
+   // ==============
+   // Button 0 is wired at top level to user_reset_n
+   // Button 1 is used to reset si570.
+   ButtonIfc   btns <- mkButton(clocked_by clk_50_b4a_buf.outclk, reset_by rst_50_n);
 
    // ===================================
    // PLL:
-   // Input:   156.25MHz
-   // Output: 644MHz
+   // Input:   SFP REFCLK from SI570
+   // Output:  156.25MHz
    // Reset: Active High, must invert default Reset
-   PLL156 pll156 <- mkPLL156(clk_50_b4a_buf.outclk, rst_50, clocked_by clk_50_b4a_buf.outclk, reset_by rst_50);
-   Reset rst_125   <- mkResetInverter(pcie_perst_n, clocked_by pll156.outclk0);
-   Reset rst_156   <- mkResetInverter(pcie_perst_n, clocked_by pll156.outclk1);
-   Reset rst_156_n <- mkAsyncReset(1, pcie_perst_n, pll156.outclk1, clocked_by pll156.outclk1);
-   //PLL644 pll644 <- mkPLL644(pll156.outclk0, rst_125, clocked_by pll156.outclk0, reset_by rst_125);
+   PLL156 pll156 <- mkPLL156(sfp_refclk, rst_644, clocked_by sfp_refclk, reset_by rst_644);
+   Clock clk_156_25 = pll156.outclk0;
+   Reset rst_156   <- mkResetInverter(user_reset_n, clocked_by clk_156_25);
+   Reset rst_156_n <- mkAsyncReset(1, user_reset_n, clk_156_25, clocked_by clk_156_25);
 
    // ===================================
    // PLL: SI570 configurable clock
@@ -112,13 +118,15 @@ module mkSonicTop #(Clock pcie_refclk_p,
    Si570Wrap            si570 <- mkSi570Wrap(clk_50_b4a_buf.outclk, rst_50_n, clocked_by clk_50_b4a_buf.outclk, reset_by rst_50_n);
    EdgeDetectorWrap     edgedetect <- mkEdgeDetectorWrap(clk_50_b4a_buf.outclk, rst_50_n, clocked_by clk_50_b4a_buf.outclk, reset_by rst_50_n);
 //
-//   //Eth10GPhyTopIfc    phy <- mkEth10GPhyTop(clk_50_b4a_buf.outclk, pll644.outclk, rst_50_n, clocked_by clk_50_b4a_buf.outclk, reset_by rst_50_n);
-//   //EthSonicPmaTopIfc pma <- mkEthSonicPmaTop(clk_50_b4a_buf.outclk, pll644.outclk, rst_50_n, clocked_by clk_50_b4a_buf.outclk, reset_by rst_50_n);
+//   //Eth10GPhyTopIfc    phy <- mkEth10GPhyTop(clk_50_b4a_buf.outclk, sfp_refclk, rst_50_n, clocked_by clk_50_b4a_buf.outclk, reset_by rst_50_n);
+//   //EthSonicPmaTopIfc pma <- mkEthSonicPmaTop(clk_50_b4a_buf.outclk, sfp_refclk, rst_50_n, clocked_by clk_50_b4a_buf.outclk, reset_by rst_50_n);
 
-   ButtonIfc   btns <- mkButton(clocked_by clk_50_b4a_buf.outclk, reset_by rst_50_n);
+   // ========================
+   // Switch[2:0] is used to configure si570
+   //
    SwitchIfc   switches <- mkSwitch(clocked_by clk_50_b4a_buf.outclk, reset_by rst_50_n);
 
-   NetTopIfc   nets <- mkNetTop(clk_50_b4a_buf.outclk, pll156.outclk1, sfp_refclk, clocked_by pll156.outclk1, reset_by rst_156_n);
+   NetTopIfc   nets <- mkNetTop(clk_50_b4a_buf.outclk, clk_156_25, sfp_refclk, clocked_by clk_156_25, reset_by rst_156_n);
 
    rule si570_connections;
       //ifreq_mode = 3'b000;  //100.0 MHZ
@@ -128,38 +136,38 @@ module mkSonicTop #(Clock pcie_refclk_p,
       //ifreq_mode = 3'b100;  //312.5 MHZ
       //ifreq_mode = 3'b101;  //322.26 MHZ
       //ifreq_mode = 3'b110;  //644.53125 MHZ
-      si570.ifreq.mode(3'b110); //644.53125 MHZ
+      si570.ifreq.mode({switches.out.getSwitch2, switches.out.getSwitch1, switches.out.getSwitch0});
       si570.istart.go(edgedetect.odebounce.out);
    endrule
 
    rule button_to_si570;
-      edgedetect.itrigger.in(btns.out.getButton0());
+      edgedetect.itrigger.in(btns.out.getButton1());
    endrule
 
    // ===========
    // LED Outputs
-   ConfigCounter#(26) pcie_led <- mkConfigCounter(0, clocked_by pcie_refclk_p, reset_by pcie_perst_n);
-   ConfigCounter#(26) net_led <- mkConfigCounter(0, clocked_by pll156.outclk1, reset_by rst_156_n);
-   Reset sfp_reset_n <- mkAsyncReset(2, pcie_perst_n, sfp_refclk);
-   ConfigCounter#(26) si570_led <- mkConfigCounter(0, clocked_by sfp_refclk, reset_by sfp_reset_n);
-   LedTopIfc led_pcie <- mkLedTop(clocked_by pcie_refclk_p, reset_by pcie_perst_n);
-   LedTopIfc led_net  <- mkLedTop(clocked_by pll156.outclk1, reset_by rst_156_n);
-   LedTopIfc led_si570  <- mkLedTop(clocked_by sfp_refclk, reset_by sfp_reset_n);
+   Reset sfp_reset_n <- mkAsyncReset(2, user_reset_n, sfp_refclk);
+   Reset xcvr_reset_n <- mkAsyncReset(2, user_reset_n, nets.clk_xcvr[0]);
 
-   rule pcie_blink;
-      pcie_led.increment(1);
-      led_pcie.in.setLed(pack(pcie_led.read())[25], 1);
+   Reg#(Bit#(26)) pcie_cntr <- mkReg(0, clocked_by pcie_refclk_p, reset_by pcie_perst_n);
+   rule heartbeat_pcie;
+      pcie_cntr <= pcie_cntr + 1;
    endrule
-   rule net_blink;
-      net_led.increment(1);
-      led_net.in.setLed(pack(net_led.read())[25], 1);
-   endrule
-   rule si570_blink;
-      si570_led.increment(1);
-      led_si570.in.setLed(pack(si570_led.read())[25], 1);
-   endrule
-   // ===========
 
+   Reg#(Bit#(26)) net_cntr <- mkReg(0, clocked_by clk_156_25, reset_by rst_156_n);
+   rule heartbeat_net;
+      net_cntr <= net_cntr + 1;
+   endrule
+
+   Reg#(Bit#(26)) xcvr_cntr <- mkReg(0, clocked_by nets.clk_xcvr[0], reset_by xcvr_reset_n);
+   rule heartbeat_xcvr;
+      xcvr_cntr <= xcvr_cntr + 1;
+   endrule
+
+   Reg#(Bit#(26)) si570_cntr <- mkReg(0, clocked_by sfp_refclk, reset_by sfp_reset_n);
+   rule heartbeat_si570;
+      si570_cntr <= si570_cntr + 1;
+   endrule
 
 //`ifdef IMPORT_HOSTIF
 //   ConnectalTop#(PhysAddrWidth, DataBusWidth, PinType, NumberOfMasters) portalTop <- mkConnectalTop(host, clocked_by host.portalClock, reset_by host.portalReset);
@@ -195,9 +203,10 @@ module mkSonicTop #(Clock pcie_refclk_p,
    interface pins = interface PinsTopIfc;
       interface nets = nets;
       interface i2c =  si570.i2c;
-      interface led0 = led_pcie.out;
-      interface led1 = led_net.out;
-      interface led2 = led_si570.out;
+      interface led0 = pcie_cntr[25];
+      interface led1 = net_cntr[25];
+      interface led2 = xcvr_cntr[25];
+      interface led3 = si570_cntr[25];
       interface buttons = btns.in;
       interface switches = switches.in;
       interface Clock clk_b4a = clk_50_b4a_buf.outclk;

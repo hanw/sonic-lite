@@ -57,6 +57,10 @@ interface EthPortIfc;
    interface AvalonSlaveIfc#(24) avs;
    interface Vector#(NumPorts, SerialIfc) serial;
    interface SfpCtrlIfc#(NumPorts) sfpctrl;
+   interface Vector#(NumPorts, Clock) tx_clkout;
+   interface Bool  rx_ready;
+   interface Bool  tx_ready;
+   interface LoopbackIfc loopback;
 endinterface
 
 (* synthesize *)
@@ -77,21 +81,19 @@ module mkEthPorts#(Clock clk_50, Clock clk_156_25, Clock clk_644)(EthPortIfc);
 //      mkConnection(phys.rx[i], macs.rx[i]);
 //   end
 
-   rule drain;
-      let v0 <- toGet(phys.rx[0]).get;
-      let v1 <- toGet(phys.rx[1]).get;
-      let v2 <- toGet(phys.rx[2]).get;
-      let v3 <- toGet(phys.rx[3]).get;
-   endrule
+   for (Integer i=0; i<valueOf(NumPorts); i=i+1) begin
+      rule source;
+         phys.tx[i].enq(72'h83c1e0f0783c1e0f07);
+      endrule
+      rule drain;
+         let v0 <- toGet(phys.rx[i]).get;
+      endrule
+   end
 
-   rule source;
-      for (Integer i=0; i<valueOf(NumPorts); i=i+1) begin
-         if (phys.tx[i].notFull) begin
-            phys.tx[i].enq(72'h83c1e0f0783c1e0f07);
-         end
-      end
-   endrule
-
+   interface loopback = phys.loopback;
+   interface tx_ready = phys.tx_ready;
+   interface rx_ready = phys.rx_ready;
+   interface tx_clkout = phys.tx_clkout;
    interface serial = phys.serial;
    interface sfpctrl = (interface SfpCtrlIfc;
       method Action los (Bit#(NumPorts) v);

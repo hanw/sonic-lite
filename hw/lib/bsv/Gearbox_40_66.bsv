@@ -24,6 +24,7 @@
 package Gearbox_40_66;
 
 import FIFO::*;
+import BRAMFIFO::*;
 import FIFOF::*;
 import Clocks::*;
 import SpecialFIFOs::*;
@@ -43,18 +44,18 @@ endinterface
 module mkGearbox40to66#(Clock clk_156_25)(Gearbox_40_66);
 
    let verbose = True;
+   Clock defaultClock <- exposeCurrentClock;
+   Reset defaultReset <- exposeCurrentReset;
+   Reset rst_156_25 <- mkAsyncReset(2, defaultReset, clk_156_25);
 
    Reg#(Bit#(32)) cycle         <- mkReg(0);
 
-   FIFOF#(Bit#(40)) cf <- mkSizedFIFOF(1);
+   FIFOF#(Bit#(40)) fifo_in <- mkSizedFIFOF(2);
    Vector#(66, Reg#(Bit#(1))) sr0        <- replicateM(mkReg(0));
    Vector#(66, Reg#(Bit#(1))) sr1        <- replicateM(mkReg(0));
-
    FIFOF#(Bit#(66)) fifo_out <- mkFIFOF;
-   PipeOut#(Bit#(66)) pipe_out = toPipeOut(fifo_out);
 
-   SyncFIFOIfc#(Bit#(66)) syncFifo <- mkSyncFIFOFromCC(2, clk_156_25);
-   PipeIn#(Bit#(66)) syncFifoIn = toPipeIn(syncFifo);
+   SyncFIFOIfc#(Bit#(66)) synchronizer <- mkSyncBRAMFIFOFromCC(10, clk_156_25, rst_156_25);
 
    Reg#(Bit#(6)) state <- mkReg(0);
    Reg#(Int#(8)) sh_offset <- mkReg(0);
@@ -62,15 +63,22 @@ module mkGearbox40to66#(Clock clk_156_25)(Gearbox_40_66);
    Reg#(Bit#(1)) sh_use0   <- mkReg(0);
    Reg#(Bit#(1)) sh_use_sr <- mkReg(0);
 
-   mkConnection(pipe_out, syncFifoIn);
+   Wire#(Bit#(66)) dout_wires <- mkDWire(0);
+   rule deqFifoOut;
+      let v <- toGet(fifo_out).get;
+      //dout_wires <= v;
+      synchronizer.enq(v);//pack(dout_wires));
+   endrule
+
+//   rule enqSynchronizer;
+//   endrule
 
    rule cyc;
       cycle <= cycle + 1;
    endrule
 
-   rule state_machine (cf.notEmpty);
-      let value = cf.first;
-      cf.deq;
+   rule state_machine;
+      let value <- toGet(fifo_in).get;
       let next_state = state;
       let offset     = sh_offset;
       let len        = sh_len;
@@ -82,7 +90,7 @@ module mkGearbox40to66#(Clock clk_156_25)(Gearbox_40_66);
           default: next_state = next_state + 1;
       endcase
 
-      if (offset + 40 > 66) begin
+      if (offset + 40 >= 66) begin
          len = 66 - offset;
          useSr0 = True;
       end
@@ -92,7 +100,7 @@ module mkGearbox40to66#(Clock clk_156_25)(Gearbox_40_66);
       end
 
       offset = offset + 40;
-      if (offset > 66) begin
+      if (offset >= 66) begin
          offset = offset - 66;
       end
 
@@ -156,8 +164,8 @@ module mkGearbox40to66#(Clock clk_156_25)(Gearbox_40_66);
       end
    endrule
 
-   interface gbIn = toPipeIn(cf);
-   interface gbOut = toPipeOut(syncFifo);//pipe_out;
+   interface gbIn = toPipeIn(fifo_in);
+   interface gbOut = toPipeOut(synchronizer);//fifo_out);
 endmodule
 
 endpackage

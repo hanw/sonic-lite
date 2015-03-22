@@ -193,4 +193,8 @@ interface SerialIfc;
    method Action  rx ( (* port="rx_data" *) Bit#(1) v);
 endinterface
 
+interface LoopbackIfc;
+   method Action lpbk_en(Bool en);
+endinterface
+
 endpackage: Ethernet
