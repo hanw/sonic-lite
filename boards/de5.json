@@ -39,19 +39,19 @@
 	"PIO_DIRECTION": "INPUT",
 	"OSC": "OSC_50_B8D"
     },
-    "led0_led": {
+    "led0": {
 	"PIO_DIRECTION": "OUTPUT",
 	"LED": "LED[0]"
     },
-    "led1_led": {
+    "led1": {
 	"PIO_DIRECTION": "OUTPUT",
 	"LED": "LED[1]"
     },
-    "led2_led": {
+    "led2": {
 	"PIO_DIRECTION": "OUTPUT",
 	"LED": "LED[2]"
     },
-    "led3_led": {
+    "led3": {
 	"PIO_DIRECTION": "OUTPUT",
 	"LED": "LED[3]"
     },
@@ -195,7 +195,7 @@
 	"PIO_DIRECTION": "BIDIR",
 	"I2C": "CLOCK_SDA"
 	},
-	"button0_v": {
+	"user_reset_n": {
 	"PIO_DIRECTION": "INPUT",
 	"BUTTON": "BUTTON[0]"
 	},
@@ -223,7 +223,7 @@
 	"PIO_DIRECTION": "INPUT",
 	"SW": "SW[2]"
 	},
-	"sw_switch3_v": {
+	"loopback_lpbk_en_en": {
 	"PIO_DIRECTION": "INPUT",
 	"SW": "SW[3]"
 	}
