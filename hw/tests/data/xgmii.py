@@ -152,7 +152,7 @@ def pcs_encode(data, control):
             elif index == 4:
                 d += 0x33
         elif end:
-            d << 8
+            d <<= 8
             if index == 0:
                 d+= 0x87
             elif index == 1:
