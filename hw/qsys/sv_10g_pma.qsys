@@ -208,11 +208,7 @@
    internal="xcvr_low_latency_phy_0.tx_clkout1"
    type="clock"
    dir="start" />
- <interface
-   name="tx_clkout0"
-   internal="xcvr_low_latency_phy_0.tx_clkout0"
-   type="clock"
-   dir="start" />
+ <interface name="tx_clkout" internal="xcvr_low_latency_phy_0.tx_clkout" />
  <interface
    name="rx_is_lockedtodata"
    internal="xcvr_low_latency_phy_0.rx_is_lockedtodata"
@@ -223,6 +219,18 @@
    internal="xcvr_low_latency_phy_0.rx_is_lockedtoref"
    type="conduit"
    dir="end" />
+ <interface name="rx_clkout" internal="xcvr_low_latency_phy_0.rx_clkout" />
+ <interface
+   name="tx_parallel_data"
+   internal="xcvr_low_latency_phy_0.tx_parallel_data" />
+ <interface
+   name="rx_parallel_data"
+   internal="xcvr_low_latency_phy_0.rx_parallel_data" />
+ <interface
+   name="tx_clkout0"
+   internal="xcvr_low_latency_phy_0.tx_clkout0"
+   type="clock"
+   dir="start" />
  <module kind="clock_source" version="14.0" enabled="1" name="clk_100">
   <parameter name="clockFrequency" value="100000000" />
   <parameter name="clockFrequencyKnown" value="true" />
@@ -326,7 +334,7 @@
   <parameter name="gui_mgmt_clk_in_hz" value="150000000" />
   <parameter name="gui_embedded_reset" value="1" />
   <parameter name="gui_split_interfaces" value="1" />
-  <parameter name="gui_avalon_symbol_size" value="10" />
+  <parameter name="gui_avalon_symbol_size" value="0" />
   <parameter name="AUTO_PHY_MGMT_CLK_CLOCK_RATE" value="100000000" />
   <parameter name="AUTO_PLL_REF_CLK_CLOCK_RATE" value="644530000" />
  </module>

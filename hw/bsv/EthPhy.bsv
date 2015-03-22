@@ -58,6 +58,13 @@ interface EthPhyIfc#(numeric type numPorts);
    interface LoopbackIfc loopback;
 endinterface
 
+function Bit#(n) reverseBits(Bit#(n) x);
+   Vector#(n, Bit#(1)) vx = unpack(x);
+   Vector#(n, Bit#(1)) rvx = Vector::reverse(vx);
+   Bit#(n) prvx = pack(rvx);
+   return(prvx);
+endfunction
+
 (* synthesize *)
 module mkEthPhy#(Clock mgmt_clk, Clock clk_156_25, Clock clk_644, Reset rst_156_25_n)(EthPhyIfc#(NumPorts));
 
@@ -151,13 +158,14 @@ module mkEthPhy#(Clock mgmt_clk, Clock clk_156_25, Clock clk_644, Reset rst_156_
       // Normal Operation: XCVR -> Gearbox
       rule rx_no_loopback(!rx_lpbk_en);
          let v <- toGet(pma4.rx[i]).get;
-         gearboxUp[i].gbIn.enq(v);
+         let reversed_v = reverseBits(v);
+         gearboxUp[i].gbIn.enq(reversed_v);
       endrule
       rule tx_no_loopback(!tx_lpbk_en);
          //mkConnection(gearboxDn[i].gbOut, pma4.tx[i], clocked_by pma4.tx_clkout[i], reset_by pma4.tx_reset[i]);
          let v <- toGet(gearboxDn[i].gbOut).get;
-         // Reverse Tx Bits
-         pma4.tx[i].enq(v);
+         let reversed_v = reverseBits(v);
+         pma4.tx[i].enq(reversed_v);
       endrule
 
       ReadOnly#(Bit#(32)) cycle_cross <- mkNullCrossingWire(pma4.tx_clkout[i], cycle);
