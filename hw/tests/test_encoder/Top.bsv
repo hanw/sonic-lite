@@ -68,6 +68,6 @@ module mkConnectalTop(ConnectalTop#(PhysAddrWidth, DataBusWidth, Empty, 1));
    interface interrupt = getInterruptVector(portals);
    interface slave = ctrl_mux;
    interface masters = dma.masters;
-   interface leds = default_leds;
+   //interface leds = default_leds;
    interface Empty pins; endinterface
 endmodule : mkConnectalTop
