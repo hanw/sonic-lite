@@ -1,0 +1,427 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<system name="$${FILENAME}">
+ <component
+   name="$${FILENAME}"
+   displayName="$${FILENAME}"
+   version="1.0"
+   description=""
+   tags=""
+   categories="System" />
+ <parameter name="bonusData"><![CDATA[bonusData 
+{
+   element $${FILENAME}
+   {
+   }
+   element alt_xcvr_reconfig_0
+   {
+      datum _sortIndex
+      {
+         value = "4";
+         type = "int";
+      }
+   }
+   element clk_100
+   {
+      datum _sortIndex
+      {
+         value = "0";
+         type = "int";
+      }
+   }
+   element master_0
+   {
+      datum _sortIndex
+      {
+         value = "2";
+         type = "int";
+      }
+   }
+   element xcvr_low_latency_phy_0.phy_mgmt
+   {
+      datum baseAddress
+      {
+         value = "0";
+         type = "long";
+      }
+   }
+   element alt_xcvr_reconfig_0.reconfig_mgmt
+   {
+      datum baseAddress
+      {
+         value = "2048";
+         type = "long";
+      }
+   }
+   element ref_clk
+   {
+      datum _sortIndex
+      {
+         value = "1";
+         type = "int";
+      }
+   }
+   element xcvr_low_latency_phy_0
+   {
+      datum _sortIndex
+      {
+         value = "3";
+         type = "int";
+      }
+   }
+}
+]]></parameter>
+ <parameter name="clockCrossingAdapter" value="HANDSHAKE" />
+ <parameter name="device" value="5SGXEA7N2F45C2" />
+ <parameter name="deviceFamily" value="Stratix V" />
+ <parameter name="deviceSpeedGrade" value="2_H2" />
+ <parameter name="fabricMode" value="QSYS" />
+ <parameter name="generateLegacySim" value="false" />
+ <parameter name="generationId" value="0" />
+ <parameter name="globalResetBus" value="false" />
+ <parameter name="hdlLanguage" value="VERILOG" />
+ <parameter name="hideFromIPCatalog" value="false" />
+ <parameter name="maxAdditionalLatency" value="1" />
+ <parameter name="projectName" value="" />
+ <parameter name="sopcBorderPoints" value="false" />
+ <parameter name="systemHash" value="0" />
+ <parameter name="testBenchDutName" value="" />
+ <parameter name="timeStamp" value="0" />
+ <parameter name="useTestBenchNamingPattern" value="false" />
+ <instanceScript></instanceScript>
+ <interface name="phy_mgmt_clk" internal="clk_100.clk_in" type="clock" dir="end" />
+ <interface
+   name="phy_mgmt_clk_reset"
+   internal="clk_100.clk_in_reset"
+   type="reset"
+   dir="end" />
+ <interface name="pll_ref_clk" internal="ref_clk.clk_in" type="clock" dir="end" />
+ <interface
+   name="pll_ref_clk_reset"
+   internal="ref_clk.clk_in_reset"
+   type="reset"
+   dir="end" />
+ <interface
+   name="tx_ready"
+   internal="xcvr_low_latency_phy_0.tx_ready"
+   type="conduit"
+   dir="end" />
+ <interface
+   name="rx_ready"
+   internal="xcvr_low_latency_phy_0.rx_ready"
+   type="conduit"
+   dir="end" />
+ <interface
+   name="tx_serial_data"
+   internal="xcvr_low_latency_phy_0.tx_serial_data"
+   type="conduit"
+   dir="end" />
+ <interface
+   name="pll_locked"
+   internal="xcvr_low_latency_phy_0.pll_locked"
+   type="conduit"
+   dir="end" />
+ <interface
+   name="rx_serial_data"
+   internal="xcvr_low_latency_phy_0.rx_serial_data"
+   type="conduit"
+   dir="end" />
+ <interface
+   name="xcvr_low_latency_phy_0_rx_byteordflag"
+   internal="xcvr_low_latency_phy_0.rx_byteordflag" />
+ <interface
+   name="reconfig_busy"
+   internal="alt_xcvr_reconfig_0.reconfig_busy"
+   type="conduit"
+   dir="end" />
+ <interface
+   name="rx_parallel_data0"
+   internal="xcvr_low_latency_phy_0.rx_parallel_data0"
+   type="avalon_streaming"
+   dir="start" />
+ <interface
+   name="rx_parallel_data1"
+   internal="xcvr_low_latency_phy_0.rx_parallel_data1"
+   type="avalon_streaming"
+   dir="start" />
+ <interface
+   name="rx_parallel_data2"
+   internal="xcvr_low_latency_phy_0.rx_parallel_data2"
+   type="avalon_streaming"
+   dir="start" />
+ <interface
+   name="rx_parallel_data3"
+   internal="xcvr_low_latency_phy_0.rx_parallel_data3"
+   type="avalon_streaming"
+   dir="start" />
+ <interface
+   name="tx_parallel_data3"
+   internal="xcvr_low_latency_phy_0.tx_parallel_data3"
+   type="avalon_streaming"
+   dir="end" />
+ <interface
+   name="tx_parallel_data2"
+   internal="xcvr_low_latency_phy_0.tx_parallel_data2"
+   type="avalon_streaming"
+   dir="end" />
+ <interface
+   name="tx_parallel_data1"
+   internal="xcvr_low_latency_phy_0.tx_parallel_data1"
+   type="avalon_streaming"
+   dir="end" />
+ <interface
+   name="tx_parallel_data0"
+   internal="xcvr_low_latency_phy_0.tx_parallel_data0"
+   type="avalon_streaming"
+   dir="end" />
+ <interface
+   name="rx_clkout3"
+   internal="xcvr_low_latency_phy_0.rx_clkout3"
+   type="clock"
+   dir="start" />
+ <interface
+   name="rx_clkout2"
+   internal="xcvr_low_latency_phy_0.rx_clkout2"
+   type="clock"
+   dir="start" />
+ <interface
+   name="rx_clkout0"
+   internal="xcvr_low_latency_phy_0.rx_clkout0"
+   type="clock"
+   dir="start" />
+ <interface
+   name="rx_clkout1"
+   internal="xcvr_low_latency_phy_0.rx_clkout1"
+   type="clock"
+   dir="start" />
+ <interface
+   name="tx_clkout3"
+   internal="xcvr_low_latency_phy_0.tx_clkout3"
+   type="clock"
+   dir="start" />
+ <interface
+   name="tx_clkout2"
+   internal="xcvr_low_latency_phy_0.tx_clkout2"
+   type="clock"
+   dir="start" />
+ <interface
+   name="tx_clkout1"
+   internal="xcvr_low_latency_phy_0.tx_clkout1"
+   type="clock"
+   dir="start" />
+ <interface
+   name="tx_clkout0"
+   internal="xcvr_low_latency_phy_0.tx_clkout0"
+   type="clock"
+   dir="start" />
+ <interface
+   name="rx_is_lockedtodata"
+   internal="xcvr_low_latency_phy_0.rx_is_lockedtodata"
+   type="conduit"
+   dir="end" />
+ <interface
+   name="rx_is_lockedtoref"
+   internal="xcvr_low_latency_phy_0.rx_is_lockedtoref"
+   type="conduit"
+   dir="end" />
+ <module kind="clock_source" version="14.0" enabled="1" name="clk_100">
+  <parameter name="clockFrequency" value="100000000" />
+  <parameter name="clockFrequencyKnown" value="true" />
+  <parameter name="inputClockFrequency" value="0" />
+  <parameter name="resetSynchronousEdges" value="NONE" />
+ </module>
+ <module kind="clock_source" version="14.0" enabled="1" name="ref_clk">
+  <parameter name="clockFrequency" value="644530000" />
+  <parameter name="clockFrequencyKnown" value="true" />
+  <parameter name="inputClockFrequency" value="0" />
+  <parameter name="resetSynchronousEdges" value="NONE" />
+ </module>
+ <module
+   kind="altera_jtag_avalon_master"
+   version="14.0"
+   enabled="1"
+   name="master_0">
+  <parameter name="USE_PLI" value="0" />
+  <parameter name="PLI_PORT" value="50000" />
+  <parameter name="COMPONENT_CLOCK" value="0" />
+  <parameter name="FAST_VER" value="0" />
+  <parameter name="FIFO_DEPTHS" value="2" />
+  <parameter name="AUTO_DEVICE_FAMILY" value="Stratix V" />
+  <parameter name="AUTO_DEVICE" value="5SGXEA7N2F45C2" />
+ </module>
+ <module
+   kind="altera_xcvr_low_latency_phy"
+   version="14.0"
+   enabled="1"
+   name="xcvr_low_latency_phy_0">
+  <parameter name="device_family" value="Stratix V" />
+  <parameter name="intended_device_variant" value="ANY" />
+  <parameter name="gui_data_path_type" value="10G" />
+  <parameter name="operation_mode" value="DUPLEX" />
+  <parameter name="lanes" value="4" />
+  <parameter name="gui_bonding_enable" value="0" />
+  <parameter name="gui_bonded_mode" value="xN" />
+  <parameter name="gui_serialization_factor" value="40" />
+  <parameter name="gui_pma_width" value="40" />
+  <parameter name="gui_pll_type" value="ATX" />
+  <parameter name="data_rate" value="10312.5 Mbps" />
+  <parameter name="gui_base_data_rate" value="1250 Mbps" />
+  <parameter name="gui_pll_refclk_freq" value="644.53125 MHz" />
+  <parameter name="gui_select_10g_pcs" value="DEPRECATED" />
+  <parameter name="gui_tx_use_coreclk" value="0" />
+  <parameter name="gui_rx_use_coreclk" value="0" />
+  <parameter name="tx_bitslip_enable" value="0" />
+  <parameter name="rx_bitslip_enable" value="0" />
+  <parameter name="gui_ppm_det_threshold" value="100" />
+  <parameter name="gui_enable_att_reset_gate" value="0" />
+  <parameter name="phase_comp_fifo_mode" value="NONE" />
+  <parameter name="loopback_mode" value="NONE" />
+  <parameter name="use_double_data_mode" value="DEPRECATED" />
+  <parameter name="gxb_analog_power" value="AUTO" />
+  <parameter name="pll_lock_speed" value="AUTO" />
+  <parameter name="tx_analog_power" value="AUTO" />
+  <parameter name="tx_slew_rate" value="OFF" />
+  <parameter name="tx_termination" value="OCT_100_OHMS" />
+  <parameter name="tx_use_external_termination" value="false" />
+  <parameter name="tx_preemp_pretap" value="0" />
+  <parameter name="gui_tx_preemp_pretap_inv" value="false" />
+  <parameter name="tx_preemp_tap_1" value="0" />
+  <parameter name="tx_preemp_tap_2" value="0" />
+  <parameter name="gui_tx_preemp_tap_2_inv" value="false" />
+  <parameter name="tx_vod_selection" value="2" />
+  <parameter name="tx_common_mode" value="0.65V" />
+  <parameter name="rx_pll_lock_speed" value="AUTO" />
+  <parameter name="rx_common_mode" value="0.82V" />
+  <parameter name="rx_termination" value="OCT_100_OHMS" />
+  <parameter name="rx_use_external_termination" value="false" />
+  <parameter name="rx_eq_dc_gain" value="1" />
+  <parameter name="rx_eq_ctrl" value="16" />
+  <parameter name="starting_channel_number" value="0" />
+  <parameter name="en_synce_support" value="0" />
+  <parameter name="channel_interface" value="0" />
+  <parameter name="gui_pll_reconfig_enable_pll_reconfig" value="false" />
+  <parameter name="gui_pll_reconfig_pll_count" value="1" />
+  <parameter name="gui_pll_reconfig_refclk_count" value="1" />
+  <parameter name="gui_pll_reconfig_main_pll_index" value="0" />
+  <parameter name="gui_pll_reconfig_cdr_pll_refclk_sel" value="0" />
+  <parameter name="gui_pll_reconfig_pll0_pll_type" value="CMU" />
+  <parameter name="gui_pll_reconfig_pll0_data_rate" value="0 Mbps" />
+  <parameter name="gui_pll_reconfig_pll0_refclk_freq" value="0 MHz" />
+  <parameter name="gui_pll_reconfig_pll0_refclk_sel" value="0" />
+  <parameter name="gui_pll_reconfig_pll0_clk_network" value="x1" />
+  <parameter name="gui_pll_reconfig_pll1_pll_type" value="CMU" />
+  <parameter name="gui_pll_reconfig_pll1_data_rate" value="0 Mbps" />
+  <parameter name="gui_pll_reconfig_pll1_refclk_freq" value="0 MHz" />
+  <parameter name="gui_pll_reconfig_pll1_refclk_sel" value="0" />
+  <parameter name="gui_pll_reconfig_pll1_clk_network" value="x1" />
+  <parameter name="gui_pll_reconfig_pll2_pll_type" value="CMU" />
+  <parameter name="gui_pll_reconfig_pll2_data_rate" value="0 Mbps" />
+  <parameter name="gui_pll_reconfig_pll2_refclk_freq" value="0 MHz" />
+  <parameter name="gui_pll_reconfig_pll2_refclk_sel" value="0" />
+  <parameter name="gui_pll_reconfig_pll2_clk_network" value="x1" />
+  <parameter name="gui_pll_reconfig_pll3_pll_type" value="CMU" />
+  <parameter name="gui_pll_reconfig_pll3_data_rate" value="0 Mbps" />
+  <parameter name="gui_pll_reconfig_pll3_refclk_freq" value="0 MHz" />
+  <parameter name="gui_pll_reconfig_pll3_refclk_sel" value="0" />
+  <parameter name="gui_pll_reconfig_pll3_clk_network" value="x1" />
+  <parameter name="gui_mgmt_clk_in_hz" value="150000000" />
+  <parameter name="gui_embedded_reset" value="1" />
+  <parameter name="gui_split_interfaces" value="1" />
+  <parameter name="gui_avalon_symbol_size" value="10" />
+  <parameter name="AUTO_PHY_MGMT_CLK_CLOCK_RATE" value="100000000" />
+  <parameter name="AUTO_PLL_REF_CLK_CLOCK_RATE" value="644530000" />
+ </module>
+ <module
+   kind="alt_xcvr_reconfig"
+   version="14.0"
+   enabled="1"
+   name="alt_xcvr_reconfig_0">
+  <parameter name="device_family" value="Stratix V" />
+  <parameter name="number_of_reconfig_interfaces" value="8" />
+  <parameter name="gui_split_sizes" value="" />
+  <parameter name="enable_offset" value="1" />
+  <parameter name="enable_dcd" value="0" />
+  <parameter name="enable_dcd_power_up" value="1" />
+  <parameter name="enable_analog" value="1" />
+  <parameter name="enable_eyemon" value="1" />
+  <parameter name="ber_en" value="0" />
+  <parameter name="enable_dfe" value="1" />
+  <parameter name="enable_adce" value="1" />
+  <parameter name="enable_mif" value="0" />
+  <parameter name="gui_enable_pll" value="0" />
+  <parameter name="gui_cal_status_port" value="false" />
+  <parameter name="AUTO_MGMT_CLK_CLK_CLOCK_RATE" value="100000000" />
+ </module>
+ <connection kind="clock" version="14.0" start="clk_100.clk" end="master_0.clk" />
+ <connection
+   kind="reset"
+   version="14.0"
+   start="clk_100.clk_reset"
+   end="master_0.clk_reset" />
+ <connection
+   kind="clock"
+   version="14.0"
+   start="clk_100.clk"
+   end="xcvr_low_latency_phy_0.phy_mgmt_clk" />
+ <connection
+   kind="reset"
+   version="14.0"
+   start="clk_100.clk_reset"
+   end="xcvr_low_latency_phy_0.phy_mgmt_clk_reset" />
+ <connection
+   kind="clock"
+   version="14.0"
+   start="ref_clk.clk"
+   end="xcvr_low_latency_phy_0.pll_ref_clk" />
+ <connection
+   kind="avalon"
+   version="14.0"
+   start="master_0.master"
+   end="xcvr_low_latency_phy_0.phy_mgmt">
+  <parameter name="arbitrationPriority" value="1" />
+  <parameter name="baseAddress" value="0x0000" />
+  <parameter name="defaultConnection" value="false" />
+ </connection>
+ <connection
+   kind="clock"
+   version="14.0"
+   start="clk_100.clk"
+   end="alt_xcvr_reconfig_0.mgmt_clk_clk" />
+ <connection
+   kind="reset"
+   version="14.0"
+   start="clk_100.clk_reset"
+   end="alt_xcvr_reconfig_0.mgmt_rst_reset" />
+ <connection
+   kind="avalon"
+   version="14.0"
+   start="master_0.master"
+   end="alt_xcvr_reconfig_0.reconfig_mgmt">
+  <parameter name="arbitrationPriority" value="1" />
+  <parameter name="baseAddress" value="0x0800" />
+  <parameter name="defaultConnection" value="false" />
+ </connection>
+ <connection
+   kind="conduit"
+   version="14.0"
+   start="alt_xcvr_reconfig_0.reconfig_to_xcvr"
+   end="xcvr_low_latency_phy_0.reconfig_to_xcvr">
+  <parameter name="endPort" value="" />
+  <parameter name="endPortLSB" value="0" />
+  <parameter name="startPort" value="" />
+  <parameter name="startPortLSB" value="0" />
+  <parameter name="width" value="0" />
+ </connection>
+ <connection
+   kind="conduit"
+   version="14.0"
+   start="xcvr_low_latency_phy_0.reconfig_from_xcvr"
+   end="alt_xcvr_reconfig_0.reconfig_from_xcvr">
+  <parameter name="endPort" value="" />
+  <parameter name="endPortLSB" value="0" />
+  <parameter name="startPort" value="" />
+  <parameter name="startPortLSB" value="0" />
+  <parameter name="width" value="0" />
+ </connection>
+ <interconnectRequirement for="$system" name="qsys_mm.clockCrossingAdapter" value="HANDSHAKE" />
+ <interconnectRequirement for="$system" name="qsys_mm.maxAdditionalLatency" value="1" />
+</system>
