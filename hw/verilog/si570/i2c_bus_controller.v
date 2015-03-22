@@ -176,11 +176,11 @@ assign process_en = (i2c_state > 0) ? 1'b1 : 1'b0;
 assign falling_edge = ((i2c_clk_cnt == 0)&&(process_en)) ? 1'b1 : 1'b0;
 assign rising_edge = ((i2c_clk_cnt == 3)&&(process_en)) ? 1'b1 : 1'b0;
 
-assign start_data_control 	= (((i2c_state == state_start1)||(i2c_state == state_start2))&&(i2c_clk_cnt >1)) ? 1: 0;
-assign stop_data_control 	= ((i2c_state == state_stop)&&(i2c_stop_ctrl_cnt >1)) ? 1: 0;  
-assign start_clk_control 	= ((i2c_state == state_start1)&&(i2c_clk_cnt == 1)) ? 0: 1;
+assign start_data_control 	= (((i2c_state == state_start1)||(i2c_state == state_start2))&&(i2c_clk_cnt >1)) ? 1'b1: 1'b0;
+assign stop_data_control 	= ((i2c_state == state_stop)&&(i2c_stop_ctrl_cnt >1)) ? 1'b1: 1'b0;  
+assign start_clk_control 	= ((i2c_state == state_start1)&&(i2c_clk_cnt == 1)) ? 1'b0: 1'b1;
 //assign start_clk_control 	= ((i2c_state == state_start1)&&(i2c_clk_cnt == 2)) ? 0: 1;
-assign stop_clk_control 	= ((i2c_state == state_stop)&&(i2c_clk_cnt ==2)) ? 0: 1;  
+assign stop_clk_control 	= ((i2c_state == state_stop)&&(i2c_clk_cnt ==2)) ? 1'b0: 1'b1;  
 
 //assign i2c_clk = (process_en&&(i2c_state!=state_start1)&&(i2c_state!=state_stop)) ? i2c_clk_src : 1'b1;
 assign i2c_clk = (i2c_state == state_start1) ? start_clk_control :
