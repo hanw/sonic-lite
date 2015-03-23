@@ -48,7 +48,7 @@ public:
 int main(int argc, const char **argv)
 {
   SonicUser *indication = new SonicUser(IfcNames_SonicUserRequestS2H);
-  SonicUserRequestProxy *device = new SonicUserRequestProxy(IfcNames_SonicUserRequestH2S);
+  SonicUserRequestProxy *device = new SonicUserRequestProxy(IfcNames_SonicUserH2S);
   device->pint.busyType = BUSY_SPIN;   /* spin until request portal 'notFull' */
 
   portalExec_start();
