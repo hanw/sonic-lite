@@ -22,7 +22,14 @@
 // SOFTWARE.
 
 import FIFO::*;
+import FIFOF::*;
 import Vector::*;
+import Pipe::*;
+import GetPut::*;
+
+interface DtpIfc;
+   interface PipeIn#(Bit#(128)) timestamp; // streaming time counter from NetTop.
+endinterface
 
 interface SonicUserRequest;
     method Action readCycleCount(Bit#(64) cmd);
@@ -37,6 +44,7 @@ endinterface
 interface SonicUser;
    interface SonicUserRequest request;
    interface SonicPmaMgmt     mgmt;
+   interface DtpIfc           dtp;
 endinterface
 
 module mkSonicUser#(SonicUserRequest indication)(SonicUser);
@@ -44,13 +52,25 @@ module mkSonicUser#(SonicUserRequest indication)(SonicUser);
    Reg#(Bit#(64))  cycle_count <- mkReg(0);
    Reg#(Bit#(64))  last_count  <- mkReg(0);
 
+   FIFOF#(Bit#(128)) rxFifo    <- mkFIFOF();
+   Reg#(Bit#(128)) timestamp_reg <- mkReg(0);
+
    rule count;
       cycle_count <= cycle_count + 1;
    endrule
 
+   rule receive_dtp_timestamp;
+      let v <- toGet(rxFifo).get;
+      timestamp_reg <= v;
+   endrule
+
+   interface dtp = (interface DtpIfc;
+      interface timestamp = toPipeIn(rxFifo);
+   endinterface);
+
    interface SonicUserRequest request;
    method Action readCycleCount(Bit#(64) cmd);
-      indication.readCycleCount(truncate(cycle_count));
+      indication.readCycleCount(truncate(timestamp_reg));
    endmethod
    method Action writeDelay(Bit#(64) host_cnt);
       Bit#(64) delay = (host_cnt - cycle_count) >> 1;

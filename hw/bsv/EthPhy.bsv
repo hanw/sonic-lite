@@ -53,8 +53,6 @@ interface EthPhyIfc#(numeric type numPorts);
    interface Vector#(numPorts, SerialIfc) serial;
    interface Vector#(numPorts, Clock) tx_clkout;
    interface Vector#(numPorts, Clock) rx_clkout;
-   interface Bool rx_ready;
-   interface Bool tx_ready;
    interface LoopbackIfc loopback;
 endinterface
 
@@ -214,8 +212,6 @@ module mkEthPhy#(Clock mgmt_clk, Clock clk_156_25, Clock clk_644, Reset rst_156_
          loopback_en <= en;
       endmethod
    endinterface);
-   interface tx_ready = pma4.tx_ready;
-   interface rx_ready = pma4.rx_ready;
    interface rx_clkout = pma4.rx_clkout;
    interface tx_clkout = pma4.tx_clkout;
    interface serial = pma4.pmd;

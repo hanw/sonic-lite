@@ -48,16 +48,20 @@ typedef `NUMBER_OF_10G_PORTS NumPorts;
 typedef 4 NumPorts;
 `endif
 
-(* always_ready, always_enabled *)
-interface NetTopIfc;
-   //interface AvalonSlaveIfc#(24) avs;
+interface NetExportIfc;
    interface Vector#(NumPorts, SerialIfc) serial;
    interface SfpCtrlIfc#(NumPorts) sfpctrl;
    interface Clock clk_net;
    interface Vector#(NumPorts, Clock) clk_xcvr;
-   interface Bool rx_ready;
-   interface Bool tx_ready;
    interface LoopbackIfc loopback;
+endinterface
+
+interface NetTopIfc;
+   (* always_ready, always_enabled *)
+   (* prefix="" *)
+   interface NetExportIfc ifcs;
+   (* prefix="" *)
+   interface NetToConnectalIfc dtp;
 endinterface
 
 (* synthesize *)
@@ -69,12 +73,12 @@ module mkNetTop #(Clock clk_50, Clock clk_156_25, Clock clk_644)(NetTopIfc);
 
    EthPortIfc ports <- mkEthPorts(clk_50, clk_156_25, clk_644, clocked_by clk_156_25, reset_by rst_156_n);
 
-   interface loopback = ports.loopback;
-   interface tx_ready = ports.tx_ready;
-   interface rx_ready = ports.rx_ready;
-   interface sfpctrl = ports.sfpctrl;
-   interface serial = ports.serial;
-   interface Clock clk_net = clk_156_25;
-   interface Clock clk_xcvr = ports.tx_clkout;
-   //interface avs = ports.avs;
+   interface dtp = ports.dtp;
+   interface ifcs = (interface NetExportIfc;
+      interface loopback = ports.loopback;
+      interface sfpctrl = ports.sfpctrl;
+      interface serial = ports.serial;
+      interface Clock clk_net = clk_156_25;
+      interface Clock clk_xcvr = ports.tx_clkout;
+   endinterface);
 endmodule

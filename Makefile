@@ -4,7 +4,7 @@ DTOP?=../sonic-lite
 S2H_INTERFACES=SonicUserRequest:SonicUser.request
 H2S_INTERFACES=SonicUser:SonicUserRequest
 #AUTOTOP=--importfiles NetTop
-AUTOTOP=--importfiles PinsTop
+AUTOTOP= --interface pins:SonicUser.dtp
 #AUTOTOP=--importfiles EthSonicPma
 #INTERFACES=SonicUser
 BSVFILES=hw/bsv/LedTop.bsv hw/SonicUser.bsv hw/lib/bsv/Scrambler.bsv hw/bsv/libs/AvalonStreaming.bsv hw/generated/ALTERA_SI570_WRAPPER.bsv
@@ -14,7 +14,8 @@ NUMBER_OF_MASTERS =0
 PIN_BINDINGS?=-b PCIE:PCIE -b LED:LED -b OSC:OSC -b SFPA:SFPA -b SFPB:SFPB -b SFPC:SFPC -b SFPD:SFPD -b SFP:SFP -b I2C:CLOCK -b BUTTON:BUTTON -b SW:SW
 
 #PIN_TYPE = NetTopIfc
-PIN_TYPE = PinsTopIfc
+PIN_TYPE = DtpIfc
+EXPORT_TYPE = PinsTopIfc
 #PIN_TYPE = Eth10GPhyTopIfc
 #PIN_TYPE = EthSonicPmaTopIfc
 #CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/altera_mac/altera_mac.qip
@@ -25,7 +26,7 @@ CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/pll_156/pll_156.qip
 CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/sv_10g_pma/sv_10g_pma.qip
 CONNECTALFLAGS += --xci=$(DTOP)/hw/verilog/pll/altera_clkctrl/synthesis/altera_clkctrl.qip
 CONNECTALFLAGS += --verilog=$(DTOP)/hw/verilog/si570/
-CONNECTALFLAGS += --chipscope=$(DTOP)/hw/scrambler.stp
+CONNECTALFLAGS += --chipscope=$(DTOP)/hw/stp/timestamp.stp
 
 # Supported Platforms:
 # {vendor}_{platform}=1

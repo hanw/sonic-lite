@@ -25,6 +25,7 @@ package Ethernet;
 
 import DefaultValue          ::*;
 import Connectable           ::*;
+import Pipe                  ::*;
 
 `ifdef NUMBER_OF_10G_PORTS
 typedef `NUMBER_OF_10G_PORTS NumPorts;
@@ -124,68 +125,6 @@ interface XCVR_PCS;  // bottom of PCS facing PMA
    interface XCVR_TX_PCS tx;
 endinterface
 
-//(* always_ready, always_enabled *)
-//interface XCVR_RX_PMA;                                // PMA provides to PCS
-//   (* prefix = "", result = "rx_ready" *)
-//   method Bit#(1) rx_ready;
-//   (* prefix = "", result = "rx_clkout" *)
-////   method Bit#(1) rx_clkout;
-//   method Bit#(1) rx_clkout;
-//   (* prefix = "", result = "rx_data" *)
-//   method Bit#(40) rx_data;
-//endinterface
-//
-//(* always_ready, always_enabled *)
-//interface XCVR_TX_PMA;                                // PMA provides to PCS
-//   method Bit#(1) tx_ready;
-////   method Bit#(1) tx_clkout;
-//   method Bit#(1) tx_clkout;
-//   (* prefix = "" *)
-//   method Action tx_data( (* port = "tx_data" *) Bit#(40) v);
-//endinterface
-
-//(* always_ready, always_enabled *)
-//interface XCVR_PMA; // top of PMA facing PCS
-//   method Bool tx_ready;
-//   method Clock tx_clkout;
-//   method Action tx_data(Bit#(40) v);
-//   method Bool rx_ready;
-//   method Clock rx_clkout;
-//   method Bit#(40) rx_data;
-//endinterface
-
-//instance Connectable#(XGMII_MAC, XGMII_PCS);
-//   module mkConnection#(XGMII_MAC mac, XGMII_PCS pcs)(Empty);
-//      rule connect_mac_pcs;
-//         mac.rx.rx_dc(pcs.rx.rx_dc);
-//         pcs.tx.tx_dc(mac.tx.tx_dc);
-//      endrule
-//   endmodule
-//endinstance
-//instance Connectable#(XGMII_PCS, XGMII_MAC);
-//   module mkConnection#(XGMII_PCS pcs, XGMII_MAC mac)(Empty);
-//      mkConnection(mac, pcs);
-//   endmodule
-//endinstance
-
-//instance Connectable#(XCVR_PMA, XCVR_PCS);
-//   module mkConnection#(XCVR_PMA pma, XCVR_PCS pcs)(Empty);
-//      rule connect_pma_pcs;
-//         pcs.rx.rx_data(pma.rx.rx_data);
-//         pcs.rx.rx_clkout(pma.rx.rx_clkout);
-//         pcs.tx.tx_clkout(pma.tx.tx_clkout);
-//         pcs.tx.tx_ready(pma.tx.tx_ready);
-//         pcs.rx.rx_ready(pma.rx.rx_ready);
-//         pma.tx.tx_data(pcs.tx.tx_data);
-//      endrule
-//   endmodule
-//endinstance
-//instance Connectable#(XCVR_PCS, XCVR_PMA);
-//   module mkConnection#(XCVR_PCS pcs, XCVR_PMA pma)(Empty);
-//      mkConnection(pma, pcs);
-//   endmodule
-//endinstance
-
 interface SerialIfc;
    (* prefix = "" , result = "tx_data" *)
    method Bit#(1) tx;
@@ -195,6 +134,10 @@ endinterface
 
 interface LoopbackIfc;
    method Action lpbk_en(Bool en);
+endinterface
+
+interface NetToConnectalIfc;
+   interface PipeOut#(Bit#(128)) timestamp;
 endinterface
 
 endpackage: Ethernet

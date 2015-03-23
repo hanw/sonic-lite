@@ -35,11 +35,11 @@ public:
       exit(0);
   }
   virtual void readCycleCount(uint64_t a) {
-    fprintf(stderr, "readCycleCount(%d)\n", a);
+    fprintf(stderr, "readCycleCount(%ld)\n", a);
     incr_cnt();
   }
   virtual void writeDelay(uint64_t a) {
-    fprintf(stderr, "writeDelay(%d)\n", a);
+    fprintf(stderr, "writeDelay(%ld)\n", a);
     incr_cnt();
   }
   SonicUser(unsigned int id) : SonicUserRequestWrapper(id), cnt(0){}

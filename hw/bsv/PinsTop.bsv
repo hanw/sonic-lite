@@ -30,17 +30,13 @@ import ALTERA_SI570_WRAPPER          ::*;
 (* always_ready, always_enabled *)
 interface PinsTopIfc;
    (* prefix="" *)
-   interface NetTopIfc nets;
+   interface NetExportIfc eth;
    (* prefix="i2c" *)
    interface Si570wrapI2c i2c;
    interface Bit#(1) led0;
    interface Bit#(1) led1;
    interface Bit#(1) led2;
    interface Bit#(1) led3;
-//   interface LedOutIfc led0;
-//   interface LedOutIfc led1;
-//   interface LedOutIfc led2;
-//   interface LedOutIfc led3;
    (* prefix="" *)
    interface ButtonInIfc buttons;
    (* prefix="sw" *)

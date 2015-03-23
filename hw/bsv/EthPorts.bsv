@@ -24,6 +24,8 @@
 package EthPorts;
 
 import Clocks::*;
+import FIFO::*;
+import FIFOF::*;
 import Vector::*;
 import Connectable::*;
 import GetPut::*;
@@ -52,15 +54,16 @@ interface SfpCtrlIfc#(numeric type numPorts);
    method Action txfault(Bit#(numPorts) v);
 endinterface
 
-(* always_ready, always_enabled *)
 interface EthPortIfc;
-   interface AvalonSlaveIfc#(24) avs;
+   (* always_ready, always_enabled *)
    interface Vector#(NumPorts, SerialIfc) serial;
+   (* always_ready, always_enabled *)
    interface SfpCtrlIfc#(NumPorts) sfpctrl;
+   (* always_ready, always_enabled *)
    interface Vector#(NumPorts, Clock) tx_clkout;
-   interface Bool  rx_ready;
-   interface Bool  tx_ready;
+   (* always_ready, always_enabled *)
    interface LoopbackIfc loopback;
+   interface NetToConnectalIfc dtp;
 endinterface
 
 (* synthesize *)
@@ -70,6 +73,9 @@ module mkEthPorts#(Clock clk_50, Clock clk_156_25, Clock clk_644)(EthPortIfc);
    Reset defaultReset <- exposeCurrentReset;
    Reset rst_50     <- mkAsyncResetFromCR(2, clk_50);
    Reset rst_156_25_n <- mkAsyncReset(2, defaultReset, clk_156_25);
+
+   Reg#(Bit#(128)) cycle <- mkReg(0);
+   FIFOF#(Bit#(128)) tsFifo <- mkFIFOF();
 
 //   Vector#(NumPorts, EthPktCtrlIfc) pktctrls <- replicateM(mkEthPktCtrl(clk_156_25, rst_156_25, clocked_by clk_156_25, reset_by rst_156_25));
 //
@@ -90,9 +96,20 @@ module mkEthPorts#(Clock clk_50, Clock clk_156_25, Clock clk_644)(EthPortIfc);
       endrule
    end
 
+   // Implement export Timestamp to dtp pipeout;
+   rule cyc;
+      cycle <= cycle + 1;
+   endrule
+
+   rule send_dtp_timestamp;
+      tsFifo.enq(cycle);
+   endrule
+
+   interface dtp = (interface NetToConnectalIfc;
+      interface timestamp = toPipeOut(tsFifo);
+   endinterface);
+
    interface loopback = phys.loopback;
-   interface tx_ready = phys.tx_ready;
-   interface rx_ready = phys.rx_ready;
    interface tx_clkout = phys.tx_clkout;
    interface serial = phys.serial;
    interface sfpctrl = (interface SfpCtrlIfc;
@@ -112,7 +129,6 @@ module mkEthPorts#(Clock clk_50, Clock clk_156_25, Clock clk_644)(EthPortIfc);
       method Action txfault(Bit#(NumPorts) v);
       endmethod
    endinterface);
-//   interface avs = pktctrls[0].avs;
 
 endmodule: mkEthPorts
 endpackage: EthPorts

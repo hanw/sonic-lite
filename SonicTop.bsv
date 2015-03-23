@@ -24,6 +24,7 @@ import Vector            :: *;
 import Clocks            :: *;
 import GetPut            :: *;
 import FIFO              :: *;
+import BRAMFIFO          :: *;
 import Connectable       :: *;
 import ClientServer      :: *;
 import DefaultValue      :: *;
@@ -53,6 +54,8 @@ import ALTERA_SI570_WRAPPER          ::*;
 import ALTERA_EDGE_DETECTOR_WRAPPER  ::*;
 import ALTERA_ETH_SONIC_PMA :: *;
 import EthSonicPma :: *;
+import SonicUser::*;
+import Pipe::*;
 
 `ifndef DataBusWidth
 `define DataBusWidth 64
@@ -63,6 +66,7 @@ import EthSonicPma :: *;
 `endif
 
 typedef `PinType PinType;
+typedef `ExportType ExportType;
 
 (* synthesize, no_default_clock, no_default_reset *)
 (* clock_prefix="", reset_prefix="" *)
@@ -77,7 +81,7 @@ module mkSonicTop #(Clock pcie_refclk_p,
                     Clock osc_50_b8d,
                     Clock sfp_refclk,
                     Reset pcie_perst_n,
-                    Reset user_reset_n) (PcieTop#(PinType));
+                    Reset user_reset_n) (PcieTop#(ExportType));
 
    // ===================================
    // PLL:
@@ -87,7 +91,7 @@ module mkSonicTop #(Clock pcie_refclk_p,
    // NOTE: input clock must be dedicated to PLL to avoid error:
    // Error (175020): Illegal constraint of fractional PLL to the region (x-coordinate, y- coordinate) to (x-coordinate, y-coordinate): no valid locations in region
    // ===================================
-   //PcieHostTop host <- mkPcieHostTop(pcie_refclk_p, osc_50_b3b, pcie_perst_n);
+   PcieHostTop host <- mkPcieHostTop(pcie_refclk_p, osc_50_b3b, pcie_perst_n);
 
    AltClkCtrl clk_50_b4a_buf <- mkAltClkCtrl(osc_50_b4a);
    Reset rst_50   <- mkResetInverter(user_reset_n, clocked_by clk_50_b4a_buf.outclk);
@@ -126,7 +130,7 @@ module mkSonicTop #(Clock pcie_refclk_p,
    //
    SwitchIfc   switches <- mkSwitch(clocked_by clk_50_b4a_buf.outclk, reset_by rst_50_n);
 
-   NetTopIfc   nets <- mkNetTop(clk_50_b4a_buf.outclk, clk_156_25, sfp_refclk, clocked_by clk_156_25, reset_by rst_156_n);
+   NetTopIfc   eth <- mkNetTop(clk_50_b4a_buf.outclk, clk_156_25, sfp_refclk, clocked_by clk_156_25, reset_by rst_156_n);
 
    rule si570_connections;
       //ifreq_mode = 3'b000;  //100.0 MHZ
@@ -147,7 +151,7 @@ module mkSonicTop #(Clock pcie_refclk_p,
    // ===========
    // LED Outputs
    Reset sfp_reset_n <- mkAsyncReset(2, user_reset_n, sfp_refclk);
-   Reset xcvr_reset_n <- mkAsyncReset(2, user_reset_n, nets.clk_xcvr[0]);
+   Reset xcvr_reset_n <- mkAsyncReset(2, user_reset_n, eth.ifcs.clk_xcvr[0]);
 
    Reg#(Bit#(26)) pcie_cntr <- mkReg(0, clocked_by pcie_refclk_p, reset_by pcie_perst_n);
    rule heartbeat_pcie;
@@ -159,7 +163,7 @@ module mkSonicTop #(Clock pcie_refclk_p,
       net_cntr <= net_cntr + 1;
    endrule
 
-   Reg#(Bit#(26)) xcvr_cntr <- mkReg(0, clocked_by nets.clk_xcvr[0], reset_by xcvr_reset_n);
+   Reg#(Bit#(26)) xcvr_cntr <- mkReg(0, clocked_by eth.ifcs.clk_xcvr[0], reset_by xcvr_reset_n);
    rule heartbeat_xcvr;
       xcvr_cntr <= xcvr_cntr + 1;
    endrule
@@ -169,48 +173,51 @@ module mkSonicTop #(Clock pcie_refclk_p,
       si570_cntr <= si570_cntr + 1;
    endrule
 
-//`ifdef IMPORT_HOSTIF
-//   ConnectalTop#(PhysAddrWidth, DataBusWidth, PinType, NumberOfMasters) portalTop <- mkConnectalTop(host, clocked_by host.portalClock, reset_by host.portalReset);
-//`else
-//   ConnectalTop#(PhysAddrWidth, DataBusWidth, PinType, NumberOfMasters) portalTop <- mkConnectalTop(clocked_by host.portalClock, reset_by host.portalReset);
-//`endif
-//
-//   mkConnection(host.tpciehost.master, portalTop.slave, clocked_by host.portalClock, reset_by host.portalReset);
-//   if (valueOf(NumberOfMasters) > 0) begin
-//      mapM(uncurry(mkConnection),zip(portalTop.masters, host.tpciehost.slave));
-//   end
-//
-//   // going from level to edge-triggered interrupt
-//   Vector#(16, Reg#(Bool)) interruptRequested <- replicateM(mkReg(False, clocked_by host.portalClock, reset_by host.portalReset));
-//   rule interrupt_rule;
-//     Maybe#(Bit#(4)) intr = tagged Invalid;
-//     for (Integer i = 0; i < 16; i = i + 1) begin
-//	 if (portalTop.interrupt[i] && !interruptRequested[i])
-//             intr = tagged Valid fromInteger(i);
-//	 interruptRequested[i] <= portalTop.interrupt[i];
-//     end
-//     if (intr matches tagged Valid .intr_num) begin
-//        ReadOnly_MSIX_Entry msixEntry = host.tpciehost.msixEntry[intr_num];
-//        host.tpciehost.interruptRequest.put(tuple2({msixEntry.addr_hi, msixEntry.addr_lo}, msixEntry.msg_data));
-//     end
-//   endrule
-//
-//`ifndef BSIM
-//   interface pcie = host.tep7.pcie;
-//   interface Clock deleteme_unused_clockLeds = osc_50_b3b; //host.tep7.epClock125;
-//   //interface pins = portalTop.pins;
+`ifdef IMPORT_HOSTIF
+   ConnectalTop#(PhysAddrWidth, DataBusWidth, PinType, NumberOfMasters) portalTop <- mkConnectalTop(host, clocked_by host.portalClock, reset_by host.portalReset);
+`else
+   ConnectalTop#(PhysAddrWidth, DataBusWidth, PinType, NumberOfMasters) portalTop <- mkConnectalTop(clocked_by host.portalClock, reset_by host.portalReset);
+`endif
 
-   interface pins = interface PinsTopIfc;
-      interface nets = nets;
-      interface i2c =  si570.i2c;
+   mkConnection(host.tpciehost.master, portalTop.slave, clocked_by host.portalClock, reset_by host.portalReset);
+   if (valueOf(NumberOfMasters) > 0) begin
+      mapM(uncurry(mkConnection),zip(portalTop.masters, host.tpciehost.slave));
+   end
+
+   // mkConnection between net and portalTop
+   SyncFIFOIfc#(Bit#(128)) tsFifo <- mkSyncBRAMFIFO(8, clk_156_25, rst_156_n, host.portalClock, host.portalReset);
+   PipeOut#(Bit#(128)) txFifoPipeOut = toPipeOut(tsFifo);
+   PipeIn#(Bit#(128)) txFifoPipeIn = toPipeIn(tsFifo);
+   mkConnection(eth.dtp.timestamp, txFifoPipeIn);
+   mkConnection(txFifoPipeOut, portalTop.pins.timestamp);
+
+   // going from level to edge-triggered interrupt
+   Vector#(16, Reg#(Bool)) interruptRequested <- replicateM(mkReg(False, clocked_by host.portalClock, reset_by host.portalReset));
+   rule interrupt_rule;
+     Maybe#(Bit#(4)) intr = tagged Invalid;
+     for (Integer i = 0; i < 16; i = i + 1) begin
+	 if (portalTop.interrupt[i] && !interruptRequested[i])
+             intr = tagged Valid fromInteger(i);
+	 interruptRequested[i] <= portalTop.interrupt[i];
+     end
+     if (intr matches tagged Valid .intr_num) begin
+        ReadOnly_MSIX_Entry msixEntry = host.tpciehost.msixEntry[intr_num];
+        host.tpciehost.interruptRequest.put(tuple2({msixEntry.addr_hi, msixEntry.addr_lo}, msixEntry.msg_data));
+     end
+   endrule
+
+`ifndef BSIM
+   interface pcie = host.tep7.pcie;
+   interface pins = (interface PinsTopIfc;
+      interface eth  = eth.ifcs;
+      interface i2c  = si570.i2c;
       interface led0 = pcie_cntr[25];
       interface led1 = net_cntr[25];
       interface led2 = xcvr_cntr[25];
       interface led3 = si570_cntr[25];
-      interface buttons = btns.in;
+      interface buttons  = btns.in;
       interface switches = switches.in;
       interface Clock clk_b4a = clk_50_b4a_buf.outclk;
-      //interface Clock clk_si570 = pll644.outclk;
-      endinterface;
-//`endif
+   endinterface);
+`endif
 endmodule
