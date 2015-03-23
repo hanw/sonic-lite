@@ -2,7 +2,7 @@
 CONNECTALDIR?=../connectal
 DTOP?=../sonic-lite
 S2H_INTERFACES=SonicUserRequest:SonicUser.request
-H2S_INTERFACES=SonicUser:SonicUserRequest
+H2S_INTERFACES=SonicUser:SonicUserIndication
 #AUTOTOP=--importfiles NetTop
 AUTOTOP= --interface pins:SonicUser.dtp
 #AUTOTOP=--importfiles EthSonicPma

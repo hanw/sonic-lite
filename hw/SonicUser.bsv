@@ -32,22 +32,20 @@ interface DtpIfc;
 endinterface
 
 interface SonicUserRequest;
-    method Action readCycleCount(Bit#(64) cmd);
-    method Action writeDelay(Bit#(64) host_cnt);
+   method Action read_timestamp_req(Bit#(8) cmd);
+   method Action write_delay(Bit#(64) host_cnt);
 endinterface
 
-interface SonicPmaMgmt;
-    method Action xcvrConfigRead(Bit#(32) address);
-    method Action xcvrConfigWrite(Bit#(32) address, Bit#(32) data);
+interface SonicUserIndication;
+   method Action read_timestamp_resp(Bit#(64) val);
 endinterface
 
 interface SonicUser;
    interface SonicUserRequest request;
-   interface SonicPmaMgmt     mgmt;
    interface DtpIfc           dtp;
 endinterface
 
-module mkSonicUser#(SonicUserRequest indication)(SonicUser);
+module mkSonicUser#(SonicUserIndication indication)(SonicUser);
    let verbose = False;
    Reg#(Bit#(64))  cycle_count <- mkReg(0);
    Reg#(Bit#(64))  last_count  <- mkReg(0);
@@ -69,21 +67,12 @@ module mkSonicUser#(SonicUserRequest indication)(SonicUser);
    endinterface);
 
    interface SonicUserRequest request;
-   method Action readCycleCount(Bit#(64) cmd);
-      indication.readCycleCount(truncate(timestamp_reg));
+   method Action read_timestamp_req(Bit#(8) cmd);
+      indication.read_timestamp_resp(truncate(timestamp_reg));
    endmethod
-   method Action writeDelay(Bit#(64) host_cnt);
+   method Action write_delay(Bit#(64) host_cnt);
       Bit#(64) delay = (host_cnt - cycle_count) >> 1;
-      indication.writeDelay(truncate(delay));
-   endmethod
-   endinterface
-
-   interface SonicPmaMgmt mgmt;
-   method Action xcvrConfigRead(Bit#(32) address);
-
-   endmethod
-   method Action xcvrConfigWrite(Bit#(32) address, Bit#(32) data);
-
+      //indication.write_delay_resp(truncate(delay));
    endmethod
    endinterface
 

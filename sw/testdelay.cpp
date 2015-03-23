@@ -23,10 +23,11 @@
 #include <assert.h>
 
 #include "SonicUserRequest.h"
+#include "SonicUserIndication.h"
 
 #define NUMBER_OF_TESTS 1
 
-class SonicUser : public SonicUserRequestWrapper
+class SonicUser : public SonicUserIndicationWrapper
 {
 public:
   uint32_t cnt;
@@ -34,21 +35,17 @@ public:
     if (++cnt == NUMBER_OF_TESTS)
       exit(0);
   }
-  virtual void readCycleCount(uint64_t a) {
+  virtual void read_timestamp_resp(uint64_t a) {
     fprintf(stderr, "readCycleCount(%ld)\n", a);
     incr_cnt();
   }
-  virtual void writeDelay(uint64_t a) {
-    fprintf(stderr, "writeDelay(%ld)\n", a);
-    incr_cnt();
-  }
-  SonicUser(unsigned int id) : SonicUserRequestWrapper(id), cnt(0){}
+  SonicUser(unsigned int id) : SonicUserIndicationWrapper(id), cnt(0){}
 };
 
 int main(int argc, const char **argv)
 {
   SonicUser *indication = new SonicUser(IfcNames_SonicUserRequestS2H);
-  SonicUserRequestProxy *device = new SonicUserRequestProxy(IfcNames_SonicUserH2S);
+  SonicUserRequestProxy *device = new SonicUserRequestProxy(IfcNames_SonicUserIndicationH2S);
   device->pint.busyType = BUSY_SPIN;   /* spin until request portal 'notFull' */
 
   portalExec_start();
