@@ -107,6 +107,8 @@ module mkEthPorts#(Clock clk_50, Clock clk_156_25, Clock clk_644)(EthPortIfc);
 
    interface dtp = (interface NetToConnectalIfc;
       interface timestamp = toPipeOut(tsFifo);
+      interface toHost   = phys.toHost;
+      interface fromHost = phys.fromHost;
    endinterface);
 
    interface loopback = phys.loopback;

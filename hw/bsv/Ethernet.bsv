@@ -23,6 +23,7 @@
 
 package Ethernet;
 
+import Vector ::*;
 import DefaultValue          ::*;
 import Connectable           ::*;
 import Pipe                  ::*;
@@ -136,8 +137,16 @@ interface LoopbackIfc;
    method Action lpbk_en(Bool en);
 endinterface
 
+typedef struct {
+   Bit#(53) ts_host;
+   Bit#(53) ts_local_nic;
+   Bit#(53) ts_global;
+} LogUnit deriving (Bits);
+
 interface NetToConnectalIfc;
    interface PipeOut#(Bit#(128)) timestamp;
+   interface Vector#(NumPorts, PipeOut#(Bit#(53))) toHost;
+   interface Vector#(NumPorts, PipeIn#(Bit#(53))) fromHost;
 endinterface
 
 endpackage: Ethernet

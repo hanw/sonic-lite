@@ -12,7 +12,7 @@ PIN_BINDINGS?=-b PCIE:PCIE -b LED:LED -b OSC:OSC -b SFPA:SFPA -b SFPB:SFPB -b SF
 
 PIN_TYPE = DtpIfc
 EXPORT_TYPE = PinsTopIfc
-CONNECTALFLAGS += --bscflags="-p +:$(DTOP)/hw/lib/bsv/:$(DTOP)/hw/bsv/libs/:$(DTOP)/hw/generated/"
+CONNECTALFLAGS += --bscflags="-p +:$(DTOP)/hw/lib/bsv:$(DTOP)/hw/bsv/libs:$(DTOP)/hw/generated"
 #CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/altera_mac/altera_mac.qip
 #CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/altera_xcvr_reset_control_wrapper/altera_xcvr_reset_control_wrapper.qip
 #CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/altera_xcvr_native_sv_wrapper/altera_xcvr_native_sv_wrapper.qip
@@ -21,7 +21,8 @@ CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/pll_156/pll_156.qip
 CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/sv_10g_pma/sv_10g_pma.qip
 CONNECTALFLAGS += --xci=$(DTOP)/hw/verilog/pll/altera_clkctrl/synthesis/altera_clkctrl.qip
 CONNECTALFLAGS += --verilog=$(DTOP)/hw/verilog/si570/
-CONNECTALFLAGS += --chipscope=$(DTOP)/hw/stp/dtp.stp
+CONNECTALFLAGS += --chipscope=$(DTOP)/hw/stp/dtp_debug.stp
+CONNECTALFLAGS += --tcl=$(DTOP)/boards/de5_extra.qsf
 # Supported Platforms:
 # {vendor}_{platform}=1
 ALTERA_SIM_vsim=1

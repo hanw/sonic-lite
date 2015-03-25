@@ -91,7 +91,7 @@ module mkSonicTop #(Clock pcie_refclk_p,
    // NOTE: input clock must be dedicated to PLL to avoid error:
    // Error (175020): Illegal constraint of fractional PLL to the region (x-coordinate, y- coordinate) to (x-coordinate, y-coordinate): no valid locations in region
    // ===================================
-//   PcieHostTop host <- mkPcieHostTop(pcie_refclk_p, osc_50_b3b, pcie_perst_n);
+   PcieHostTop host <- mkPcieHostTop(pcie_refclk_p, osc_50_b3b, pcie_perst_n);
 
    AltClkCtrl clk_50_b4a_buf <- mkAltClkCtrl(osc_50_b4a);
    Reset rst_50   <- mkResetInverter(user_reset_n, clocked_by clk_50_b4a_buf.outclk);
@@ -170,41 +170,59 @@ module mkSonicTop #(Clock pcie_refclk_p,
       si570_cntr <= si570_cntr + 1;
    endrule
 
-//`ifdef IMPORT_HOSTIF
-//   ConnectalTop#(PhysAddrWidth, DataBusWidth, PinType, NumberOfMasters) portalTop <- mkConnectalTop(host, clocked_by host.portalClock, reset_by host.portalReset);
-//`else
-//   ConnectalTop#(PhysAddrWidth, DataBusWidth, PinType, NumberOfMasters) portalTop <- mkConnectalTop(clocked_by host.portalClock, reset_by host.portalReset);
-//`endif
-//
-//   mkConnection(host.tpciehost.master, portalTop.slave, clocked_by host.portalClock, reset_by host.portalReset);
-//   if (valueOf(NumberOfMasters) > 0) begin
-//      mapM(uncurry(mkConnection),zip(portalTop.masters, host.tpciehost.slave));
-//   end
-//
-//   // mkConnection between net and portalTop
-//   SyncFIFOIfc#(Bit#(128)) tsFifo <- mkSyncBRAMFIFO(8, clk_156_25, rst_156_n, host.portalClock, host.portalReset);
-//   PipeOut#(Bit#(128)) txFifoPipeOut = toPipeOut(tsFifo);
-//   PipeIn#(Bit#(128)) txFifoPipeIn = toPipeIn(tsFifo);
-//   mkConnection(eth.dtp.timestamp, txFifoPipeIn);
-//   mkConnection(txFifoPipeOut, portalTop.pins.timestamp);
-//
-//   // going from level to edge-triggered interrupt
-//   Vector#(16, Reg#(Bool)) interruptRequested <- replicateM(mkReg(False, clocked_by host.portalClock, reset_by host.portalReset));
-//   rule interrupt_rule;
-//     Maybe#(Bit#(4)) intr = tagged Invalid;
-//     for (Integer i = 0; i < 16; i = i + 1) begin
-//	 if (portalTop.interrupt[i] && !interruptRequested[i])
-//             intr = tagged Valid fromInteger(i);
-//	 interruptRequested[i] <= portalTop.interrupt[i];
-//     end
-//     if (intr matches tagged Valid .intr_num) begin
-//        ReadOnly_MSIX_Entry msixEntry = host.tpciehost.msixEntry[intr_num];
-//        host.tpciehost.interruptRequest.put(tuple2({msixEntry.addr_hi, msixEntry.addr_lo}, msixEntry.msg_data));
-//     end
-//   endrule
-//
-//`ifndef BSIM
-//   interface pcie = host.tep7.pcie;
+`ifdef IMPORT_HOSTIF
+   ConnectalTop#(PhysAddrWidth, DataBusWidth, PinType, NumberOfMasters) portalTop <- mkConnectalTop(host, clocked_by host.portalClock, reset_by host.portalReset);
+`else
+   ConnectalTop#(PhysAddrWidth, DataBusWidth, PinType, NumberOfMasters) portalTop <- mkConnectalTop(clocked_by host.portalClock, reset_by host.portalReset);
+`endif
+
+   mkConnection(host.tpciehost.master, portalTop.slave, clocked_by host.portalClock, reset_by host.portalReset);
+   if (valueOf(NumberOfMasters) > 0) begin
+      mapM(uncurry(mkConnection),zip(portalTop.masters, host.tpciehost.slave));
+   end
+
+   // mkConnection between net and portalTop
+   SyncFIFOIfc#(Bit#(128)) tsFifo <- mkSyncBRAMFIFO(8, clk_156_25, rst_156_n, host.portalClock, host.portalReset);
+   PipeOut#(Bit#(128)) txFifoPipeOut = toPipeOut(tsFifo);
+   PipeIn#(Bit#(128)) txFifoPipeIn = toPipeIn(tsFifo);
+   mkConnection(eth.dtp.timestamp, txFifoPipeIn);
+   mkConnection(txFifoPipeOut, portalTop.pins.timestamp);
+
+   // send log data from host to network
+   Vector#(4, SyncFIFOIfc#(Bit#(53))) fromHostFifo <- replicateM(mkSyncBRAMFIFO(8, host.portalClock, host.portalReset, clk_156_25, rst_156_n));
+   Vector#(4, PipeOut#(Bit#(53))) fromHostPipeOut = map(toPipeOut,fromHostFifo);
+   Vector#(4, PipeIn#(Bit#(53))) fromHostPipeIn = map(toPipeIn,fromHostFifo);
+   for (Integer i=0; i<4; i=i+1) begin
+      mkConnection(portalTop.pins.fromHost[i], fromHostPipeIn[i]);
+      mkConnection(fromHostPipeOut[i], eth.dtp.fromHost[i]);
+   end
+
+   // send log data from network to host
+   Vector#(4, SyncFIFOIfc#(Bit#(53))) toHostFifo <- replicateM(mkSyncBRAMFIFO(8, clk_156_25, rst_156_n, host.portalClock, host.portalReset));
+   Vector#(4, PipeOut#(Bit#(53))) toHostPipeOut = map(toPipeOut, toHostFifo);
+   Vector#(4, PipeIn#(Bit#(53))) toHostPipeIn = map(toPipeIn, toHostFifo);
+   for (Integer i=0; i<4; i=i+1) begin
+      mkConnection(eth.dtp.toHost[i], toHostPipeIn[i]);
+      mkConnection(toHostPipeOut[i], portalTop.pins.toHost[i]);
+   end
+
+   // going from level to edge-triggered interrupt
+   Vector#(16, Reg#(Bool)) interruptRequested <- replicateM(mkReg(False, clocked_by host.portalClock, reset_by host.portalReset));
+   rule interrupt_rule;
+     Maybe#(Bit#(4)) intr = tagged Invalid;
+     for (Integer i = 0; i < 16; i = i + 1) begin
+	 if (portalTop.interrupt[i] && !interruptRequested[i])
+             intr = tagged Valid fromInteger(i);
+	 interruptRequested[i] <= portalTop.interrupt[i];
+     end
+     if (intr matches tagged Valid .intr_num) begin
+        ReadOnly_MSIX_Entry msixEntry = host.tpciehost.msixEntry[intr_num];
+        host.tpciehost.interruptRequest.put(tuple2({msixEntry.addr_hi, msixEntry.addr_lo}, msixEntry.msg_data));
+     end
+   endrule
+
+`ifndef BSIM
+   interface pcie = host.tep7.pcie;
    interface pins = (interface PinsTopIfc;
       interface eth  = eth.ifcs;
       interface i2c  = si570.i2c;
