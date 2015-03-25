@@ -10,36 +10,40 @@
 #include "StdDmaIndication.h"
 #include "MemServerRequest.h"
 #include "MMURequest.h"
-#include "DtpTestRequest.h"
-#include "DtpTestIndication.h"
+#include "PhyTestRequest.h"
+#include "PhyTestIndication.h"
 
 sem_t test_sem;
 
-int burstLen = 16;
-int numWords = 0x1000/4;
-size_t test_sz = numWords*sizeof(unsigned long int);
+int burstLen = 128;
+int numEntries = 0x16000/32;
+size_t entry_size = sizeof(unsigned long int) * 4; //32 Bytes
+size_t test_sz = numEntries*entry_size;
 size_t alloc_sz = test_sz;
 
-class DtpTestIndication : public DtpTestIndicationWrapper {
+class PhyTestIndication : public PhyTestIndicationWrapper {
 public:
   unsigned int rDataCnt;
-  virtual void dtpTestDone(uint32_t v){
-    printf( "DtpTest::dtpTestDone(mismatch = %x)\n", v);
+  virtual void phyTestDone(uint32_t v){
+    printf( "PhyTest::phyTestDone(mismatch = %x)\n", v);
     sem_post(&test_sem);
   }
-  DtpTestIndication(int id) : DtpTestIndicationWrapper(id){}
+  PhyTestIndication(int id) : PhyTestIndicationWrapper(id){}
 };
 
 int main(int argc, char **argv) {
-    DtpTestRequestProxy *device = new DtpTestRequestProxy(IfcNames_DtpTestRequest);
-    DtpTestIndication *deviceIndication = new DtpTestIndication(IfcNames_DtpTestIndication);
+    PhyTestRequestProxy *device = new PhyTestRequestProxy(IfcNames_PhyTestRequest);
+    PhyTestIndication *deviceIndication = new PhyTestIndication(IfcNames_PhyTestIndication);
     MemServerRequestProxy *hostMemServerRequest = new MemServerRequestProxy(IfcNames_HostMemServerRequest);
     MMURequestProxy *dmap = new MMURequestProxy(IfcNames_HostMMURequest);
     DmaManager *dma = new DmaManager(dmap);
     MemServerIndication *hostMemServerIndication = new MemServerIndication(hostMemServerRequest, IfcNames_HostMemServerIndication);
     MMUIndication *hostMMUIndication = new MMUIndication(dma, IfcNames_HostMMUIndication);
 
-    const std::string path="../data/encoded.data2";
+    // column 1, 2 = xgmii data[63:0] [63:0]
+    // column 3, 4 = scrambled data [65:64] [63:0]
+//    const std::string path="../data/list.hex";
+    const std::string path="../data/xgmii.data";
     std::ifstream traceinfo(path.c_str());
     std::string line;
 
@@ -49,26 +53,31 @@ int main(int argc, char **argv) {
 
     portalExec_start();
 
-    for (int i = 0; i < numWords; /*NONE*/ ) {
+    for (int i = 0; i < numEntries; /*NONE*/ ) {
+        // read one line from xgmii, put to higher 128 bits.
         std::getline(traceinfo, line);
         std::istringstream iss(line);
-        std::string ignored_first_64;
-        iss >> ignored_first_64;
         std::string first_64;
         iss >> first_64;
-        std::string ignored_second_64;
-        iss >> ignored_second_64;
         std::string second_64;
         iss >> second_64;
+//        std::string third_64;
+//        iss >> third_64;
+//        std::string fourth_64;
+//        iss >> third_64;
+//        srcBuffer[i++] = strtoul(fourth_64.c_str(), NULL, 16);
+//        srcBuffer[i++] = strtoul(third_64.c_str(), NULL, 16);
+        srcBuffer[i++] = strtoul("", NULL, 16);
+        srcBuffer[i++] = strtoul("", NULL, 16);
         srcBuffer[i++] = strtoul(second_64.c_str(), NULL, 16); /*second_64 is LSB*/
         srcBuffer[i++] = strtoul(first_64.c_str(), NULL, 16);
-        //std::cout << first_64 << second_64 << std::endl;
+        //std::cout<< line << std::endl;
     }
 
     portalDCacheFlushInval(srcAlloc, alloc_sz, srcBuffer);
     unsigned int ref_srcAlloc = dma->reference(srcAlloc);
-    printf( "Main::starting read %08x\n", numWords);
-    device->startDtp(ref_srcAlloc, numWords, burstLen, 1);
+    printf( "Main::starting read %08x\n", numEntries);
+    device->startPhy(ref_srcAlloc, numEntries, burstLen, 1);
     sem_wait(&test_sem);
     return 0;
 }

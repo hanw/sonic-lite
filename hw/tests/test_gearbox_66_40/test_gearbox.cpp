@@ -12,7 +12,7 @@
 
 sem_t test_sem;
 
-int burstLen = 16;
+int burstLen = 32;
 int numWords = 0x200/4;
 size_t test_sz = numWords*sizeof(unsigned int);
 size_t alloc_sz = test_sz;
