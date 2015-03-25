@@ -35,6 +35,8 @@ import Pipe::*;
 interface Descrambler;
    interface PipeIn#(Bit#(66)) descramblerIn;
    interface PipeOut#(Bit#(66)) descrambledOut;
+   (* always_ready, always_enabled *)
+   method Action rx_ready(Bool v);
 endinterface
 
 // Scrambler poly G(x) = 1 + x^39 + x^58;
@@ -42,17 +44,20 @@ endinterface
 module mkDescrambler(Descrambler);
 
    let verbose = False;
+   Clock defaultClock <- exposeCurrentClock();
+   Reset defaultReset <- exposeCurrentReset();
 
    Reg#(Bit#(32))       cycle <- mkReg(0);
    Reg#(Bit#(58)) scram_state <- mkReg(58'h3ff_ffff_ffff_ffff);
    FIFOF#(Bit#(66))  fifo_in <- mkFIFOF;
    FIFOF#(Bit#(66))  fifo_out <- mkBypassFIFOF;
+   Wire#(Bool) rx_ready_wire <- mkDWire(False);
 
    rule cyc;
       cycle <= cycle + 1;
    endrule
 
-   rule descramble;
+   rule descramble(rx_ready_wire);
       let v <- toGet(fifo_in).get;
       Bit#(2) sync_hdr = v[1:0];
       Bit#(64) pre_descramble = v[65:2];
@@ -70,6 +75,10 @@ module mkDescrambler(Descrambler);
       fifo_out.enq(descramble_out);
       if(verbose) $display("%d: descrambler dataout=%h", cycle, descramble_out);
    endrule
+
+   method Action rx_ready (Bool v);
+      rx_ready_wire <= v;
+   endmethod
 
    interface descramblerIn = toPipeIn(fifo_in);
    interface descrambledOut = toPipeOut(fifo_out);

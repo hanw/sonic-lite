@@ -35,6 +35,8 @@ import Pipe::*;
 interface BlockSync;
    interface PipeIn#(Bit#(66)) blockSyncIn;
    interface PipeOut#(Bit#(66)) dataOut;
+   (* always_ready, always_enabled *)
+   method Action rx_ready(Bool v);
 endinterface
 
 typedef enum {LOCK_INIT, RESET_CNT, TEST_SH, GOOD_64, SLIP} State
@@ -44,6 +46,8 @@ deriving (Bits, Eq);
 module mkBlockSync(BlockSync);
 
    let verbose = True;
+   Clock defaultClock <- exposeCurrentClock();
+   Reset defaultReset <- exposeCurrentReset();
 
    Reg#(Bit#(32)) cycle <- mkReg(0);
    Reg#(State) curr_state <- mkReg(LOCK_INIT);
@@ -60,11 +64,13 @@ module mkBlockSync(BlockSync);
    FIFOF#(Bit#(66)) fifo_out <- mkFIFOF;
    FIFOF#(Bit#(66)) cfFifo <- mkFIFOF;
 
+   Wire#(Bool) rx_ready_wire <- mkDWire(False);
+
    rule cyc;
       cycle <= cycle + 1;
    endrule
 
-   rule slip_data;// (curr_state != LOCK_INIT && curr_state != TEST_SH);
+   rule slip_data(rx_ready_wire);
       Bit#(66) rx_b1_shifted;
       Bit#(66) rx_b2_shifted;
       Bit#(66) shifted;
@@ -166,6 +172,10 @@ module mkBlockSync(BlockSync);
       end
       if(verbose) $display("%d: blocksync state_good_64 %d, %d, enqueue %h", cycle, curr_state, pack(block_lock), v);
    endrule
+
+   method Action rx_ready (Bool v);
+      rx_ready_wire <= v;
+   endmethod
 
    interface blockSyncIn = toPipeIn(fifo_in);
    interface dataOut = toPipeOut(fifo_out);

@@ -39,6 +39,10 @@ public:
     fprintf(stderr, "readCycleCount(%ld)\n", a);
     incr_cnt();
   }
+  virtual void log_read_resp(uint8_t a, uint64_t b, uint64_t c) {
+	fprintf(stderr, "read from port(%d) local_cnt(%ld) global_cnt(%ld)\n", a, b, c);
+	incr_cnt();
+  }
   SonicUser(unsigned int id) : SonicUserIndicationWrapper(id), cnt(0){}
 };
 

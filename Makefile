@@ -1,23 +1,18 @@
-
-CONNECTALDIR?=../connectal
-DTOP?=../sonic-lite
+ROOTDIR=$(realpath .)
+CONNECTALDIR?=$(ROOTDIR)/../connectal/
+DTOP?=$(ROOTDIR)
 S2H_INTERFACES=SonicUserRequest:SonicUser.request
 H2S_INTERFACES=SonicUser:SonicUserIndication
-#AUTOTOP=--importfiles NetTop
-AUTOTOP= --interface pins:SonicUser.dtp
-#AUTOTOP=--importfiles EthSonicPma
-#INTERFACES=SonicUser
-BSVFILES=hw/bsv/LedTop.bsv hw/SonicUser.bsv hw/lib/bsv/Scrambler.bsv hw/bsv/libs/AvalonStreaming.bsv hw/generated/ALTERA_SI570_WRAPPER.bsv
+AUTOTOP= --interface pins:SonicUser.dtp #--importfiles EthSonicPma
+BSVFILES=hw/bsv/SonicUser.bsv
 CPPFILES=sw/testdelay.cpp
 NUMBER_OF_MASTERS =0
 #PIN_BINDINGS?=-b PCIE:PCIE -b LED:LED -b OSC:OSC -b SFPA:SFPA -b SFPB:SFPB -b SFPC:SFPC -b SFPD:SFPD -b SFP:SFP -b DDR3A:DDR3A -b RZQ:RZQ
 PIN_BINDINGS?=-b PCIE:PCIE -b LED:LED -b OSC:OSC -b SFPA:SFPA -b SFPB:SFPB -b SFPC:SFPC -b SFPD:SFPD -b SFP:SFP -b I2C:CLOCK -b BUTTON:BUTTON -b SW:SW
 
-#PIN_TYPE = NetTopIfc
 PIN_TYPE = DtpIfc
 EXPORT_TYPE = PinsTopIfc
-#PIN_TYPE = Eth10GPhyTopIfc
-#PIN_TYPE = EthSonicPmaTopIfc
+CONNECTALFLAGS += --bscflags="-p +:$(DTOP)/hw/lib/bsv/:$(DTOP)/hw/bsv/libs/:$(DTOP)/hw/generated/"
 #CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/altera_mac/altera_mac.qip
 #CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/altera_xcvr_reset_control_wrapper/altera_xcvr_reset_control_wrapper.qip
 #CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/altera_xcvr_native_sv_wrapper/altera_xcvr_native_sv_wrapper.qip
@@ -26,8 +21,7 @@ CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/pll_156/pll_156.qip
 CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/sv_10g_pma/sv_10g_pma.qip
 CONNECTALFLAGS += --xci=$(DTOP)/hw/verilog/pll/altera_clkctrl/synthesis/altera_clkctrl.qip
 CONNECTALFLAGS += --verilog=$(DTOP)/hw/verilog/si570/
-CONNECTALFLAGS += --chipscope=$(DTOP)/hw/stp/timestamp.stp
-
+CONNECTALFLAGS += --chipscope=$(DTOP)/hw/stp/dtp.stp
 # Supported Platforms:
 # {vendor}_{platform}=1
 ALTERA_SIM_vsim=1

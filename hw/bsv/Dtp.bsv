@@ -46,6 +46,12 @@ typedef struct {
    Bit#(ParamLen) param;
 } CmdTup deriving (Eq, Bits, FShow);
 
+typedef struct {
+   Bool     mux_sel;
+   Bit#(53) c_local;
+   Bit#(1)  parity;
+} TxStageOneBuf deriving (Eq, Bits);
+
 interface DtpIn;
    //interface PipeOut#(CmdTup)    cmdIn;
 endinterface
@@ -55,6 +61,10 @@ interface Dtp;
    interface PipeIn#(Bit#(66))  dtpTxIn;
    interface PipeOut#(Bit#(66)) dtpRxOut;
    interface PipeOut#(Bit#(66)) dtpTxOut;
+   (* always_ready, always_enabled *)
+   method Action tx_ready(Bool v);
+   (* always_ready, always_enabled *)
+   method Action rx_ready(Bool v);
 //   method Vector#(N_IFCs, Bit#(TIMESTAMP_LEN)) local_clock;
 //   method Bit#(TIMESTAMP_LEN) global_clock;
 endinterface
@@ -63,14 +73,14 @@ typedef 2'b01 INIT_TYPE;
 typedef 2'b10 ACK_TYPE;
 typedef 2'b11 BEACON_TYPE;
 
-typedef 10 INIT_TIMEOUT;
-typedef 10 SYNC_TIMEOUT;
+typedef 100 INIT_TIMEOUT;
+typedef 100 SYNC_TIMEOUT;
 
 typedef enum {INIT, SENT, SYNC} DtpState
 deriving (Bits, Eq);
 
 (* synthesize *)
-module mkDtpTop (Dtp);
+module mkDtpTop(Dtp);
    Dtp _a <- mkDtp(0);
    return _a;
 endmodule
@@ -78,9 +88,11 @@ endmodule
 module mkDtp#(Integer id)(Dtp);
 
    let verbose = False;
+   Wire#(Bool) tx_ready_wire <- mkDWire(False);
+   Wire#(Bool) rx_ready_wire <- mkDWire(False);
 
-   FIFOF#(Bit#(66)) dtpRxInFifo <- mkFIFOF;
-   FIFOF#(Bit#(66)) dtpTxInFifo <- mkFIFOF;
+   FIFOF#(Bit#(66)) dtpRxInFifo <- mkFIFOF ();
+   FIFOF#(Bit#(66)) dtpTxInFifo <- mkFIFOF ();
 
    Reg#(Bit#(1))   mode <- mkReg(0); // mode=0 NIC, mode=1 SWITCH
    Reg#(Bit#(32))  cycle   <- mkReg(0);
@@ -100,10 +112,8 @@ module mkDtp#(Integer id)(Dtp);
 
    // Tx Stage 1
    FIFOF#(Bit#(66)) dtpTxInPipelineFifo <- mkFIFOF;
-   FIFOF#(Bit#(1))  parityFifo    <- mkFIFOF;
-   FIFOF#(Bit#(53)) cLocalFifo    <- mkFIFOF;
    FIFOF#(Bit#(66)) dtpTxOutFifo <- mkFIFOF;
-   FIFOF#(Bool)     isIdleFifo    <- mkFIFOF;
+   FIFOF#(TxStageOneBuf) stageOneFifo <- mkFIFOF;
 
    FIFOF#(Bit#(53)) outstandingInitRequest <- mkSizedFIFOF(8);
 
@@ -136,7 +146,18 @@ module mkDtp#(Integer id)(Dtp);
       cycle <= cycle + 1;
    endrule
 
-   rule tx_stage1;
+   // Setup link first if neither Tx or Rx is ready, bypass DTP.
+   rule tx_bypass(!tx_ready_wire || !rx_ready_wire);
+      let v <- toGet(dtpTxInFifo).get;
+      dtpTxOutFifo.enq(v);
+   endrule
+
+   rule rx_bypass(!tx_ready_wire || !rx_ready_wire);
+      let v <- toGet(dtpRxInFifo).get;
+      dtpRxOutFifo.enq(v);
+   endrule
+
+   rule tx_stage1(tx_ready_wire && rx_ready_wire);
       let v <- toGet(dtpTxInFifo).get();
       Bit#(1) parity;
       Bool    mux_sel;
@@ -153,20 +174,21 @@ module mkDtp#(Integer id)(Dtp);
          is_idle <= False;
       end
 
-      if(verbose) $display("%d: %d dtpTxIn=%h, c_local=%h is_idle=%h", cycle, id, v, c_local, mux_sel);
+      if(verbose) $display("%d: %d dtpTxIn=%h, c_local=%h, is_idle=%h, curr_state=%d", cycle, id, v, c_local, mux_sel, curr_state);
       cfFifo.enq(?);
       dmFifo.enq(?);
-      isIdleFifo.enq(mux_sel);
-      parityFifo.enq(parity);
-      cLocalFifo.enq(c_local+1);
+      stageOneFifo.enq(TxStageOneBuf{mux_sel: mux_sel,
+                                     parity: parity,
+                                     c_local: c_local+1});
       dtpTxInPipelineFifo.enq(v);
    endrule
 
-   rule tx_stage2;
-      let mux_sel <- toGet(isIdleFifo).get();
-      let c_local <- toGet(cLocalFifo).get();
-      let parity  <- toGet(parityFifo).get();
+   rule tx_stage2(tx_ready_wire && rx_ready_wire);
+      let val <- toGet(stageOneFifo).get;
       let v <- toGet(dtpTxInPipelineFifo).get();
+      let mux_sel = val.mux_sel;
+      let c_local = val.c_local;
+      let parity = val.parity;
 
       Bit#(10) block_type;
       Bit#(66) encodeOut;
@@ -190,7 +212,7 @@ module mkDtp#(Integer id)(Dtp);
       else begin
          encodeOut = v;
       end
-      if(verbose) $display("%d: %d dtpTxOut=%h %h %h", cycle, id, c_local, parity, encodeOut[11:10]);
+      if(verbose) $display("%d: %d dtpTxOut=%h, c_local=%h, encodeOut=%h", cycle, id, v, c_local, encodeOut[11:10]);
       dtpTxOutFifo.enq(encodeOut);
    endrule
 
@@ -205,10 +227,14 @@ module mkDtp#(Integer id)(Dtp);
          if (is_idle) begin
             timeout_count_init <= 0;
          end
+         else begin
+            timeout_count_init <= timeout_count_init + 1;
+         end
          tx_mux_sel <= init_type;
          if(verbose) $display("%d: %d, init timed_out %d", cycle, id, timeout_count_init);
       end
       else if (init_rcvd) begin
+         timeout_count_init <= timeout_count_init + 1;
          tx_mux_sel <= ack_type;
       end
       else begin
@@ -235,10 +261,14 @@ module mkDtp#(Integer id)(Dtp);
          if (is_idle) begin
             timeout_count_sync <= 0;
          end
+         else begin
+            timeout_count_sync <= timeout_count_sync + 1;
+         end
          tx_mux_sel <= beacon_type;
       end
       else if (init_rcvd) begin
          tx_mux_sel <= ack_type;
+         timeout_count_sync <= timeout_count_sync + 1;
       end
       else begin
          timeout_count_sync <= timeout_count_sync + 1;
@@ -255,8 +285,6 @@ module mkDtp#(Integer id)(Dtp);
 
    // DTP state machine
    rule state_init (curr_state == INIT);
-      Bool timed_out = False;
-
       let init_type = fromInteger(valueOf(INIT_TYPE));
       cfFifo.deq;
 
@@ -270,7 +298,7 @@ module mkDtp#(Integer id)(Dtp);
       else begin
          curr_state <= INIT;
       end
-      if(verbose) $display("%d: %d curr_state=%h", cycle, id, curr_state);
+      //if(verbose) $display("%d: %d curr_state=%h", cycle, id, curr_state);
    endrule
 
    rule state_sent (curr_state == SENT);
@@ -294,6 +322,7 @@ module mkDtp#(Integer id)(Dtp);
 
    rule state_sync (curr_state == SYNC);
       cfFifo.deq;
+
       // update states
       if (init_rcvd) begin
          curr_state <= SYNC;
@@ -305,7 +334,7 @@ module mkDtp#(Integer id)(Dtp);
 
    // Parse received DTP frame
    // Remove DTP timestamp before passing frame to MAC.
-   rule rx_stage1;
+   rule rx_stage1(tx_ready_wire && rx_ready_wire);
       let init_type   = fromInteger(valueOf(INIT_TYPE));
       let ack_type    = fromInteger(valueOf(ACK_TYPE));
       let beacon_type = fromInteger(valueOf(BEACON_TYPE));
@@ -366,8 +395,8 @@ module mkDtp#(Integer id)(Dtp);
          beacon_rcvd <= False;
          dtpEventFifo.enq(2'b0);
       end
-      if(verbose) $display("%d: %d dtpRxIn=%h", cycle, id, v);
-      if(verbose) $display("%d: %d curr_state=%h", cycle, id, curr_state);
+      //if(verbose) $display("%d: %d dtpRxIn=%h", cycle, id, v);
+      //if(verbose) $display("%d: %d curr_state=%h", cycle, id, curr_state);
       dtpRxOutFifo.enq(vo);
    endrule
 
@@ -470,6 +499,14 @@ module mkDtp#(Integer id)(Dtp);
          c_local <= c_local + 1;
       end
    endrule
+
+   method Action tx_ready(Bool v);
+      tx_ready_wire <= v;
+   endmethod
+
+   method Action rx_ready(Bool v);
+      rx_ready_wire <= v;
+   endmethod
 
    interface dtpRxIn = toPipeIn(dtpRxInFifo);
    interface dtpTxIn = toPipeIn(dtpTxInFifo);

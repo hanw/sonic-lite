@@ -35,6 +35,8 @@ import Pipe::*;
 interface Scrambler;
    interface PipeIn#(Bit#(66)) scramblerIn;
    interface PipeOut#(Bit#(66)) scrambledOut;
+   (* always_ready, always_enabled *)
+   method Action tx_ready(Bool v);
 endinterface
 
 // Scrambler poly G(x) = 1 + x^39 + x^58;
@@ -49,12 +51,13 @@ module mkScrambler(Scrambler);
    FIFOF#(Bit#(66)) fifo_in <- mkFIFOF;
    FIFOF#(Bit#(66)) fifo_out <- mkBypassFIFOF;
    FIFOF#(Bit#(2)) shFifo <- mkBypassFIFOF;
+   Wire#(Bool) tx_ready_wire <- mkDWire(False);
 
    rule cyc;
       cycle <= cycle + 1;
    endrule
 
-   rule scramble;
+   rule scramble(tx_ready_wire);
       let v <- toGet(fifo_in).get;
       Bit#(64) pre_scramble = v[65:2];
       Bit#(2) sync_hdr      = v[1:0];
@@ -89,6 +92,9 @@ module mkScrambler(Scrambler);
       if(verbose) $display("%d: scrambler history=%h synchdr=%h", cycle, v, sh);
    endrule
 
+   method Action tx_ready (Bool v);
+      tx_ready_wire <= v;
+   endmethod
    interface scramblerIn = toPipeIn(fifo_in);
    interface scrambledOut = toPipeOut(fifo_out);
 endmodule

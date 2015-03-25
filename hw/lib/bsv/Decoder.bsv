@@ -37,6 +37,8 @@ import Ethernet::*;
 interface Decoder;
    interface PipeIn#(Bit#(66)) decoderIn;
    interface PipeOut#(Bit#(72)) decoderOut;
+   (* always_ready, always_enabled *)
+   method Action rx_ready(Bool v);
 endinterface
 
 typedef enum {CONTROL, START, DATA, TERMINATE, ERROR} State
@@ -46,6 +48,8 @@ deriving (Bits, Eq);
 module mkDecoder(Decoder);
 
    let verbose = False;
+   Clock defaultClock <- exposeCurrentClock();
+   Reset defaultReset <- exposeCurrentReset();
 
    Reg#(Bit#(32)) cycle                 <- mkReg(0);
    FIFOF#(Bit#(66))  fifo_in            <- mkBypassFIFOF;
@@ -60,6 +64,8 @@ module mkDecoder(Decoder);
    FIFOF#(Bit#(1)) lane4Seq9cFifo       <- mkFIFOF;
    FIFOF#(Bit#(1)) lane4Seq5cFifo       <- mkFIFOF;
 
+   Wire#(Bool) rx_ready_wire <- mkDWire(False);
+
    rule cyc;
       cycle <= cycle + 1;
    endrule
@@ -72,7 +78,7 @@ module mkDecoder(Decoder);
    // is because the other valid control characters except error are decoded
    // by the type field. The positions of each byte are given in figure 49-7 in the spec
    //-------------------------------------------------------------------------------
-   rule stage1_decode;
+   rule stage1_decode(rx_ready_wire);
       let v <- toGet(fifo_in).get;
       Bit#(2) sync_field = 0;
       Bit#(8) type_field = 0;
@@ -576,6 +582,10 @@ module mkDecoder(Decoder);
       fifo_out.enq({ctrl7,data7,ctrl6,data6,ctrl5,data5,ctrl4,data4,
                     ctrl3,data3,ctrl2,data2,ctrl1,data1,ctrl0,data0});
    endrule
+
+   method Action rx_ready(Bool v);
+      rx_ready_wire <= v;
+   endmethod
 
    interface decoderIn=toPipeIn(fifo_in);
    interface decoderOut=toPipeOut(fifo_out);

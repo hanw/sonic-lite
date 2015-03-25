@@ -37,6 +37,8 @@ import Ethernet::*;
 interface Encoder;
    interface PipeIn#(Bit#(72)) encoderIn;
    interface PipeOut#(Bit#(66)) encoderOut;
+   (* always_ready, always_enabled *)
+   method Action tx_ready(Bool v);
 endinterface
 
 typedef enum {CONTROL, START, DATA, TERMINATE, ERROR} State
@@ -86,6 +88,7 @@ module mkEncoder(Encoder);
 
    FIFOF#(Bit#(72)) fifo_in    <- mkFIFOF;
    FIFOF#(Bit#(66)) fifo_out   <- mkFIFOF;
+   Wire#(Bool) tx_ready_wire   <- mkDWire(False);
 
    // TODO: remove all these fifos.
    //---------------------------------------------------------------------------------
@@ -133,7 +136,7 @@ module mkEncoder(Encoder);
    // Generate the lane 0 data and control signals. These are dependent on just the
    // TXC(0) input from the MAC. 0 indicates data, 1 indicates control.
    //-------------------------------------------------------------------------------
-   rule generateLaneInfo;
+   rule generateLaneInfo(tx_ready_wire);
       Vector#(8, Bit#(8)) txd;
       Vector#(8, Bit#(1)) txc;
       Bit#(8) lane_data;
@@ -583,6 +586,9 @@ module mkEncoder(Encoder);
       fifo_out.enq(data_out);
    endrule
 
+   method Action tx_ready(Bool v);
+      tx_ready_wire <= v;
+   endmethod
    interface encoderIn = toPipeIn(fifo_in);
    interface encoderOut = toPipeOut(fifo_out);
 endmodule

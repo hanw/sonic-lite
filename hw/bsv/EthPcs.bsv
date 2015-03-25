@@ -49,14 +49,16 @@ interface EthPcs;
    interface PipeIn#(Bit#(66)) bsyncIn;
    interface PipeOut#(Bit#(72)) decoderOut;
    interface PipeOut#(Bit#(66)) scramblerOut;
+   method Action rx_ready(Bool v);
+   method Action tx_ready(Bool v);
 endinterface
 
-module mkEthPcs#(Integer id, Reset rx_pcs_reset_n, Reset tx_pcs_reset_n)(EthPcs);
+module mkEthPcs#(Integer id)(EthPcs);
 
    let verbose = False;
 
-   // Debug variable, make sure only enable one at a time.
-   let use_dtp    = False;
+   // Debug variable, make sure at most one is enabled.
+   let use_dtp    = True;
    let lpbk_enc   = False;
    let lpbk_scm   = False;
    let lpbk_ext   = False;
@@ -64,19 +66,19 @@ module mkEthPcs#(Integer id, Reset rx_pcs_reset_n, Reset tx_pcs_reset_n)(EthPcs)
 
    Reg#(Bit#(32)) cycle <- mkReg(0);
 
-   Encoder encoder     <- mkEncoder (reset_by tx_pcs_reset_n);
-   Scrambler scram     <- mkScrambler (reset_by tx_pcs_reset_n);
-   Dtp dtp             <- mkDtpTop (reset_by tx_pcs_reset_n);
-   Decoder decoder     <- mkDecoder (reset_by rx_pcs_reset_n);
-   Descrambler descram <- mkDescrambler (reset_by rx_pcs_reset_n);
-   BlockSync bsync     <- mkBlockSync (reset_by rx_pcs_reset_n);
+   Encoder encoder     <- mkEncoder   ();
+   Scrambler scram     <- mkScrambler ();
+   Dtp dtp             <- mkDtpTop    ();
+   Decoder decoder     <- mkDecoder   ();
+   Descrambler descram <- mkDescrambler ();
+   BlockSync bsync     <- mkBlockSync ();
 
    if (use_dtp) begin // use dtp
       // Tx Path
-      mkConnection(encoder.encoderOut,     dtp.dtpTxIn);
-      mkConnection(dtp.dtpTxOut,         scram.scramblerIn);
+      mkConnection(encoder.encoderOut, dtp.dtpTxIn);
+      mkConnection(dtp.dtpTxOut,       scram.scramblerIn);
       // Rx Path
-      mkConnection(dtp.dtpRxOut,         decoder.decoderIn);
+      mkConnection(dtp.dtpRxOut,           decoder.decoderIn);
       mkConnection(descram.descrambledOut, dtp.dtpRxIn);
       mkConnection(bsync.dataOut,          descram.descramblerIn);
    end
@@ -108,14 +110,22 @@ module mkEthPcs#(Integer id, Reset rx_pcs_reset_n, Reset tx_pcs_reset_n)(EthPcs)
       mkConnection(bsync.dataOut,          descram.descramblerIn);
    end
 
-   // Fake Data into Scrambler
-//   rule transmit_tx;
-//      scram.scramblerIn.enq(66'h00000000000000079);
-//   endrule
-
    rule cyc;
       cycle <= cycle + 1;
    endrule
+
+   method Action tx_ready(Bool v);
+      encoder.tx_ready(v);
+      scram.tx_ready(v);
+      dtp.tx_ready(v);
+   endmethod
+
+   method Action rx_ready(Bool v);
+      dtp.rx_ready(v);
+      decoder.rx_ready(v);
+      descram.rx_ready(v);
+      bsync.rx_ready(v);
+   endmethod
 
    interface encoderIn    = encoder.encoderIn;
    interface bsyncIn      = bsync.blockSyncIn;

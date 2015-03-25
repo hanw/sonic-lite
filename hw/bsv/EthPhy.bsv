@@ -53,6 +53,7 @@ interface EthPhyIfc#(numeric type numPorts);
    interface Vector#(numPorts, SerialIfc) serial;
    interface Vector#(numPorts, Clock) tx_clkout;
    interface Vector#(numPorts, Clock) rx_clkout;
+   (* always_ready, always_enabled *)
    interface LoopbackIfc loopback;
 endinterface
 
@@ -67,8 +68,6 @@ endfunction
 module mkEthPhy#(Clock mgmt_clk, Clock clk_156_25, Clock clk_644, Reset rst_156_25_n)(EthPhyIfc#(NumPorts));
 
    Reg#(Bit#(32)) cycle <- mkReg(0);
-   //Clock defaultClock <- exposeCurrentClock;
-   //Reset defaultReset <- exposeCurrentReset;
    Reset rst_50_n <- mkAsyncReset(2, rst_156_25_n, mgmt_clk);
 
    Reg#(Bool) loopback_en <- mkReg(False);
@@ -77,44 +76,42 @@ module mkEthPhy#(Clock mgmt_clk, Clock clk_156_25, Clock clk_644, Reset rst_156_
    //EthPma#(NumPorts)         pma4 <- mkEthPma(mgmt_clk, clk_644, rst_50_n);
    EthSonicPma#(NumPorts)      pma4 <- mkEthSonicPma(mgmt_clk, clk_644, rst_50_n, clocked_by mgmt_clk, reset_by rst_50_n);
 
-   let tx_xcvr_reset_n <- mkResetSync(2, True, clk_156_25, clocked_by clk_156_25, reset_by rst_156_25_n);
-   let rx_xcvr_reset_n <- mkResetSync(2, True, clk_156_25, clocked_by clk_156_25, reset_by rst_156_25_n);
-
+//   let tx_xcvr_reset_n <- mkResetSync(2, True, clk_156_25, clocked_by clk_156_25, reset_by rst_156_25_n);
+//   let rx_xcvr_reset_n <- mkResetSync(2, True, clk_156_25, clocked_by clk_156_25, reset_by rst_156_25_n);
    ReadOnly#(Bool) rx_ready_cross;
    ReadOnly#(Bool) tx_ready_cross;
    rx_ready_cross <- mkNullCrossingWire(clk_156_25, pma4.rx_ready);
    tx_ready_cross <- mkNullCrossingWire(clk_156_25, pma4.tx_ready);
-   rule tx_pma_assert_reset;
-      if (!tx_ready_cross) begin
-         tx_xcvr_reset_n.assertReset();
-      end
-   endrule
-   rule rx_pma_assert_reset;
-      if (!rx_ready_cross) begin
-         rx_xcvr_reset_n.assertReset();
-      end
-   endrule
-   Reset tx_xcvr_reset_156_n <- mkSyncReset(2, tx_xcvr_reset_n.new_rst, clk_156_25);
-   Reset rx_xcvr_reset_156_n <- mkSyncReset(2, rx_xcvr_reset_n.new_rst, clk_156_25);
-   Reset tx_pcs_reset_n <- mkResetEither(tx_xcvr_reset_156_n, rst_156_25_n, clocked_by clk_156_25);
-   Reset rx_pcs_reset_n <- mkResetEither(rx_xcvr_reset_156_n, rst_156_25_n, clocked_by clk_156_25);
+//   rule tx_pma_assert_reset;
+//      if (!tx_ready_cross) begin
+//         tx_xcvr_reset_n.assertReset();
+//      end
+//   endrule
+//   rule rx_pma_assert_reset;
+//      if (!rx_ready_cross) begin
+//         rx_xcvr_reset_n.assertReset();
+//      end
+//   endrule
+//   Reset tx_xcvr_reset_156_n <- mkSyncReset(2, tx_xcvr_reset_n.new_rst, clk_156_25);
+//   Reset rx_xcvr_reset_156_n <- mkSyncReset(2, rx_xcvr_reset_n.new_rst, clk_156_25);
+//   Reset tx_pcs_reset_n <- mkResetEither(tx_xcvr_reset_156_n, rst_156_25_n, clocked_by clk_156_25);
+//   Reset rx_pcs_reset_n <- mkResetEither(rx_xcvr_reset_156_n, rst_156_25_n, clocked_by clk_156_25);
 
    Vector#(NumPorts, Gearbox_40_66) gearboxUp;
    Vector#(NumPorts, Gearbox_66_40) gearboxDn;
+   Vector#(NumPorts, FIFOF#(Bit#(72))) txFifo <- replicateM(mkFIFOF(clocked_by clk_156_25, reset_by rst_156_25_n));
+   Vector#(NumPorts, FIFOF#(Bit#(72))) rxFifo <- replicateM(mkFIFOF(clocked_by clk_156_25, reset_by rst_156_25_n));
+   Vector#(NumPorts, PipeIn#(Bit#(72)))  vRxPipeIn = map(toPipeIn, rxFifo);
+   Vector#(NumPorts, PipeOut#(Bit#(72))) vRxPipeOut = map(toPipeOut, rxFifo);
+   Vector#(NumPorts, PipeIn#(Bit#(72)))  vTxPipeIn = map(toPipeIn, txFifo);
+   Vector#(NumPorts, PipeOut#(Bit#(72))) vTxPipeOut = map(toPipeOut, txFifo);
 
-   Vector#(NumPorts, FIFOF#(Bit#(72))) txFifo <- replicateM(mkFIFOF(clocked_by clk_156_25, reset_by tx_pcs_reset_n));//rst_156_25_n));
-   Vector#(NumPorts, FIFOF#(Bit#(72))) rxFifo <- replicateM(mkFIFOF(clocked_by clk_156_25, reset_by rx_pcs_reset_n));//rst_156_25_n));
-   Vector#(NumPorts, PipeIn#(Bit#(72)))  vRxPipeIn = newVector;
-   Vector#(NumPorts, PipeOut#(Bit#(72))) vRxPipeOut = newVector;
-   Vector#(NumPorts, PipeIn#(Bit#(72)))  vTxPipeIn = newVector;
-   Vector#(NumPorts, PipeOut#(Bit#(72))) vTxPipeOut = newVector;
-
-   for (Integer i=0; i<valueOf(NumPorts); i=i+1) begin
-      vRxPipeIn[i]  = toPipeIn(rxFifo[i]);
-      vRxPipeOut[i] = toPipeOut(rxFifo[i]);
-      vTxPipeIn[i]  = toPipeIn(txFifo[i]);
-      vTxPipeOut[i] = toPipeOut(txFifo[i]);
-   end
+//   for (Integer i=0; i<valueOf(NumPorts); i=i+1) begin
+//      vRxPipeIn[i]  = toPipeIn(rxFifo[i]);
+//      vRxPipeOut[i] = toPipeOut(rxFifo[i]);
+//      vTxPipeIn[i]  = toPipeIn(txFifo[i]);
+//      vTxPipeOut[i] = toPipeOut(txFifo[i]);
+//   end
 
    //Vector#(NumPorts, SyncFIFOIfc#(Bit#(66))) txSynchronizer = newVector;
    //Vector#(NumPorts, SyncFIFOIfc#(Bit#(66))) rxSynchronizer = newVector;
@@ -124,22 +121,22 @@ module mkEthPhy#(Clock mgmt_clk, Clock clk_156_25, Clock clk_644, Reset rst_156_
    //Vector#(NumPorts, PipeIn#(Bit#(66)))      rxSyncPipeIn   = newVector;
 
    // Loopback FIFO
-   Vector#(NumPorts, SyncFIFOIfc#(Bit#(40))) lpbkSyncFIfo = newVector;
+   Vector#(NumPorts, SyncFIFOIfc#(Bit#(40))) lpbkSyncFifo = newVector;
    Vector#(NumPorts, PipeOut#(Bit#(40))) lpbkSyncPipeOut = newVector;
    Vector#(NumPorts, PipeIn#(Bit#(40))) lpbkSyncPipeIn = newVector;
 
    for (Integer i=0; i<valueOf(NumPorts); i=i+1) begin
       // Gearbox Level Loopback FIFO
-      lpbkSyncFIfo[i] <- mkSyncBRAMFIFO(10, pma4.tx_clkout[i], pma4.tx_reset[i], pma4.rx_clkout[i], pma4.rx_reset[i]);
-      lpbkSyncPipeOut[i] = toPipeOut(lpbkSyncFIfo[i]);
-      lpbkSyncPipeIn[i] = toPipeIn(lpbkSyncFIfo[i]);
+      lpbkSyncFifo[i] <- mkSyncBRAMFIFO(10, pma4.tx_clkout[i], pma4.tx_reset[i], pma4.rx_clkout[i], pma4.rx_reset[i]);
+      lpbkSyncPipeOut[i] = toPipeOut(lpbkSyncFifo[i]);
+      lpbkSyncPipeIn[i] = toPipeIn(lpbkSyncFifo[i]);
 
       // Gearbox Upstream
       gearboxUp[i] <- mkGearbox40to66(clk_156_25, clocked_by pma4.rx_clkout[i], reset_by pma4.rx_reset[i]);
       // Gearbox Downstream
       gearboxDn[i] <- mkGearbox66to40(clk_156_25, clocked_by pma4.tx_clkout[i], reset_by pma4.tx_reset[i]);
       // PCS
-      pcs[i]       <- mkEthPcs(i, rx_pcs_reset_n, tx_pcs_reset_n, clocked_by clk_156_25, reset_by rst_156_25_n);
+      pcs[i]       <- mkEthPcs(i, clocked_by clk_156_25, reset_by rst_156_25_n);
 
       // Rx Path: Gearbox 40/66 -> Blocksync
       mkConnection(gearboxUp[i].gbOut, pcs[i].bsyncIn);
@@ -160,27 +157,31 @@ module mkEthPhy#(Clock mgmt_clk, Clock clk_156_25, Clock clk_644, Reset rst_156_
          gearboxUp[i].gbIn.enq(reversed_v);
       endrule
       rule tx_no_loopback(!tx_lpbk_en);
-         //mkConnection(gearboxDn[i].gbOut, pma4.tx[i], clocked_by pma4.tx_clkout[i], reset_by pma4.tx_reset[i]);
          let v <- toGet(gearboxDn[i].gbOut).get;
          let reversed_v = reverseBits(v);
          pma4.tx[i].enq(reversed_v);
       endrule
+      // END Normal Operation
 
-      ReadOnly#(Bit#(32)) cycle_cross <- mkNullCrossingWire(pma4.tx_clkout[i], cycle);
       // Loopback Operation: Gearbox 66/40 -> lpbk Fifo -> Gearbox 40/66
+      ReadOnly#(Bit#(32)) cycle_cross <- mkNullCrossingWire(pma4.tx_clkout[i], cycle);
       rule tx_loopback(tx_lpbk_en);
-         //mkConnection(gearboxDn[i].gbOut, lpbkSyncPipeIn[i]);
          let v <- toGet(gearboxDn[i].gbOut).get;
          lpbkSyncPipeIn[i].enq(v);
+      endrule
+      rule tx_pma_loopback(tx_lpbk_en);
          // Make sure PMA is up by sending fake data.
-         Bit#(40) count = {8'hA1, cycle_cross};
+         Bit#(40) count = 40'hAAAAA55555;
          pma4.tx[i].enq(count);
       endrule
       rule rx_loopback(rx_lpbk_en);
-         //mkConnection(lpbkSyncPipeOut[i], gearboxUp[i].gbIn);
          let v <- toGet(lpbkSyncPipeOut[i]).get;
          gearboxUp[i].gbIn.enq(v);
       endrule
+      rule rx_pma_loopback(rx_lpbk_en);
+         let v <- toGet(pma4.rx[i]).get;
+      endrule
+      // END Loopback Operation
 
       // Use these code to move syncFifo out of Gearbox
       //rxSynchronizer[i] <- mkSyncBRAMFIFO(10, pma4.rx_clkout[i], pma4.rx_reset[i], clk_156_25, rst_156_25_n);
@@ -199,6 +200,13 @@ module mkEthPhy#(Clock mgmt_clk, Clock clk_156_25, Clock clk_644, Reset rst_156_
    rule cyc;
       cycle <= cycle + 1;
    endrule
+
+   for (Integer i=0; i<valueOf(NumPorts); i=i+1) begin
+      rule every1;
+         pcs[i].tx_ready(tx_ready_cross);
+         pcs[i].rx_ready(rx_ready_cross);
+      endrule
+   end
 
    for (Integer i=0; i<valueOf(NumPorts); i=i+1) begin
       rule receive;
