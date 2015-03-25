@@ -24,6 +24,7 @@ import Vector::*;
 import MemServer::*;
 import MMU::*;
 import Portal::*;
+import Clocks::*;
 import HostInterface::*;
 import CtrlMux::*;
 import MemTypes::*;
@@ -42,9 +43,11 @@ import PmaTest::*;
 typedef enum {PmaTestRequest, PmaTestIndication, HostMemServerIndication, HostMemServerRequest, HostMMURequest, HostMMUIndication} IfcNames deriving (Eq,Bits);
 
 module mkConnectalTop(StdConnectalDmaTop#(PhysAddrWidth));
+   Clock slow_clock <- mkAbsoluteClock(1, 66);
+   Clock fast_clock <- mkAbsoluteClock(1, 40);
 
    PmaTestIndicationProxy pmaTestIndicationProxy <- mkPmaTestIndicationProxy(PmaTestIndication);
-   PmaTest pmaTest <- mkPmaTest(pmaTestIndicationProxy.ifc);
+   PmaTest pmaTest <- mkPmaTest(pmaTestIndicationProxy.ifc, slow_clock);
    PmaTestRequestWrapper pmaTestRequestWrapper <- mkPmaTestRequestWrapper(PmaTestRequest,pmaTest.request);
 
    Vector#(1, MemReadClient#(64)) readClients = cons(pmaTest.dmaClient, nil);
@@ -68,6 +71,6 @@ module mkConnectalTop(StdConnectalDmaTop#(PhysAddrWidth));
    interface interrupt = getInterruptVector(portals);
    interface slave = ctrl_mux;
    interface masters = dma.masters;
-   interface leds = default_leds;
+//   interface leds = default_leds;
    interface Empty pins; endinterface
 endmodule : mkConnectalTop

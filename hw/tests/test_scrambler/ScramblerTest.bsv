@@ -47,6 +47,10 @@ module mkScramblerTest#(ScramblerTestIndication indication) (ScramblerTest);
       cycle <= cycle + 1;
    endrule
 
+   rule every1;
+      sc.tx_ready(True);)
+   endrule
+
    rule start(toStart > 0);
       re.readServers[0].request.put(MemengineCmd{sglId:pointer, base:0, len:truncate(chunk), burstLen:truncate(burstLen*4)});
       toStart <= toStart - 1;

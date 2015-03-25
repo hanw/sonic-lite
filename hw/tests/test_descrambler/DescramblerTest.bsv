@@ -47,6 +47,10 @@ module mkDescramblerTest#(DescramblerTestIndication indication) (DescramblerTest
       toStart <= toStart - 1;
    endrule
 
+   rule every1;
+      sc.rx_ready(True);
+   endrule
+
    rule data;
       let v <- toGet(re.dataPipes[0]).get;
       write_data.enq(v[65:0]);

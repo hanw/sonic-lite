@@ -60,19 +60,28 @@ module mkDtpTest#(DtpTestIndication indication) (DtpTest);
    Dtp sc1 <- mkDtp(1);//toPipeOut(fifo_sc2_to_sc1[delay-1]), toPipeOut(write_encoder_data1), 1, 100);
    Dtp sc2 <- mkDtp(2);//toPipeOut(fifo_sc1_to_sc2[delay-1]), toPipeOut(write_encoder_data2), 2, 200);
 
-   mkConnection(pipe_encoder_out1, sc1.encoderIn);
-   mkConnection(pipe_encoder_out2, sc2.encoderIn);
-   mkConnection(pipe_decoder_out1, sc2.decoderIn);
-   mkConnection(pipe_decoder_out2, sc1.decoderIn);
-   rule init;
-      let sc1_out = sc1.encoderOut.first;
-      sc1.encoderOut.deq;
-      let sc2_out = sc2.encoderOut.first;
-      sc2.encoderOut.deq;
+   mkConnection(pipe_encoder_out1, sc1.dtpTxIn);
+   mkConnection(pipe_encoder_out2, sc2.dtpTxIn);
+   mkConnection(pipe_decoder_out1, sc2.dtpRxIn);
+   mkConnection(pipe_decoder_out2, sc1.dtpRxIn);
+
+   rule tx1;
+      let sc1_out <- toGet(sc1.dtpTxOut).get;
       fifo_sc1_to_sc2[0].enq(sc1_out);
-      fifo_sc2_to_sc1[0].enq(sc2_out);
       if(verbose) $display("%d: sc0 -> sc1 : %h", cycle, sc1_out);
+   endrule
+
+   rule tx2;
+      let sc2_out <- toGet(sc2.dtpTxOut).get;
+      fifo_sc2_to_sc1[0].enq(sc2_out);
       if(verbose) $display("%d: sc1 -> sc0 : %h", cycle, sc2_out);
+   endrule
+
+   rule every1;
+      sc1.rx_ready(True);
+      sc1.tx_ready(True);
+      sc2.rx_ready(True);
+      sc2.tx_ready(True);
    endrule
 
    Vector#(Delay, Reg#(Bit#(66))) sc1_wires <- replicateM(mkReg(0));
@@ -87,15 +96,6 @@ module mkDtpTest#(DtpTestIndication indication) (DtpTest);
             fifo_sc2_to_sc1[i+1].enq(sc2_wires[i]);
       endrule
    end
-
-//   rule inp;
-//      let sc1_out = sc1.encoderOut.first;
-//      sc1.encoderOut.deq;
-//      let sc2_out = sc2.encoderOut.first;
-//      sc2.encoderOut.deq;
-//      sc1_to_sc2.enq(sc1_out);
-//      sc2_to_sc1.enq(sc2_out);
-//   endrule
 
    rule cyc;
       cycle <= cycle + 1;
@@ -114,12 +114,13 @@ module mkDtpTest#(DtpTestIndication indication) (DtpTest);
    endrule
 
    rule out;
-      let v1 = sc1.decoderOut.first();
-      sc1.decoderOut.deq;
-      let v2 = sc2.decoderOut.first();
-      sc2.decoderOut.deq;
-      if(verbose) $display("%d: sc1 out v=%h", cycle, v1);
-      if(verbose) $display("%d: sc2 out v=%h", cycle, v2);
+      let v <- toGet(sc1.dtpRxOut).get;
+      if(verbose) $display("%d: sc1 out v=%h", cycle, v);
+   endrule
+
+   rule out2;
+      let v <- toGet(sc2.dtpRxOut).get;
+      if(verbose) $display("%d: sc2 out v=%h", cycle, v);
    endrule
 
    rule finish(toFinish > 0);

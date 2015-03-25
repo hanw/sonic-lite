@@ -1,5 +1,6 @@
 import FIFO::*;
 import FIFOF::*;
+import Clocks::*;
 import SpecialFIFOs::*;
 import Vector::*;
 import GetPut::*;
@@ -25,9 +26,12 @@ interface PmaTestIndication;
    method Action pmaTestDone(Bit#(32) matchCount);
 endinterface
 
-module mkPmaTest#(PmaTestIndication indication) (PmaTest);
+module mkPmaTest#(PmaTestIndication indication, Clock slow_clk) (PmaTest);
 
    let verbose = True;
+   Clock defaultClock <- exposeCurrentClock;
+   Reset defaultReset <- exposeCurrentReset;
+   Reset slow_rst     <- mkAsyncReset(2, defaultReset, slow_clk);
 
    Reg#(SGLId)    pointer  <- mkReg(0);
    Reg#(Bit#(32)) numWords <- mkReg(0);
@@ -36,11 +40,13 @@ module mkPmaTest#(PmaTestIndication indication) (PmaTest);
    Reg#(Bit#(32)) toFinish <- mkReg(0);
    FIFO#(void)          cf <- mkSizedFIFO(1);
    Bit#(MemOffsetSize) chunk = extend(numWords)*4;
-   FIFOF#(Bit#(66)) write_data <- mkBypassFIFOF;
+   FIFOF#(Bit#(66)) write_data <- mkBypassFIFOF(clocked_by slow_clk, reset_by slow_rst);
    PipeOut#(Bit#(66)) pipe_out = toPipeOut(write_data);
 
+   SyncFIFOIfc#(Bit#(64)) syncFIFO <- mkSyncFIFO(1, defaultClock, defaultReset, slow_clk);
+
    MemreadEngineV#(64, 2, 1) re <- mkMemreadEngine;
-   Gearbox_66_40 gb <- mkGearbox66to40;
+   Gearbox_66_40 gb <- mkGearbox66to40(slow_clk);
 
    mkConnection(pipe_out, gb.gbIn);
 
@@ -49,11 +55,21 @@ module mkPmaTest#(PmaTestIndication indication) (PmaTest);
       toStart <= toStart - 1;
    endrule
 
-   rule data;
+   rule toGet;
       let v <- toGet(re.dataPipes[0]).get;
-      write_data.enq(zeroExtend(v));
-      if(verbose) $display("mkPmaTest.write_data v=%h", v);
+      syncFIFO.enq(v);
    endrule
+
+   rule toPut;
+      let v <- toGet(syncFIFO).get;
+      write_data.enq(zeroExtend(v));
+   endrule
+
+//   rule data;
+//      let v <- toGet(re.dataPipes[0]).get;
+//      write_data.enq(zeroExtend(v));
+//      if(verbose) $display("mkPmaTest.write_data v=%h", v);
+//   endrule
 
    rule out;
       let v = gb.gbOut.first();
