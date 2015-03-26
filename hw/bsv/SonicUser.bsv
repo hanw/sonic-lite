@@ -83,9 +83,16 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
       timestamp_reg <= v;
    endrule
 
-   rule log_from_host (lwrite_cf.notEmpty);
+   rule log_from_host (lwrite_cf.notEmpty && fromHostFifo[lwrite_port].notFull);
       fromHostFifo[lwrite_port].enq(lwrite_timestamp);
       lwrite_cf.deq;
+   endrule
+
+   Reg#(Bit#(8))  debug_port_no <- mkReg(0);
+   Reg#(Bit#(53)) debug_host_timestamp <- mkReg(0);
+   rule cannot_log_from_host(!fromHostFifo[lwrite_port].notFull);
+      debug_port_no <= lwrite_port;
+      debug_host_timestamp <= lwrite_timestamp;
    endrule
 
    Reg#(Bit#(TLog#(4))) arb <- mkReg(0);
@@ -116,10 +123,16 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
       toHostFifo[3].deq;
    endrule
 
+   Reg#(Bit#(64)) debug_host_buffer <-mkReg(0);
    rule log_to_host(toHostBuffered.notEmpty);
       let v = toHostBuffered.first;
       indication.log_read_resp(v.port_no, truncate(timestamp_reg), v.data);
+      debug_host_buffer <= 64'hAAAA;
       toHostBuffered.deq;
+   endrule
+
+   rule cannot_log_to_host(!toHostBuffered.notEmpty);
+      debug_host_buffer <= cycle_count;
    endrule
 
    interface dtp = (interface DtpIfc;
