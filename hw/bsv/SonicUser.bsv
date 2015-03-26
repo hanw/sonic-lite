@@ -29,9 +29,8 @@ import GetPut::*;
 
 typedef struct {
    Bit#(8) port_no;
-   Bit#(64) local_cnt;
-   Bit#(64) global_cnt;
-   } S3 deriving (Bits, Eq);
+   Bit#(64) data;
+} BufData deriving (Bits, Eq);
 
 interface DtpIfc;
    interface PipeIn#(Bit#(128)) timestamp; // streaming time counter from NetTop.
@@ -64,17 +63,49 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
    FIFOF#(Bit#(128)) rxFifo    <- mkFIFOF();
    Reg#(Bit#(128)) timestamp_reg <- mkReg(0);
 
-   Vector#(4, FIFOF#(Bit#(53))) fromHostFifo <- replicateM(mkSizedFIFOF(32));
-   Vector#(4, FIFOF#(Bit#(53))) toHostFifo <- replicateM(mkSizedFIFOF(32));
-   Vector#(4, Reg#(Bit#(128)))  toHostReg <- replicateM(mkReg(0));
+   Vector#(4, FIFOF#(Bit#(53))) fromHostFifo <- replicateM(mkSizedFIFOF(4));
+   Vector#(4, FIFOF#(Bit#(53))) toHostFifo <- replicateM(mkSizedFIFOF(4));
+   FIFOF#(BufData) toHostBuffered <- mkSizedFIFOF(16);
+
+   Reg#(Bit#(8))  lwrite_port <- mkReg(0);
+   Reg#(Bit#(53)) lwrite_timestamp <- mkReg(0);
+   FIFOF#(void)    lwrite_cf <- mkSizedFIFOF(8);
+
+   Reg#(Bit#(8))  lread_port <- mkReg(0);
+   FIFOF#(void)   lread_cf <- mkSizedFIFOF(8);
 
    rule count;
       cycle_count <= cycle_count + 1;
    endrule
 
-   rule receive_dtp_timestamp;
+   rule snapshot_dtp_timestamp;
       let v <- toGet(rxFifo).get;
       timestamp_reg <= v;
+   endrule
+
+   rule log_from_host;
+      let v <- toGet(lwrite_cf).get;
+      fromHostFifo[lwrite_port].enq(lwrite_timestamp);
+   endrule
+
+   Reg#(Bit#(TLog#(4))) arb <- mkReg(0);
+   rule arbit;
+      arb <= arb + 1;
+   endrule
+   for (Integer i=0; i<4; i=i+1) begin
+      rule save_to_host_data (arb == fromInteger(i));
+         let port_no = fromInteger(i);
+         if (toHostFifo[port_no].notEmpty) begin
+            toHostBuffered.enq(BufData{port_no:port_no, data:zeroExtend(toHostFifo[port_no].first)});
+            toHostFifo[port_no].deq;
+         end
+      endrule
+   end
+
+   rule log_to_host;
+      let v <- toGet(lread_cf).get;
+      //let v <- toGet(toHostBuffered).get;
+      //indication.log_read_resp(v.port_no, truncate(timestamp_reg), v.data);
    endrule
 
    interface dtp = (interface DtpIfc;
@@ -91,27 +122,18 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
       Bit#(64) delay = (host_cnt - cycle_count) >> 1;
    endmethod
    method Action log_write(Bit#(8) port_no, Bit#(64) host_timestamp);
-      case (port_no)
-         0: fromHostFifo[0].enq(truncate(host_timestamp));
-         1: fromHostFifo[1].enq(truncate(host_timestamp));
-         2: fromHostFifo[2].enq(truncate(host_timestamp));
-         3: fromHostFifo[3].enq(truncate(host_timestamp));
-      endcase
+      // Check valid port No.
+      if (port_no < 4) begin
+         lwrite_port <= port_no;
+         lwrite_timestamp <= truncate(host_timestamp);
+         lwrite_cf.enq(?);
+      end
    endmethod
    method Action log_read_req(Bit#(8) port_no);
-      Int#(64) invalid_data=-1;
-      Int#(8)  invalid_port=-1;
-      let v = 0;
       if (port_no < 4) begin
-         v <- toGet(toHostFifo[port_no]).get;
+         lread_port <= port_no;
+         lread_cf.enq(?);
       end
-      case (port_no)
-         0: indication.log_read_resp(0, truncate(timestamp_reg), zeroExtend(v));
-         1: indication.log_read_resp(1, truncate(timestamp_reg), zeroExtend(v));
-         2: indication.log_read_resp(2, truncate(timestamp_reg), zeroExtend(v));
-         3: indication.log_read_resp(3, truncate(timestamp_reg), zeroExtend(v));
-         default: indication.log_read_resp(pack(signExtend(invalid_port)), pack(signExtend(invalid_data)), pack(signExtend(invalid_data)));
-      endcase
    endmethod
    endinterface
 endmodule
