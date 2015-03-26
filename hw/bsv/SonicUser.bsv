@@ -26,6 +26,7 @@ import FIFOF::*;
 import Vector::*;
 import Pipe::*;
 import GetPut::*;
+import Probe::*;
 
 typedef struct {
    Bit#(8) port_no;
@@ -88,8 +89,8 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
       lwrite_cf.deq;
    endrule
 
-   Reg#(Bit#(8))  debug_port_no <- mkReg(0);
-   Reg#(Bit#(53)) debug_host_timestamp <- mkReg(0);
+   Probe#(Bit#(8))  debug_port_no <- mkProbe();
+   Probe#(Bit#(53)) debug_host_timestamp <- mkProbe();
    rule cannot_log_from_host(!fromHostFifo[lwrite_port].notFull);
       debug_port_no <= lwrite_port;
       debug_host_timestamp <= lwrite_timestamp;
@@ -123,7 +124,7 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
       toHostFifo[3].deq;
    endrule
 
-   Reg#(Bit#(64)) debug_host_buffer <-mkReg(0);
+   Probe#(Bit#(64)) debug_host_buffer <-mkProbe();
    rule log_to_host(toHostBuffered.notEmpty);
       let v = toHostBuffered.first;
       indication.log_read_resp(v.port_no, truncate(timestamp_reg), v.data);

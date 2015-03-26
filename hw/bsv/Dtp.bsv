@@ -29,7 +29,7 @@ import Vector::*;
 import GetPut::*;
 import ClientServer::*;
 import FShow::*;
-
+import Probe::*;
 import Pipe::*;
 //import MemTypes::*;
 
@@ -190,6 +190,7 @@ module mkDtp#(Integer id)(Dtp);
       dtpTxInPipelineFifo.enq(v);
    endrule
 
+   Probe#(Bit#(53)) debug_from_host <- mkProbe();
    rule tx_stage2(tx_ready_wire && rx_ready_wire);
       let val <- toGet(stageOneFifo).get;
       let v <- toGet(dtpTxInPipelineFifo).get();
@@ -218,8 +219,10 @@ module mkDtp#(Integer id)(Dtp);
          encodeOut = {c_local+1, parity, beacon_type, block_type};
       end
       else if (mux_sel && fromHostFifo.notEmpty) begin
-         let host_data <- toGet(fromHostFifo).get;
+         let host_data = fromHostFifo.first;
+         debug_from_host <= host_data;
          encodeOut = {host_data, log_type, block_type};
+         fromHostFifo.deq;
       end
       else begin
          encodeOut = v;
@@ -344,6 +347,7 @@ module mkDtp#(Integer id)(Dtp);
       end
    endrule
 
+   Probe#(Bit#(53)) debug_to_host <- mkProbe();
    // Parse received DTP frame
    // Remove DTP timestamp before passing frame to MAC.
    rule rx_stage1(tx_ready_wire && rx_ready_wire);
@@ -407,6 +411,7 @@ module mkDtp#(Integer id)(Dtp);
             // send v[65:13] to logger.
             log_rcvd_next = True;
             //vo[65:10] = 56'h0;
+            debug_to_host <= v[65:13];
             toHostFifo.enq(v[65:13]);
          end
 //         else begin
