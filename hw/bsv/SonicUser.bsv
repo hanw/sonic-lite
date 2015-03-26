@@ -84,9 +84,12 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
       timestamp_reg <= v;
    endrule
 
-   rule log_from_host (lwrite_cf.notEmpty && fromHostFifo[lwrite_port].notFull);
-      fromHostFifo[lwrite_port].enq(lwrite_timestamp);
-      lwrite_cf.deq;
+   rule log_from_host (lwrite_cf.notEmpty);
+      let v <- lwrite_cf.first;
+      if (fromHostFifo[v.port_no].notFull) begin
+         fromHostFifo[v.port_no].enq(truncate(v.data));
+         lwrite_cf.deq;
+      end
    endrule
 
    Probe#(Bit#(8))  debug_port_no <- mkProbe();
@@ -152,9 +155,7 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
    method Action log_write(Bit#(8) port_no, Bit#(64) host_timestamp);
       // Check valid port No.
       if (port_no < 4) begin
-         lwrite_port <= port_no;
-         lwrite_timestamp <= truncate(host_timestamp);
-         lwrite_cf.enq(?);
+         lwrite_cf.enq(BufData{port_no: port_no, data: host_timestamp});
       end
    endmethod
    method Action log_read_req(Bit#(8) port_no);
