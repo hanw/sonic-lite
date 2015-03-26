@@ -83,29 +83,43 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
       timestamp_reg <= v;
    endrule
 
-   rule log_from_host;
-      let v <- toGet(lwrite_cf).get;
+   rule log_from_host (lwrite_cf.notEmpty);
       fromHostFifo[lwrite_port].enq(lwrite_timestamp);
+      lwrite_cf.deq;
    endrule
 
    Reg#(Bit#(TLog#(4))) arb <- mkReg(0);
    rule arbit;
       arb <= arb + 1;
    endrule
-   for (Integer i=0; i<4; i=i+1) begin
-      rule save_to_host_data (arb == fromInteger(i));
-         let port_no = fromInteger(i);
-         if (toHostFifo[port_no].notEmpty) begin
-            toHostBuffered.enq(BufData{port_no:port_no, data:zeroExtend(toHostFifo[port_no].first)});
-            toHostFifo[port_no].deq;
-         end
-      endrule
-   end
+   rule save_port0_to_host_data (arb == 0 && toHostFifo[0].notEmpty);
+      let v = toHostFifo[0].first;
+      toHostBuffered.enq(BufData{port_no:0, data:zeroExtend(v)});
+      toHostFifo[0].deq;
+   endrule
 
-   rule log_to_host;
-      let v <- toGet(lread_cf).get;
-      //let v <- toGet(toHostBuffered).get;
-      //indication.log_read_resp(v.port_no, truncate(timestamp_reg), v.data);
+   rule save_port1_to_host_data (arb == 1 && toHostFifo[1].notEmpty);
+      let v = toHostFifo[1].first;
+      toHostBuffered.enq(BufData{port_no:1, data:zeroExtend(v)});
+      toHostFifo[1].deq;
+   endrule
+
+   rule save_port2_to_host_data (arb == 2 && toHostFifo[2].notEmpty);
+      let v = toHostFifo[2].first;
+      toHostBuffered.enq(BufData{port_no:2, data:zeroExtend(v)});
+      toHostFifo[2].deq;
+   endrule
+
+   rule save_port3_to_host_data (arb == 3 && toHostFifo[3].notEmpty);
+      let v = toHostFifo[3].first;
+      toHostBuffered.enq(BufData{port_no:3, data:zeroExtend(v)});
+      toHostFifo[3].deq;
+   endrule
+
+   rule log_to_host(toHostBuffered.notEmpty);
+      let v = toHostBuffered.first;
+      indication.log_read_resp(v.port_no, truncate(timestamp_reg), v.data);
+      toHostBuffered.deq;
    endrule
 
    interface dtp = (interface DtpIfc;
@@ -132,7 +146,6 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
    method Action log_read_req(Bit#(8) port_no);
       if (port_no < 4) begin
          lread_port <= port_no;
-         lread_cf.enq(?);
       end
    endmethod
    endinterface

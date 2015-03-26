@@ -146,7 +146,7 @@ module mkDtp#(Integer id)(Dtp);
    FIFOF#(void) dmFifo <- mkFIFOF;
 
    Reg#(Bool)       log_rcvd     <- mkReg(False);
-   FIFOF#(Bit#(53)) fromHostFifo <- mkSizedFIFOF(32);
+   FIFOF#(Bit#(53)) fromHostFifo <- mkSizedFIFOF(1);
    FIFOF#(Bit#(53)) toHostFifo   <- mkSizedFIFOF(1);
 
    rule cyc;
