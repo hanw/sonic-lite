@@ -41,7 +41,6 @@ endinterface
 
 interface SonicUserRequest;
    method Action read_timestamp_req(Bit#(8) cmd);
-   method Action write_delay(Bit#(64) host_cnt);
    method Action log_write(Bit#(8) port_no, Bit#(64) local_cnt);
    method Action log_read_req(Bit#(8) port_no);
 endinterface
@@ -70,7 +69,7 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
 
    Reg#(Bit#(8))  lwrite_port <- mkReg(0);
    Reg#(Bit#(53)) lwrite_timestamp <- mkReg(0);
-   FIFOF#(void)    lwrite_cf <- mkSizedFIFOF(8);
+   FIFOF#(BufData) lwrite_cf <- mkSizedFIFOF(8);
 
    Reg#(Bit#(8))  lread_port <- mkReg(0);
    FIFOF#(void)   lread_cf <- mkSizedFIFOF(8);
@@ -84,13 +83,13 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
       timestamp_reg <= v;
    endrule
 
-   rule log_from_host (lwrite_cf.notEmpty);
-      let v <- lwrite_cf.first;
-      if (fromHostFifo[v.port_no].notFull) begin
-         fromHostFifo[v.port_no].enq(truncate(v.data));
-         lwrite_cf.deq;
-      end
-   endrule
+//   rule log_from_host (lwrite_cf.notEmpty);
+//      let v = lwrite_cf.first;
+//      //if (fromHostFifo[v.port_no].notFull) begin
+//         //fromHostFifo[v.port_no].enq(truncate(v.data));
+//         lwrite_cf.deq;
+//      //end
+//   endrule
 
    Probe#(Bit#(8))  debug_port_no <- mkProbe();
    Probe#(Bit#(53)) debug_host_timestamp <- mkProbe();
@@ -149,14 +148,11 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
    method Action read_timestamp_req(Bit#(8) cmd);
       indication.read_timestamp_resp(truncate(timestamp_reg));
    endmethod
-   method Action write_delay(Bit#(64) host_cnt);
-      Bit#(64) delay = (host_cnt - cycle_count) >> 1;
-   endmethod
    method Action log_write(Bit#(8) port_no, Bit#(64) host_timestamp);
       // Check valid port No.
-      if (port_no < 4) begin
-         lwrite_cf.enq(BufData{port_no: port_no, data: host_timestamp});
-      end
+//      if (port_no < 4) begin
+//         lwrite_cf.enq(BufData{port_no: port_no, data: host_timestamp});
+//      end
    endmethod
    method Action log_read_req(Bit#(8) port_no);
       if (port_no < 4) begin
