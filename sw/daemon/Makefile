@@ -1,7 +1,7 @@
 dtp := dtp
 dtp_mod := dtp_mod
 
-EXTRA_CFLAGS = -O3 -I/home/kslee/connectal/drivers/pcieportal -I/home/kslee/connectal/cpp/
+EXTRA_CFLAGS = -O3 -I${HOME}/connectal/drivers/pcieportal -I${HOME}/connectal/cpp/
 
 ifneq ($(KERNELRELEASE),)
 # in Kernel
