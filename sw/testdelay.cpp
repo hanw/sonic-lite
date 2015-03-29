@@ -43,13 +43,15 @@ public:
 	fprintf(stderr, "read from port(%d) local_cnt(%ld) global_cnt(%ld)\n", a, b, c);
 	incr_cnt();
   }
+  virtual void debug_probe(uint8_t a, uint64_t b, uint64_t c) {
+  }
   SonicUser(unsigned int id) : SonicUserIndicationWrapper(id), cnt(0){}
 };
 
 int main(int argc, const char **argv)
 {
-  SonicUser *indication = new SonicUser(IfcNames_SonicUserRequestS2H);
-  SonicUserRequestProxy *device = new SonicUserRequestProxy(IfcNames_SonicUserIndicationH2S);
+  SonicUser *indication = new SonicUser(IfcNames_SonicUserIndicationH2S);
+  SonicUserRequestProxy *device = new SonicUserRequestProxy(IfcNames_SonicUserRequestS2H);
   device->pint.busyType = BUSY_SPIN;   /* spin until request portal 'notFull' */
 
   portalExec_start();

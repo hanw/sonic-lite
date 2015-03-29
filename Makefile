@@ -5,7 +5,7 @@ S2H_INTERFACES=SonicUserRequest:SonicUser.request
 H2S_INTERFACES=SonicUser:SonicUserIndication
 AUTOTOP= --interface pins:SonicUser.dtp #--importfiles EthSonicPma
 BSVFILES=hw/bsv/SonicUser.bsv
-CPPFILES=sw/testdelay.cpp
+CPPFILES=sw/testlog.cpp
 NUMBER_OF_MASTERS =0
 #PIN_BINDINGS?=-b PCIE:PCIE -b LED:LED -b OSC:OSC -b SFPA:SFPA -b SFPB:SFPB -b SFPC:SFPC -b SFPD:SFPD -b SFP:SFP -b DDR3A:DDR3A -b RZQ:RZQ
 PIN_BINDINGS?=PCIE:PCIE LED:LED OSC:OSC SFPA:SFPA SFPB:SFPB SFPC:SFPC SFPD:SFPD SFP:SFP I2C:CLOCK BUTTON:BUTTON SW:SW
@@ -21,7 +21,7 @@ CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/pll_156/pll_156.qip
 CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/sv_10g_pma/sv_10g_pma.qip
 CONNECTALFLAGS += --xci=$(DTOP)/hw/verilog/pll/altera_clkctrl/synthesis/altera_clkctrl.qip
 CONNECTALFLAGS += --verilog=$(DTOP)/hw/verilog/si570/
-CONNECTALFLAGS += --chipscope=$(DTOP)/hw/stp/dtp_debug.stp
+CONNECTALFLAGS += --chipscope=$(DTOP)/hw/stp/portal_debug.stp
 CONNECTALFLAGS += --tcl=$(DTOP)/boards/de5_extra.qsf
 # Supported Platforms:
 # {vendor}_{platform}=1
