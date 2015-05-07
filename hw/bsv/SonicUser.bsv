@@ -84,13 +84,14 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
       timestamp_reg <= v;
    endrule
 
-//   rule log_from_host (lwrite_cf.notEmpty);
-//      let v = lwrite_cf.first;
-//      //if (fromHostFifo[v.port_no].notFull) begin
-//         //fromHostFifo[v.port_no].enq(truncate(v.data));
-//         lwrite_cf.deq;
-//      //end
-//   endrule
+   rule log_from_host;
+      let v = lwrite_cf.first;
+      lwrite_timestamp <= truncate(v.data);
+      if (fromHostFifo[v.port_no].notFull) begin
+         fromHostFifo[v.port_no].enq(truncate(v.data));
+      end
+      lwrite_cf.deq;
+   endrule
 
    Wire#(Bit#(8))  debug_port_no <- mkDWire(0);
    Wire#(Bit#(53)) debug_host_timestamp <- mkDWire(0);
@@ -130,17 +131,12 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
    Wire#(Bit#(64)) debug_host_buffer <-mkDWire(0);
    rule log_to_host(toHostBuffered.notEmpty);
       let v = toHostBuffered.first;
-      indication.log_read_resp(v.port_no, truncate(timestamp_reg), v.data);
       debug_host_buffer <= 64'hAAAA;
       toHostBuffered.deq;
    endrule
 
    rule cannot_log_to_host(!toHostBuffered.notEmpty);
       debug_host_buffer <= cycle_count;
-   endrule
-
-   rule debug_portal;
-      indication.debug_probe(debug_port_no, zeroExtend(debug_host_timestamp), debug_host_buffer);
    endrule
 
    interface dtp = (interface DtpIfc;
@@ -153,16 +149,17 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
    method Action read_timestamp_req(Bit#(8) cmd);
       indication.read_timestamp_resp(truncate(timestamp_reg));
    endmethod
-//   method Action log_write(Bit#(8) port_no, Bit#(64) host_timestamp);
+   method Action log_write(Bit#(8) port_no, Bit#(64) host_timestamp);
       // Check valid port No.
-//      if (port_no < 4) begin
-//         lwrite_cf.enq(BufData{port_no: port_no, data: host_timestamp});
-//      end
-//   endmethod
+      if (port_no < 4) begin
+         lwrite_cf.enq(BufData{port_no: port_no, data: host_timestamp});
+      end
+   endmethod
    method Action log_read_req(Bit#(8) port_no);
       if (port_no < 4) begin
          lread_port <= port_no;
       end
+      indication.log_read_resp(port_no, zeroExtend(lwrite_timestamp), truncate(timestamp_reg));
    endmethod
 endinterface
 endmodule

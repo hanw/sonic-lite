@@ -28,7 +28,7 @@
 #define NUMBER_OF_TESTS 1
 
 static SonicUserRequestProxy *device = 0;
-static sem_t wait_log;
+//static sem_t wait_log;
 
 class SonicUser : public SonicUserIndicationWrapper
 {
@@ -61,11 +61,11 @@ static void send_timestamp(uint64_t v) {
 
 int main(int argc, const char **argv)
 {
-  SonicUser *indication = new SonicUser(IfcNames_SonicUserIndicationH2S);
+  SonicUser indication(IfcNames_SonicUserIndicationH2S);
   device = new SonicUserRequestProxy(IfcNames_SonicUserRequestS2H);
   device->pint.busyType = BUSY_SPIN;   /* spin until request portal 'notFull' */
 
-  portalExec_start();
+  //portalExec_start();
 
 //  uint64_t count = 0;
 //  for (int i=0; i<10; i++) {
