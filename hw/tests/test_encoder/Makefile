@@ -1,6 +1,8 @@
 CONNECTAL_DIR ?= ../../../../connectal
-INTERFACES = EncoderTestRequest EncoderTestIndication
-BSVFILES = Top.bsv EncoderTest.bsv ../../lib/bsv/Encoder.bsv ../../bsv/Ethernet.bsv
+S2H_INTERFACES = EncoderTestRequest:EncoderTest.request
+H2S_INTERFACES = EncoderTest:EncoderTestIndication
+MEM_INTERFACES = lEncoderTest.dmaClient, nil
+BSVFILES = EncoderTest.bsv
 CPPFILES = test_encoder.cpp
 
 CONNECTALFLAGS+= -D DataBusWidth=128
