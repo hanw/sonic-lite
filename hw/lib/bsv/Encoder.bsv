@@ -32,7 +32,6 @@ import ClientServer::*;
 
 import Pipe::*;
 
-import Ethernet::*;
 
 interface Encoder;
    interface PipeIn#(Bit#(72)) encoderIn;

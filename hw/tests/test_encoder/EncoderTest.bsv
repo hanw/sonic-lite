@@ -1,6 +1,7 @@
 import FIFO::*;
 import FIFOF::*;
 import Vector::*;
+import BuildVector::*;
 import GetPut::*;
 import ClientServer::*;
 import Connectable::*;
@@ -8,6 +9,7 @@ import Connectable::*;
 import Pipe::*;
 import MemTypes::*;
 import MemreadEngine::*;
+import HostInterface::*;
 
 import Encoder::*;
 
@@ -17,7 +19,7 @@ endinterface
 
 interface EncoderTest;
    interface EncoderTestRequest request;
-   interface MemReadClient#(128) dmaClient;
+   interface Vector#(1, MemReadClient#(DataBusWidth)) dmaClient;
 endinterface
 
 interface EncoderTestIndication;
@@ -39,7 +41,7 @@ module mkEncoderTest#(EncoderTestIndication indication) (EncoderTest);
    FIFOF#(Bit#(72)) write_data <- mkFIFOF;
    PipeOut#(Bit#(72)) pipe_out = toPipeOut(write_data);
 
-   MemreadEngineV#(128, 2, 1) re <- mkMemreadEngine;
+   MemreadEngine#(128, 2, 1) re <- mkMemreadEngine;
    Encoder sc <- mkEncoder;
    mkConnection(pipe_out, sc.encoderIn);
 
@@ -79,7 +81,7 @@ module mkEncoderTest#(EncoderTestIndication indication) (EncoderTest);
       toFinish <= toFinish - 1;
    endrule
 
-   interface dmaClient = re.dmaClient;
+   interface dmaClient = vec(re.dmaClient);
    interface EncoderTestRequest request;
       method Action startEncoder(Bit#(32) rp, Bit#(32) nw, Bit#(32)bl, Bit#(32) ic) if(toStart == 0 && toFinish == 0);
          cf.enq(?);
