@@ -31,23 +31,21 @@ public:
 };
 
 int main(int argc, char **argv) {
-    EncoderTestRequestProxy *device = new EncoderTestRequestProxy(IfcNames_EncoderTestRequest);
-    EncoderTestIndication *deviceIndication = new EncoderTestIndication(IfcNames_EncoderTestIndication);
-    MemServerRequestProxy *hostMemServerRequest = new MemServerRequestProxy(IfcNames_HostMemServerRequest);
-    MMURequestProxy *dmap = new MMURequestProxy(IfcNames_HostMMURequest);
+    EncoderTestRequestProxy *device = new EncoderTestRequestProxy(IfcNames_EncoderTestRequestS2H);
+    EncoderTestIndication deviceIndication(IfcNames_EncoderTestIndicationH2S);
+    MemServerRequestProxy *hostMemServerRequest = new MemServerRequestProxy(IfcNames_MemServerRequestS2H);
+    MMURequestProxy *dmap = new MMURequestProxy(IfcNames_MMURequestS2H);
     DmaManager *dma = new DmaManager(dmap);
-    MemServerIndication *hostMemServerIndication = new MemServerIndication(hostMemServerRequest, IfcNames_HostMemServerIndication);
-    MMUIndication *hostMMUIndication = new MMUIndication(dma, IfcNames_HostMMUIndication);
+    MemServerIndication hostMemServerIndication(hostMemServerRequest, IfcNames_MemServerIndicationH2S);
+    MMUIndication hostMMUIndication(dma, IfcNames_MMUIndicationH2S);
 
     const std::string path="../../data/xgmii.data";
     std::ifstream traceinfo(path.c_str());
     std::string line;
 
     int srcAlloc;
-    srcAlloc = portalAlloc(alloc_sz);
+    srcAlloc = portalAlloc(alloc_sz, 0);
     unsigned long int *srcBuffer = (unsigned long int *)portalMmap(srcAlloc, alloc_sz);
-
-    portalExec_start();
 
     for (int i = 0; i < numWords; /*NONE*/ ) {
         std::getline(traceinfo, line);
@@ -60,7 +58,7 @@ int main(int argc, char **argv) {
         srcBuffer[i++] = strtoul(first_64.c_str(), NULL, 16);
     }
 
-    portalDCacheFlushInval(srcAlloc, alloc_sz, srcBuffer);
+    portalCacheFlush(srcAlloc, srcBuffer, alloc_sz, 1);
     unsigned int ref_srcAlloc = dma->reference(srcAlloc);
     printf( "Main::starting read %08x\n", numWords);
     device->startEncoder(ref_srcAlloc, numWords, burstLen, 1);

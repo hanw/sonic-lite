@@ -1,7 +1,7 @@
 CONNECTAL_DIR ?= ../../../../connectal
 S2H_INTERFACES = EncoderTestRequest:EncoderTest.request
 H2S_INTERFACES = EncoderTest:EncoderTestIndication
-MEM_INTERFACES = lEncoderTest.dmaClient, nil
+MEM_INTERFACES = lEncoderTest.dmaClient,nil
 BSVFILES = EncoderTest.bsv
 CPPFILES = test_encoder.cpp
 
