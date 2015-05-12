@@ -1,6 +1,6 @@
 ROOTDIR=$(realpath .)
 CONNECTALDIR?=$(ROOTDIR)/../connectal/
-IPDIR?=$(ROOTDIR)/../fpgamake-cache/sonic-lite/
+IPDIR?=$(ROOTDIR)/../fpgamake-cache/$(shell basename `/bin/pwd`)/
 DTOP?=$(ROOTDIR)
 S2H_INTERFACES=SonicUserRequest:SonicUser.request
 H2S_INTERFACES=SonicUser:SonicUserIndication
@@ -22,7 +22,7 @@ CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/pll_156/altera_pll_156.qip
 CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/sv_10g_pma/sv_10g_pma.qip
 CONNECTALFLAGS += --xci=$(DTOP)/hw/verilog/pll/altera_clkctrl/synthesis/altera_clkctrl.qip
 CONNECTALFLAGS += --verilog=$(DTOP)/hw/verilog/si570/
-CONNECTALFLAGS += --chipscope=$(DTOP)/hw/stp/test.stp
+CONNECTALFLAGS += --chipscope=$(DTOP)/hw/stp/dtp_debug.stp
 CONNECTALFLAGS += --tcl=$(DTOP)/boards/de5_extra.qsf
 # Supported Platforms:
 # {vendor}_{platform}=1

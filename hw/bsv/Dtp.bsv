@@ -76,8 +76,9 @@ typedef 2'b01 INIT_TYPE;
 typedef 2'b10 ACK_TYPE;
 typedef 2'b11 BEACON_TYPE;
 
-typedef 100 INIT_TIMEOUT;
-typedef 100 SYNC_TIMEOUT;
+//FIXME: should be controlled by driver.
+typedef 1000 INIT_TIMEOUT;
+typedef 1000 SYNC_TIMEOUT;
 
 typedef enum {INIT, SENT, SYNC} DtpState
 deriving (Bits, Eq);
@@ -412,7 +413,10 @@ module mkDtp#(Integer id)(Dtp);
             log_rcvd_next = True;
             //vo[65:10] = 56'h0;
             debug_to_host <= v[65:13];
-            toHostFifo.enq(v[65:13]);
+            //FIXME: enable toHost.
+            if (toHostFifo.notFull) begin
+               toHostFifo.enq(v[65:13]);
+            end
          end
 //         else begin
 //            init_rcvd <= False;

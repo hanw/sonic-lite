@@ -65,6 +65,8 @@ import Pipe::*;
 `define PinType Empty
 `endif
 
+`define ENABLE_PCIE
+
 typedef `PinType PinType;
 typedef `ExportType ExportType;
 
@@ -91,7 +93,9 @@ module mkSonicTop #(Clock pcie_refclk_p,
    // NOTE: input clock must be dedicated to PLL to avoid error:
    // Error (175020): Illegal constraint of fractional PLL to the region (x-coordinate, y- coordinate) to (x-coordinate, y-coordinate): no valid locations in region
    // ===================================
+`ifdef ENABLE_PCIE
    PcieHostTop host <- mkPcieHostTop(pcie_refclk_p, osc_50_b3b, pcie_perst_n);
+`endif
 
    AltClkCtrl clk_50_b4a_buf <- mkAltClkCtrl(osc_50_b4a);
    Reset rst_50   <- mkResetInverter(user_reset_n, clocked_by clk_50_b4a_buf.outclk);
@@ -170,11 +174,12 @@ module mkSonicTop #(Clock pcie_refclk_p,
       si570_cntr <= si570_cntr + 1;
    endrule
 
+`ifdef ENABLE_PCIE
 `ifdef IMPORT_HOSTIF
    ConnectalTop#(PhysAddrWidth, DataBusWidth, PinType, NumberOfMasters) portalTop <- mkConnectalTop(host, clocked_by host.portalClock, reset_by host.portalReset);
 `else
    ConnectalTop#(PhysAddrWidth, DataBusWidth, PinType, NumberOfMasters) portalTop <- mkConnectalTop(clocked_by host.portalClock, reset_by host.portalReset);
-`endif
+`endif //IMPORT_HOSTIF
 
    mkConnection(host.tpciehost.master, portalTop.slave, clocked_by host.portalClock, reset_by host.portalReset);
    if (valueOf(NumberOfMasters) > 0) begin
@@ -220,9 +225,12 @@ module mkSonicTop #(Clock pcie_refclk_p,
         host.tpciehost.interruptRequest.put(tuple2({msixEntry.addr_hi, msixEntry.addr_lo}, msixEntry.msg_data));
      end
    endrule
+`endif //ENABLE_PCIE
 
 `ifndef BSIM
+`ifdef ENABLE_PCIE
    interface pcie = host.tep7.pcie;
+`endif
    interface pins = (interface PinsTopIfc;
       interface eth  = eth.ifcs;
       interface i2c  = si570.i2c;
