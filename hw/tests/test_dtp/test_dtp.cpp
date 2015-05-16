@@ -31,23 +31,21 @@ public:
 };
 
 int main(int argc, char **argv) {
-    DtpTestRequestProxy *device = new DtpTestRequestProxy(IfcNames_DtpTestRequest);
-    DtpTestIndication *deviceIndication = new DtpTestIndication(IfcNames_DtpTestIndication);
-    MemServerRequestProxy *hostMemServerRequest = new MemServerRequestProxy(IfcNames_HostMemServerRequest);
-    MMURequestProxy *dmap = new MMURequestProxy(IfcNames_HostMMURequest);
+    DtpTestRequestProxy *device = new DtpTestRequestProxy(IfcNames_DtpTestRequestS2H);
+    DtpTestIndication deviceIndication(IfcNames_DtpTestIndicationH2S);
+    MemServerRequestProxy *hostMemServerRequest = new MemServerRequestProxy(IfcNames_MemServerRequestS2H);
+    MMURequestProxy *dmap = new MMURequestProxy(IfcNames_MMURequestS2H);
     DmaManager *dma = new DmaManager(dmap);
-    MemServerIndication *hostMemServerIndication = new MemServerIndication(hostMemServerRequest, IfcNames_HostMemServerIndication);
-    MMUIndication *hostMMUIndication = new MMUIndication(dma, IfcNames_HostMMUIndication);
+    MemServerIndication hostMemServerIndication(hostMemServerRequest, IfcNames_MemServerIndicationH2S);
+    MMUIndication hostMMUIndication(dma, IfcNames_MMUIndicationH2S);
 
     const std::string path="../data/encoded.data2";
     std::ifstream traceinfo(path.c_str());
     std::string line;
 
     int srcAlloc;
-    srcAlloc = portalAlloc(alloc_sz);
+    srcAlloc = portalAlloc(alloc_sz, 0);
     unsigned long int *srcBuffer = (unsigned long int *)portalMmap(srcAlloc, alloc_sz);
-
-    portalExec_start();
 
     for (int i = 0; i < numWords; /*NONE*/ ) {
         std::getline(traceinfo, line);
@@ -65,7 +63,7 @@ int main(int argc, char **argv) {
         //std::cout << first_64 << second_64 << std::endl;
     }
 
-    portalDCacheFlushInval(srcAlloc, alloc_sz, srcBuffer);
+    portalCacheFlush(srcAlloc, srcBuffer, alloc_sz, 1);
     unsigned int ref_srcAlloc = dma->reference(srcAlloc);
     printf( "Main::starting read %08x\n", numWords);
     device->startDtp(ref_srcAlloc, numWords, burstLen, 1);

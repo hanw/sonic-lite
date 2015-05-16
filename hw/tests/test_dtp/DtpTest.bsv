@@ -1,6 +1,7 @@
 import FIFO::*;
 import FIFOF::*;
 import Vector::*;
+import BuildVector::*;
 import GetPut::*;
 import ClientServer::*;
 import Connectable::*;
@@ -8,6 +9,7 @@ import Connectable::*;
 import Pipe::*;
 import MemTypes::*;
 import MemreadEngine::*;
+import HostInterface::*;
 
 import Dtp::*;
 
@@ -17,7 +19,7 @@ endinterface
 
 interface DtpTest;
    interface DtpTestRequest request;
-   interface MemReadClient#(128) dmaClient;
+   interface Vector#(1, MemReadClient#(DataBusWidth)) dmaClient;
 endinterface
 
 interface DtpTestIndication;
@@ -45,7 +47,7 @@ module mkDtpTest#(DtpTestIndication indication) (DtpTest);
    PipeOut#(Bit#(66)) pipe_encoder_out1 = toPipeOut(write_encoder_data1);
    PipeOut#(Bit#(66)) pipe_encoder_out2 = toPipeOut(write_encoder_data2);
 
-   MemreadEngineV#(128, 2, 1) re <- mkMemreadEngine;
+   MemreadEngine#(128, 2, 1) re <- mkMemreadEngine;
 //   FIFOF#(Bit#(66)) sc1_to_sc2 <- mkFIFOF;
 //   FIFOF#(Bit#(66)) sc2_to_sc1 <- mkFIFOF;
 
@@ -132,7 +134,7 @@ module mkDtpTest#(DtpTestIndication indication) (DtpTest);
       toFinish <= toFinish - 1;
    endrule
 
-   interface dmaClient = re.dmaClient;
+   interface dmaClient = vec(re.dmaClient);
    interface DtpTestRequest request;
       method Action startDtp(Bit#(32) rp, Bit#(32) nw, Bit#(32)bl, Bit#(32) ic) if(toStart == 0 && toFinish == 0);
          cf.enq(?);

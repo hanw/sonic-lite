@@ -1,8 +1,11 @@
 CONNECTALDIR ?= ../../../../connectal
-INTERFACES = DtpTestRequest DtpTestIndication
-BSVFILES = Top.bsv DtpTest.bsv ../../bsv/Dtp.bsv ../../bsv/Ethernet.bsv
+S2H_INTERFACES = DtpTestRequest:DtpTest.request
+H2S_INTERFACES = DtpTest:DtpTestIndication
+MEM_INTERFACES = lDtpTest.dmaClient,nil
+#INTERFACES = DtpTestRequest DtpTestIndication
+BSVFILES = DtpTest.bsv ../../bsv/Dtp.bsv
 CPPFILES = test_dtp.cpp
-
+BSCPATHFLAGS+= -bdir $(CONNECTALDIR)/bsv -bdir ../../lib/bsv
 CONNECTALFLAGS+= -D DataBusWidth=128
 
 include $(CONNECTALDIR)/Makefile.connectal
