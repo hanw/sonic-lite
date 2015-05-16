@@ -366,10 +366,6 @@ module mkDtp#(Integer id)(Dtp);
          if (v[11:10] == init_type) begin
             if (parity == v[12]) begin
                init_rcvd_next = True;
-               //init_rcvd <= True;
-               //ack_rcvd <= False;
-               //beacon_rcvd <= False;
-               //vo[65:10] = 56'h0;
                if(verbose) $display("%d: %d init_rcvd %h %h", cycle, id, c_remote, c_local);
             end
             else begin
@@ -379,10 +375,6 @@ module mkDtp#(Integer id)(Dtp);
          else if (v[11:10] == ack_type) begin
             if (parity == v[12]) begin
                ack_rcvd_next = True;
-               //init_rcvd <= False;
-               //ack_rcvd <= True;
-               //beacon_rcvd <= False;
-               //vo[65:10] = 56'h0;
                if(verbose) $display("%d: %d ack_rcvd %h %h", cycle, id, c_remote, c_local);
             end
             else begin
@@ -392,10 +384,6 @@ module mkDtp#(Integer id)(Dtp);
          else if (v[11:10] == beacon_type) begin
             if (parity == v[12]) begin
                beacon_rcvd_next = True;
-               //init_rcvd <= False;
-               //ack_rcvd <= False;
-               //beacon_rcvd <= True;
-               //vo[65:10] = 56'h0;
                localCompareRemoteFifo.enq(c_local + 1);
                remoteCompareLocalFifo.enq(c_remote + 1);
                if(verbose) $display("%d: %d beacon_rcvd %h %h", cycle, id, c_remote, c_local);
@@ -407,24 +395,15 @@ module mkDtp#(Integer id)(Dtp);
          else if (v[12:10] == log_type) begin
             // send v[65:13] to logger.
             log_rcvd_next = True;
-            //vo[65:10] = 56'h0;
             debug_to_host <= v[65:13];
             //FIXME: enable toHost.
             if (toHostFifo.notFull) begin
                toHostFifo.enq(v[65:13]);
             end
          end
-//         else begin
-//            init_rcvd <= False;
-//            ack_rcvd <= False;
-//            beacon_rcvd <= False;
-//         end
          dtpEventFifo.enq(v[11:10]);
       end
       else begin
-//         init_rcvd <= False;
-//         ack_rcvd <= False;
-//         beacon_rcvd <= False;
          dtpEventFifo.enq(2'b0);
       end
       //if(verbose) $display("%d: %d dtpRxIn=%h", cycle, id, v);
