@@ -62,10 +62,6 @@ interface Dtp;
    method Action tx_ready(Bool v);
    (* always_ready, always_enabled *)
    method Action rx_ready(Bool v);
-//   method Vector#(N_IFCs, Bit#(TIMESTAMP_LEN)) local_clock;
-//   method Bit#(TIMESTAMP_LEN) global_clock;
-//   interface PipeOut#(Bit#(53)) toHost;
-//   interface PipeIn#(Bit#(53))  fromHost;
    interface DtpToPhyIfc api;
 endinterface
 
