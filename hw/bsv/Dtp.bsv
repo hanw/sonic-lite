@@ -130,8 +130,8 @@ module mkDtp#(Integer id)(Dtp);
    FIFOF#(Bit#(53)) globalOutputFifo <- mkFIFOF;
    FIFOF#(Bit#(53)) remoteOutputFifo <- mkFIFOF;
 
-   FIFOF#(Bool) localLeRemoteFifo  <- mkFIFOF;
-   FIFOF#(Bool) localGtRemoteFifo  <- mkFIFOF;
+   FIFOF#(Bool) localLtRemoteFifo  <- mkFIFOF;
+   FIFOF#(Bool) localGeRemoteFifo  <- mkFIFOF;
    FIFOF#(Bool) globalLeRemoteFifo <- mkFIFOF;
    FIFOF#(Bool) globalGtRemoteFifo <- mkFIFOF;
    FIFOF#(Bool) globalLeLocalFifo  <- mkFIFOF;
@@ -419,13 +419,13 @@ module mkDtp#(Integer id)(Dtp);
       let v_local <- toGet(localCompareRemoteFifo).get();
       let v_remote <- toGet(remoteCompareLocalFifo).get();
       if(verbose) $display("%d: %d, v_local=%h, v_remote=%h, delay=%h", cycle, id, v_local, v_remote, delay);
-      if (v_local + 1 <= v_remote + delay) begin
-         localLeRemoteFifo.enq(True);
-         localGtRemoteFifo.enq(False);
+      if (v_local + 1 < v_remote + delay) begin
+         localLtRemoteFifo.enq(True);
+         localGeRemoteFifo.enq(False);
       end
       else begin
-         localLeRemoteFifo.enq(False);
-         localGtRemoteFifo.enq(True);
+         localLtRemoteFifo.enq(False);
+         localGeRemoteFifo.enq(True);
       end
       localOutputFifo.enq(v_local + 1);
       remoteOutputFifo.enq(v_remote + 1);
@@ -468,8 +468,8 @@ module mkDtp#(Integer id)(Dtp);
    rule rx_stage3_compute_c_local_next(mode==0);
       let vLocal <- toGet(localOutputFifo).get();
       let vRemote <- toGet(remoteOutputFifo).get();
-      let useLocal <- toGet(localGtRemoteFifo).get();
-      let _unused_ <- toGet(localLeRemoteFifo).get();
+      let useLocal <- toGet(localGeRemoteFifo).get();
+      let _unused_ <- toGet(localLtRemoteFifo).get();
       if(verbose) $display("%d: %d, vLocal=%h", cycle, id, vLocal);
       if(verbose) $display("%d: %d, vRemote=%h", cycle, id, vRemote);
       if(verbose) $display("%d: %d, delay=%h", cycle, id, delay);
@@ -487,10 +487,10 @@ module mkDtp#(Integer id)(Dtp);
       let v_global <- toGet(globalOutputFifo).get();
       let isGR <- toGet(globalGtRemoteFifo).get();
       let isGL <- toGet(globalGtLocalFifo).get();
-      let isLR <- toGet(localGtRemoteFifo).get();
+      let isLR <- toGet(localGeRemoteFifo).get();
       let isLG <- toGet(globalLeLocalFifo).get();
       let isRG <- toGet(globalLeRemoteFifo).get();
-      let isRL <- toGet(localLeRemoteFifo).get();
+      let isRL <- toGet(localLtRemoteFifo).get();
       let global_delay = fromInteger(valueOf(GLOBAL_DELAY));
       if (isGR && isGL) begin
          c_local_next <= v_global + global_delay;
