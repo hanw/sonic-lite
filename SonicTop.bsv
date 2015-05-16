@@ -97,6 +97,13 @@ module mkSonicTop #(Clock pcie_refclk_p,
    PcieHostTop host <- mkPcieHostTop(pcie_refclk_p, osc_50_b3b, pcie_perst_n);
 `endif
 
+`ifdef ENABLE_PCIE
+`ifdef IMPORT_HOSTIF
+   ConnectalTop#(PhysAddrWidth, DataBusWidth, PinType, NumberOfMasters) portalTop <- mkConnectalTop(host, clocked_by host.portalClock, reset_by host.portalReset);
+`else
+   ConnectalTop#(PhysAddrWidth, DataBusWidth, PinType, NumberOfMasters) portalTop <- mkConnectalTop(clocked_by host.portalClock, reset_by host.portalReset);
+`endif //IMPORT_HOSTIF
+
    AltClkCtrl clk_50_b4a_buf <- mkAltClkCtrl(osc_50_b4a);
    Reset rst_50   <- mkResetInverter(user_reset_n, clocked_by clk_50_b4a_buf.outclk);
    Reset rst_50_n <- mkAsyncReset(2, user_reset_n, clk_50_b4a_buf.outclk);
@@ -131,7 +138,10 @@ module mkSonicTop #(Clock pcie_refclk_p,
    //
    SwitchIfc   switches <- mkSwitch(clocked_by clk_50_b4a_buf.outclk, reset_by rst_50_n);
 
-   NetTopIfc   eth <- mkNetTop(clk_50_b4a_buf.outclk, clk_156_25, sfp_refclk, clocked_by clk_156_25, reset_by rst_156_n);
+   // ResetMux
+   Reset rst_api <- mkSyncReset(0, portalTop.pins.rst, clk_156_25);
+   Reset net_top_rst <- mkResetEither(rst_156_n, rst_api, clocked_by clk_156_25);
+   NetTopIfc   eth <- mkNetTop(clk_50_b4a_buf.outclk, clk_156_25, sfp_refclk, clocked_by clk_156_25, reset_by net_top_rst); //rst_156_n);
 
    rule si570_connections;
       //ifreq_mode = 3'b000;  //100.0 MHZ
@@ -174,13 +184,6 @@ module mkSonicTop #(Clock pcie_refclk_p,
       si570_cntr <= si570_cntr + 1;
    endrule
 
-`ifdef ENABLE_PCIE
-`ifdef IMPORT_HOSTIF
-   ConnectalTop#(PhysAddrWidth, DataBusWidth, PinType, NumberOfMasters) portalTop <- mkConnectalTop(host, clocked_by host.portalClock, reset_by host.portalReset);
-`else
-   ConnectalTop#(PhysAddrWidth, DataBusWidth, PinType, NumberOfMasters) portalTop <- mkConnectalTop(clocked_by host.portalClock, reset_by host.portalReset);
-`endif //IMPORT_HOSTIF
-
    mkConnection(host.tpciehost.master, portalTop.slave, clocked_by host.portalClock, reset_by host.portalReset);
    if (valueOf(NumberOfMasters) > 0) begin
       mapM(uncurry(mkConnection),zip(portalTop.masters, host.tpciehost.slave));
@@ -190,7 +193,7 @@ module mkSonicTop #(Clock pcie_refclk_p,
    SyncFIFOIfc#(Bit#(128)) tsFifo <- mkSyncBRAMFIFO(8, clk_156_25, rst_156_n, host.portalClock, host.portalReset);
    PipeOut#(Bit#(128)) txFifoPipeOut = toPipeOut(tsFifo);
    PipeIn#(Bit#(128)) txFifoPipeIn = toPipeIn(tsFifo);
-   mkConnection(eth.dtp.timestamp, txFifoPipeIn);
+   mkConnection(eth.api.timestamp, txFifoPipeIn);
    mkConnection(txFifoPipeOut, portalTop.pins.timestamp);
 
    // send log data from host to network
@@ -199,7 +202,7 @@ module mkSonicTop #(Clock pcie_refclk_p,
    Vector#(4, PipeIn#(Bit#(53))) fromHostPipeIn = map(toPipeIn,fromHostFifo);
    for (Integer i=0; i<4; i=i+1) begin
       mkConnection(portalTop.pins.fromHost[i], fromHostPipeIn[i]);
-      mkConnection(fromHostPipeOut[i], eth.dtp.fromHost[i]);
+      mkConnection(fromHostPipeOut[i], eth.api.phys[i].fromHost);
    end
 
    // send log data from network to host
@@ -207,7 +210,7 @@ module mkSonicTop #(Clock pcie_refclk_p,
    Vector#(4, PipeOut#(Bit#(53))) toHostPipeOut = map(toPipeOut, toHostFifo);
    Vector#(4, PipeIn#(Bit#(53))) toHostPipeIn = map(toPipeIn, toHostFifo);
    for (Integer i=0; i<4; i=i+1) begin
-      mkConnection(eth.dtp.toHost[i], toHostPipeIn[i]);
+      mkConnection(eth.api.phys[i].toHost, toHostPipeIn[i]);
       mkConnection(toHostPipeOut[i], portalTop.pins.toHost[i]);
    end
 

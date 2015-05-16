@@ -61,7 +61,7 @@ interface NetTopIfc;
    (* prefix="" *)
    interface NetExportIfc ifcs;
    (* prefix="" *)
-   interface NetToConnectalIfc dtp;
+   interface NetToConnectalIfc api;
 endinterface
 
 (* synthesize *)
@@ -73,7 +73,7 @@ module mkNetTop #(Clock clk_50, Clock clk_156_25, Clock clk_644)(NetTopIfc);
 
    EthPortIfc ports <- mkEthPorts(clk_50, clk_156_25, clk_644, clocked_by clk_156_25, reset_by rst_156_n);
 
-   interface dtp = ports.dtp;
+   interface api = ports.api;
    interface ifcs = (interface NetExportIfc;
       interface loopback = ports.loopback;
       interface sfpctrl = ports.sfpctrl;

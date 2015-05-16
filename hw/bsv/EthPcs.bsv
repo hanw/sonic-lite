@@ -51,8 +51,8 @@ interface EthPcs;
    interface PipeOut#(Bit#(66)) scramblerOut;
    method Action rx_ready(Bool v);
    method Action tx_ready(Bool v);
-   interface PipeOut#(Bit#(53)) toHost;
-   interface PipeIn#(Bit#(53))  fromHost;
+
+   interface DtpToPhyIfc        api;
 endinterface
 
 module mkEthPcs#(Integer id)(EthPcs);
@@ -129,8 +129,7 @@ module mkEthPcs#(Integer id)(EthPcs);
       bsync.rx_ready(v);
    endmethod
 
-   interface toHost       = dtp.toHost;
-   interface fromHost     = dtp.fromHost;
+   interface api          = dtp.api;
    interface encoderIn    = encoder.encoderIn;
    interface bsyncIn      = bsync.blockSyncIn;
    interface decoderOut   = decoder.decoderOut;
