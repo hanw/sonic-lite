@@ -63,7 +63,7 @@ interface EthPortIfc;
    interface Vector#(NumPorts, Clock) tx_clkout;
    (* always_ready, always_enabled *)
    interface LoopbackIfc loopback;
-   interface NetToConnectalIfc dtp;
+   interface NetToConnectalIfc api;
 endinterface
 
 (* synthesize *)
@@ -105,10 +105,9 @@ module mkEthPorts#(Clock clk_50, Clock clk_156_25, Clock clk_644)(EthPortIfc);
       tsFifo.enq(cycle);
    endrule
 
-   interface dtp = (interface NetToConnectalIfc;
+   interface api = (interface NetToConnectalIfc;
       interface timestamp = toPipeOut(tsFifo);
-      interface toHost   = phys.toHost;
-      interface fromHost = phys.fromHost;
+      interface phys = phys.api;
    endinterface);
 
    interface loopback = phys.loopback;

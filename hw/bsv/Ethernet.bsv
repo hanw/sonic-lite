@@ -143,10 +143,16 @@ typedef struct {
    Bit#(53) ts_global;
 } LogUnit deriving (Bits);
 
+interface DtpToPhyIfc;
+   interface PipeOut#(Bit#(32)) delayOut;
+   interface PipeOut#(Bit#(32)) stateOut;
+   interface PipeOut#(Bit#(53)) toHost;
+   interface PipeIn#(Bit#(53))  fromHost;
+endinterface
+
 interface NetToConnectalIfc;
    interface PipeOut#(Bit#(128)) timestamp;
-   interface Vector#(NumPorts, PipeOut#(Bit#(53))) toHost;
-   interface Vector#(NumPorts, PipeIn#(Bit#(53))) fromHost;
+   interface Vector#(NumPorts, DtpToPhyIfc) phys;
 endinterface
 
 endpackage: Ethernet

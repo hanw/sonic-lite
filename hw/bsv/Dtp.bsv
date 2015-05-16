@@ -31,6 +31,7 @@ import ClientServer::*;
 import FShow::*;
 import Probe::*;
 import Pipe::*;
+import Ethernet::*;
 //import MemTypes::*;
 
 typedef 54 TIMESTAMP_LEN;
@@ -52,10 +53,6 @@ typedef struct {
    Bit#(1)  parity;
 } TxStageOneBuf deriving (Eq, Bits);
 
-interface DtpIn;
-   //interface PipeOut#(CmdTup)    cmdIn;
-endinterface
-
 interface Dtp;
    interface PipeIn#(Bit#(66))  dtpRxIn;
    interface PipeIn#(Bit#(66))  dtpTxIn;
@@ -67,8 +64,9 @@ interface Dtp;
    method Action rx_ready(Bool v);
 //   method Vector#(N_IFCs, Bit#(TIMESTAMP_LEN)) local_clock;
 //   method Bit#(TIMESTAMP_LEN) global_clock;
-   interface PipeOut#(Bit#(53)) toHost;
-   interface PipeIn#(Bit#(53))  fromHost;
+//   interface PipeOut#(Bit#(53)) toHost;
+//   interface PipeIn#(Bit#(53))  fromHost;
+   interface DtpToPhyIfc api;
 endinterface
 
 typedef 3'b100 LOG_TYPE;
@@ -100,7 +98,7 @@ module mkDtp#(Integer id)(Dtp);
 
    Reg#(Bit#(1))   mode <- mkReg(0); // mode=0 NIC, mode=1 SWITCH
    Reg#(Bit#(32))  cycle   <- mkReg(0);
-   Reg#(DtpState) curr_state  <- mkReg(INIT);
+   Reg#(DtpState)  curr_state  <- mkReg(INIT);
 
    Reg#(Bit#(53))  c_local <- mkReg(0); //fromInteger(c_local_init));
    Reg#(Bit#(53))  delay   <- mkReg(0);
@@ -149,6 +147,8 @@ module mkDtp#(Integer id)(Dtp);
    Reg#(Bool)       log_rcvd     <- mkReg(False);
    FIFOF#(Bit#(53)) fromHostFifo <- mkSizedFIFOF(1);
    FIFOF#(Bit#(53)) toHostFifo   <- mkSizedFIFOF(1);
+   FIFOF#(Bit#(32)) delayFifo    <- mkSizedFIFOF(1);
+   FIFOF#(Bit#(32)) stateFifo     <- mkSizedFIFOF(1);
 
    rule cyc;
       cycle <= cycle + 1;
@@ -540,6 +540,14 @@ module mkDtp#(Integer id)(Dtp);
       end
    endrule
 
+   rule export_delay;
+      delayFifo.enq(truncate(delay));
+   endrule
+
+   rule export_state;
+      stateFifo.enq(zeroExtend(pack(curr_state)));
+   endrule
+
    method Action tx_ready(Bool v);
       tx_ready_wire <= v;
    endmethod
@@ -548,8 +556,12 @@ module mkDtp#(Integer id)(Dtp);
       rx_ready_wire <= v;
    endmethod
 
-   interface toHost  = toPipeOut(toHostFifo);
-   interface fromHost = toPipeIn(fromHostFifo);
+   interface api = (interface DtpToPhyIfc;
+      interface delayOut = toPipeOut(delayFifo);
+      interface stateOut = toPipeOut(stateFifo);
+      interface toHost   = toPipeOut(toHostFifo);
+      interface fromHost = toPipeIn(fromHostFifo);
+   endinterface);
    interface dtpRxIn = toPipeIn(dtpRxInFifo);
    interface dtpTxIn = toPipeIn(dtpTxInFifo);
    interface dtpRxOut = toPipeOut(dtpRxOutFifo);

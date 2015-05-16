@@ -33,31 +33,23 @@ static SonicUserRequestProxy *device = 0;
 class SonicUser : public SonicUserIndicationWrapper
 {
 public:
-  uint32_t cnt;
-  void incr_cnt(){
-    if (++cnt == NUMBER_OF_TESTS)
-      exit(0);
+  virtual void dtp_read_delay_resp(uint8_t p, uint32_t a) {
+    fprintf(stderr, "read delay(%d) %d\n", p, a);
   }
-  virtual void read_timestamp_resp(uint64_t a) {
+  virtual void dtp_read_state_resp(uint8_t p, uint32_t a) {
+    fprintf(stderr, "read state(%d) %d\n", p, a);
+  }
+  virtual void dtp_read_error_resp(uint8_t p, uint64_t a) {
+    fprintf(stderr, "read error(%d) %ld\n", p, a);
+  }
+  virtual void dtp_read_cnt_resp(uint64_t a) {
     fprintf(stderr, "readCycleCount(%ld)\n", a);
-    incr_cnt();
   }
-  virtual void log_read_resp(uint8_t a, uint64_t b, uint64_t c) {
-	fprintf(stderr, "read from port(%d) local_cnt(%ld) global_cnt(%ld)\n", a, b, c);
-	incr_cnt();
+  virtual void dtp_logger_read_cnt_resp(uint8_t a, uint64_t b, uint64_t c, uint64_t d) {
+	fprintf(stderr, "read from port(%d) local_cnt(%ld) msg1(%ld) msg2(%ld)\n", a, b, c, d);
   }
-  virtual void debug_probe(uint8_t a, uint64_t b, uint64_t c) {
-	incr_cnt();
-  }
-  SonicUser(unsigned int id) : SonicUserIndicationWrapper(id), cnt(0){}
+  SonicUser(unsigned int id) : SonicUserIndicationWrapper(id) {}
 };
-
-static void send_timestamp(uint64_t v) {
-	printf("test send timestamp\n");
-	device->read_timestamp_req(0xF);
-//	device->log_write(0,v);
-//	device->log_read_req(0);
-}
 
 int main(int argc, const char **argv)
 {
@@ -72,7 +64,8 @@ int main(int argc, const char **argv)
 //    count = portalCycleCount();
 //    fprintf(stderr, "%lx\n", count);
 //  }
-  send_timestamp(0x200);
+  //device->dtp_read_cnt(0x0);
+  device->dtp_reset(0x0);
 
   fprintf(stderr, "Main::about to go to sleep\n");
   while(true){sleep(2);}

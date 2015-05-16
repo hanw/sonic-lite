@@ -2,3 +2,7 @@ set_instance_assignment -name XCVR_TX_VOD 50 -to serial_0_tx_data
 set_instance_assignment -name XCVR_TX_VOD 50 -to serial_1_tx_data
 set_instance_assignment -name XCVR_TX_VOD 50 -to serial_2_tx_data
 set_instance_assignment -name XCVR_TX_VOD 50 -to serial_3_tx_data
+set_instance_assignment -name XCVR_TX_PRE_EMP_1ST_POST_TAP 29 -to serial_0_tx_data
+set_instance_assignment -name XCVR_TX_PRE_EMP_1ST_POST_TAP 29 -to serial_1_tx_data
+set_instance_assignment -name XCVR_TX_PRE_EMP_1ST_POST_TAP 29 -to serial_2_tx_data
+set_instance_assignment -name XCVR_TX_PRE_EMP_1ST_POST_TAP 29 -to serial_3_tx_data

@@ -55,8 +55,8 @@ interface EthPhyIfc#(numeric type numPorts);
    interface Vector#(numPorts, Clock) rx_clkout;
    (* always_ready, always_enabled *)
    interface LoopbackIfc loopback;
-   interface Vector#(numPorts, PipeOut#(Bit#(53))) toHost;
-   interface Vector#(numPorts, PipeIn#(Bit#(53))) fromHost;
+
+   interface Vector#(numPorts, DtpToPhyIfc) api;
 endinterface
 
 function Bit#(n) reverseBits(Bit#(n) x);
@@ -126,10 +126,6 @@ module mkEthPhy#(Clock mgmt_clk, Clock clk_156_25, Clock clk_644, Reset rst_156_
    Vector#(NumPorts, SyncFIFOIfc#(Bit#(40))) lpbkSyncFifo = newVector;
    Vector#(NumPorts, PipeOut#(Bit#(40))) lpbkSyncPipeOut = newVector;
    Vector#(NumPorts, PipeIn#(Bit#(40))) lpbkSyncPipeIn = newVector;
-
-   // Logging PipeOut
-   Vector#(NumPorts, PipeOut#(Bit#(53))) toHostPipeOut;
-   Vector#(NumPorts, PipeIn#(Bit#(53))) fromHostPipeIn;
 
    for (Integer i=0; i<valueOf(NumPorts); i=i+1) begin
       // Gearbox Level Loopback FIFO
@@ -221,9 +217,9 @@ module mkEthPhy#(Clock mgmt_clk, Clock clk_156_25, Clock clk_644, Reset rst_156_
       endrule
    end
 
+   Vector#(NumPorts, DtpToPhyIfc) vapi;
    for (Integer i=0; i<valueOf(NumPorts); i=i+1) begin
-      toHostPipeOut[i] = pcs[i].toHost;
-      fromHostPipeIn[i] = pcs[i].fromHost;
+      vapi[i] = pcs[i].api;
    end
 
    interface loopback = (interface LoopbackIfc;
@@ -231,13 +227,14 @@ module mkEthPhy#(Clock mgmt_clk, Clock clk_156_25, Clock clk_644, Reset rst_156_
          loopback_en <= en;
       endmethod
    endinterface);
+
    interface rx_clkout = pma4.rx_clkout;
    interface tx_clkout = pma4.tx_clkout;
    interface serial = pma4.pmd;
    interface rx = vRxPipeOut;
    interface tx = vTxPipeIn;
-   interface toHost = toHostPipeOut;
-   interface fromHost = fromHostPipeIn;
+
+   interface api = vapi;
 
 endmodule: mkEthPhy
 endpackage: EthPhy
