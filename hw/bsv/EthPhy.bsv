@@ -80,10 +80,12 @@ module mkEthPhy#(Clock mgmt_clk, Clock clk_156_25, Clock clk_644, Reset rst_156_
 
 //   let tx_xcvr_reset_n <- mkResetSync(2, True, clk_156_25, clocked_by clk_156_25, reset_by rst_156_25_n);
 //   let rx_xcvr_reset_n <- mkResetSync(2, True, clk_156_25, clocked_by clk_156_25, reset_by rst_156_25_n);
-   ReadOnly#(Bool) rx_ready_cross;
-   ReadOnly#(Bool) tx_ready_cross;
-   rx_ready_cross <- mkNullCrossingWire(clk_156_25, pma4.rx_ready);
-   tx_ready_cross <- mkNullCrossingWire(clk_156_25, pma4.tx_ready);
+   Vector#(NumPorts, ReadOnly#(Bool)) rx_ready_cross;
+   Vector#(NumPorts, ReadOnly#(Bool)) tx_ready_cross;
+   for (Integer i=0; i<valueOf(NumPorts); i=i+1) begin
+      rx_ready_cross[i] <- mkNullCrossingWire(clk_156_25, pma4.rx_ready[i]);
+      tx_ready_cross[i] <- mkNullCrossingWire(clk_156_25, pma4.tx_ready[i]);
+   end
 //   rule tx_pma_assert_reset;
 //      if (!tx_ready_cross) begin
 //         tx_xcvr_reset_n.assertReset();
@@ -205,8 +207,8 @@ module mkEthPhy#(Clock mgmt_clk, Clock clk_156_25, Clock clk_644, Reset rst_156_
 
    for (Integer i=0; i<valueOf(NumPorts); i=i+1) begin
       rule every1;
-         pcs[i].tx_ready(tx_ready_cross);
-         pcs[i].rx_ready(rx_ready_cross);
+         pcs[i].tx_ready(tx_ready_cross[i]);
+         pcs[i].rx_ready(rx_ready_cross[i]);
       endrule
    end
 

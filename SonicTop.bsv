@@ -95,14 +95,13 @@ module mkSonicTop #(Clock pcie_refclk_p,
    // ===================================
 `ifdef ENABLE_PCIE
    PcieHostTop host <- mkPcieHostTop(pcie_refclk_p, osc_50_b3b, pcie_perst_n);
-`endif
 
-`ifdef ENABLE_PCIE
 `ifdef IMPORT_HOSTIF
    ConnectalTop#(PhysAddrWidth, DataBusWidth, PinType, NumberOfMasters) portalTop <- mkConnectalTop(host, clocked_by host.portalClock, reset_by host.portalReset);
 `else
    ConnectalTop#(PhysAddrWidth, DataBusWidth, PinType, NumberOfMasters) portalTop <- mkConnectalTop(clocked_by host.portalClock, reset_by host.portalReset);
 `endif //IMPORT_HOSTIF
+`endif //ENABLE_PCIE
 
    AltClkCtrl clk_50_b4a_buf <- mkAltClkCtrl(osc_50_b4a);
    Reset rst_50   <- mkResetInverter(user_reset_n, clocked_by clk_50_b4a_buf.outclk);
@@ -138,10 +137,14 @@ module mkSonicTop #(Clock pcie_refclk_p,
    //
    SwitchIfc   switches <- mkSwitch(clocked_by clk_50_b4a_buf.outclk, reset_by rst_50_n);
 
-   // ResetMux
+`ifdef ENABLE_PCIE
+   // Reset from PCIe Command
    Reset rst_api <- mkSyncReset(0, portalTop.pins.rst, clk_156_25);
    Reset net_top_rst <- mkResetEither(rst_156_n, rst_api, clocked_by clk_156_25);
    NetTopIfc   eth <- mkNetTop(clk_50_b4a_buf.outclk, clk_156_25, sfp_refclk, clocked_by clk_156_25, reset_by net_top_rst); //rst_156_n);
+`else
+   NetTopIfc   eth <- mkNetTop(clk_50_b4a_buf.outclk, clk_156_25, sfp_refclk, clocked_by clk_156_25, reset_by rst_156_n);
+`endif //ENABLE_PCIE
 
    rule si570_connections;
       //ifreq_mode = 3'b000;  //100.0 MHZ
@@ -184,6 +187,7 @@ module mkSonicTop #(Clock pcie_refclk_p,
       si570_cntr <= si570_cntr + 1;
    endrule
 
+`ifdef ENABLE_PCIE
    mkConnection(host.tpciehost.master, portalTop.slave, clocked_by host.portalClock, reset_by host.portalReset);
    if (valueOf(NumberOfMasters) > 0) begin
       mapM(uncurry(mkConnection),zip(portalTop.masters, host.tpciehost.slave));

@@ -68,8 +68,8 @@ interface EthSonicPma#(numeric type numPorts);
    interface Vector#(numPorts, Reset) rx_reset;
    interface Vector#(numPorts, Reset) tx_reset;
    interface Vector#(numPorts, SerialIfc) pmd;
-   interface Bool  rx_ready;
-   interface Bool  tx_ready;
+   interface Vector#(numPorts, Bool)  rx_ready;
+   interface Vector#(numPorts, Bool)  tx_ready;
 endinterface
 
 (* always_ready, always_enabled *)
@@ -88,14 +88,26 @@ module mkEthSonicPma#(Clock mgmt_clk, Clock pll_ref_clk, Reset rst_n)(EthSonicPm
    // Megawiz generated pma uses active-high reset
    //EthSonicPmaWrap phy10g <- mkEthSonicPmaWrap(mgmt_clk, pll_ref_clk, invertedReset);
 
-   Bool rxReady = unpack(phy10g.rx.ready0);
-   Bool txReady = unpack(phy10g.tx.ready0);
+   Vector#(NumPorts, Bool) rxReady = newVector;//unpack(phy10g.rx.ready0);
+   Vector#(NumPorts, Bool) txReady = newVector;//unpack(phy10g.tx.ready0);
    Vector#(NumPorts, Reset) rxFifo_rst = newVector;
    Vector#(NumPorts, Reset) txFifo_rst = newVector;
    Vector#(NumPorts, Clock) rxFifo_clk = newVector;
    Vector#(NumPorts, Clock) txFifo_clk = newVector;
    Vector#(NumPorts, FIFOF#(Bit#(40))) rxFifo = newVector;
    Vector#(NumPorts, FIFOF#(Bit#(40))) txFifo = newVector;
+
+   // Rx Ready
+   rxReady[0] = unpack(phy10g.rx.ready0);
+   rxReady[1] = unpack(phy10g.rx.ready1);
+   rxReady[2] = unpack(phy10g.rx.ready2);
+   rxReady[3] = unpack(phy10g.rx.ready3);
+
+   // Tx Ready
+   txReady[0] = unpack(phy10g.tx.ready0);
+   txReady[1] = unpack(phy10g.tx.ready1);
+   txReady[2] = unpack(phy10g.tx.ready2);
+   txReady[3] = unpack(phy10g.tx.ready3);
 
    // Tx Clock
    txFifo_clk[0] = phy10g.tx_clkout0;
@@ -174,36 +186,104 @@ module mkEthSonicPma#(Clock mgmt_clk, Clock pll_ref_clk, Reset rst_n)(EthSonicPm
    // Use Wire to pass data from interface expression to other rules.
    Vector#(NumPorts, Wire#(Bit#(1))) wires <- replicateM(mkDWire(0));
    Vector#(NumPorts, SerialIfc) serial_ifcs;
-   for (Integer i=0; i < valueOf(NumPorts); i=i+1) begin
-       serial_ifcs[i] = interface SerialIfc;
-          method Action rx (Bit#(1) v);
-             wires[i] <= v;
-          endmethod
-          method Bit#(1) tx;
-             return phy10g.tx.serial_data[i];
-          endmethod
-       endinterface;
-   end
-   rule set_serial_data;
-      // Use readVReg to read Vector of Wires.
-      phy10g.rx.serial_data(pack(readVReg(wires)));
+   // Port 0
+   serial_ifcs[0] = interface SerialIfc;
+      method Action rx (Bit#(1) v);
+         wires[0] <= v;
+      endmethod
+      method Bit#(1) tx;
+         return phy10g.tx.serial_data0;
+      endmethod
+   endinterface;
+   rule set_serial_data0;
+      phy10g.rx.serial_data0(pack(wires[0]));
+   endrule
+
+   // Port 1
+   serial_ifcs[1] = interface SerialIfc;
+      method Action rx (Bit#(1) v);
+         wires[1] <= v;
+      endmethod
+      method Bit#(1) tx;
+         return phy10g.tx.serial_data1;
+      endmethod
+   endinterface;
+   rule set_serial_data1;
+      phy10g.rx.serial_data1(pack(wires[1]));
+   endrule
+
+   // Port 2
+   serial_ifcs[2] = interface SerialIfc;
+      method Action rx (Bit#(1) v);
+         wires[2] <= v;
+      endmethod
+      method Bit#(1) tx;
+         return phy10g.tx.serial_data2;
+      endmethod
+   endinterface;
+   rule set_serial_data2;
+      phy10g.rx.serial_data2(pack(wires[2]));
+   endrule
+
+   // Port 3
+   serial_ifcs[3] = interface SerialIfc;
+      method Action rx (Bit#(1) v);
+         wires[3] <= v;
+      endmethod
+      method Bit#(1) tx;
+         return phy10g.tx.serial_data3;
+      endmethod
+   endinterface;
+   rule set_serial_data3;
+      phy10g.rx.serial_data3(pack(wires[3]));
    endrule
 
    // Status
    Vector#(NumPorts, Status) status_ifcs;
-   for (Integer i=0; i < valueOf(NumPorts); i=i+1) begin
-      status_ifcs[i] = interface Status;
-          method Bit#(1) pll_locked;
-             return phy10g.pll.locked[i];
-          endmethod
-          method Bit#(1) rx_is_lockedtodata;
-             return phy10g.rx.is_lockedtodata[i];
-          endmethod
-          method Bit#(1) rx_is_lockedtoref;
-             return phy10g.rx.is_lockedtoref[i];
-          endmethod
-       endinterface;
-   end
+   status_ifcs[0] = interface Status;
+       method Bit#(1) pll_locked;
+          return phy10g.pll.locked0;
+       endmethod
+       method Bit#(1) rx_is_lockedtodata;
+          return phy10g.rx.is_lockedtodata0;
+       endmethod
+       method Bit#(1) rx_is_lockedtoref;
+          return phy10g.rx.is_lockedtoref0;
+       endmethod
+   endinterface;
+   status_ifcs[1] = interface Status;
+       method Bit#(1) pll_locked;
+          return phy10g.pll.locked1;
+       endmethod
+       method Bit#(1) rx_is_lockedtodata;
+          return phy10g.rx.is_lockedtodata1;
+       endmethod
+       method Bit#(1) rx_is_lockedtoref;
+          return phy10g.rx.is_lockedtoref1;
+       endmethod
+   endinterface;
+   status_ifcs[2] = interface Status;
+       method Bit#(1) pll_locked;
+          return phy10g.pll.locked2;
+       endmethod
+       method Bit#(1) rx_is_lockedtodata;
+          return phy10g.rx.is_lockedtodata2;
+       endmethod
+       method Bit#(1) rx_is_lockedtoref;
+          return phy10g.rx.is_lockedtoref2;
+       endmethod
+   endinterface;
+   status_ifcs[3] = interface Status;
+       method Bit#(1) pll_locked;
+          return phy10g.pll.locked3;
+       endmethod
+       method Bit#(1) rx_is_lockedtodata;
+          return phy10g.rx.is_lockedtodata3;
+       endmethod
+       method Bit#(1) rx_is_lockedtoref;
+          return phy10g.rx.is_lockedtoref3;
+       endmethod
+   endinterface;
 
    interface tx_clkout = txFifo_clk;
    interface rx_clkout = rxFifo_clk;
