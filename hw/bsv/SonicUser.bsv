@@ -40,6 +40,7 @@ interface DtpIfc;
    interface Vector#(4, PipeIn#(Bit#(53)))  toHost;
    interface Vector#(4, PipeIn#(Bit#(32)))  delay;
    interface Vector#(4, PipeIn#(Bit#(32)))  state;
+   interface Vector#(4, PipeIn#(Bit#(64)))  jumpCount;
    interface Reset rst;
 endinterface
 
@@ -81,6 +82,7 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
    Vector#(4, FIFOF#(Bit#(53))) toHostFifo   <- replicateM(mkSizedFIFOF(4));
    Vector#(4, FIFOF#(Bit#(32))) delayFifo    <- replicateM(mkSizedFIFOF(4));
    Vector#(4, FIFOF#(Bit#(32))) stateFifo    <- replicateM(mkSizedFIFOF(4));
+   Vector#(4, FIFOF#(Bit#(64))) jumpCountFifo <- replicateM(mkSizedFIFOF(4));
    FIFOF#(BufData) toHostBuffered <- mkSizedFIFOF(16);
 
    Reg#(Bit#(8))  lwrite_port <- mkReg(0);
@@ -122,7 +124,13 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
    end
 
    // dtp_read_error
-
+   Vector#(4, Reg#(Bit#(64))) jumpc_reg <- replicateM(mkReg(0));
+   for (Integer i=0; i<4; i=i+1) begin
+      rule snapshot_jumpc;
+         let v <- toGet(jumpCountFifo[i]).get;
+         jumpc_reg[i] <= v;
+      endrule
+   end
 
    // dtp_logger_write_cnt
    rule log_from_host;
@@ -179,6 +187,7 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
       interface timestamp = toPipeIn(cntFifo);
       interface delay     = map(toPipeIn, delayFifo);
       interface state     = map(toPipeIn, stateFifo);
+      interface jumpCount = map(toPipeIn, jumpCountFifo);
       interface toHost    = map(toPipeIn, toHostFifo);
       interface fromHost  = map(toPipeOut, fromHostFifo);
       interface rst       = dtpResetOut.new_rst;
@@ -203,7 +212,9 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
       end
    endmethod
    method Action dtp_read_error(Bit#(8) port_no);
-      //
+      if (port_no < 4) begin
+         indication.dtp_read_error_resp(port_no, jumpc_reg[port_no]);
+      end
    endmethod
    method Action dtp_read_cnt(Bit#(8) port_no);
       indication.dtp_read_cnt_resp(truncate(ts_reg));

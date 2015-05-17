@@ -100,6 +100,7 @@ module mkDtp#(Integer id)(Dtp);
    Reg#(Bit#(53))  delay   <- mkReg(0);
    Reg#(Bit#(32))  timeout_count_init <- mkReg(0);
    Reg#(Bit#(32))  timeout_count_sync <- mkReg(0);
+   Reg#(Bit#(64))  jumpCount <- mkReg(0);
    Wire#(Bool) init_rcvd    <- mkDWire(False);
    Wire#(Bool) ack_rcvd     <- mkDWire(False);
    Wire#(Bool) beacon_rcvd  <- mkDWire(False);
@@ -145,6 +146,7 @@ module mkDtp#(Integer id)(Dtp);
    FIFOF#(Bit#(53)) toHostFifo   <- mkSizedFIFOF(1);
    FIFOF#(Bit#(32)) delayFifo    <- mkSizedFIFOF(1);
    FIFOF#(Bit#(32)) stateFifo     <- mkSizedFIFOF(1);
+   FIFOF#(Bit#(64)) jumpCountFifo <- mkSizedFIFOF(1);
 
    rule cyc;
       cycle <= cycle + 1;
@@ -469,7 +471,7 @@ module mkDtp#(Integer id)(Dtp);
       let vLocal <- toGet(localOutputFifo).get();
       let vRemote <- toGet(remoteOutputFifo).get();
       let useLocal <- toGet(localGeRemoteFifo).get();
-      let _unused_ <- toGet(localLtRemoteFifo).get();
+      let incrJump <- toGet(localLtRemoteFifo).get();
       if(verbose) $display("%d: %d, vLocal=%h", cycle, id, vLocal);
       if(verbose) $display("%d: %d, vRemote=%h", cycle, id, vRemote);
       if(verbose) $display("%d: %d, delay=%h", cycle, id, delay);
@@ -478,6 +480,10 @@ module mkDtp#(Integer id)(Dtp);
       end
       else begin
          c_local_next <= vRemote + delay + 1;
+      end
+
+      if (incrJump) begin
+         jumpCount <= jumpCount + 1;
       end
    endrule
 
@@ -523,6 +529,10 @@ module mkDtp#(Integer id)(Dtp);
       stateFifo.enq(zeroExtend(pack(curr_state)));
    endrule
 
+   rule export_jumpCount;
+      jumpCountFifo.enq(jumpCount);
+   endrule
+
    method Action tx_ready(Bool v);
       tx_ready_wire <= v;
    endmethod
@@ -534,6 +544,7 @@ module mkDtp#(Integer id)(Dtp);
    interface api = (interface DtpToPhyIfc;
       interface delayOut = toPipeOut(delayFifo);
       interface stateOut = toPipeOut(stateFifo);
+      interface jumpCount = toPipeOut(jumpCountFifo);
       interface toHost   = toPipeOut(toHostFifo);
       interface fromHost = toPipeIn(fromHostFifo);
    endinterface);
