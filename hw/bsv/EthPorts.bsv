@@ -63,6 +63,7 @@ interface EthPortIfc;
    interface Vector#(NumPorts, Clock) tx_clkout;
    (* always_ready, always_enabled *)
    interface LoopbackIfc loopback;
+   interface SwitchIfc switchctrl;
    interface NetToConnectalIfc api;
 endinterface
 
@@ -111,6 +112,7 @@ module mkEthPorts#(Clock clk_50, Clock clk_156_25, Clock clk_644)(EthPortIfc);
    endinterface);
 
    interface loopback = phys.loopback;
+   interface switchctrl = phys.switchctrl;
    interface tx_clkout = phys.tx_clkout;
    interface serial = phys.serial;
    interface sfpctrl = (interface SfpCtrlIfc;

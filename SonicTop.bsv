@@ -153,13 +153,21 @@ module mkSonicTop #(Clock pcie_refclk_p,
       //ifreq_mode = 3'b011;  //250 MHZ
       //ifreq_mode = 3'b100;  //312.5 MHZ
       //ifreq_mode = 3'b101;  //322.26 MHZ
-      //ifreq_mode = 3'b110;  //644.53125 MHZ
-      si570.ifreq.mode({switches.out.getSwitch2, switches.out.getSwitch1, switches.out.getSwitch0});
+      let ifreq_mode = 3'b110;  //644.53125 MHZ
+      si570.ifreq.mode(ifreq_mode);
       si570.istart.go(edgedetect.odebounce.out);
    endrule
 
    rule button_to_si570;
       edgedetect.itrigger.in(btns.out.getButton1());
+   endrule
+
+   SyncBitIfc#(Bit#(1)) switch_ena_sync <- mkSyncBit(clk_50_b4a_buf.outclk, rst_50_n, eth.ifcs.clk_net);
+   rule transfer;
+      switch_ena_sync.send(switches.out.getSwitch2);
+   endrule
+   rule send_to_NetTop;
+      eth.ifcs.switchctrl.ena(unpack(switch_ena_sync.read));
    endrule
 
    // ===========

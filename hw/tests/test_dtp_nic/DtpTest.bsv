@@ -31,7 +31,7 @@ Integer delay = valueOf(Delay);
 
 module mkDtpTest#(DtpTestIndication indication) (DtpTest);
 
-   let verbose = True;
+   let verbose = False;
 
    Reg#(SGLId)    pointer  <- mkReg(0);
    Reg#(Bit#(32)) numWords <- mkReg(0);
