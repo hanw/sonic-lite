@@ -137,6 +137,10 @@ interface LoopbackIfc;
    method Action lpbk_en(Bool en);
 endinterface
 
+interface SwitchIfc;
+   method Action ena(Bool en);
+endinterface
+
 typedef struct {
    Bit#(53) ts_host;
    Bit#(53) ts_local_nic;

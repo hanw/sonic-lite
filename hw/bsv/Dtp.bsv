@@ -32,15 +32,12 @@ import FShow::*;
 import Probe::*;
 import Pipe::*;
 import Ethernet::*;
-//import MemTypes::*;
 
 typedef 54 TIMESTAMP_LEN;
 typedef 4  N_IFCs;
-
 typedef 8  CmdLen;
 typedef 32 ParamLen;
-
-typedef 3 GLOBAL_DELAY;
+typedef 4 GLOBAL_DELAY;
 
 typedef struct {
    Bit#(CmdLen)   cmd;
@@ -58,10 +55,14 @@ interface Dtp;
    interface PipeIn#(Bit#(66))  dtpTxIn;
    interface PipeOut#(Bit#(66)) dtpRxOut;
    interface PipeOut#(Bit#(66)) dtpTxOut;
+   interface PipeOut#(Bit#(53)) dtpLocalOut;
+   interface PipeIn#(Bit#(53))  dtpGlobalIn;
    (* always_ready, always_enabled *)
    method Action tx_ready(Bool v);
    (* always_ready, always_enabled *)
    method Action rx_ready(Bool v);
+   (* always_ready, always_enabled *)
+   method Action switch_mode(Bool v);
    interface DtpToPhyIfc api;
 endinterface
 
@@ -79,24 +80,25 @@ deriving (Bits, Eq);
 
 (* synthesize *)
 module mkDtpTop(Dtp);
-   Dtp _a <- mkDtp(0);
+   Dtp _a <- mkDtp(0, 0);
    return _a;
 endmodule
 
-module mkDtp#(Integer id)(Dtp);
+module mkDtp#(Integer id, Integer c_local_init)(Dtp);
 
-   let verbose = False;
+   let verbose = True;
    Wire#(Bool) tx_ready_wire <- mkDWire(False);
    Wire#(Bool) rx_ready_wire <- mkDWire(False);
+   Wire#(Bool) switch_mode_wire <- mkDWire(False);
 
    FIFOF#(Bit#(66)) dtpRxInFifo <- mkFIFOF ();
    FIFOF#(Bit#(66)) dtpTxInFifo <- mkFIFOF ();
 
-   Reg#(Bit#(1))   mode <- mkReg(0); // mode=0 NIC, mode=1 SWITCH
+   Reg#(Bool)   is_switch_mode <- mkReg(False); // by default, NIC mode
    Reg#(Bit#(32))  cycle   <- mkReg(0);
    Reg#(DtpState)  curr_state  <- mkReg(INIT);
 
-   Reg#(Bit#(53))  c_local <- mkReg(0); //fromInteger(c_local_init));
+   Reg#(Bit#(53))  c_local <- mkReg(fromInteger(c_local_init)); //mkReg(0); //fromInteger(c_local_init));
    Reg#(Bit#(53))  delay   <- mkReg(0);
    Reg#(Bit#(32))  timeout_count_init <- mkReg(0);
    Reg#(Bit#(32))  timeout_count_sync <- mkReg(0);
@@ -104,7 +106,8 @@ module mkDtp#(Integer id)(Dtp);
    Wire#(Bool) init_rcvd    <- mkDWire(False);
    Wire#(Bool) ack_rcvd     <- mkDWire(False);
    Wire#(Bool) beacon_rcvd  <- mkDWire(False);
-   Reg#(Bool) is_idle      <- mkReg(False);
+   //Reg#(Bool) is_idle      <- mkReg(False);
+   Wire#(Bool) is_idle      <- mkDWire(False);
 
    Wire#(Bit#(53)) c_local_next <- mkDWire(0);
    Wire#(Bit#(2))  tx_mux_sel   <- mkDWire(0);
@@ -119,6 +122,9 @@ module mkDtp#(Integer id)(Dtp);
    FIFOF#(Bit#(2))  dtpEventFifo   <- mkFIFOF;
    FIFOF#(Bit#(2))  dtpEventOutputFifo   <- mkFIFOF;
    FIFOF#(Bit#(66)) dtpRxOutFifo <- mkFIFOF;
+
+   FIFOF#(Bit#(53)) dtpLocalOutFifo <- mkFIFOF;
+   FIFOF#(Bit#(53)) dtpGlobalInFifo <- mkFIFOF;
 
    FIFOF#(Bit#(53)) localCompareRemoteFifo  <- mkFIFOF;
    FIFOF#(Bit#(53)) localCompareGlobalFifo  <- mkFIFOF;
@@ -150,6 +156,10 @@ module mkDtp#(Integer id)(Dtp);
 
    rule cyc;
       cycle <= cycle + 1;
+   endrule
+
+   rule set_switch_mode;
+      is_switch_mode <= switch_mode_wire; // 0 for NIC, 1 for switch.
    endrule
 
    // Setup link first if neither Tx or Rx is ready, bypass DTP.
@@ -208,21 +218,22 @@ module mkDtp#(Integer id)(Dtp);
 
       if (mux_sel && tx_mux_sel == init_type) begin
          encodeOut = {c_local+1, parity, init_type, block_type};
-         $display("Enqueued ougoing init request");
+         if(verbose) $display("%d: %d, Enqueued outgoing init request %d", cycle, id, c_local+1);
          outstandingInitRequest.enq(c_local+1);
       end
       else if (mux_sel && tx_mux_sel == ack_type) begin
+         if(verbose) $display("%d: %d, Enqueued outgoing ack %d", cycle, id, c_local+1);
          encodeOut = {c_local+1, parity, ack_type, block_type};
       end
       else if (mux_sel && tx_mux_sel == beacon_type) begin
          encodeOut = {c_local+1, parity, beacon_type, block_type};
       end
-      else if (mux_sel && fromHostFifo.notEmpty) begin
-         let host_data = fromHostFifo.first;
-         debug_from_host <= host_data;
-         encodeOut = {host_data, log_type, block_type};
-         fromHostFifo.deq;
-      end
+//      else if (mux_sel && fromHostFifo.notEmpty) begin
+//         let host_data = fromHostFifo.first;
+//         debug_from_host <= host_data;
+//         encodeOut = {host_data, log_type, block_type};
+//         fromHostFifo.deq;
+//      end
       else begin
          encodeOut = v;
       end
@@ -237,7 +248,11 @@ module mkDtp#(Integer id)(Dtp);
       let ack_type = fromInteger(valueOf(ACK_TYPE));
       dmFifo.deq;
       // Timeout driven output
-      if (timeout_count_init > init_timeout) begin
+      if (init_rcvd) begin
+         timeout_count_init <= timeout_count_init + 1;
+         tx_mux_sel <= ack_type;
+      end
+      else if (timeout_count_init > init_timeout) begin
          if (is_idle) begin
             timeout_count_init <= 0;
          end
@@ -246,10 +261,6 @@ module mkDtp#(Integer id)(Dtp);
          end
          tx_mux_sel <= init_type;
          if(verbose) $display("%d: %d, init timed_out %d", cycle, id, timeout_count_init);
-      end
-      else if (init_rcvd) begin
-         timeout_count_init <= timeout_count_init + 1;
-         tx_mux_sel <= ack_type;
       end
       else begin
          timeout_count_init <= timeout_count_init + 1;
@@ -346,6 +357,21 @@ module mkDtp#(Integer id)(Dtp);
       end
    endrule
 
+   rule switch_in_c_local(is_switch_mode);
+      //if(verbose) $display("%d: send c_local %h to L2", cycle, c_local);
+      dtpLocalOutFifo.enq(c_local);
+   endrule
+
+   rule switch_out_c_global;
+      let v <- toGet(dtpGlobalInFifo).get;
+      //if(verbose && id==1) $display("%d: get global counter", cycle);
+      if (is_switch_mode && beacon_rcvd) begin
+         if (verbose) $display("%d: received global counter %h", cycle, v);
+         globalCompareRemoteFifo.enq(v + 1);
+         globalCompareLocalFifo.enq(v + 1);
+      end
+   endrule
+
    Probe#(Bit#(53)) debug_to_host <- mkProbe();
    // Parse received DTP frame
    // Remove DTP timestamp before passing frame to MAC.
@@ -388,6 +414,10 @@ module mkDtp#(Integer id)(Dtp);
                beacon_rcvd_next = True;
                localCompareRemoteFifo.enq(c_local + 1);
                remoteCompareLocalFifo.enq(c_remote + 1);
+               if (is_switch_mode) begin
+                  localCompareGlobalFifo.enq(c_local+1);
+                  remoteCompareGlobalFifo.enq(c_remote+1);
+               end
                if(verbose) $display("%d: %d beacon_rcvd %h %h", cycle, id, c_remote, c_local);
             end
             else begin
@@ -399,9 +429,9 @@ module mkDtp#(Integer id)(Dtp);
             log_rcvd_next = True;
             debug_to_host <= v[65:13];
             //FIXME: enable toHost.
-            if (toHostFifo.notFull) begin
-               toHostFifo.enq(v[65:13]);
-            end
+//            if (toHostFifo.notFull) begin
+//               toHostFifo.enq(v[65:13]);
+//            end
          end
          dtpEventFifo.enq(v[11:10]);
       end
@@ -417,7 +447,7 @@ module mkDtp#(Integer id)(Dtp);
       dtpRxOutFifo.enq(vo);
    endrule
 
-   rule rx_stage2 (mode==0 || mode==1);
+   rule rx_stage2;
       let v_local <- toGet(localCompareRemoteFifo).get();
       let v_remote <- toGet(remoteCompareLocalFifo).get();
       if(verbose) $display("%d: %d, v_local=%h, v_remote=%h, delay=%h", cycle, id, v_local, v_remote, delay);
@@ -433,7 +463,7 @@ module mkDtp#(Integer id)(Dtp);
       remoteOutputFifo.enq(v_remote + 1);
    endrule
 
-   rule compare_global_remote (mode==1);
+   rule compare_global_remote (is_switch_mode);
       let global_delay = fromInteger(valueOf(GLOBAL_DELAY));
       let v_global <- toGet(globalCompareRemoteFifo).get();
       let v_remote <- toGet(remoteCompareGlobalFifo).get();
@@ -445,10 +475,11 @@ module mkDtp#(Integer id)(Dtp);
          globalLeRemoteFifo.enq(False);
          globalGtRemoteFifo.enq(True);
       end
-      globalOutputFifo.enq(v_global);
+      if(verbose) $display("%d: %d, v_global=%h, v_remote=%h", cycle, id, v_global, v_remote);
+      globalOutputFifo.enq(v_global + 1);
    endrule
 
-   rule compare_global_local (mode==1);
+   rule compare_global_local (is_switch_mode);
       let global_delay = fromInteger(valueOf(GLOBAL_DELAY));
       let v_global <- toGet(globalCompareLocalFifo).get();
       let v_local <- toGet(localCompareGlobalFifo).get();
@@ -460,6 +491,7 @@ module mkDtp#(Integer id)(Dtp);
          globalLeLocalFifo.enq(False);
          globalGtLocalFifo.enq(True);
       end
+      if(verbose) $display("%d: %d, v_global=%h, v_local=%h", cycle, id, v_global, v_local);
    endrule
 
    rule rx_stage2_bypass;
@@ -467,14 +499,14 @@ module mkDtp#(Integer id)(Dtp);
       dtpEventOutputFifo.enq(v_event);
    endrule
 
-   rule rx_stage3_compute_c_local_next(mode==0);
+   rule rx_stage3_nic_mode (!is_switch_mode);
       let vLocal <- toGet(localOutputFifo).get();
       let vRemote <- toGet(remoteOutputFifo).get();
       let useLocal <- toGet(localGeRemoteFifo).get();
       let incrJump <- toGet(localLtRemoteFifo).get();
-      if(verbose) $display("%d: %d, vLocal=%h", cycle, id, vLocal);
-      if(verbose) $display("%d: %d, vRemote=%h", cycle, id, vRemote);
-      if(verbose) $display("%d: %d, delay=%h", cycle, id, delay);
+      if(verbose) $display("%d: %d vLocal=%h", cycle, id, vLocal);
+      if(verbose) $display("%d: %d vRemote=%h", cycle, id, vRemote);
+      if(verbose) $display("%d: %d delay=%h", cycle, id, delay);
       if (useLocal) begin
          c_local_next <= vLocal + 1;
       end
@@ -487,7 +519,7 @@ module mkDtp#(Integer id)(Dtp);
       end
    endrule
 
-   rule output_switch (mode==1);
+   rule rx_stage3_switch_mode (is_switch_mode);
       let v_local <- toGet(localOutputFifo).get();
       let v_remote <- toGet(remoteOutputFifo).get();
       let v_global <- toGet(globalOutputFifo).get();
@@ -498,15 +530,29 @@ module mkDtp#(Integer id)(Dtp);
       let isRG <- toGet(globalLeRemoteFifo).get();
       let isRL <- toGet(localLtRemoteFifo).get();
       let global_delay = fromInteger(valueOf(GLOBAL_DELAY));
+      let err = False;
+      if(verbose) $display("%d: isGR=%d, isGL=%d, isLR=%d, isLG=%d, isRG=%d, isRL=%d", cycle, isGR, isGL, isLR, isLG, isRG, isRL);
       if (isGR && isGL) begin
          c_local_next <= v_global + global_delay;
+         err = True;
       end
       else if (isLR && isLG) begin
-         c_local_next <= v_local + 3;
+         c_local_next <= v_local + 1;
       end
       else if (isRG && isRL) begin
          c_local_next <= v_remote + delay;
+         err = True;
       end
+      else begin
+         c_local_next <= v_local + 1;
+         err = True;
+      end
+
+      if (err) begin
+         jumpCount <= jumpCount + 1;
+      end
+
+      if(verbose && id==1) $display("%d: jumpCount = %d", cycle, jumpCount);
    endrule
 
    rule rx_stage3;
@@ -541,6 +587,10 @@ module mkDtp#(Integer id)(Dtp);
       rx_ready_wire <= v;
    endmethod
 
+   method Action switch_mode(Bool v);
+      switch_mode_wire <= v;
+   endmethod
+
    interface api = (interface DtpToPhyIfc;
       interface delayOut = toPipeOut(delayFifo);
       interface stateOut = toPipeOut(stateFifo);
@@ -552,5 +602,7 @@ module mkDtp#(Integer id)(Dtp);
    interface dtpTxIn = toPipeIn(dtpTxInFifo);
    interface dtpRxOut = toPipeOut(dtpRxOutFifo);
    interface dtpTxOut = toPipeOut(dtpTxOutFifo);
+   interface dtpLocalOut = toPipeOut(dtpLocalOutFifo);
+   interface dtpGlobalIn = toPipeIn(dtpGlobalInFifo);
 endmodule
 endpackage
