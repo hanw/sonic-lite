@@ -86,7 +86,7 @@ endmodule
 
 module mkDtp#(Integer id, Integer c_local_init)(Dtp);
 
-   let verbose = True;
+   let verbose = False;
    Wire#(Bool) tx_ready_wire <- mkDWire(False);
    Wire#(Bool) rx_ready_wire <- mkDWire(False);
    Wire#(Bool) switch_mode_wire <- mkDWire(False);
@@ -228,16 +228,16 @@ module mkDtp#(Integer id, Integer c_local_init)(Dtp);
       else if (mux_sel && tx_mux_sel == beacon_type) begin
          encodeOut = {c_local+1, parity, beacon_type, block_type};
       end
-//      else if (mux_sel && fromHostFifo.notEmpty) begin
-//         let host_data = fromHostFifo.first;
-//         debug_from_host <= host_data;
-//         encodeOut = {host_data, log_type, block_type};
-//         fromHostFifo.deq;
-//      end
+      else if (mux_sel && fromHostFifo.notEmpty) begin
+         let host_data = fromHostFifo.first;
+         debug_from_host <= host_data;
+         encodeOut = {host_data, log_type, block_type};
+         fromHostFifo.deq;
+      end
       else begin
          encodeOut = v;
       end
-      if(verbose) $display("%d: %d dtpTxOut=%h, c_local=%h, encodeOut=%h", cycle, id, v, c_local, encodeOut[11:10]);
+      if(verbose) $display("%d: %d dtpTxOut=%h, c_local=%h, encodeOut=%h", cycle, id, v, c_local, encodeOut[12:10]);
       dtpTxOutFifo.enq(encodeOut);
    endrule
 
@@ -429,9 +429,10 @@ module mkDtp#(Integer id, Integer c_local_init)(Dtp);
             log_rcvd_next = True;
             debug_to_host <= v[65:13];
             //FIXME: enable toHost.
-//            if (toHostFifo.notFull) begin
-//               toHostFifo.enq(v[65:13]);
-//            end
+            if (toHostFifo.notFull) begin
+               $display("%d: %d received Logged data %h", cycle, id, v[65:13]);
+               toHostFifo.enq(v[65:13]);
+            end
          end
          dtpEventFifo.enq(v[11:10]);
       end
@@ -558,7 +559,10 @@ module mkDtp#(Integer id, Integer c_local_init)(Dtp);
    rule rx_stage3;
       let v <- toGet(dtpEventOutputFifo).get();
       Bit#(2) beacon_type = fromInteger(valueOf(BEACON_TYPE));
-      if (v == beacon_type) begin
+      if (!rx_ready_wire) begin
+         c_local <= 0;
+      end
+      else if (v == beacon_type) begin
          c_local <= c_local_next;
          if(verbose) $display("%d: %d c_local_next = %h", cycle, id, c_local_next);
       end

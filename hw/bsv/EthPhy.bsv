@@ -59,6 +59,7 @@ interface EthPhyIfc#(numeric type numPorts);
    (* always_ready, always_enabled *)
    interface SwitchIfc switchctrl;
 
+   interface Vector#(numPorts, Bool) led_rx_ready;
    interface Vector#(numPorts, DtpToPhyIfc) api;
 endinterface
 
@@ -216,6 +217,7 @@ module mkEthPhy#(Clock mgmt_clk, Clock clk_156_25, Clock clk_644, Reset rst_156_
    interface serial = pma4.pmd;
    interface rx = vRxPipeOut;
    interface tx = vTxPipeIn;
+   interface led_rx_ready = pma4.rx_ready;
 
    interface api = vapi;
 

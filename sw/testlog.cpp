@@ -53,20 +53,20 @@ public:
 
 int main(int argc, const char **argv)
 {
-  SonicUser indication(IfcNames_SonicUserIndicationH2S);
-  device = new SonicUserRequestProxy(IfcNames_SonicUserRequestS2H);
-  device->pint.busyType = BUSY_SPIN;   /* spin until request portal 'notFull' */
+	SonicUser indication(IfcNames_SonicUserIndicationH2S);
+	device = new SonicUserRequestProxy(IfcNames_SonicUserRequestS2H);
+	device->pint.busyType = BUSY_SPIN;   /* spin until request portal 'notFull' */
 
-  //portalExec_start();
+	device->dtp_reset(0x0);
 
-//  uint64_t count = 0;
-//  for (int i=0; i<10; i++) {
-//    count = portalCycleCount();
-//    fprintf(stderr, "%lx\n", count);
-//  }
-  //device->dtp_read_cnt(0x0);
-  device->dtp_reset(0x0);
-
-  fprintf(stderr, "Main::about to go to sleep\n");
-  while(true){sleep(2);}
+	fprintf(stderr, "Main::about to go to sleep\n");
+	while(true){
+		for (int i=0; i<4; i++) {
+			device->dtp_read_delay(i);
+			device->dtp_read_state(i);
+			device->dtp_read_error(i);
+			device->dtp_read_cnt(i);
+		}
+		sleep(2);
+	}
 }

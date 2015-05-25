@@ -37,6 +37,7 @@ interface PinsTopIfc;
    interface Bit#(1) led1;
    interface Bit#(1) led2;
    interface Bit#(1) led3;
+   interface Bit#(4) led_bracket;
    (* prefix="" *)
    interface ButtonInIfc buttons;
    (* prefix="sw" *)

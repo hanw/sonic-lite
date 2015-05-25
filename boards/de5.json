@@ -119,6 +119,22 @@
 	"PIO_DIRECTION": "OUTPUT",
 	"LED": "LED[3]"
     },
+    "led_bracket[0]": {
+	"PIO_DIRECTION": "OUTPUT",
+	"LED": "LED_BRACKET[0]"
+    },
+    "led_bracket[1]": {
+	"PIO_DIRECTION": "OUTPUT",
+	"LED": "LED_BRACKET[1]"
+    },
+    "led_bracket[2]": {
+	"PIO_DIRECTION": "OUTPUT",
+	"LED": "LED_BRACKET[2]"
+    },
+    "led_bracket[3]": {
+	"PIO_DIRECTION": "OUTPUT",
+	"LED": "LED_BRACKET[3]"
+    },
     "serial_0_rx_data": {
 	"PIO_DIRECTION": "INPUT",
 	"SFPA": "SFPA_RX_p"

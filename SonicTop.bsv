@@ -195,6 +195,24 @@ module mkSonicTop #(Clock pcie_refclk_p,
       si570_cntr <= si570_cntr + 1;
    endrule
 
+   Reg#(Bit#(20)) led_rx_ready_cnt0 <- mkReg(0, clocked_by clk_50_b4a_buf.outclk, reset_by rst_50_n);
+   Reg#(Bit#(20)) led_rx_ready_cnt1 <- mkReg(0, clocked_by clk_50_b4a_buf.outclk, reset_by rst_50_n);
+   Reg#(Bit#(20)) led_rx_ready_cnt2 <- mkReg(0, clocked_by clk_50_b4a_buf.outclk, reset_by rst_50_n);
+   Reg#(Bit#(20)) led_rx_ready_cnt3 <- mkReg(0, clocked_by clk_50_b4a_buf.outclk, reset_by rst_50_n);
+
+   rule rx_ready0 (!eth.ifcs.led_rx_ready[0]);
+      led_rx_ready_cnt0 <= led_rx_ready_cnt0 + 1;
+   endrule
+   rule rx_ready1 (!eth.ifcs.led_rx_ready[1]);
+      led_rx_ready_cnt1 <= led_rx_ready_cnt1 + 1;
+   endrule
+   rule rx_ready2 (!eth.ifcs.led_rx_ready[2]);
+      led_rx_ready_cnt2 <= led_rx_ready_cnt2 + 1;
+   endrule
+   rule rx_ready3 (!eth.ifcs.led_rx_ready[3]);
+      led_rx_ready_cnt3 <= led_rx_ready_cnt3 + 1;
+   endrule
+
 `ifdef ENABLE_PCIE
    mkConnection(host.tpciehost.master, portalTop.slave, clocked_by host.portalClock, reset_by host.portalReset);
    if (valueOf(NumberOfMasters) > 0) begin
@@ -202,14 +220,14 @@ module mkSonicTop #(Clock pcie_refclk_p,
    end
 
    // mkConnection between net and portalTop
-   SyncFIFOIfc#(Bit#(128)) tsFifo <- mkSyncBRAMFIFO(8, clk_156_25, rst_156_n, host.portalClock, host.portalReset);
+   SyncFIFOIfc#(Bit#(128)) tsFifo <- mkSyncFIFO(8, clk_156_25, rst_156_n, host.portalClock);
    PipeOut#(Bit#(128)) txFifoPipeOut = toPipeOut(tsFifo);
    PipeIn#(Bit#(128)) txFifoPipeIn = toPipeIn(tsFifo);
    mkConnection(eth.api.timestamp, txFifoPipeIn);
    mkConnection(txFifoPipeOut, portalTop.pins.timestamp);
 
    // send log data from host to network
-   Vector#(4, SyncFIFOIfc#(Bit#(53))) fromHostFifo <- replicateM(mkSyncBRAMFIFO(8, host.portalClock, host.portalReset, clk_156_25, rst_156_n));
+   Vector#(4, SyncFIFOIfc#(Bit#(53))) fromHostFifo <- replicateM(mkSyncFIFO(8, host.portalClock, host.portalReset, clk_156_25));
    Vector#(4, PipeOut#(Bit#(53))) fromHostPipeOut = map(toPipeOut,fromHostFifo);
    Vector#(4, PipeIn#(Bit#(53))) fromHostPipeIn = map(toPipeIn,fromHostFifo);
    for (Integer i=0; i<4; i=i+1) begin
@@ -218,12 +236,39 @@ module mkSonicTop #(Clock pcie_refclk_p,
    end
 
    // send log data from network to host
-   Vector#(4, SyncFIFOIfc#(Bit#(53))) toHostFifo <- replicateM(mkSyncBRAMFIFO(8, clk_156_25, rst_156_n, host.portalClock, host.portalReset));
+   Vector#(4, SyncFIFOIfc#(Bit#(53))) toHostFifo <- replicateM(mkSyncFIFO(8, clk_156_25, rst_156_n, host.portalClock));
    Vector#(4, PipeOut#(Bit#(53))) toHostPipeOut = map(toPipeOut, toHostFifo);
    Vector#(4, PipeIn#(Bit#(53))) toHostPipeIn = map(toPipeIn, toHostFifo);
    for (Integer i=0; i<4; i=i+1) begin
       mkConnection(eth.api.phys[i].toHost, toHostPipeIn[i]);
       mkConnection(toHostPipeOut[i], portalTop.pins.toHost[i]);
+   end
+
+   // send delay measurement to host
+   Vector#(4, SyncFIFOIfc#(Bit#(32))) delayFifo <- replicateM(mkSyncFIFO(8, clk_156_25, rst_156_n, host.portalClock));
+   Vector#(4, PipeOut#(Bit#(32))) delayPipeOut = map(toPipeOut, delayFifo);
+   Vector#(4, PipeIn#(Bit#(32))) delayPipeIn = map(toPipeIn, delayFifo);
+   for (Integer i=0; i<4; i=i+1) begin
+      mkConnection(eth.api.phys[i].delayOut, delayPipeIn[i]);
+      mkConnection(delayPipeOut[i], portalTop.pins.delay[i]);
+   end
+
+   // send dtp state to host
+   Vector#(4, SyncFIFOIfc#(Bit#(32))) stateFifo <- replicateM(mkSyncFIFO(8, clk_156_25, rst_156_n, host.portalClock));
+   Vector#(4, PipeOut#(Bit#(32))) statePipeOut = map(toPipeOut, stateFifo);
+   Vector#(4, PipeIn#(Bit#(32))) statePipeIn = map(toPipeIn, stateFifo);
+   for (Integer i=0; i<4; i=i+1) begin
+      mkConnection(eth.api.phys[i].stateOut, statePipeIn[i]);
+      mkConnection(statePipeOut[i], portalTop.pins.state[i]);
+   end
+
+   // send dtp error count to host
+   Vector#(4, SyncFIFOIfc#(Bit#(64))) errorCountFifo <- replicateM(mkSyncFIFO(8, clk_156_25, rst_156_n, host.portalClock));
+   Vector#(4, PipeOut#(Bit#(64))) errorCountPipeOut = map(toPipeOut, errorCountFifo);
+   Vector#(4, PipeIn#(Bit#(64))) errorCountPipeIn = map(toPipeIn, errorCountFifo);
+   for (Integer i=0; i<4; i=i+1) begin
+      mkConnection(eth.api.phys[i].jumpCount, errorCountPipeIn[i]);
+      mkConnection(errorCountPipeOut[i], portalTop.pins.jumpCount[i]);
    end
 
    // going from level to edge-triggered interrupt
@@ -253,6 +298,7 @@ module mkSonicTop #(Clock pcie_refclk_p,
       interface led1 = net_cntr[25];
       interface led2 = xcvr_cntr[25];
       interface led3 = si570_cntr[25];
+      interface led_bracket = {led_rx_ready_cnt3[19], led_rx_ready_cnt2[19], led_rx_ready_cnt1[19], led_rx_ready_cnt0[19]};
       interface buttons  = btns.in;
       interface switches = switches.in;
       interface Clock clk_b4a = clk_50_b4a_buf.outclk;

@@ -55,6 +55,7 @@ interface NetExportIfc;
    interface Vector#(NumPorts, Clock) clk_xcvr;
    interface LoopbackIfc loopback;
    interface SwitchIfc switchctrl;
+   interface Vector#(NumPorts, Bool) led_rx_ready;
 endinterface
 
 interface NetTopIfc;
@@ -82,5 +83,6 @@ module mkNetTop #(Clock clk_50, Clock clk_156_25, Clock clk_644)(NetTopIfc);
       interface serial = ports.serial;
       interface Clock clk_net = clk_156_25;
       interface Clock clk_xcvr = ports.tx_clkout;
+      interface led_rx_ready = ports.led_rx_ready;
    endinterface);
 endmodule
