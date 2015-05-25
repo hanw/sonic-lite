@@ -16,3 +16,7 @@
 ` dtp_ctrl_reset(uint8_t port_no) ` resets dtp state machine for port `port_no`.
 
 ` dtp_ctrl_set_local(uint8_t port_no, uint64_t counter)` manually set the counter for port `port_no`.
+
+` dtp_ctrl_disable(void)` disable dtp state machine. A dtp-capable device is by default disabled.
+
+` dtp_ctrl_enable(void)` enable dtp_state_machine.
