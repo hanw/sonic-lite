@@ -36,22 +36,6 @@
          type = "int";
       }
    }
-   element xcvr_low_latency_phy_1.phy_mgmt
-   {
-      datum baseAddress
-      {
-         value = "4096";
-         type = "String";
-      }
-   }
-   element xcvr_low_latency_phy_0.phy_mgmt
-   {
-      datum baseAddress
-      {
-         value = "0";
-         type = "long";
-      }
-   }
    element xcvr_low_latency_phy_3.phy_mgmt
    {
       datum baseAddress
@@ -66,6 +50,22 @@
       {
          value = "8192";
          type = "String";
+      }
+   }
+   element xcvr_low_latency_phy_1.phy_mgmt
+   {
+      datum baseAddress
+      {
+         value = "4096";
+         type = "String";
+      }
+   }
+   element xcvr_low_latency_phy_0.phy_mgmt
+   {
+      datum baseAddress
+      {
+         value = "0";
+         type = "long";
       }
    }
    element alt_xcvr_reconfig_0.reconfig_mgmt
@@ -423,7 +423,7 @@
   <parameter name="gui_bonded_mode" value="xN" />
   <parameter name="gui_serialization_factor" value="40" />
   <parameter name="gui_pma_width" value="40" />
-  <parameter name="gui_pll_type" value="ATX" />
+  <parameter name="gui_pll_type" value="CMU" />
   <parameter name="data_rate" value="10312.5 Mbps" />
   <parameter name="gui_base_data_rate" value="1250 Mbps" />
   <parameter name="gui_pll_refclk_freq" value="644.53125 MHz" />
@@ -526,7 +526,7 @@
   <parameter name="gui_bonded_mode" value="xN" />
   <parameter name="gui_serialization_factor" value="40" />
   <parameter name="gui_pma_width" value="40" />
-  <parameter name="gui_pll_type" value="ATX" />
+  <parameter name="gui_pll_type" value="CMU" />
   <parameter name="data_rate" value="10312.5 Mbps" />
   <parameter name="gui_base_data_rate" value="1250 Mbps" />
   <parameter name="gui_pll_refclk_freq" value="644.53125 MHz" />
@@ -608,7 +608,7 @@
   <parameter name="gui_bonded_mode" value="xN" />
   <parameter name="gui_serialization_factor" value="40" />
   <parameter name="gui_pma_width" value="40" />
-  <parameter name="gui_pll_type" value="ATX" />
+  <parameter name="gui_pll_type" value="CMU" />
   <parameter name="data_rate" value="10312.5 Mbps" />
   <parameter name="gui_base_data_rate" value="1250 Mbps" />
   <parameter name="gui_pll_refclk_freq" value="644.53125 MHz" />
@@ -690,7 +690,7 @@
   <parameter name="gui_bonded_mode" value="xN" />
   <parameter name="gui_serialization_factor" value="40" />
   <parameter name="gui_pma_width" value="40" />
-  <parameter name="gui_pll_type" value="ATX" />
+  <parameter name="gui_pll_type" value="CMU" />
   <parameter name="data_rate" value="10312.5 Mbps" />
   <parameter name="gui_base_data_rate" value="1250 Mbps" />
   <parameter name="gui_pll_refclk_freq" value="644.53125 MHz" />

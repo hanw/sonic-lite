@@ -20,7 +20,8 @@
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-package Dtp;
+
+package DtpTx;
 
 import FIFO::*;
 import FIFOF::*;
@@ -36,6 +37,7 @@ import Ethernet::*;
 typedef 8  CmdLen;
 typedef 32 ParamLen;
 typedef 4 GLOBAL_DELAY;
+typedef 5 RXTX_DELAY;
 
 typedef struct {
    Bit#(CmdLen)   cmd;
@@ -48,20 +50,21 @@ typedef struct {
    Bit#(1)  parity;
 } TxStageOneBuf deriving (Eq, Bits);
 
-interface Dtp;
-   interface PipeIn#(Bit#(66))  dtpRxIn;
+interface DtpTx;
    interface PipeIn#(Bit#(66))  dtpTxIn;
-   interface PipeOut#(Bit#(66)) dtpRxOut;
    interface PipeOut#(Bit#(66)) dtpTxOut;
    interface PipeOut#(Bit#(53)) dtpLocalOut;
    interface PipeIn#(Bit#(53))  dtpGlobalIn;
+   interface DtpToPhyIfc api;
+
+   interface PipeIn#(DtpEvent) dtpEventIn;
+
    (* always_ready, always_enabled *)
    method Action tx_ready(Bool v);
    (* always_ready, always_enabled *)
    method Action rx_ready(Bool v);
    (* always_ready, always_enabled *)
    method Action switch_mode(Bool v);
-   interface DtpToPhyIfc api;
 endinterface
 
 typedef 3'b100 LOG_TYPE;
@@ -77,19 +80,18 @@ typedef enum {INIT, SENT, SYNC} DtpState
 deriving (Bits, Eq);
 
 (* synthesize *)
-module mkDtpTop(Dtp);
-   Dtp _a <- mkDtp(0, 0);
+module mkDtpTxTop(DtpTx);
+   DtpTx _a <- mkDtpTx(0, 0);
    return _a;
 endmodule
 
-module mkDtp#(Integer id, Integer c_local_init)(Dtp);
+module mkDtpTx#(Integer id, Integer c_local_init)(DtpTx);
 
-   let verbose = False;
+   let verbose = True;
    Wire#(Bool) tx_ready_wire <- mkDWire(False);
    Wire#(Bool) rx_ready_wire <- mkDWire(False);
    Wire#(Bool) switch_mode_wire <- mkDWire(False);
 
-   FIFOF#(Bit#(66)) dtpRxInFifo <- mkFIFOF ();
    FIFOF#(Bit#(66)) dtpTxInFifo <- mkFIFOF ();
 
    Reg#(Bool)   is_switch_mode <- mkReg(False); // by default, NIC mode
@@ -101,10 +103,11 @@ module mkDtp#(Integer id, Integer c_local_init)(Dtp);
    Reg#(Bit#(32))  timeout_count_init <- mkReg(0);
    Reg#(Bit#(32))  timeout_count_sync <- mkReg(0);
    Reg#(Bit#(64))  jumpCount <- mkReg(0);
+
    Wire#(Bool) init_rcvd    <- mkDWire(False);
    Wire#(Bool) ack_rcvd     <- mkDWire(False);
    Wire#(Bool) beacon_rcvd  <- mkDWire(False);
-   //Reg#(Bool) is_idle      <- mkReg(False);
+
    Wire#(Bool) is_idle      <- mkDWire(False);
 
    Wire#(Bit#(53)) c_local_next <- mkDWire(0);
@@ -120,6 +123,7 @@ module mkDtp#(Integer id, Integer c_local_init)(Dtp);
    FIFOF#(Bit#(2))  dtpEventFifo   <- mkFIFOF;
    FIFOF#(Bit#(2))  dtpEventOutputFifo   <- mkFIFOF;
    FIFOF#(Bit#(66)) dtpRxOutFifo <- mkFIFOF;
+   FIFOF#(DtpEvent) dtpEventInFifo <- mkFIFOF;
 
    FIFOF#(Bit#(53)) dtpLocalOutFifo <- mkFIFOF;
    FIFOF#(Bit#(53)) dtpGlobalInFifo <- mkFIFOF;
@@ -166,11 +170,6 @@ module mkDtp#(Integer id, Integer c_local_init)(Dtp);
       dtpTxOutFifo.enq(v);
    endrule
 
-   rule rx_bypass(!tx_ready_wire || !rx_ready_wire);
-      let v <- toGet(dtpRxInFifo).get;
-      dtpRxOutFifo.enq(v);
-   endrule
-
    rule tx_stage1(tx_ready_wire && rx_ready_wire);
       let v <- toGet(dtpTxInFifo).get();
       Bit#(1) parity;
@@ -187,8 +186,7 @@ module mkDtp#(Integer id, Integer c_local_init)(Dtp);
          mux_sel = False;
          is_idle <= False;
       end
-
-      if(verbose) $display("%d: %d dtpTxIn=%h, c_local=%h, is_idle=%h, curr_state=%d", cycle, id, v, c_local, mux_sel, curr_state);
+      //if(verbose) $display("%d: %d dtpTxIn=%h, c_local=%h, is_idle=%h, curr_state=%d", cycle, id, v, c_local, mux_sel, curr_state);
       cfFifo.enq(?);
       dmFifo.enq(?);
       stageOneFifo.enq(TxStageOneBuf{mux_sel: mux_sel,
@@ -235,7 +233,7 @@ module mkDtp#(Integer id, Integer c_local_init)(Dtp);
       else begin
          encodeOut = v;
       end
-      if(verbose) $display("%d: %d dtpTxOut=%h, c_local=%h, encodeOut=%h", cycle, id, v, c_local, encodeOut[12:10]);
+      //if(verbose) $display("%d: %d dtpTxOut=%h, c_local=%h, encodeOut=%h", cycle, id, v, c_local, encodeOut[12:10]);
       dtpTxOutFifo.enq(encodeOut);
    endrule
 
@@ -244,21 +242,24 @@ module mkDtp#(Integer id, Integer c_local_init)(Dtp);
       let init_timeout = fromInteger(valueOf(INIT_TIMEOUT));
       let init_type = fromInteger(valueOf(INIT_TYPE));
       let ack_type = fromInteger(valueOf(ACK_TYPE));
+      let rxtx_delay = fromInteger(valueOf(RXTX_DELAY));
       dmFifo.deq;
       // Timeout driven output
       if (init_rcvd) begin
          timeout_count_init <= timeout_count_init + 1;
          tx_mux_sel <= ack_type;
+         if(verbose) $display("%d: %d, send ack", cycle, id);
       end
       else if (timeout_count_init > init_timeout) begin
          if (is_idle) begin
             timeout_count_init <= 0;
+            tx_mux_sel <= init_type;
+            if(verbose) $display("%d: %d, init timed_out %d", cycle, id, timeout_count_init);
          end
          else begin
+            tx_mux_sel <= 2'b00;
             timeout_count_init <= timeout_count_init + 1;
          end
-         tx_mux_sel <= init_type;
-         if(verbose) $display("%d: %d, init timed_out %d", cycle, id, timeout_count_init);
       end
       else begin
          timeout_count_init <= timeout_count_init + 1;
@@ -268,8 +269,8 @@ module mkDtp#(Integer id, Integer c_local_init)(Dtp);
       // compute delay
       if (ack_rcvd) begin
          let temp = outstandingInitRequest.first;
-         delay <= (c_local - temp - 1) >> 1;
-         if(verbose) $display("%d: %d update delay=%h, %h, %h", cycle, id, c_local, temp, (c_local-temp-1)>>1);
+         delay <= (c_local - temp - (rxtx_delay << 1) - 1) >> 1;
+         if(verbose) $display("%d: %d update delay=%d, %d, %d", cycle, id, c_local, temp, (c_local-temp-(rxtx_delay<<1)-1)>>1);
          outstandingInitRequest.deq;
       end
    endrule
@@ -301,7 +302,7 @@ module mkDtp#(Integer id, Integer c_local_init)(Dtp);
       if (ack_rcvd) begin
          let temp = outstandingInitRequest.first;
          delay <= (c_local - temp - 1) >> 1;
-         if(verbose) $display("%d: %d update delay=%h, %h, %h", cycle, id, c_local, temp, (c_local-temp-1)>>1);
+         if(verbose) $display("%d: %d update delay=%d, %d, %d", cycle, id, c_local, temp, (c_local-temp-1)>>1);
          outstandingInitRequest.deq;
       end
    endrule
@@ -362,94 +363,54 @@ module mkDtp#(Integer id, Integer c_local_init)(Dtp);
 
    rule switch_out_c_global;
       let v <- toGet(dtpGlobalInFifo).get;
-      //if(verbose && id==1) $display("%d: get global counter", cycle);
       if (is_switch_mode && beacon_rcvd) begin
-         if (verbose) $display("%d: received global counter %h", cycle, v);
+         if (verbose) $display("%d: received global counter %d", cycle, v);
          globalCompareRemoteFifo.enq(v + 1);
          globalCompareLocalFifo.enq(v + 1);
       end
    endrule
 
-   Probe#(Bit#(53)) debug_to_host <- mkProbe();
-   // Parse received DTP frame
-   // Remove DTP timestamp before passing frame to MAC.
-   rule rx_stage1(tx_ready_wire && rx_ready_wire);
+   rule rx_stage1;
       let init_type   = fromInteger(valueOf(INIT_TYPE));
       let ack_type    = fromInteger(valueOf(ACK_TYPE));
       let beacon_type = fromInteger(valueOf(BEACON_TYPE));
-      let log_type    = fromInteger(valueOf(LOG_TYPE));
-      let v <- toGet(dtpRxInFifo).get();
-      Bit#(1)  parity = ^v[65:13];
-      Bit#(53) c_remote = v[65:13];
-      Bit#(66) vo = v;
       Bool init_rcvd_next   = False;
       Bool ack_rcvd_next    = False;
       Bool beacon_rcvd_next = False;
-      Bool log_rcvd_next    = False;
-      vo[65:10] = 56'h0;
-
-      if (v[9:2] == 8'h1e) begin
-         if (v[11:10] == init_type) begin
-            if (parity == v[12]) begin
-               init_rcvd_next = True;
-               if(verbose) $display("%d: %d init_rcvd %h %h", cycle, id, c_remote, c_local);
-            end
-            else begin
-               $display("parity mismatch: expected %h, found %h", parity, v[12]);
+      if (dtpEventInFifo.notEmpty) begin
+         let v <- toGet(dtpEventInFifo).get;
+         if (v.e == init_type) begin
+            if(verbose) $display("%d: %d DtpTx init_rcvd %h %d", cycle, id, v.e, v.t);
+            init_rcvd_next = True;
+         end
+         else if (v.e == ack_type) begin
+            ack_rcvd_next = True;
+            if(verbose) $display("%d: %d DtpTx ack_rcvd %h %d", cycle, id, v.e, v.t);
+         end
+         else if (v.e == beacon_type) begin
+            beacon_rcvd_next = True;
+            if(verbose) $display("%d: %d DtpTx beacon_rcvd %h %d", cycle, id, v.e, v.t);
+            localCompareRemoteFifo.enq(c_local+1);
+            remoteCompareLocalFifo.enq(v.t+1);
+            if (is_switch_mode) begin
+               localCompareGlobalFifo.enq(c_local+1);
+               remoteCompareGlobalFifo.enq(v.t+1);
             end
          end
-         else if (v[11:10] == ack_type) begin
-            if (parity == v[12]) begin
-               ack_rcvd_next = True;
-               if(verbose) $display("%d: %d ack_rcvd %h %h", cycle, id, c_remote, c_local);
-            end
-            else begin
-               $display("parity mismatch: expected %h, found %h", parity, v[12]);
-            end
-         end
-         else if (v[11:10] == beacon_type) begin
-            if (parity == v[12]) begin
-               beacon_rcvd_next = True;
-               localCompareRemoteFifo.enq(c_local + 1);
-               remoteCompareLocalFifo.enq(c_remote + 1);
-               if (is_switch_mode) begin
-                  localCompareGlobalFifo.enq(c_local+1);
-                  remoteCompareGlobalFifo.enq(c_remote+1);
-               end
-               if(verbose) $display("%d: %d beacon_rcvd %h %h", cycle, id, c_remote, c_local);
-            end
-            else begin
-               $display("parity mismatch: expected %h, found %h", parity, v[12]);
-            end
-         end
-         else if (v[12:10] == log_type) begin
-            // send v[65:13] to logger.
-            log_rcvd_next = True;
-            debug_to_host <= v[65:13];
-            //FIXME: enable toHost.
-            if (toHostFifo.notFull) begin
-               $display("%d: %d received Logged data %h", cycle, id, v[65:13]);
-               toHostFifo.enq(v[65:13]);
-            end
-         end
-         dtpEventFifo.enq(v[11:10]);
+         dtpEventFifo.enq(v.e);
       end
       else begin
          dtpEventFifo.enq(2'b0);
       end
-      //if(verbose) $display("%d: %d dtpRxIn=%h", cycle, id, v);
-      //if(verbose) $display("%d: %d curr_state=%h", cycle, id, curr_state);
       init_rcvd   <= init_rcvd_next;
       ack_rcvd    <= ack_rcvd_next;
       beacon_rcvd <= beacon_rcvd_next;
-      log_rcvd    <= log_rcvd_next;
-      dtpRxOutFifo.enq(vo);
    endrule
 
    rule rx_stage2;
       let v_local <- toGet(localCompareRemoteFifo).get();
       let v_remote <- toGet(remoteCompareLocalFifo).get();
-      if(verbose) $display("%d: %d, v_local=%h, v_remote=%h, delay=%h", cycle, id, v_local, v_remote, delay);
+      if(verbose) $display("%d: %d, v_local=%d, v_remote=%d, delay=%d", cycle, id, v_local, v_remote, delay);
       if (v_local + 1 < v_remote + delay) begin
          localLtRemoteFifo.enq(True);
          localGeRemoteFifo.enq(False);
@@ -474,7 +435,7 @@ module mkDtp#(Integer id, Integer c_local_init)(Dtp);
          globalLeRemoteFifo.enq(False);
          globalGtRemoteFifo.enq(True);
       end
-      if(verbose) $display("%d: %d, v_global=%h, v_remote=%h", cycle, id, v_global, v_remote);
+      if(verbose) $display("%d: %d, v_global=%d, v_remote=%d", cycle, id, v_global, v_remote);
       globalOutputFifo.enq(v_global + 1);
    endrule
 
@@ -490,7 +451,7 @@ module mkDtp#(Integer id, Integer c_local_init)(Dtp);
          globalLeLocalFifo.enq(False);
          globalGtLocalFifo.enq(True);
       end
-      if(verbose) $display("%d: %d, v_global=%h, v_local=%h", cycle, id, v_global, v_local);
+      if(verbose) $display("%d: %d, v_global=%d, v_local=%d", cycle, id, v_global, v_local);
    endrule
 
    rule rx_stage2_bypass;
@@ -503,9 +464,9 @@ module mkDtp#(Integer id, Integer c_local_init)(Dtp);
       let vRemote <- toGet(remoteOutputFifo).get();
       let useLocal <- toGet(localGeRemoteFifo).get();
       let incrJump <- toGet(localLtRemoteFifo).get();
-      if(verbose) $display("%d: %d vLocal=%h", cycle, id, vLocal);
-      if(verbose) $display("%d: %d vRemote=%h", cycle, id, vRemote);
-      if(verbose) $display("%d: %d delay=%h", cycle, id, delay);
+      if(verbose) $display("%d: %d vLocal=%d", cycle, id, vLocal);
+      if(verbose) $display("%d: %d vRemote=%d", cycle, id, vRemote);
+      if(verbose) $display("%d: %d delay=%d", cycle, id, delay);
       if (useLocal) begin
          c_local_next <= vLocal + 1;
       end
@@ -562,7 +523,7 @@ module mkDtp#(Integer id, Integer c_local_init)(Dtp);
       end
       else if (v == beacon_type) begin
          c_local <= c_local_next;
-         if(verbose) $display("%d: %d c_local_next = %h", cycle, id, c_local_next);
+         if(verbose) $display("%d: %d c_local_next = %d", cycle, id, c_local_next);
       end
       else begin
          c_local <= c_local + 1;
@@ -600,9 +561,8 @@ module mkDtp#(Integer id, Integer c_local_init)(Dtp);
       interface toHost   = toPipeOut(toHostFifo);
       interface fromHost = toPipeIn(fromHostFifo);
    endinterface);
-   interface dtpRxIn = toPipeIn(dtpRxInFifo);
+   interface dtpEventIn = toPipeIn(dtpEventInFifo);
    interface dtpTxIn = toPipeIn(dtpTxInFifo);
-   interface dtpRxOut = toPipeOut(dtpRxOutFifo);
    interface dtpTxOut = toPipeOut(dtpTxOutFifo);
    interface dtpLocalOut = toPipeOut(dtpLocalOutFifo);
    interface dtpGlobalIn = toPipeIn(dtpGlobalInFifo);
