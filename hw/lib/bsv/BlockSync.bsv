@@ -45,9 +45,7 @@ deriving (Bits, Eq);
 (* synthesize *)
 module mkBlockSync(BlockSync);
 
-   let verbose = True;
-   Clock defaultClock <- exposeCurrentClock();
-   Reset defaultReset <- exposeCurrentReset();
+   let verbose = False;
 
    Reg#(Bit#(32)) cycle <- mkReg(0);
    Reg#(State) curr_state <- mkReg(LOCK_INIT);
@@ -92,6 +90,7 @@ module mkBlockSync(BlockSync);
       block_lock <= False;
       offset     <= 60; //FIXME
       curr_state <= RESET_CNT;
+      fifo_out.enq(v);
       //if(verbose) $display("%d: blocksync state_lock_init %d", cycle, curr_state);
    endrule
 
@@ -101,6 +100,7 @@ module mkBlockSync(BlockSync);
       sh_invalid_cnt <= 0;
       slip_done <= False;
       curr_state <= TEST_SH;
+      fifo_out.enq(v);
       if(verbose) $display("%d: state_reset_cnt", cycle);
    endrule
 
@@ -144,6 +144,7 @@ module mkBlockSync(BlockSync);
          end
       end
 
+      fifo_out.enq(v);
       if(verbose) $display("%d: blocksync state_test_sh v=%h, vld=%d, lock=%d, sh_cnt=%d, invld_cnt=%d", cycle, v, pack(sh_valid), pack(block_lock), sh_cnt, sh_invalid_cnt);
    endrule
 
@@ -157,19 +158,18 @@ module mkBlockSync(BlockSync);
          offset <= offset + 1;
       end
       curr_state <= RESET_CNT;
+      fifo_out.enq(v);
       if(verbose) $display("%d: blocksync state_slip offset=%d", cycle, offset);
    endrule
 
    rule state_good_64 (curr_state == GOOD_64);
       let v <- toGet(cfFifo).get;
-      Bool sh_valid = unpack(v[0]^v[1]);
-      if (sh_valid) begin
-         block_lock <= True;
-         fifo_out.enq(v);
-      end
-      else begin
-         curr_state <= RESET_CNT;
-      end
+      //Bool sh_valid = unpack(v[0]^v[1]);
+      //if (sh_valid) begin
+      block_lock <= True;
+      fifo_out.enq(v);
+      //end
+      curr_state <= RESET_CNT;
       if(verbose) $display("%d: blocksync state_good_64 %d, %d, enqueue %h", cycle, curr_state, pack(block_lock), v);
    endrule
 

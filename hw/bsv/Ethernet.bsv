@@ -160,4 +160,9 @@ interface NetToConnectalIfc;
    interface Vector#(NumPorts, DtpToPhyIfc) phys;
 endinterface
 
+typedef struct {
+   Bit#(2)  e; //event
+   Bit#(53) t; //timestamp
+} DtpEvent deriving (Eq, Bits, FShow);
+
 endpackage: Ethernet
