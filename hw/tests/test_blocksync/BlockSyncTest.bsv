@@ -2,9 +2,11 @@ import FIFO::*;
 import FIFOF::*;
 import SpecialFIFOs::*;
 import Vector::*;
+import BuildVector::*;
 import GetPut::*;
 import ClientServer::*;
 import Connectable::*;
+import HostInterface::*;
 
 import Pipe::*;
 import MemTypes::*;
@@ -18,7 +20,7 @@ endinterface
 
 interface BlockSyncTest;
    interface BlockSyncTestRequest request;
-   interface MemReadClient#(128) dmaClient;
+   interface Vector#(1, MemReadClient#(DataBusWidth)) dmaClient;
 endinterface
 
 interface BlockSyncTestIndication;
@@ -41,7 +43,7 @@ module mkBlockSyncTest#(BlockSyncTestIndication indication) (BlockSyncTest);
 
    Reg#(Bit#(32)) cycle <- mkReg(0);
 
-   MemreadEngineV#(128, 2, 1) re <- mkMemreadEngine;
+   MemreadEngine#(128, 2, 1) re <- mkMemreadEngine;
    BlockSync bsync <- mkBlockSync;
    mkConnection(pipe_out, bsync.blockSyncIn);
 
@@ -79,7 +81,7 @@ module mkBlockSyncTest#(BlockSyncTestIndication indication) (BlockSyncTest);
       toFinish <= toFinish - 1;
    endrule
 
-   interface dmaClient = re.dmaClient;
+   interface dmaClient = vec(re.dmaClient);
    interface BlockSyncTestRequest request;
       method Action startBlockSync(Bit#(32) rp, Bit#(32) nw, Bit#(32)bl, Bit#(32) ic) if(toStart == 0 && toFinish == 0);
          cf.enq(?);
