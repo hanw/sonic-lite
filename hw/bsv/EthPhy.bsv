@@ -153,8 +153,8 @@ module mkEthPhy#(Clock mgmt_clk, Clock clk_156_25, Clock clk_644, Reset rst_n)(E
       // Gearbox Downstream
       gearboxDn[i] <- mkGearbox66to40(clk_156_25, clocked_by pma4.tx_clkout[i], reset_by pma4.tx_reset[i]);
       // PCS
-      pcs_rx[i]    <- mkEthPcsRx(i, clocked_by pma_156_clkout[i], reset_by pma_156_rst_n[i]);
-      pcs_tx[i]    <- mkEthPcsTx(i, clocked_by clk_156_25, reset_by rst_156_25_n);
+      pcs_rx[i]    <- mkEthPcsRxTop(clocked_by pma_156_clkout[i], reset_by pma_156_rst_n[i]);
+      pcs_tx[i]    <- mkEthPcsTxTop(clocked_by clk_156_25, reset_by rst_156_25_n);
       dtp_rx[i]    <- mkDtpRxTop(clocked_by pma_156_clkout[i], reset_by pma_156_rst_n[i]);
       dtp_tx[i]    <- mkDtpTxTop(clocked_by clk_156_25, reset_by rst_156_25_n);
 

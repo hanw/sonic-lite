@@ -29,8 +29,8 @@ import "BVI" pll_pma =
 module mkPllPma#(Clock refclk, Reset refclk_reset)(PllPma);
    default_clock clk();
    default_reset rst();
-   input_clock refclk(refclk) = refclk;
-   input_reset refclk_reset(rst) = refclk_reset; /* from clock*/
-   output_clock outclk0(outclk_0);
+   input_clock refclk(refclk_clk) = refclk;
+   input_reset refclk_reset(rst_reset) = refclk_reset; /* from clock*/
+   output_clock outclk0(outclk_0_clk);
 endmodule
 

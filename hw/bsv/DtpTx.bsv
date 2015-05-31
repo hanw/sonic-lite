@@ -370,7 +370,7 @@ module mkDtpTx#(Integer id, Integer c_local_init)(DtpTx);
       end
    endrule
 
-   rule rx_stage1;
+   rule rx_stage1(tx_ready_wire && rx_ready_wire);
       let init_type   = fromInteger(valueOf(INIT_TYPE));
       let ack_type    = fromInteger(valueOf(ACK_TYPE));
       let beacon_type = fromInteger(valueOf(BEACON_TYPE));

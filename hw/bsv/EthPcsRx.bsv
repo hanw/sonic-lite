@@ -39,19 +39,25 @@ import Decoder ::*;
 import Descrambler ::*;
 import BlockSync ::*;
 
-(* always_ready, always_enabled *)
 interface EthPcsRx;
    interface PipeIn#(Bit#(66)) bsyncIn;
    interface PipeOut#(Bit#(72)) decoderOut;
    interface PipeOut#(Bit#(66)) dtpRxIn;
    interface PipeIn#(Bit#(66))  dtpRxOut;
+   (* always_ready, always_enabled *)
    method Action rx_ready(Bool v);
 endinterface
+
+(* synthesize *)
+module mkEthPcsRxTop(EthPcsRx);
+   EthPcsRx _a <- mkEthPcsRx(0);
+   return _a;
+endmodule
 
 module mkEthPcsRx#(Integer id)(EthPcsRx);
 
    let verbose = False;
-   let bypass_dtp = False;
+   let bypass_dtp = True;
 
    Reg#(Bit#(32)) cycle <- mkReg(0);
    FIFOF#(Bit#(66)) dtpRxInFifo <- mkFIFOF;
