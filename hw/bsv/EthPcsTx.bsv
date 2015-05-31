@@ -56,7 +56,7 @@ endmodule
 module mkEthPcsTx#(Integer id)(EthPcsTx);
 
    let verbose = False;
-   let bypass_dtp = True;
+   let bypass_dtp = False;
 
    Reg#(Bit#(32)) cycle <- mkReg(0);
    FIFOF#(Bit#(66)) dtpTxInFifo <- mkFIFOF();

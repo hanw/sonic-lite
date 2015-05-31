@@ -44,19 +44,19 @@
          type = "String";
       }
    }
-   element xcvr_low_latency_phy_2.phy_mgmt
-   {
-      datum baseAddress
-      {
-         value = "8192";
-         type = "String";
-      }
-   }
    element xcvr_low_latency_phy_1.phy_mgmt
    {
       datum baseAddress
       {
          value = "4096";
+         type = "String";
+      }
+   }
+   element xcvr_low_latency_phy_2.phy_mgmt
+   {
+      datum baseAddress
+      {
+         value = "8192";
          type = "String";
       }
    }
@@ -421,7 +421,7 @@
   <parameter name="lanes" value="1" />
   <parameter name="gui_bonding_enable" value="0" />
   <parameter name="gui_bonded_mode" value="xN" />
-  <parameter name="gui_serialization_factor" value="40" />
+  <parameter name="gui_serialization_factor" value="66" />
   <parameter name="gui_pma_width" value="40" />
   <parameter name="gui_pll_type" value="CMU" />
   <parameter name="data_rate" value="10312.5 Mbps" />
@@ -524,7 +524,7 @@
   <parameter name="lanes" value="1" />
   <parameter name="gui_bonding_enable" value="0" />
   <parameter name="gui_bonded_mode" value="xN" />
-  <parameter name="gui_serialization_factor" value="40" />
+  <parameter name="gui_serialization_factor" value="66" />
   <parameter name="gui_pma_width" value="40" />
   <parameter name="gui_pll_type" value="CMU" />
   <parameter name="data_rate" value="10312.5 Mbps" />
@@ -606,7 +606,7 @@
   <parameter name="lanes" value="1" />
   <parameter name="gui_bonding_enable" value="0" />
   <parameter name="gui_bonded_mode" value="xN" />
-  <parameter name="gui_serialization_factor" value="40" />
+  <parameter name="gui_serialization_factor" value="66" />
   <parameter name="gui_pma_width" value="40" />
   <parameter name="gui_pll_type" value="CMU" />
   <parameter name="data_rate" value="10312.5 Mbps" />
@@ -688,7 +688,7 @@
   <parameter name="lanes" value="1" />
   <parameter name="gui_bonding_enable" value="0" />
   <parameter name="gui_bonded_mode" value="xN" />
-  <parameter name="gui_serialization_factor" value="40" />
+  <parameter name="gui_serialization_factor" value="66" />
   <parameter name="gui_pma_width" value="40" />
   <parameter name="gui_pll_type" value="CMU" />
   <parameter name="data_rate" value="10312.5 Mbps" />

@@ -61,8 +61,8 @@ endinterface
 
 interface EthSonicPma#(numeric type numPorts);
    interface Vector#(numPorts, Status) status;
-   interface Vector#(numPorts, PipeOut#(Bit#(40))) rx;
-   interface Vector#(numPorts, PipeIn#(Bit#(40)))  tx;
+   interface Vector#(numPorts, PipeOut#(Bit#(66))) rx;
+   interface Vector#(numPorts, PipeIn#(Bit#(66)))  tx;
    interface Vector#(numPorts, Clock) rx_clkout;
    interface Vector#(numPorts, Clock) tx_clkout;
    interface Vector#(numPorts, Reset) rx_reset;
@@ -94,8 +94,8 @@ module mkEthSonicPma#(Clock mgmt_clk, Clock pll_ref_clk, Reset rst_n)(EthSonicPm
    Vector#(NumPorts, Reset) txFifo_rst = newVector;
    Vector#(NumPorts, Clock) rxFifo_clk = newVector;
    Vector#(NumPorts, Clock) txFifo_clk = newVector;
-   Vector#(NumPorts, FIFOF#(Bit#(40))) rxFifo = newVector;
-   Vector#(NumPorts, FIFOF#(Bit#(40))) txFifo = newVector;
+   Vector#(NumPorts, FIFOF#(Bit#(66))) rxFifo = newVector;
+   Vector#(NumPorts, FIFOF#(Bit#(66))) txFifo = newVector;
 
    // Rx Ready
    rxReady[0] = unpack(phy10g.rx.ready0);
@@ -127,8 +127,8 @@ module mkEthSonicPma#(Clock mgmt_clk, Clock pll_ref_clk, Reset rst_n)(EthSonicPm
       rxFifo[i] <- mkFIFOF(clocked_by rxFifo_clk[i], reset_by noReset);
       txFifo[i] <- mkFIFOF(clocked_by txFifo_clk[i], reset_by noReset);
    end
-   Vector#(NumPorts, PipeOut#(Bit#(40))) vRxPipe = newVector;
-   Vector#(NumPorts, PipeIn#(Bit#(40))) vTxPipe = newVector;
+   Vector#(NumPorts, PipeOut#(Bit#(66))) vRxPipe = newVector;
+   Vector#(NumPorts, PipeIn#(Bit#(66))) vTxPipe = newVector;
    for (Integer i=0; i<valueOf(NumPorts); i=i+1) begin
       vRxPipe[i] = toPipeOut(rxFifo[i]);
       vTxPipe[i] = toPipeIn(txFifo[i]);
@@ -147,7 +147,7 @@ module mkEthSonicPma#(Clock mgmt_clk, Clock pll_ref_clk, Reset rst_n)(EthSonicPm
       rxFifo[3].enq(phy10g.rx.parallel_data3);
    endrule
 
-   Wire#(Bit#(40)) tx_data0 <- mkDWire(0, clocked_by txFifo_clk[0], reset_by noReset);
+   Wire#(Bit#(66)) tx_data0 <- mkDWire(0, clocked_by txFifo_clk[0], reset_by noReset);
    rule getTxFifo0;
       let v <- toGet(txFifo[0]).get;
       tx_data0 <= v;
@@ -156,7 +156,7 @@ module mkEthSonicPma#(Clock mgmt_clk, Clock pll_ref_clk, Reset rst_n)(EthSonicPm
       phy10g.tx.parallel_data0(pack(tx_data0));
    endrule
 
-   Wire#(Bit#(40)) tx_data1 <- mkDWire(0, clocked_by txFifo_clk[1], reset_by noReset);
+   Wire#(Bit#(66)) tx_data1 <- mkDWire(0, clocked_by txFifo_clk[1], reset_by noReset);
    rule getTxFifo1;
       let v <- toGet(txFifo[1]).get;
       tx_data1 <= v;
@@ -165,7 +165,7 @@ module mkEthSonicPma#(Clock mgmt_clk, Clock pll_ref_clk, Reset rst_n)(EthSonicPm
       phy10g.tx.parallel_data1(pack(tx_data1));
    endrule
 
-   Wire#(Bit#(40)) tx_data2 <- mkDWire(0, clocked_by txFifo_clk[2], reset_by noReset);
+   Wire#(Bit#(66)) tx_data2 <- mkDWire(0, clocked_by txFifo_clk[2], reset_by noReset);
    rule getTxFifo2;
       let v <- toGet(txFifo[2]).get;
       tx_data2 <= v;
@@ -174,7 +174,7 @@ module mkEthSonicPma#(Clock mgmt_clk, Clock pll_ref_clk, Reset rst_n)(EthSonicPm
       phy10g.tx.parallel_data2(pack(tx_data2));
    endrule
 
-   Wire#(Bit#(40)) tx_data3 <- mkDWire(0, clocked_by txFifo_clk[3], reset_by noReset);
+   Wire#(Bit#(66)) tx_data3 <- mkDWire(0, clocked_by txFifo_clk[3], reset_by noReset);
    rule getTxFifo3;
       let v <- toGet(txFifo[3]).get;
       tx_data3 <= v;
