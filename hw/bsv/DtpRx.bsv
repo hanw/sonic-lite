@@ -92,15 +92,17 @@ module mkDtpRx#(Integer id, Integer c_local_init)(DtpRx);
       Bool init_rcvd_next   = False;
       Bool ack_rcvd_next    = False;
       Bool beacon_rcvd_next = False;
-      vo[65:10] = 56'h0;
 
       let c_remote_compensated = c_remote + rxtx_delay;
 
       if (v[9:2] == 8'h1e) begin
+         vo[65:10] = 56'h0;
          if (v[11:10] == init_type) begin
             if (parity == v[12]) begin
                init_rcvd_next = True;
-               dtpEventOutFifo.enq(DtpEvent{e:v[11:10], t:c_remote_compensated});
+               if(dtpEventOutFifo.notFull) begin
+                  dtpEventOutFifo.enq(DtpEvent{e:v[11:10], t:c_remote_compensated});
+               end
                if(verbose) $display("%d: %d init_rcvd %d, forward to tx %d", cycle, id, c_remote, c_remote_compensated);
             end
             else begin
@@ -110,7 +112,9 @@ module mkDtpRx#(Integer id, Integer c_local_init)(DtpRx);
          else if (v[11:10] == ack_type) begin
             if (parity == v[12]) begin
                ack_rcvd_next = True;
-               dtpEventOutFifo.enq(DtpEvent{e:v[11:10], t:c_remote_compensated});
+               if(dtpEventOutFifo.notFull) begin
+                  dtpEventOutFifo.enq(DtpEvent{e:v[11:10], t:c_remote_compensated});
+               end
                if(verbose) $display("%d: %d ack_rcvd %d, forward to tx %d", cycle, id, c_remote, c_remote_compensated);
             end
             else begin
@@ -120,7 +124,9 @@ module mkDtpRx#(Integer id, Integer c_local_init)(DtpRx);
          else if (v[11:10] == beacon_type) begin
             if (parity == v[12]) begin
                beacon_rcvd_next = True;
-               dtpEventOutFifo.enq(DtpEvent{e:v[11:10], t:c_remote_compensated});
+               if(dtpEventOutFifo.notFull) begin
+                  dtpEventOutFifo.enq(DtpEvent{e:v[11:10], t:c_remote_compensated});
+               end
                if(verbose) $display("%d: %d beacon_rcvd %d, forward to tx %d", cycle, id, c_remote, c_remote_compensated);
             end
             else begin

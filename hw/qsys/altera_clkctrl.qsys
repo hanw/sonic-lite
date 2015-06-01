@@ -6,7 +6,7 @@
    version="1.0"
    description=""
    tags="INTERNAL_COMPONENT=true"
-   categories="" />
+   categories="System" />
  <parameter name="bonusData"><![CDATA[bonusData 
 {
    element $${FILENAME}
@@ -61,7 +61,7 @@
    name="altclkctrl_0"
    autoexport="1">
   <parameter name="DEVICE_FAMILY" value="Stratix V" />
-  <parameter name="CLOCK_TYPE" value="1" />
+  <parameter name="CLOCK_TYPE" value="0" />
   <parameter name="NUMBER_OF_CLOCKS" value="1" />
   <parameter name="ENA_REGISTER_MODE" value="1" />
   <parameter name="GUI_USE_ENA" value="false" />

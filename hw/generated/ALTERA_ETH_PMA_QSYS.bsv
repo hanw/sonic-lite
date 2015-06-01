@@ -27,10 +27,10 @@ interface EthsonicpmawrapRx;
     method Bit#(1)     ready1();
     method Bit#(1)     ready2();
     method Bit#(1)     ready3();
-    method Bit#(40)    parallel_data0();
-    method Bit#(40)    parallel_data1();
-    method Bit#(40)    parallel_data2();
-    method Bit#(40)    parallel_data3();
+    method Bit#(66)    parallel_data0();
+    method Bit#(66)    parallel_data1();
+    method Bit#(66)    parallel_data2();
+    method Bit#(66)    parallel_data3();
     method Action      serial_data0(Bit#(1) v);
     method Action      serial_data1(Bit#(1) v);
     method Action      serial_data2(Bit#(1) v);
@@ -38,10 +38,10 @@ interface EthsonicpmawrapRx;
 endinterface
 (* always_ready, always_enabled *)
 interface EthsonicpmawrapTx;
-    method Action      parallel_data0(Bit#(40) v);
-    method Action      parallel_data1(Bit#(40) v);
-    method Action      parallel_data2(Bit#(40) v);
-    method Action      parallel_data3(Bit#(40) v);
+    method Action      parallel_data0(Bit#(66) v);
+    method Action      parallel_data1(Bit#(66) v);
+    method Action      parallel_data2(Bit#(66) v);
+    method Action      parallel_data3(Bit#(66) v);
     method Bit#(1)     serial_data0();
     method Bit#(1)     serial_data1();
     method Bit#(1)     serial_data2();
@@ -66,13 +66,17 @@ interface EthSonicPmaWrap;
     interface Clock                    rx_clkout3;
 endinterface
 import "BVI" sv_10g_pma =
-module mkEthSonicPmaWrap#(Clock phy_mgmt_clk, Clock pll_ref_clk, Reset phy_mgmt_clk_reset_n, Reset pll_ref_clk_reset_n)(EthSonicPmaWrap);
+module mkEthSonicPmaWrap#(Clock phy_mgmt_clk, Clock pll_ref_clk, Clock tx_coreclkin0, Clock tx_coreclkin1, Clock tx_coreclkin2, Clock tx_coreclkin3, Reset phy_mgmt_clk_reset_n, Reset pll_ref_clk_reset_n)(EthSonicPmaWrap);
     default_clock clk();
     default_reset rst();
     input_clock phy_mgmt_clk(phy_mgmt_clk_clk) = phy_mgmt_clk;
     input_reset phy_mgmt_clk_reset_n(phy_mgmt_clk_reset_reset_n) = phy_mgmt_clk_reset_n;
     input_clock pll_ref_clk(pll_ref_clk_clk) = pll_ref_clk;
     input_reset pll_ref_clk_reset_n(pll_ref_clk_reset_reset_n) = pll_ref_clk_reset_n;
+    input_clock tx_coreclkin0(tx_coreclkin0_clk) = tx_coreclkin0;
+    input_clock tx_coreclkin1(tx_coreclkin1_clk) = tx_coreclkin1;
+    input_clock tx_coreclkin2(tx_coreclkin2_clk) = tx_coreclkin2;
+    input_clock tx_coreclkin3(tx_coreclkin3_clk) = tx_coreclkin3;
 
     output_clock tx_clkout0(tx_clkout0_clk);
     output_clock tx_clkout1(tx_clkout1_clk);
@@ -111,10 +115,10 @@ module mkEthSonicPmaWrap#(Clock phy_mgmt_clk, Clock pll_ref_clk, Reset phy_mgmt_
         method serial_data3(rx_serial_data3_export) enable((*inhigh*) EN_rx_serial_data3);
     endinterface
     interface EthsonicpmawrapTx     tx;
-        method parallel_data0(tx_parallel_data0_data) clocked_by(tx_clkout0) enable((*inhigh*) EN_tx_parallel_data0);
-        method parallel_data1(tx_parallel_data1_data) clocked_by(tx_clkout1) enable((*inhigh*) EN_tx_parallel_data1);
-        method parallel_data2(tx_parallel_data2_data) clocked_by(tx_clkout2) enable((*inhigh*) EN_tx_parallel_data2);
-        method parallel_data3(tx_parallel_data3_data) clocked_by(tx_clkout3) enable((*inhigh*) EN_tx_parallel_data3);
+        method parallel_data0(tx_parallel_data0_data) clocked_by(tx_coreclkin0) enable((*inhigh*) EN_tx_parallel_data0);
+        method parallel_data1(tx_parallel_data1_data) clocked_by(tx_coreclkin1) enable((*inhigh*) EN_tx_parallel_data1);
+        method parallel_data2(tx_parallel_data2_data) clocked_by(tx_coreclkin2) enable((*inhigh*) EN_tx_parallel_data2);
+        method parallel_data3(tx_parallel_data3_data) clocked_by(tx_coreclkin3) enable((*inhigh*) EN_tx_parallel_data3);
         method tx_serial_data0_export serial_data0();
         method tx_serial_data1_export serial_data1();
         method tx_serial_data2_export serial_data2();

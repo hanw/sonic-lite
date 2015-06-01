@@ -52,20 +52,20 @@
          type = "String";
       }
    }
-   element xcvr_low_latency_phy_1.phy_mgmt
-   {
-      datum baseAddress
-      {
-         value = "4096";
-         type = "String";
-      }
-   }
    element xcvr_low_latency_phy_0.phy_mgmt
    {
       datum baseAddress
       {
          value = "0";
          type = "long";
+      }
+   }
+   element xcvr_low_latency_phy_1.phy_mgmt
+   {
+      datum baseAddress
+      {
+         value = "4096";
+         type = "String";
       }
    }
    element alt_xcvr_reconfig_0.reconfig_mgmt
@@ -384,6 +384,26 @@
    internal="xcvr_low_latency_phy_3.rx_is_lockedtodata"
    type="conduit"
    dir="end" />
+ <interface
+   name="tx_coreclkin0"
+   internal="xcvr_low_latency_phy_0.tx_coreclkin0"
+   type="clock"
+   dir="end" />
+ <interface
+   name="tx_coreclkin1"
+   internal="xcvr_low_latency_phy_1.tx_coreclkin0"
+   type="clock"
+   dir="end" />
+ <interface
+   name="tx_coreclkin2"
+   internal="xcvr_low_latency_phy_2.tx_coreclkin0"
+   type="clock"
+   dir="end" />
+ <interface
+   name="tx_coreclkin3"
+   internal="xcvr_low_latency_phy_3.tx_coreclkin0"
+   type="clock"
+   dir="end" />
  <module kind="clock_source" version="14.0" enabled="1" name="clk_100">
   <parameter name="clockFrequency" value="100000000" />
   <parameter name="clockFrequencyKnown" value="true" />
@@ -421,14 +441,14 @@
   <parameter name="lanes" value="1" />
   <parameter name="gui_bonding_enable" value="0" />
   <parameter name="gui_bonded_mode" value="xN" />
-  <parameter name="gui_serialization_factor" value="40" />
+  <parameter name="gui_serialization_factor" value="66" />
   <parameter name="gui_pma_width" value="40" />
   <parameter name="gui_pll_type" value="CMU" />
   <parameter name="data_rate" value="10312.5 Mbps" />
   <parameter name="gui_base_data_rate" value="1250 Mbps" />
   <parameter name="gui_pll_refclk_freq" value="644.53125 MHz" />
   <parameter name="gui_select_10g_pcs" value="DEPRECATED" />
-  <parameter name="gui_tx_use_coreclk" value="0" />
+  <parameter name="gui_tx_use_coreclk" value="1" />
   <parameter name="gui_rx_use_coreclk" value="0" />
   <parameter name="tx_bitslip_enable" value="0" />
   <parameter name="rx_bitslip_enable" value="0" />
@@ -524,14 +544,14 @@
   <parameter name="lanes" value="1" />
   <parameter name="gui_bonding_enable" value="0" />
   <parameter name="gui_bonded_mode" value="xN" />
-  <parameter name="gui_serialization_factor" value="40" />
+  <parameter name="gui_serialization_factor" value="66" />
   <parameter name="gui_pma_width" value="40" />
   <parameter name="gui_pll_type" value="CMU" />
   <parameter name="data_rate" value="10312.5 Mbps" />
   <parameter name="gui_base_data_rate" value="1250 Mbps" />
   <parameter name="gui_pll_refclk_freq" value="644.53125 MHz" />
   <parameter name="gui_select_10g_pcs" value="DEPRECATED" />
-  <parameter name="gui_tx_use_coreclk" value="0" />
+  <parameter name="gui_tx_use_coreclk" value="1" />
   <parameter name="gui_rx_use_coreclk" value="0" />
   <parameter name="tx_bitslip_enable" value="0" />
   <parameter name="rx_bitslip_enable" value="0" />
@@ -606,14 +626,14 @@
   <parameter name="lanes" value="1" />
   <parameter name="gui_bonding_enable" value="0" />
   <parameter name="gui_bonded_mode" value="xN" />
-  <parameter name="gui_serialization_factor" value="40" />
+  <parameter name="gui_serialization_factor" value="66" />
   <parameter name="gui_pma_width" value="40" />
   <parameter name="gui_pll_type" value="CMU" />
   <parameter name="data_rate" value="10312.5 Mbps" />
   <parameter name="gui_base_data_rate" value="1250 Mbps" />
   <parameter name="gui_pll_refclk_freq" value="644.53125 MHz" />
   <parameter name="gui_select_10g_pcs" value="DEPRECATED" />
-  <parameter name="gui_tx_use_coreclk" value="0" />
+  <parameter name="gui_tx_use_coreclk" value="1" />
   <parameter name="gui_rx_use_coreclk" value="0" />
   <parameter name="tx_bitslip_enable" value="0" />
   <parameter name="rx_bitslip_enable" value="0" />
@@ -688,14 +708,14 @@
   <parameter name="lanes" value="1" />
   <parameter name="gui_bonding_enable" value="0" />
   <parameter name="gui_bonded_mode" value="xN" />
-  <parameter name="gui_serialization_factor" value="40" />
+  <parameter name="gui_serialization_factor" value="66" />
   <parameter name="gui_pma_width" value="40" />
   <parameter name="gui_pll_type" value="CMU" />
   <parameter name="data_rate" value="10312.5 Mbps" />
   <parameter name="gui_base_data_rate" value="1250 Mbps" />
   <parameter name="gui_pll_refclk_freq" value="644.53125 MHz" />
   <parameter name="gui_select_10g_pcs" value="DEPRECATED" />
-  <parameter name="gui_tx_use_coreclk" value="0" />
+  <parameter name="gui_tx_use_coreclk" value="1" />
   <parameter name="gui_rx_use_coreclk" value="0" />
   <parameter name="tx_bitslip_enable" value="0" />
   <parameter name="rx_bitslip_enable" value="0" />

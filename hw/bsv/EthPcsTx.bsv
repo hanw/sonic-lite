@@ -38,19 +38,25 @@ import Ethernet ::*;
 import Encoder ::*;
 import Scrambler ::*;
 
-(* always_ready, always_enabled *)
 interface EthPcsTx;
    interface PipeIn#(Bit#(72)) encoderIn;
    interface PipeOut#(Bit#(66)) scramblerOut;
    interface PipeOut#(Bit#(66)) dtpTxIn;
    interface PipeIn#(Bit#(66)) dtpTxOut;
+   (* always_ready, always_enabled *)
    method Action tx_ready(Bool v);
 endinterface
+
+(* synthesize *)
+module mkEthPcsTxTop(EthPcsTx);
+   EthPcsTx _a <- mkEthPcsTx(0);
+   return _a;
+endmodule
 
 module mkEthPcsTx#(Integer id)(EthPcsTx);
 
    let verbose = False;
-   let bypass_dtp = True;
+   let bypass_dtp = False;
 
    Reg#(Bit#(32)) cycle <- mkReg(0);
    FIFOF#(Bit#(66)) dtpTxInFifo <- mkFIFOF();
