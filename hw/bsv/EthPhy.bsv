@@ -88,15 +88,15 @@ module mkEthPhy#(Clock mgmt_clk, Clock clk_156_25, Clock clk_644, Reset rst_n)(E
    Vector#(NumPorts, DtpRx)    dtp_rx = newVector;
    Vector#(NumPorts, DtpTx)    dtp_tx = newVector;
 
-   EthSonicPma#(NumPorts)      pma4 <- mkEthSonicPma(mgmt_clk, clk_644, rst_50_n, clocked_by mgmt_clk, reset_by rst_50_n);
+   EthSonicPma#(NumPorts)      pma4 <- mkEthSonicPma(mgmt_clk, clk_644, clk_156_25, rst_50_n, clocked_by mgmt_clk, reset_by rst_50_n);
 
    Vector#(NumPorts, ReadOnly#(Bool)) rx_ready_tx;
    Vector#(NumPorts, ReadOnly#(Bool)) tx_ready_tx;
    Vector#(NumPorts, ReadOnly#(Bool)) rx_ready_rx;
    Vector#(NumPorts, ReadOnly#(Bool)) tx_ready_rx;
    for (Integer i=0; i<valueOf(NumPorts); i=i+1) begin
-      rx_ready_tx[i] <- mkNullCrossingWire(pma4.tx_clkout[i], pma4.rx_ready[i]);
-      tx_ready_tx[i] <- mkNullCrossingWire(pma4.tx_clkout[i], pma4.tx_ready[i]);
+      rx_ready_tx[i] <- mkNullCrossingWire(clk_156_25, pma4.rx_ready[i]);
+      tx_ready_tx[i] <- mkNullCrossingWire(clk_156_25, pma4.tx_ready[i]);
       rx_ready_rx[i] <- mkNullCrossingWire(pma4.rx_clkout[i], pma4.rx_ready[i]);
       tx_ready_rx[i] <- mkNullCrossingWire(pma4.rx_clkout[i], pma4.tx_ready[i]);
    end
@@ -118,24 +118,28 @@ module mkEthPhy#(Clock mgmt_clk, Clock clk_156_25, Clock clk_644, Reset rst_n)(E
    Vector#(NumPorts, PipeOut#(DtpEvent)) dtpEventOut = newVector;
    Vector#(NumPorts, PipeIn#(DtpEvent)) dtpEventIn = newVector;
 
+   // 156.25MHz to pma4.tx
+   Vector#(NumPorts, SyncFIFOIfc#(Bit#(66))) txSyncFifo = newVector;
+
    for (Integer i=0; i<valueOf(NumPorts); i=i+1) begin
       rxFifo[i] <- mkFIFOF(clocked_by pma4.rx_clkout[i], reset_by pma4.rx_reset[i]);
-      txFifo[i] <- mkFIFOF(clocked_by pma4.tx_clkout[i], reset_by pma4.tx_reset[i]);
+      txFifo[i] <- mkFIFOF(clocked_by clk_156_25, reset_by rst_156_25_n);
       vRxPipeIn[i] = toPipeIn(rxFifo[i]);
       vRxPipeOut[i] = toPipeOut(rxFifo[i]);
       vTxPipeIn[i] = toPipeIn(txFifo[i]);
       vTxPipeOut[i] = toPipeOut(txFifo[i]);
+
       // Gearbox Level Loopback FIFO
-      lpbkSyncFifo[i] <- mkSyncBRAMFIFO(10, pma4.tx_clkout[i], pma4.tx_reset[i], pma4.rx_clkout[i], pma4.rx_reset[i]);
+      lpbkSyncFifo[i] <- mkSyncBRAMFIFO(10, clk_156_25, rst_156_25_n, pma4.rx_clkout[i], pma4.rx_reset[i]);
       lpbkSyncPipeOut[i] = toPipeOut(lpbkSyncFifo[i]);
       lpbkSyncPipeIn[i] = toPipeIn(lpbkSyncFifo[i]);
 
       pcs_rx[i]    <- mkEthPcsRxTop(clocked_by pma4.rx_clkout[i], reset_by pma4.rx_reset[i]);
-      pcs_tx[i]    <- mkEthPcsTxTop(clocked_by pma4.tx_clkout[i], reset_by pma4.tx_reset[i]);
+      pcs_tx[i]    <- mkEthPcsTxTop(clocked_by clk_156_25, reset_by rst_156_25_n);
       dtp_rx[i]    <- mkDtpRxTop(clocked_by pma4.rx_clkout[i], reset_by pma4.rx_reset[i]);
-      dtp_tx[i]    <- mkDtpTxTop(clocked_by pma4.tx_clkout[i], reset_by pma4.tx_reset[i]);
+      dtp_tx[i]    <- mkDtpTxTop(clocked_by clk_156_25, reset_by rst_156_25_n);
 
-      dtpEventFifo[i] <- mkSyncBRAMFIFO(10, pma4.rx_clkout[i], pma4.rx_reset[i], pma4.tx_clkout[i], pma4.tx_reset[i]);
+      dtpEventFifo[i] <- mkSyncBRAMFIFO(10, pma4.rx_clkout[i], pma4.rx_reset[i], clk_156_25, rst_156_25_n);
       dtpEventOut[i] = toPipeOut(dtpEventFifo[i]);
       dtpEventIn[i]  = toPipeIn(dtpEventFifo[i]);
 
@@ -157,7 +161,7 @@ module mkEthPhy#(Clock mgmt_clk, Clock clk_156_25, Clock clk_644, Reset rst_n)(E
 
       // Loopback Enable Signal
       ReadOnly#(Bool) rx_lpbk_en <- mkNullCrossingWire(pma4.rx_clkout[i], loopback_en);
-      ReadOnly#(Bool) tx_lpbk_en <- mkNullCrossingWire(pma4.tx_clkout[i], loopback_en);
+      ReadOnly#(Bool) tx_lpbk_en <- mkNullCrossingWire(clk_156_25, loopback_en);
 
       // Normal Operation: XCVR -> Pcs
       rule rx_no_loopback(!rx_lpbk_en);
@@ -173,7 +177,7 @@ module mkEthPhy#(Clock mgmt_clk, Clock clk_156_25, Clock clk_644, Reset rst_n)(E
       // END Normal Operation
 
       // Loopback Operation: Pcs -> lpbk Fifo -> Pcs
-      ReadOnly#(Bit#(32)) cycle_cross <- mkNullCrossingWire(pma4.tx_clkout[i], cycle);
+      ReadOnly#(Bit#(32)) cycle_cross <- mkNullCrossingWire(clk_156_25, cycle);
       rule tx_loopback(tx_lpbk_en);
          let v <- toGet(pcs_tx[i].scramblerOut).get;
          lpbkSyncPipeIn[i].enq(v);
@@ -197,14 +201,14 @@ module mkEthPhy#(Clock mgmt_clk, Clock clk_156_25, Clock clk_644, Reset rst_n)(E
       cycle <= cycle + 1;
    endrule
 
-//   ReadOnly#(Bool) switch_mode_cross;
-//   switch_mode_cross <- mkNullCrossingWire(clk_156_25, switch_en);
-//
-//   DtpSwitch#(4) dtpswitch <- mkDtpSwitch(clocked_by clk_156_25, reset_by rst_156_25_n);
-//   for (Integer i=0; i<valueOf(NumPorts); i=i+1) begin
-//      mkConnection(dtp_tx[i].dtpLocalOut, dtpswitch.dtpLocalIn[i]);
-//      mkConnection(dtpswitch.dtpGlobalOut[i], dtp_tx[i].dtpGlobalIn);
-//   end
+   ReadOnly#(Bool) switch_en_tx;
+   switch_en_tx <- mkNullCrossingWire(clk_156_25, switch_en);
+
+   DtpSwitch#(4) dtpswitch <- mkDtpSwitch(clocked_by clk_156_25, reset_by rst_156_25_n);
+   for (Integer i=0; i<valueOf(NumPorts); i=i+1) begin
+      mkConnection(dtp_tx[i].dtpLocalOut, dtpswitch.dtpLocalIn[i]);
+      mkConnection(dtpswitch.dtpGlobalOut[i], dtp_tx[i].dtpGlobalIn);
+   end
 
    for (Integer i=0; i<valueOf(NumPorts); i=i+1) begin
       rule pcs_tx_every1;
@@ -216,16 +220,16 @@ module mkEthPhy#(Clock mgmt_clk, Clock clk_156_25, Clock clk_644, Reset rst_n)(E
       rule dtp_tx_every1;
          dtp_tx[i].tx_ready(tx_ready_tx[i]);
          dtp_tx[i].rx_ready(rx_ready_tx[i]);
-//         dtp_tx[i].switch_mode(switch_mode_cross);
+         dtp_tx[i].switch_mode(switch_en_tx);
       endrule
       rule dtp_rx_every1;
          dtp_rx[i].rx_ready(rx_ready_rx[i]);
       endrule
    end
 
-//   rule dtpswitch_mode;
-//      dtpswitch.switch_mode(switch_mode_cross);
-//   endrule
+   rule dtpswitch_mode;
+      dtpswitch.switch_mode(switch_en_tx);
+   endrule
 
    for (Integer i=0; i<valueOf(NumPorts); i=i+1) begin
       rule receive;

@@ -63,6 +63,7 @@ interface EthPortIfc;
    interface Vector#(NumPorts, Clock) tx_clkout;
    (* always_ready, always_enabled *)
    interface LoopbackIfc loopback;
+   (* always_ready, always_enabled *)
    interface SwitchIfc switchctrl;
    interface Vector#(NumPorts, Bool) led_rx_ready;
    interface NetToConnectalIfc api;
