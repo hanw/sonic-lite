@@ -34,15 +34,14 @@ import SpecialFIFOs                  ::*;
 import GetPut                        ::*;
 import Ethernet                      ::*;
 import EthSonicPma                   ::*;
-import EthPcs                        ::*;
 import EthPcsTx                      ::*;
 import EthPcsRx                      ::*;
 import DtpTx                         ::*;
 import DtpRx                         ::*;
+import DtpSwitch                     ::*;
 import ALTERA_SI570_WRAPPER          ::*;
 import ALTERA_EDGE_DETECTOR_WRAPPER  ::*;
-import DtpSwitch                     ::*;
-import AlteraExtra        :: *;
+import AlteraExtra                   ::*;
 
 `ifdef NUMBER_OF_10G_PORTS
 typedef `NUMBER_OF_10G_PORTS NumPorts;
