@@ -28,7 +28,6 @@ import Vector::*;
 import Pipe::*;
 import GetPut::*;
 import Probe::*;
-import Arbiter::*;
 
 typedef struct {
    Bit#(8) port_no;
@@ -46,6 +45,7 @@ interface DtpIfc;
 endinterface
 
 interface SonicUserRequest;
+   method Action dtp_read_version();
    method Action dtp_reset(Bit#(8) port_no);
    method Action dtp_set_cnt(Bit#(8) port_no, Bit#(64) c);
    method Action dtp_read_delay(Bit#(8) port_no);
@@ -57,6 +57,7 @@ interface SonicUserRequest;
 endinterface
 
 interface SonicUserIndication;
+   method Action dtp_read_version_resp(Bit#(32) version);
    method Action dtp_read_delay_resp(Bit#(8) port_no, Bit#(32) delay);
    method Action dtp_read_state_resp(Bit#(8) port_no, Bit#(32) state);
    method Action dtp_read_error_resp(Bit#(8) port_no, Bit#(64) jumpc);
@@ -92,7 +93,6 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
 
    Vector#(4, FIFOF#(BufData)) lread_data_cycle1 <- replicateM(mkSizedFIFOF(8));
    Vector#(4, FIFOF#(BufData)) lread_data_cycle2 <- replicateM(mkSizedFIFOF(8));
-   Vector#(4, Arbiter_IFC#(2)) lread_arb <- replicateM(mkArbiter(False));
 
    Reg#(Bit#(5)) dtp_rst_cntr <- mkReg(0);
    MakeResetIfc dtpResetOut <- mkResetSync(0, False, defaultClock);
@@ -170,23 +170,14 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
    endrule
 
    for (Integer i=0; i<4; i=i+1) begin
-      rule arbiter_reqs;
-         for (Integer j=0; j<2; j=j+1) begin
-            if (toHostFifo[i].notEmpty) begin
-               lread_arb[i].clients[j].request;
-            end
-         end
-      endrule
-      for (Integer j=0; j<2; j=j+1) begin
-         rule save_host_data_cycle1 (lread_arb[i].clients[j].grant);
-            Bit#(53) v = toHostFifo[i].first;
-            toHostFifo[i].deq();
-            case (v[52]) matches
+      rule save_host_data (toHostFifo[i].notEmpty);
+         Bit#(53) v = toHostFifo[i].first;
+         toHostFifo[i].deq;
+         case (v[52]) matches
             0: lread_data_cycle1[i].enq(BufData{port_no:fromInteger(i), data:zeroExtend(v[51:0])});
             1: lread_data_cycle2[i].enq(BufData{port_no:fromInteger(i), data:zeroExtend(v[51:0])});
-            endcase
-         endrule
-      end
+         endcase
+      endrule
    end
 
    rule assert_reset (dtp_rst_cntr != 0);
@@ -207,6 +198,10 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
 
    // API implementation
    interface SonicUserRequest request;
+   method Action dtp_read_version();
+      let v = `DtpVersion; //Defined in Makefile as time of compilation.
+      indication.dtp_read_version_resp(v);
+   endmethod
    method Action dtp_reset(Bit#(8) port_no);
       dtp_rst_cntr <= 5'h1f;
    endmethod

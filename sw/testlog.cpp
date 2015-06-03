@@ -33,6 +33,10 @@ static SonicUserRequestProxy *device = 0;
 class SonicUser : public SonicUserIndicationWrapper
 {
 public:
+  virtual void dtp_read_version_resp(uint32_t a) {
+    fprintf(stderr, "read version %d\n", a);
+  }
+
   virtual void dtp_read_delay_resp(uint8_t p, uint32_t a) {
     fprintf(stderr, "read delay(%d) %d\n", p, a);
   }
@@ -59,6 +63,7 @@ int main(int argc, const char **argv)
 	device->pint.busyType = BUSY_SPIN;   /* spin until request portal 'notFull' */
 
 	device->dtp_reset(0x0);
+	device->dtp_read_version();
 
 	fprintf(stderr, "Main::about to go to sleep\n");
 	while(true){
