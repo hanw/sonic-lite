@@ -161,7 +161,7 @@ interface NetToConnectalIfc;
 endinterface
 
 typedef struct {
-   Bit#(2)  e; //event
+   Bit#(3)  e; //event
    Bit#(53) t; //timestamp
 } DtpEvent deriving (Eq, Bits, FShow);
 

@@ -2,6 +2,7 @@ import Clocks::*;
 import DefaultValue::*;
 import XilinxCells::*;
 import GetPut::*;
+import Vector::*;
 
 (* always_ready, always_enabled *)
 interface MacwrapJtag;
@@ -169,25 +170,25 @@ interface MacWrap;
     interface MacwrapP3_xgmii     p3_xgmii;
 endinterface
 import "BVI" altera_mac =
-module mkMacWrap#(Clock mgmt_clk_clk, Clock clk_156_25, Reset mgmt_reset_reset_n, Reset rst_156_25)(MacWrap);
+module mkMacWrap#(Clock mgmt_clk_clk, Clock clk_156_25, Vector#(4, Clock) rx_clk, Vector#(4, Reset) rx_rst, Reset mgmt_reset_reset_n, Reset rst_156_25)(MacWrap);
     default_clock clk();
     default_reset rst();
     input_clock mgmt_clk_clk(mgmt_clk_clk) = mgmt_clk_clk;
     input_reset mgmt_reset_reset_n(mgmt_reset_reset_n) = mgmt_reset_reset_n;
-    input_clock p0_rx_clk_clk(p0_rx_clk_clk) = clk_156_25;
-    input_reset p0_rx_reset_reset_n(p0_rx_reset_reset_n) = rst_156_25;
+    input_clock p0_rx_clk_clk(p0_rx_clk_clk) = rx_clk[0];
+    input_reset p0_rx_reset_reset_n(p0_rx_reset_reset_n) clocked_by(p0_rx_clk_clk) = rx_rst[0];
     input_clock p0_tx_clk_clk(p0_tx_clk_clk) = clk_156_25;
     input_reset p0_tx_reset_reset_n(p0_tx_reset_reset_n) = rst_156_25;
-    input_clock p1_rx_clk_clk(p1_rx_clk_clk) = clk_156_25;
-    input_reset p1_rx_reset_reset_n(p1_rx_reset_reset_n) = rst_156_25;
+    input_clock p1_rx_clk_clk(p1_rx_clk_clk) = rx_clk[1];
+    input_reset p1_rx_reset_reset_n(p1_rx_reset_reset_n) clocked_by(p1_rx_clk_clk) = rx_rst[1];
     input_clock p1_tx_clk_clk(p1_tx_clk_clk) = clk_156_25;
     input_reset p1_tx_reset_reset_n(p1_tx_reset_reset_n) = rst_156_25;
-    input_clock p2_rx_clk_clk(p2_rx_clk_clk) = clk_156_25;
-    input_reset p2_rx_reset_reset_n(p2_rx_reset_reset_n) = rst_156_25;
+    input_clock p2_rx_clk_clk(p2_rx_clk_clk) = rx_clk[2];
+    input_reset p2_rx_reset_reset_n(p2_rx_reset_reset_n) clocked_by(p2_rx_clk_clk) = rx_rst[2];
     input_clock p2_tx_clk_clk(p2_tx_clk_clk) = clk_156_25;
     input_reset p2_tx_reset_reset_n(p2_tx_reset_reset_n) = rst_156_25;
-    input_clock p3_rx_clk_clk(p3_rx_clk_clk) = clk_156_25;
-    input_reset p3_rx_reset_reset_n(p3_rx_reset_reset_n) = rst_156_25;
+    input_clock p3_rx_clk_clk(p3_rx_clk_clk) = rx_clk[3];
+    input_reset p3_rx_reset_reset_n(p3_rx_reset_reset_n) clocked_by(p3_rx_clk_clk) = rx_rst[3];
     input_clock p3_tx_clk_clk(p3_tx_clk_clk) = clk_156_25;
     input_reset p3_tx_reset_reset_n(p3_tx_reset_reset_n) = rst_156_25;
     interface MacwrapJtag     jtag;
@@ -221,7 +222,7 @@ module mkMacWrap#(Clock mgmt_clk_clk, Clock clk_156_25, Reset mgmt_reset_reset_n
         method p0_tx_status_valid status_valid() clocked_by (p0_tx_clk_clk) reset_by (p0_tx_reset_reset_n);
     endinterface
     interface MacwrapP0_xgmii     p0_xgmii;
-        method rx_data(p0_xgmii_rx_data) enable((*inhigh*) EN_p0_xgmii_rx_data);
+        method rx_data(p0_xgmii_rx_data) clocked_by (p0_rx_clk_clk) reset_by (p0_rx_reset_reset_n) enable((*inhigh*) EN_p0_xgmii_rx_data);
         method p0_xgmii_tx_data tx_data();
     endinterface
     interface MacwrapP1_link_fault     p1_link_fault;
@@ -252,7 +253,7 @@ module mkMacWrap#(Clock mgmt_clk_clk, Clock clk_156_25, Reset mgmt_reset_reset_n
         method p1_tx_status_valid status_valid() clocked_by (p1_tx_clk_clk) reset_by (p1_tx_reset_reset_n);
     endinterface
     interface MacwrapP1_xgmii     p1_xgmii;
-        method rx_data(p1_xgmii_rx_data) enable((*inhigh*) EN_p1_xgmii_rx_data);
+        method rx_data(p1_xgmii_rx_data) clocked_by(p1_rx_clk_clk) reset_by (p1_rx_reset_reset_n) enable((*inhigh*) EN_p1_xgmii_rx_data);
         method p1_xgmii_tx_data tx_data();
     endinterface
     interface MacwrapP2_link_fault     p2_link_fault;
@@ -283,7 +284,7 @@ module mkMacWrap#(Clock mgmt_clk_clk, Clock clk_156_25, Reset mgmt_reset_reset_n
         method p2_tx_status_valid status_valid() clocked_by (p2_tx_clk_clk) reset_by (p2_tx_reset_reset_n);
     endinterface
     interface MacwrapP2_xgmii     p2_xgmii;
-        method rx_data(p2_xgmii_rx_data) enable((*inhigh*) EN_p2_xgmii_rx_data);
+        method rx_data(p2_xgmii_rx_data) clocked_by(p2_rx_clk_clk) reset_by(p2_rx_reset_reset_n) enable((*inhigh*) EN_p2_xgmii_rx_data);
         method p2_xgmii_tx_data tx_data();
     endinterface
     interface MacwrapP3_link_fault     p3_link_fault;
@@ -314,7 +315,7 @@ module mkMacWrap#(Clock mgmt_clk_clk, Clock clk_156_25, Reset mgmt_reset_reset_n
         method p3_tx_status_valid status_valid() clocked_by (p3_tx_clk_clk) reset_by (p3_tx_reset_reset_n);
     endinterface
     interface MacwrapP3_xgmii     p3_xgmii;
-        method rx_data(p3_xgmii_rx_data) enable((*inhigh*) EN_p3_xgmii_rx_data);
+        method rx_data(p3_xgmii_rx_data) clocked_by(p3_rx_clk_clk) reset_by(p3_rx_reset_reset_n) enable((*inhigh*) EN_p3_xgmii_rx_data);
         method p3_xgmii_tx_data tx_data();
     endinterface
     schedule (p0_link_fault.status_data, p0_rx.fifo_out_data, p0_rx.fifo_out_empty, p0_rx.fifo_out_endofpacket, p0_rx.fifo_out_error, p0_rx.fifo_out_ready, p0_rx.fifo_out_startofpacket, p0_rx.fifo_out_valid, p0_rx.status_data, p0_rx.status_error, p0_rx.status_valid, p0_tx.fifo_in_data, p0_tx.fifo_in_empty, p0_tx.fifo_in_endofpacket, p0_tx.fifo_in_error, p0_tx.fifo_in_ready, p0_tx.fifo_in_startofpacket, p0_tx.fifo_in_valid, p0_tx.status_data, p0_tx.status_error, p0_tx.status_valid, p0_xgmii.rx_data, p0_xgmii.tx_data, p1_link_fault.status_data, p1_rx.fifo_out_data, p1_rx.fifo_out_empty, p1_rx.fifo_out_endofpacket, p1_rx.fifo_out_error, p1_rx.fifo_out_ready, p1_rx.fifo_out_startofpacket, p1_rx.fifo_out_valid, p1_rx.status_data, p1_rx.status_error, p1_rx.status_valid, p1_tx.fifo_in_data, p1_tx.fifo_in_empty, p1_tx.fifo_in_endofpacket, p1_tx.fifo_in_error, p1_tx.fifo_in_ready, p1_tx.fifo_in_startofpacket, p1_tx.fifo_in_valid, p1_tx.status_data, p1_tx.status_error, p1_tx.status_valid, p1_xgmii.rx_data, p1_xgmii.tx_data, p2_link_fault.status_data, p2_rx.fifo_out_data, p2_rx.fifo_out_empty, p2_rx.fifo_out_endofpacket, p2_rx.fifo_out_error, p2_rx.fifo_out_ready, p2_rx.fifo_out_startofpacket, p2_rx.fifo_out_valid, p2_rx.status_data, p2_rx.status_error, p2_rx.status_valid, p2_tx.fifo_in_data, p2_tx.fifo_in_empty, p2_tx.fifo_in_endofpacket, p2_tx.fifo_in_error, p2_tx.fifo_in_ready, p2_tx.fifo_in_startofpacket, p2_tx.fifo_in_valid, p2_tx.status_data, p2_tx.status_error, p2_tx.status_valid, p2_xgmii.rx_data, p2_xgmii.tx_data, p3_link_fault.status_data, p3_rx.fifo_out_data, p3_rx.fifo_out_empty, p3_rx.fifo_out_endofpacket, p3_rx.fifo_out_error, p3_rx.fifo_out_ready, p3_rx.fifo_out_startofpacket, p3_rx.fifo_out_valid, p3_rx.status_data, p3_rx.status_error, p3_rx.status_valid, p3_tx.fifo_in_data, p3_tx.fifo_in_empty, p3_tx.fifo_in_endofpacket, p3_tx.fifo_in_error, p3_tx.fifo_in_ready, p3_tx.fifo_in_startofpacket, p3_tx.fifo_in_valid, p3_tx.status_data, p3_tx.status_error, p3_tx.status_valid, p3_xgmii.rx_data, p3_xgmii.tx_data) CF (p0_link_fault.status_data, p0_rx.fifo_out_data, p0_rx.fifo_out_empty, p0_rx.fifo_out_endofpacket, p0_rx.fifo_out_error, p0_rx.fifo_out_ready, p0_rx.fifo_out_startofpacket, p0_rx.fifo_out_valid, p0_rx.status_data, p0_rx.status_error, p0_rx.status_valid, p0_tx.fifo_in_data, p0_tx.fifo_in_empty, p0_tx.fifo_in_endofpacket, p0_tx.fifo_in_error, p0_tx.fifo_in_ready, p0_tx.fifo_in_startofpacket, p0_tx.fifo_in_valid, p0_tx.status_data, p0_tx.status_error, p0_tx.status_valid, p0_xgmii.rx_data, p0_xgmii.tx_data, p1_link_fault.status_data, p1_rx.fifo_out_data, p1_rx.fifo_out_empty, p1_rx.fifo_out_endofpacket, p1_rx.fifo_out_error, p1_rx.fifo_out_ready, p1_rx.fifo_out_startofpacket, p1_rx.fifo_out_valid, p1_rx.status_data, p1_rx.status_error, p1_rx.status_valid, p1_tx.fifo_in_data, p1_tx.fifo_in_empty, p1_tx.fifo_in_endofpacket, p1_tx.fifo_in_error, p1_tx.fifo_in_ready, p1_tx.fifo_in_startofpacket, p1_tx.fifo_in_valid, p1_tx.status_data, p1_tx.status_error, p1_tx.status_valid, p1_xgmii.rx_data, p1_xgmii.tx_data, p2_link_fault.status_data, p2_rx.fifo_out_data, p2_rx.fifo_out_empty, p2_rx.fifo_out_endofpacket, p2_rx.fifo_out_error, p2_rx.fifo_out_ready, p2_rx.fifo_out_startofpacket, p2_rx.fifo_out_valid, p2_rx.status_data, p2_rx.status_error, p2_rx.status_valid, p2_tx.fifo_in_data, p2_tx.fifo_in_empty, p2_tx.fifo_in_endofpacket, p2_tx.fifo_in_error, p2_tx.fifo_in_ready, p2_tx.fifo_in_startofpacket, p2_tx.fifo_in_valid, p2_tx.status_data, p2_tx.status_error, p2_tx.status_valid, p2_xgmii.rx_data, p2_xgmii.tx_data, p3_link_fault.status_data, p3_rx.fifo_out_data, p3_rx.fifo_out_empty, p3_rx.fifo_out_endofpacket, p3_rx.fifo_out_error, p3_rx.fifo_out_ready, p3_rx.fifo_out_startofpacket, p3_rx.fifo_out_valid, p3_rx.status_data, p3_rx.status_error, p3_rx.status_valid, p3_tx.fifo_in_data, p3_tx.fifo_in_empty, p3_tx.fifo_in_endofpacket, p3_tx.fifo_in_error, p3_tx.fifo_in_ready, p3_tx.fifo_in_startofpacket, p3_tx.fifo_in_valid, p3_tx.status_data, p3_tx.status_error, p3_tx.status_valid, p3_xgmii.rx_data, p3_xgmii.tx_data);

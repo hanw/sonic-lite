@@ -28,6 +28,7 @@ import Vector::*;
 import Pipe::*;
 import GetPut::*;
 import Probe::*;
+import Arbiter::*;
 
 typedef struct {
    Bit#(8) port_no;
@@ -83,20 +84,38 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
    Vector#(4, FIFOF#(Bit#(32))) delayFifo    <- replicateM(mkSizedFIFOF(4));
    Vector#(4, FIFOF#(Bit#(32))) stateFifo    <- replicateM(mkSizedFIFOF(4));
    Vector#(4, FIFOF#(Bit#(64))) jumpCountFifo <- replicateM(mkSizedFIFOF(4));
-   FIFOF#(BufData) toHostBuffered <- mkSizedFIFOF(16);
 
    Reg#(Bit#(8))  lwrite_port <- mkReg(0);
-   Reg#(Bit#(53)) lwrite_timestamp <- mkReg(0);
-   FIFOF#(BufData) lwrite_cf <- mkSizedFIFOF(8);
+   FIFOF#(BufData) lwrite_data_cycle1 <- mkSizedFIFOF(8);
+   FIFOF#(BufData) lwrite_data_cycle2 <- mkSizedFIFOF(8);
+   FIFOF#(void) log_write_cf <- mkFIFOF;
 
-   Reg#(Bit#(8))  lread_port <- mkReg(0);
-   FIFOF#(void)   lread_cf <- mkSizedFIFOF(8);
+   Vector#(4, FIFOF#(BufData)) lread_data_cycle1 <- replicateM(mkSizedFIFOF(8));
+   Vector#(4, FIFOF#(BufData)) lread_data_cycle2 <- replicateM(mkSizedFIFOF(8));
+   Vector#(4, Arbiter_IFC#(2)) lread_arb <- replicateM(mkArbiter(False));
 
    Reg#(Bit#(5)) dtp_rst_cntr <- mkReg(0);
    MakeResetIfc dtpResetOut <- mkResetSync(0, False, defaultClock);
 
    rule count;
       cycle_count <= cycle_count + 1;
+   endrule
+
+   // clear all fifo on reset
+   rule clearOnReset(dtpResetOut.isAsserted);
+      for (Integer i=0; i<4; i=i+1) begin
+         fromHostFifo[i].clear();
+         toHostFifo[i].clear();
+         delayFifo[i].clear();
+         stateFifo[i].clear();
+         jumpCountFifo[i].clear();
+         lread_data_cycle1[i].clear();
+         lread_data_cycle2[i].clear();
+      end
+      cntFifo.clear();
+      lwrite_data_cycle1.clear();
+      lwrite_data_cycle2.clear();
+      log_write_cf.clear();
    endrule
 
    // dtp_read_cnt
@@ -133,49 +152,42 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
    end
 
    // dtp_logger_write_cnt
-   rule log_from_host;
-      let v = lwrite_cf.first;
-      lwrite_timestamp <= truncate(v.data);
+   rule log_from_host_cycle1;
+      let v = lwrite_data_cycle1.first;
       if (fromHostFifo[v.port_no].notFull) begin
-         fromHostFifo[v.port_no].enq(truncate(v.data));
+         fromHostFifo[v.port_no].enq({1'b0, truncate(v.data)});
+         log_write_cf.enq(?);
+         lwrite_data_cycle1.deq;
       end
-      lwrite_cf.deq;
+   endrule
+   rule log_from_host_cycle2 (log_write_cf.notEmpty);
+      let v = lwrite_data_cycle2.first;
+      if (fromHostFifo[v.port_no].notFull) begin
+         fromHostFifo[v.port_no].enq({1'b1, truncate(v.data)});
+         lwrite_data_cycle2.deq;
+         log_write_cf.deq;
+      end
    endrule
 
-   // dtp_logger_read_cnt
-   Reg#(Bit#(TLog#(4))) arb <- mkReg(0);
-   rule arbit;
-      arb <= arb + 1;
-   endrule
-   rule save_port0_to_host_data (arb == 0 && toHostFifo[0].notEmpty);
-      let v = toHostFifo[0].first;
-      toHostBuffered.enq(BufData{port_no:0, data:zeroExtend(v)});
-      toHostFifo[0].deq;
-   endrule
-
-   rule save_port1_to_host_data (arb == 1 && toHostFifo[1].notEmpty);
-      let v = toHostFifo[1].first;
-      toHostBuffered.enq(BufData{port_no:1, data:zeroExtend(v)});
-      toHostFifo[1].deq;
-   endrule
-
-   rule save_port2_to_host_data (arb == 2 && toHostFifo[2].notEmpty);
-      let v = toHostFifo[2].first;
-      toHostBuffered.enq(BufData{port_no:2, data:zeroExtend(v)});
-      toHostFifo[2].deq;
-   endrule
-
-   rule save_port3_to_host_data (arb == 3 && toHostFifo[3].notEmpty);
-      let v = toHostFifo[3].first;
-      toHostBuffered.enq(BufData{port_no:3, data:zeroExtend(v)});
-      toHostFifo[3].deq;
-   endrule
-
-   // TODO: support dtp_logger_read_cnt_resp
-   rule log_to_host(toHostBuffered.notEmpty);
-      let v = toHostBuffered.first;
-      toHostBuffered.deq;
-   endrule
+   for (Integer i=0; i<4; i=i+1) begin
+      rule arbiter_reqs;
+         for (Integer j=0; j<2; j=j+1) begin
+            if (toHostFifo[i].notEmpty) begin
+               lread_arb[i].clients[j].request;
+            end
+         end
+      endrule
+      for (Integer j=0; j<2; j=j+1) begin
+         rule save_host_data_cycle1 (lread_arb[i].clients[j].grant);
+            Bit#(53) v = toHostFifo[i].first;
+            toHostFifo[i].deq();
+            case (v[52]) matches
+            0: lread_data_cycle1[i].enq(BufData{port_no:fromInteger(i), data:zeroExtend(v[51:0])});
+            1: lread_data_cycle2[i].enq(BufData{port_no:fromInteger(i), data:zeroExtend(v[51:0])});
+            endcase
+         endrule
+      end
+   end
 
    rule assert_reset (dtp_rst_cntr != 0);
       dtp_rst_cntr <= dtp_rst_cntr - 1;
@@ -222,17 +234,23 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
    method Action dtp_logger_write_cnt(Bit#(8) port_no, Bit#(64) host_timestamp);
       // Check valid port No.
       if (port_no < 4) begin
-         lwrite_cf.enq(BufData{port_no: port_no, data: host_timestamp});
+         lwrite_data_cycle1.enq(BufData{port_no: port_no, data: host_timestamp});
+         lwrite_data_cycle2.enq(BufData{port_no: port_no, data: truncate(ts_reg)});
       end
    endmethod
    method Action dtp_logger_read_cnt(Bit#(8) port_no);
       if (port_no < 4) begin
-         lread_port <= port_no;
+         if (lread_data_cycle1[port_no].notEmpty && lread_data_cycle2[port_no].notEmpty) begin
+            Bit#(64) remote_message1 = lread_data_cycle1[port_no].first.data;
+            Bit#(64) remote_message2 = lread_data_cycle2[port_no].first.data;
+            indication.dtp_logger_read_cnt_resp(port_no,
+                                                truncate(ts_reg),
+                                                zeroExtend(remote_message1),
+                                                zeroExtend(remote_message2));
+            lread_data_cycle1[port_no].deq;
+            lread_data_cycle2[port_no].deq;
+         end
       end
-      indication.dtp_logger_read_cnt_resp(port_no,
-                                          zeroExtend(lwrite_timestamp),
-                                          truncate(ts_reg),
-                                          zeroExtend(lwrite_timestamp));
    endmethod
    endinterface
 endmodule

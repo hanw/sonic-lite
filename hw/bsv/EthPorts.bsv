@@ -72,6 +72,9 @@ endinterface
 (* synthesize *)
 (* clock_family = "default_clock, clk_156_25" *)
 module mkEthPorts#(Clock clk_50, Clock clk_156_25, Clock clk_644)(EthPortIfc);
+
+   let use_mac = True;
+
    Clock defaultClock <- exposeCurrentClock;
    Reset defaultReset <- exposeCurrentReset;
    Reset rst_50     <- mkAsyncResetFromCR(2, clk_50);
@@ -82,21 +85,24 @@ module mkEthPorts#(Clock clk_50, Clock clk_156_25, Clock clk_644)(EthPortIfc);
 
 //   Vector#(NumPorts, EthPktCtrlIfc) pktctrls <- replicateM(mkEthPktCtrl(clk_156_25, rst_156_25, clocked_by clk_156_25, reset_by rst_156_25));
 //
-   //EthMacIfc#(NumPorts) macs <- mkEthMac(clk_50, clk_156_25, clocked_by clk_156_25, reset_by rst_156_25);
-   EthPhyIfc#(NumPorts) phys <- mkEthPhy(clk_50, clk_156_25, clk_644, rst_156_25_n);//, clocked_by clk_156_25, reset_by rst_156_25);
+   EthPhyIfc#(NumPorts) phys <- mkEthPhy(clk_50, clk_156_25, clk_644, rst_156_25_n, clocked_by clk_156_25, reset_by rst_156_25_n);
 
-//   for (Integer i=0; i<valueOf(NumPorts); i=i+1) begin
-//      mkConnection(macs.tx[i], phys.tx[i]);
-//      mkConnection(phys.rx[i], macs.rx[i]);
-//   end
-
-   for (Integer i=0; i<valueOf(NumPorts); i=i+1) begin
-      rule source;
-         phys.tx[i].enq(72'h83c1e0f0783c1e0f07);
-      endrule
-      rule drain;
-         let v0 <- toGet(phys.rx[i]).get;
-      endrule
+   if (use_mac) begin
+      EthMacIfc#(NumPorts) macs <- mkEthMac(clk_50, clk_156_25, phys.rx_clkout, rst_156_25_n, clocked_by clk_156_25, reset_by rst_156_25_n);
+      for (Integer i=0; i<valueOf(NumPorts); i=i+1) begin
+         mkConnection(macs.tx[i], phys.tx[i]);
+         mkConnection(phys.rx[i], macs.rx[i]);
+      end
+   end
+   else begin
+      for (Integer i=0; i<valueOf(NumPorts); i=i+1) begin
+         rule source;
+            phys.tx[i].enq(72'h83c1e0f0783c1e0f07);
+         endrule
+         rule drain;
+            let v0 <- toGet(phys.rx[i]).get;
+         endrule
+      end
    end
 
    // Implement export Timestamp to dtp pipeout;

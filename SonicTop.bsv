@@ -227,49 +227,49 @@ module mkSonicTop #(Clock pcie_refclk_p,
    mkConnection(txFifoPipeOut, portalTop.pins.timestamp);
 
    // send log data from host to network
-//   Vector#(4, SyncFIFOIfc#(Bit#(53))) fromHostFifo <- replicateM(mkSyncFIFO(8, host.portalClock, host.portalReset, clk_156_25));
-//   Vector#(4, PipeOut#(Bit#(53))) fromHostPipeOut = map(toPipeOut,fromHostFifo);
-//   Vector#(4, PipeIn#(Bit#(53))) fromHostPipeIn = map(toPipeIn,fromHostFifo);
-//   for (Integer i=0; i<4; i=i+1) begin
-//      mkConnection(portalTop.pins.fromHost[i], fromHostPipeIn[i]);
-//      mkConnection(fromHostPipeOut[i], eth.api.phys[i].fromHost);
-//   end
-//
-//   // send log data from network to host
-//   Vector#(4, SyncFIFOIfc#(Bit#(53))) toHostFifo <- replicateM(mkSyncFIFO(8, clk_156_25, rst_156_n, host.portalClock));
-//   Vector#(4, PipeOut#(Bit#(53))) toHostPipeOut = map(toPipeOut, toHostFifo);
-//   Vector#(4, PipeIn#(Bit#(53))) toHostPipeIn = map(toPipeIn, toHostFifo);
-//   for (Integer i=0; i<4; i=i+1) begin
-//      mkConnection(eth.api.phys[i].toHost, toHostPipeIn[i]);
-//      mkConnection(toHostPipeOut[i], portalTop.pins.toHost[i]);
-//   end
-//
-//   // send delay measurement to host
-//   Vector#(4, SyncFIFOIfc#(Bit#(32))) delayFifo <- replicateM(mkSyncFIFO(8, clk_156_25, rst_156_n, host.portalClock));
-//   Vector#(4, PipeOut#(Bit#(32))) delayPipeOut = map(toPipeOut, delayFifo);
-//   Vector#(4, PipeIn#(Bit#(32))) delayPipeIn = map(toPipeIn, delayFifo);
-//   for (Integer i=0; i<4; i=i+1) begin
-//      mkConnection(eth.api.phys[i].delayOut, delayPipeIn[i]);
-//      mkConnection(delayPipeOut[i], portalTop.pins.delay[i]);
-//   end
-//
-//   // send dtp state to host
-//   Vector#(4, SyncFIFOIfc#(Bit#(32))) stateFifo <- replicateM(mkSyncFIFO(8, clk_156_25, rst_156_n, host.portalClock));
-//   Vector#(4, PipeOut#(Bit#(32))) statePipeOut = map(toPipeOut, stateFifo);
-//   Vector#(4, PipeIn#(Bit#(32))) statePipeIn = map(toPipeIn, stateFifo);
-//   for (Integer i=0; i<4; i=i+1) begin
-//      mkConnection(eth.api.phys[i].stateOut, statePipeIn[i]);
-//      mkConnection(statePipeOut[i], portalTop.pins.state[i]);
-//   end
-//
-//   // send dtp error count to host
-//   Vector#(4, SyncFIFOIfc#(Bit#(64))) errorCountFifo <- replicateM(mkSyncFIFO(8, clk_156_25, rst_156_n, host.portalClock));
-//   Vector#(4, PipeOut#(Bit#(64))) errorCountPipeOut = map(toPipeOut, errorCountFifo);
-//   Vector#(4, PipeIn#(Bit#(64))) errorCountPipeIn = map(toPipeIn, errorCountFifo);
-//   for (Integer i=0; i<4; i=i+1) begin
-//      mkConnection(eth.api.phys[i].jumpCount, errorCountPipeIn[i]);
-//      mkConnection(errorCountPipeOut[i], portalTop.pins.jumpCount[i]);
-//   end
+   Vector#(4, SyncFIFOIfc#(Bit#(53))) fromHostFifo <- replicateM(mkSyncFIFO(8, host.portalClock, host.portalReset, clk_156_25));
+   Vector#(4, PipeOut#(Bit#(53))) fromHostPipeOut = map(toPipeOut,fromHostFifo);
+   Vector#(4, PipeIn#(Bit#(53))) fromHostPipeIn = map(toPipeIn,fromHostFifo);
+   for (Integer i=0; i<4; i=i+1) begin
+      mkConnection(portalTop.pins.fromHost[i], fromHostPipeIn[i]);
+      mkConnection(fromHostPipeOut[i], eth.api.phys[i].fromHost);
+   end
+
+   // send log data from network to host
+   Vector#(4, SyncFIFOIfc#(Bit#(53))) toHostFifo <- replicateM(mkSyncFIFO(8, clk_156_25, rst_156_n, host.portalClock));
+   Vector#(4, PipeOut#(Bit#(53))) toHostPipeOut = map(toPipeOut, toHostFifo);
+   Vector#(4, PipeIn#(Bit#(53))) toHostPipeIn = map(toPipeIn, toHostFifo);
+   for (Integer i=0; i<4; i=i+1) begin
+      mkConnection(eth.api.phys[i].toHost, toHostPipeIn[i]);
+      mkConnection(toHostPipeOut[i], portalTop.pins.toHost[i]);
+   end
+
+   // send delay measurement to host
+   Vector#(4, SyncFIFOIfc#(Bit#(32))) delayFifo <- replicateM(mkSyncFIFO(8, clk_156_25, rst_156_n, host.portalClock));
+   Vector#(4, PipeOut#(Bit#(32))) delayPipeOut = map(toPipeOut, delayFifo);
+   Vector#(4, PipeIn#(Bit#(32))) delayPipeIn = map(toPipeIn, delayFifo);
+   for (Integer i=0; i<4; i=i+1) begin
+      mkConnection(eth.api.phys[i].delayOut, delayPipeIn[i]);
+      mkConnection(delayPipeOut[i], portalTop.pins.delay[i]);
+   end
+
+   // send dtp state to host
+   Vector#(4, SyncFIFOIfc#(Bit#(32))) stateFifo <- replicateM(mkSyncFIFO(8, clk_156_25, rst_156_n, host.portalClock));
+   Vector#(4, PipeOut#(Bit#(32))) statePipeOut = map(toPipeOut, stateFifo);
+   Vector#(4, PipeIn#(Bit#(32))) statePipeIn = map(toPipeIn, stateFifo);
+   for (Integer i=0; i<4; i=i+1) begin
+      mkConnection(eth.api.phys[i].stateOut, statePipeIn[i]);
+      mkConnection(statePipeOut[i], portalTop.pins.state[i]);
+   end
+
+   // send dtp error count to host
+   Vector#(4, SyncFIFOIfc#(Bit#(64))) errorCountFifo <- replicateM(mkSyncFIFO(8, clk_156_25, rst_156_n, host.portalClock));
+   Vector#(4, PipeOut#(Bit#(64))) errorCountPipeOut = map(toPipeOut, errorCountFifo);
+   Vector#(4, PipeIn#(Bit#(64))) errorCountPipeIn = map(toPipeIn, errorCountFifo);
+   for (Integer i=0; i<4; i=i+1) begin
+      mkConnection(eth.api.phys[i].jumpCount, errorCountPipeIn[i]);
+      mkConnection(errorCountPipeOut[i], portalTop.pins.jumpCount[i]);
+   end
 
    // going from level to edge-triggered interrupt
    Vector#(16, Reg#(Bool)) interruptRequested <- replicateM(mkReg(False, clocked_by host.portalClock, reset_by host.portalReset));

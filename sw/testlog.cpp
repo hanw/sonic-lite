@@ -43,16 +43,17 @@ public:
     fprintf(stderr, "read error(%d) %ld\n", p, a);
   }
   virtual void dtp_read_cnt_resp(uint64_t a) {
-    fprintf(stderr, "readCycleCount(%ld)\n", a);
+    fprintf(stderr, "readCycleCount(%lx)\n", a);
   }
   virtual void dtp_logger_read_cnt_resp(uint8_t a, uint64_t b, uint64_t c, uint64_t d) {
-	fprintf(stderr, "read from port(%d) local_cnt(%ld) msg1(%ld) msg2(%ld)\n", a, b, c, d);
+	fprintf(stderr, "read from port(%d) local_cnt(%lx) msg1(%lx) msg2(%lx)\n", a, b, c, d);
   }
   SonicUser(unsigned int id) : SonicUserIndicationWrapper(id) {}
 };
 
 int main(int argc, const char **argv)
 {
+	uint32_t count = 100;
 	SonicUser indication(IfcNames_SonicUserIndicationH2S);
 	device = new SonicUserRequestProxy(IfcNames_SonicUserRequestS2H);
 	device->pint.busyType = BUSY_SPIN;   /* spin until request portal 'notFull' */
@@ -67,6 +68,13 @@ int main(int argc, const char **argv)
 			device->dtp_read_error(i);
 			device->dtp_read_cnt(i);
 		}
+		for (int i=0; i<4; i++) {
+			device->dtp_logger_write_cnt(i, count);
+		}
+		for (int i=0; i<4; i++) {
+			device->dtp_logger_read_cnt(i);
+		}
+		count ++;
 		sleep(2);
 	}
 }

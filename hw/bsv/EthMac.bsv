@@ -29,6 +29,7 @@ import Connectable                   ::*;
 import Pipe                          ::*;
 import FIFOF                         ::*;
 import GetPut                        ::*;
+import Pipe::*;
 
 import Ethernet::*;
 import AvalonStreaming::*;
@@ -234,19 +235,23 @@ endinterface
 //
 //endmodule: vmkEthMac
 
-module mkEthMac#(Clock clk_50, Clock clk_156_25)(EthMacIfc#(4));
-    Vector#(NumPorts, FIFOF#(Bit#(72))) txFifo <- replicateM(mkFIFOF());
-    Vector#(NumPorts, FIFOF#(Bit#(72))) rxFifo <- replicateM(mkFIFOF());
-    Vector#(NumPorts, PipeOut#(Bit#(72))) vTxPipe = newVector;
-    Vector#(NumPorts, PipeIn#(Bit#(72))) vRxPipe = newVector;
-
+module mkEthMac#(Clock clk_50, Clock clk_156_25, Vector#(4, Clock) rx_clk, Reset rst_156_25_n)(EthMacIfc#(4));
+    Vector#(NumPorts, FIFOF#(Bit#(72))) txFifo = newVector;
+    Vector#(NumPorts, FIFOF#(Bit#(72))) rxFifo = newVector;
+    Vector#(NumPorts, Reset) rx_rst = newVector;
     Clock defaultClock <- exposeCurrentClock;
     Reset defaultReset <- exposeCurrentReset;
 
-    MacWrap mac <- mkMacWrap(clk_50, clk_156_25, defaultReset, defaultReset);
+    for (Integer i=0; i<valueOf(NumPorts); i=i+1) begin
+       rx_rst[i] <- mkAsyncReset(2, rst_156_25_n, rx_clk[i]);
+    end
+    MacWrap mac <- mkMacWrap(clk_50, clk_156_25, rx_clk, rx_rst, defaultReset, defaultReset);
 
-    rule receive(True);
-       for (Integer i=0; i<valueOf(NumPorts); i=i+1) begin
+    for (Integer i=0; i<valueOf(NumPorts); i=i+1) begin
+       txFifo[i] <- mkFIFOF(clocked_by clk_156_25);
+       rxFifo[i] <- mkFIFOF(clocked_by rx_clk[i], reset_by rx_rst[i]);
+
+       rule receive;
           let v <- toGet(rxFifo[i]).get;
           case(i)
              0: mac.p0_xgmii.rx_data(v);
@@ -254,22 +259,22 @@ module mkEthMac#(Clock clk_50, Clock clk_156_25)(EthMacIfc#(4));
              2: mac.p2_xgmii.rx_data(v);
              3: mac.p3_xgmii.rx_data(v);
           endcase
-       end
-    endrule
+       endrule
+    end
 
-    rule transmit(True);
-       for (Integer i=0; i<valueOf(NumPorts); i=i+1) begin
+    for (Integer i=0; i<valueOf(NumPorts); i=i+1) begin
+       rule transmit;
           case(i)
              0: txFifo[0].enq(mac.p0_xgmii.tx_data);
              1: txFifo[1].enq(mac.p1_xgmii.tx_data);
              2: txFifo[2].enq(mac.p2_xgmii.tx_data);
              3: txFifo[3].enq(mac.p3_xgmii.tx_data);
           endcase
-       end
-    endrule
+       endrule
+    end
 
-    interface tx = vTxPipe;
-    interface rx = vRxPipe;
+    interface tx = map(toPipeOut, txFifo);
+    interface rx = map(toPipeIn, rxFifo);
 endmodule
 
 endpackage: EthMac

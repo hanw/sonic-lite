@@ -120,8 +120,8 @@ module mkDtpTx#(Integer id, Integer c_local_init)(DtpTx);
 
    FIFOF#(Bit#(53)) outstandingInitRequest <- mkSizedFIFOF(8);
 
-   FIFOF#(Bit#(2))  dtpEventFifo   <- mkFIFOF;
-   FIFOF#(Bit#(2))  dtpEventOutputFifo   <- mkFIFOF;
+   FIFOF#(Bit#(3))  dtpEventFifo   <- mkFIFOF;
+   FIFOF#(Bit#(3))  dtpEventOutputFifo   <- mkFIFOF;
    FIFOF#(Bit#(66)) dtpRxOutFifo <- mkFIFOF;
    FIFOF#(DtpEvent) dtpEventInFifo <- mkFIFOF;
 
@@ -374,9 +374,11 @@ module mkDtpTx#(Integer id, Integer c_local_init)(DtpTx);
       let init_type   = fromInteger(valueOf(INIT_TYPE));
       let ack_type    = fromInteger(valueOf(ACK_TYPE));
       let beacon_type = fromInteger(valueOf(BEACON_TYPE));
+      let log_type    = fromInteger(valueOf(LOG_TYPE));
       Bool init_rcvd_next   = False;
       Bool ack_rcvd_next    = False;
       Bool beacon_rcvd_next = False;
+      Bool log_rcvd_next    = False;
       if (dtpEventInFifo.notEmpty) begin
          let v <- toGet(dtpEventInFifo).get;
          if (v.e == init_type) begin
@@ -397,14 +399,22 @@ module mkDtpTx#(Integer id, Integer c_local_init)(DtpTx);
                remoteCompareGlobalFifo.enq(v.t+1);
             end
          end
+         else if (v.e == log_type) begin
+            log_rcvd_next = True;
+            if(verbose) $display("%d: %d DtpTx log_rcvd %h %d", cycle, id, v.e, v.t);
+            if (toHostFifo.notFull) begin
+               toHostFifo.enq(v.t);
+            end
+         end
          dtpEventFifo.enq(v.e);
       end
       else begin
-         dtpEventFifo.enq(2'b0);
+         dtpEventFifo.enq(3'b0);
       end
       init_rcvd   <= init_rcvd_next;
       ack_rcvd    <= ack_rcvd_next;
       beacon_rcvd <= beacon_rcvd_next;
+      log_rcvd    <= log_rcvd_next;
    endrule
 
    rule rx_stage2;
@@ -521,7 +531,7 @@ module mkDtpTx#(Integer id, Integer c_local_init)(DtpTx);
       if (!rx_ready_wire) begin
          c_local <= 0;
       end
-      else if (v == beacon_type) begin
+      else if (v == zeroExtend(beacon_type)) begin
          c_local <= c_local_next;
          if(verbose) $display("%d: %d c_local_next = %d", cycle, id, c_local_next);
       end
