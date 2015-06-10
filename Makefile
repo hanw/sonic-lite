@@ -10,6 +10,8 @@ CPPFILES=sw/testlog.cpp
 NUMBER_OF_MASTERS =0
 PIN_BINDINGS?=PCIE:PCIE LED:LED OSC:OSC SFPA:SFPA SFPB:SFPB SFPC:SFPC SFPD:SFPD SFP:SFP I2C:CLOCK BUTTON:BUTTON SW:SW
 
+QUARTUS_SH=$(shell which quartus_sh)
+
 PIN_TYPE = DtpIfc
 EXPORT_TYPE = PinsTopIfc
 CONNECTALFLAGS += --bscflags="-p +:$(DTOP)/hw/lib/bsv:$(DTOP)/hw/bsv/libs:$(DTOP)/hw/generated"
@@ -40,14 +42,16 @@ endif
 #PORTAL_DUMP_MAP="SonicUser"
 
 prebuild::
+ifneq (, $(QUARTUS_SH))
 ifeq ($(ALTERA_SIM_$(BOARD)), 1)
 #	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) quartus_sh -t ../scripts/connectal-synth-pll.tcl)
-	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) quartus_sh -t $(DTOP)/hw/scripts/connectal-simu-pcietb.tcl)
+	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) $(QUARTUS_SH) -t $(DTOP)/hw/scripts/connectal-simu-pcietb.tcl)
 endif
 ifeq ($(ALTERA_SYNTH_$(BOARD)), 1)
-	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) quartus_sh -t $(CONNECTALDIR)/scripts/connectal-synth-pll.tcl)
-	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) quartus_sh -t ../hw/scripts/connectal-synth-mac.tcl)
-	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) quartus_sh -t ../hw/scripts/connectal-synth-eth.tcl)
+	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) $(QUARTUS_SH) -t $(CONNECTALDIR)/scripts/connectal-synth-pll.tcl)
+	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) $(QUARTUS_SH) -t ../hw/scripts/connectal-synth-mac.tcl)
+	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) $(QUARTUS_SH) -t ../hw/scripts/connectal-synth-eth.tcl)
+endif
 endif
 
 #BSV_VERILOG_FILES+=$(PCIE_TBED_VERILOG_FILES)
