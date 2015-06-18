@@ -155,6 +155,7 @@ module mkDtpTx#(Integer id, Integer c_local_init)(DtpTx);
    FIFOF#(Bit#(32)) delayFifo    <- mkSizedFIFOF(1);
    FIFOF#(Bit#(32)) stateFifo     <- mkSizedFIFOF(1);
    FIFOF#(Bit#(64)) jumpCountFifo <- mkSizedFIFOF(1);
+   FIFOF#(Bit#(53)) cLocalFifo   <- mkSizedFIFOF(1);
 
    rule cyc;
       cycle <= cycle + 1;
@@ -552,6 +553,10 @@ module mkDtpTx#(Integer id, Integer c_local_init)(DtpTx);
       jumpCountFifo.enq(jumpCount);
    endrule
 
+   rule export_c_local;
+      cLocalFifo.enq(c_local);
+   endrule
+
    method Action tx_ready(Bool v);
       tx_ready_wire <= v;
    endmethod
@@ -568,6 +573,7 @@ module mkDtpTx#(Integer id, Integer c_local_init)(DtpTx);
       interface delayOut = toPipeOut(delayFifo);
       interface stateOut = toPipeOut(stateFifo);
       interface jumpCount = toPipeOut(jumpCountFifo);
+      interface cLocalOut = toPipeOut(cLocalFifo);
       interface toHost   = toPipeOut(toHostFifo);
       interface fromHost = toPipeIn(fromHostFifo);
    endinterface);

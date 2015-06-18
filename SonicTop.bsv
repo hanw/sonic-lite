@@ -271,6 +271,15 @@ module mkSonicTop #(Clock pcie_refclk_p,
       mkConnection(errorCountPipeOut[i], portalTop.pins.jumpCount[i]);
    end
 
+   // send dtp clocal to host
+   Vector#(4, SyncFIFOIfc#(Bit#(53))) cLocalFifo <- replicateM(mkSyncFIFO(8, clk_156_25, rst_156_n, host.portalClock));
+   Vector#(4, PipeOut#(Bit#(53))) cLocalPipeOut = map(toPipeOut, cLocalFifo);
+   Vector#(4, PipeIn#(Bit#(53))) cLocalPipeIn = map(toPipeIn, cLocalFifo);
+   for (Integer i=0; i<4; i=i+1) begin
+      mkConnection(eth.api.phys[i].cLocalOut, cLocalPipeIn[i]);
+      mkConnection(cLocalPipeOut[i], portalTop.pins.cLocal[i]);
+   end
+
    // going from level to edge-triggered interrupt
    Vector#(16, Reg#(Bool)) interruptRequested <- replicateM(mkReg(False, clocked_by host.portalClock, reset_by host.portalReset));
    rule interrupt_rule;

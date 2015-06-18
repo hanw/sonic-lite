@@ -41,6 +41,7 @@ interface DtpIfc;
    interface Vector#(4, PipeIn#(Bit#(32)))  delay;
    interface Vector#(4, PipeIn#(Bit#(32)))  state;
    interface Vector#(4, PipeIn#(Bit#(64)))  jumpCount;
+   interface Vector#(4, PipeIn#(Bit#(53)))  cLocal;
    interface Reset rst;
 endinterface
 
@@ -54,6 +55,16 @@ interface SonicUserRequest;
    method Action dtp_read_cnt(Bit#(8) cmd);
    method Action dtp_logger_write_cnt(Bit#(8) port_no, Bit#(64) local_cnt);
    method Action dtp_logger_read_cnt(Bit#(8) port_no);
+   method Action dtp_read_local_cnt(Bit#(8) port_no);
+/* NOT IMPLEMENTED YET.
+   method Action dtp_read_global_cnt();
+   method Action dtp_reset_all();
+   method Action dtp_set_beacon_interval(Bit#(8) port_no, Bit#(32) interval);
+   method Action dtp_read_beacon_interval(Bit#(8) port_no);
+   method Action dtp_ctrl_set_local(Bit#(8) port_no, Bit#(64) counter);
+   method Action dtp_ctrl_disable();
+   method Action dtp_ctrl_enable();
+*/
 endinterface
 
 interface SonicUserIndication;
@@ -63,6 +74,10 @@ interface SonicUserIndication;
    method Action dtp_read_error_resp(Bit#(8) port_no, Bit#(64) jumpc);
    method Action dtp_read_cnt_resp(Bit#(64) val);
    method Action dtp_logger_read_cnt_resp(Bit#(8) port_no, Bit#(64) localc, Bit#(64) msg1, Bit#(64) msg2);
+   method Action dtp_read_local_cnt_resp(Bit#(8) port_no, Bit#(64) val);
+/*
+   method Action dtp_read_beacon_interval_resp(Bit#(8) port_no, Bit#(32) interval);
+*/
 endinterface
 
 interface SonicUser;
@@ -85,6 +100,7 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
    Vector#(4, FIFOF#(Bit#(32))) delayFifo    <- replicateM(mkSizedFIFOF(4));
    Vector#(4, FIFOF#(Bit#(32))) stateFifo    <- replicateM(mkSizedFIFOF(4));
    Vector#(4, FIFOF#(Bit#(64))) jumpCountFifo <- replicateM(mkSizedFIFOF(4));
+   Vector#(4, FIFOF#(Bit#(53))) cLocalFifo   <- replicateM(mkSizedFIFOF(4));
 
    Reg#(Bit#(8))  lwrite_port <- mkReg(0);
    FIFOF#(BufData) lwrite_data_cycle1 <- mkSizedFIFOF(8);
@@ -109,6 +125,7 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
          delayFifo[i].clear();
          stateFifo[i].clear();
          jumpCountFifo[i].clear();
+         cLocalFifo[i].clear();
          lread_data_cycle1[i].clear();
          lread_data_cycle2[i].clear();
       end
@@ -148,6 +165,15 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
       rule snapshot_jumpc;
          let v <- toGet(jumpCountFifo[i]).get;
          jumpc_reg[i] <= v;
+      endrule
+   end
+
+   // dtp_read_local_cnt
+   Vector#(4, Reg#(Bit#(53))) clocal_reg <- replicateM(mkReg(0));
+   for (Integer i=0; i<4; i=i+1) begin
+      rule snapshot_clocal;
+         let v <- toGet(cLocalFifo[i]).get;
+         clocal_reg[i] <= v;
       endrule
    end
 
@@ -193,6 +219,7 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
       interface jumpCount = map(toPipeIn, jumpCountFifo);
       interface toHost    = map(toPipeIn, toHostFifo);
       interface fromHost  = map(toPipeOut, fromHostFifo);
+      interface cLocal    = map(toPipeIn, cLocalFifo);
       interface rst       = dtpResetOut.new_rst;
    endinterface);
 
@@ -245,6 +272,11 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
             lread_data_cycle1[port_no].deq;
             lread_data_cycle2[port_no].deq;
          end
+      end
+   endmethod
+   method Action dtp_read_local_cnt(Bit#(8) port_no);
+      if (port_no < 4) begin
+         indication.dtp_read_local_cnt_resp(port_no, zeroExtend(clocal_reg[port_no]));
       end
    endmethod
    endinterface

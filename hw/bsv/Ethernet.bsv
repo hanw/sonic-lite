@@ -151,6 +151,7 @@ interface DtpToPhyIfc;
    interface PipeOut#(Bit#(32)) delayOut;
    interface PipeOut#(Bit#(32)) stateOut;
    interface PipeOut#(Bit#(64)) jumpCount;
+   interface PipeOut#(Bit#(53)) cLocalOut;
    interface PipeOut#(Bit#(53)) toHost;
    interface PipeIn#(Bit#(53))  fromHost;
 endinterface

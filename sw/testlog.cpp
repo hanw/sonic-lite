@@ -52,6 +52,9 @@ public:
   virtual void dtp_logger_read_cnt_resp(uint8_t a, uint64_t b, uint64_t c, uint64_t d) {
 	fprintf(stderr, "read from port(%d) local_cnt(%lx) msg1(%lx) msg2(%lx)\n", a, b, c, d);
   }
+  virtual void dtp_read_local_cnt_resp(uint8_t p, uint64_t a) {
+	fprintf(stderr, "read from port(%d) local_cnt(%lx)\n", p, a);
+  }
   SonicUser(unsigned int id) : SonicUserIndicationWrapper(id) {}
 };
 
@@ -67,7 +70,7 @@ int main(int argc, const char **argv)
 
 	fprintf(stderr, "Main::about to go to sleep\n");
 	while(true){
-		for (int i=0; i<4; i++) {
+		for (int i=0; i<1; i++) {
 			device->dtp_read_delay(i);
 			device->dtp_read_state(i);
 			device->dtp_read_error(i);
