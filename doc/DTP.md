@@ -4,7 +4,7 @@
 ` dtp_read_version()` returns the version of firmware in `uint32_t`
    
 ` dtp_reset(uint32_t reset_pulse_len)`
-   * resets dtp state machine for port `port_no`.
+   * resets all ports.
    * reset pulse len: maximum 2^28 cycles, which is ~1.7 seconds.
 
 ` dtp_read_delay(uint8_t port_no) ` read the measured delay of `port_no`.
