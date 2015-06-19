@@ -55,6 +55,12 @@ public:
   virtual void dtp_read_local_cnt_resp(uint8_t p, uint64_t a) {
 	fprintf(stderr, "read from port(%d) local_cnt(%lx)\n", p, a);
   }
+  virtual void dtp_read_global_cnt_resp(uint64_t a) {
+	fprintf(stderr, "read global_cnt(%lx)\n", a);
+  }
+  virtual void dtp_read_beacon_interval_resp(uint8_t p, uint32_t a) {
+	fprintf(stderr, "read from port(%d) local_cnt(%x)\n", p, a);
+  }
   SonicUser(unsigned int id) : SonicUserIndicationWrapper(id) {}
 };
 
@@ -65,7 +71,7 @@ int main(int argc, const char **argv)
 	device = new SonicUserRequestProxy(IfcNames_SonicUserRequestS2H);
 	device->pint.busyType = BUSY_SPIN;   /* spin until request portal 'notFull' */
 
-	device->dtp_reset(0x0);
+	device->dtp_reset(32);
 	device->dtp_read_version();
 
 	fprintf(stderr, "Main::about to go to sleep\n");

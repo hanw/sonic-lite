@@ -63,6 +63,7 @@ interface EthPhyIfc#(numeric type numPorts);
 
    interface Vector#(numPorts, Bool) led_rx_ready;
    interface Vector#(numPorts, DtpToPhyIfc) api;
+   interface PipeOut#(Bit#(53)) globalOut;
 endinterface
 
 function Bit#(n) reverseBits(Bit#(n) x);
@@ -262,6 +263,7 @@ module mkEthPhy#(Clock mgmt_clk, Clock clk_156_25, Clock clk_644, Reset rst_n)(E
    interface led_rx_ready = pma4.rx_ready;
 
    interface api = vapi;
+   interface globalOut = dtpswitch.globalOut;
 
 endmodule: mkEthPhy
 endpackage: EthPhy

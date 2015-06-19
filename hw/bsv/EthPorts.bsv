@@ -116,6 +116,7 @@ module mkEthPorts#(Clock clk_50, Clock clk_156_25, Clock clk_644)(EthPortIfc);
 
    interface api = (interface NetToConnectalIfc;
       interface timestamp = toPipeOut(tsFifo);
+      interface globalOut = phys.globalOut;
       interface phys = phys.api;
    endinterface);
 

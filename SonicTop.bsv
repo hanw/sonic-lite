@@ -280,6 +280,22 @@ module mkSonicTop #(Clock pcie_refclk_p,
       mkConnection(cLocalPipeOut[i], portalTop.pins.cLocal[i]);
    end
 
+   // send dtp cglobal to host
+   SyncFIFOIfc#(Bit#(53)) cGlobalFifo <- mkSyncFIFO(8, clk_156_25, rst_156_n, host.portalClock);
+   PipeOut#(Bit#(53)) cGlobalPipeOut = toPipeOut(cGlobalFifo);
+   PipeIn#(Bit#(53)) cGlobalPipeIn = toPipeIn(cGlobalFifo);
+   mkConnection(eth.api.globalOut, cGlobalPipeIn);
+   mkConnection(cGlobalPipeOut, portalTop.pins.globalOut);
+
+   // set interval
+   Vector#(4, SyncFIFOIfc#(Bit#(32))) intervalFifo <- replicateM(mkSyncFIFO(8, host.portalClock, host.portalReset, clk_156_25));
+   Vector#(4, PipeOut#(Bit#(32))) intervalPipeOut = map(toPipeOut,intervalFifo);
+   Vector#(4, PipeIn#(Bit#(32))) intervalPipeIn = map(toPipeIn,intervalFifo);
+   for (Integer i=0; i<4; i=i+1) begin
+      mkConnection(portalTop.pins.interval[i], intervalPipeIn[i]);
+      mkConnection(intervalPipeOut[i], eth.api.phys[i].interval);
+   end
+
    // going from level to edge-triggered interrupt
    Vector#(16, Reg#(Bool)) interruptRequested <- replicateM(mkReg(False, clocked_by host.portalClock, reset_by host.portalReset));
    rule interrupt_rule;

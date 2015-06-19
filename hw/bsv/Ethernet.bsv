@@ -154,10 +154,12 @@ interface DtpToPhyIfc;
    interface PipeOut#(Bit#(53)) cLocalOut;
    interface PipeOut#(Bit#(53)) toHost;
    interface PipeIn#(Bit#(53))  fromHost;
+   interface PipeIn#(Bit#(32))  interval;
 endinterface
 
 interface NetToConnectalIfc;
    interface PipeOut#(Bit#(128)) timestamp;
+   interface PipeOut#(Bit#(53)) globalOut;
    interface Vector#(NumPorts, DtpToPhyIfc) phys;
 endinterface
 

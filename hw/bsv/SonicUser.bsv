@@ -42,12 +42,14 @@ interface DtpIfc;
    interface Vector#(4, PipeIn#(Bit#(32)))  state;
    interface Vector#(4, PipeIn#(Bit#(64)))  jumpCount;
    interface Vector#(4, PipeIn#(Bit#(53)))  cLocal;
+   interface PipeIn#(Bit#(53)) globalOut;
+   interface Vector#(4, PipeOut#(Bit#(32))) interval;
    interface Reset rst;
 endinterface
 
 interface SonicUserRequest;
    method Action dtp_read_version();
-   method Action dtp_reset(Bit#(8) port_no);
+   method Action dtp_reset(Bit#(32) len);
    method Action dtp_set_cnt(Bit#(8) port_no, Bit#(64) c);
    method Action dtp_read_delay(Bit#(8) port_no);
    method Action dtp_read_state(Bit#(8) port_no);
@@ -56,12 +58,10 @@ interface SonicUserRequest;
    method Action dtp_logger_write_cnt(Bit#(8) port_no, Bit#(64) local_cnt);
    method Action dtp_logger_read_cnt(Bit#(8) port_no);
    method Action dtp_read_local_cnt(Bit#(8) port_no);
-/* NOT IMPLEMENTED YET.
    method Action dtp_read_global_cnt();
-   method Action dtp_reset_all();
    method Action dtp_set_beacon_interval(Bit#(8) port_no, Bit#(32) interval);
    method Action dtp_read_beacon_interval(Bit#(8) port_no);
-   method Action dtp_ctrl_set_local(Bit#(8) port_no, Bit#(64) counter);
+/* NOT IMPLEMENTED YET.
    method Action dtp_ctrl_disable();
    method Action dtp_ctrl_enable();
 */
@@ -75,9 +75,8 @@ interface SonicUserIndication;
    method Action dtp_read_cnt_resp(Bit#(64) val);
    method Action dtp_logger_read_cnt_resp(Bit#(8) port_no, Bit#(64) localc, Bit#(64) msg1, Bit#(64) msg2);
    method Action dtp_read_local_cnt_resp(Bit#(8) port_no, Bit#(64) val);
-/*
+   method Action dtp_read_global_cnt_resp(Bit#(64) val);
    method Action dtp_read_beacon_interval_resp(Bit#(8) port_no, Bit#(32) interval);
-*/
 endinterface
 
 interface SonicUser;
@@ -94,6 +93,7 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
 
    FIFOF#(Bit#(128)) cntFifo <- mkFIFOF();
    Reg#(Bit#(128))   ts_reg <- mkReg(0);
+   Vector#(4, Reg#(Bit#(32))) beacon_interval <- replicateM(mkReg(1000)); //default beacon interval is 1000.
 
    Vector#(4, FIFOF#(Bit#(53))) fromHostFifo <- replicateM(mkSizedFIFOF(4));
    Vector#(4, FIFOF#(Bit#(53))) toHostFifo   <- replicateM(mkSizedFIFOF(4));
@@ -101,6 +101,8 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
    Vector#(4, FIFOF#(Bit#(32))) stateFifo    <- replicateM(mkSizedFIFOF(4));
    Vector#(4, FIFOF#(Bit#(64))) jumpCountFifo <- replicateM(mkSizedFIFOF(4));
    Vector#(4, FIFOF#(Bit#(53))) cLocalFifo   <- replicateM(mkSizedFIFOF(4));
+   FIFOF#(Bit#(53)) cGlobalFifo <- mkSizedFIFOF(4);
+   Vector#(4, FIFOF#(Bit#(32))) intervalFifo <- replicateM(mkSizedFIFOF(4));
 
    Reg#(Bit#(8))  lwrite_port <- mkReg(0);
    FIFOF#(BufData) lwrite_data_cycle1 <- mkSizedFIFOF(8);
@@ -110,7 +112,7 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
    Vector#(4, FIFOF#(BufData)) lread_data_cycle1 <- replicateM(mkSizedFIFOF(8));
    Vector#(4, FIFOF#(BufData)) lread_data_cycle2 <- replicateM(mkSizedFIFOF(8));
 
-   Reg#(Bit#(5)) dtp_rst_cntr <- mkReg(0);
+   Reg#(Bit#(28)) dtp_rst_cntr <- mkReg(0);
    MakeResetIfc dtpResetOut <- mkResetSync(0, False, defaultClock);
 
    rule count;
@@ -126,9 +128,11 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
          stateFifo[i].clear();
          jumpCountFifo[i].clear();
          cLocalFifo[i].clear();
+         intervalFifo[i].clear();
          lread_data_cycle1[i].clear();
          lread_data_cycle2[i].clear();
       end
+      cGlobalFifo.clear();
       cntFifo.clear();
       lwrite_data_cycle1.clear();
       lwrite_data_cycle2.clear();
@@ -177,6 +181,21 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
       endrule
    end
 
+   // dtp_read_global_cnt
+   Reg#(Bit#(53)) cglobal_reg <- mkReg(0);
+   rule snapshot_cglobal;
+      let v <- toGet(cGlobalFifo).get;
+      cglobal_reg <= v;
+   endrule
+
+   // dtp_set_interval
+   for (Integer i=0; i<4; i=i+1) begin
+      rule set_interval;
+         let v = beacon_interval[i];
+         intervalFifo[i].enq(v);
+      endrule
+   end
+
    // dtp_logger_write_cnt
    rule log_from_host_cycle1;
       let v = lwrite_data_cycle1.first;
@@ -220,6 +239,8 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
       interface toHost    = map(toPipeIn, toHostFifo);
       interface fromHost  = map(toPipeOut, fromHostFifo);
       interface cLocal    = map(toPipeIn, cLocalFifo);
+      interface globalOut = toPipeIn(cGlobalFifo);
+      interface interval  = map(toPipeOut, intervalFifo);
       interface rst       = dtpResetOut.new_rst;
    endinterface);
 
@@ -229,8 +250,10 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
       let v = `DtpVersion; //Defined in Makefile as time of compilation.
       indication.dtp_read_version_resp(v);
    endmethod
-   method Action dtp_reset(Bit#(8) port_no);
-      dtp_rst_cntr <= 5'h1f;
+   method Action dtp_reset(Bit#(32) len);
+      Bit#(28) limit = truncate(len) & 28'hFFFFFFF;
+      if (limit == 0) limit = 32;
+      dtp_rst_cntr <= limit;
    endmethod
    method Action dtp_set_cnt(Bit#(8) port_no, Bit#(64) c);
       //
@@ -257,7 +280,7 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
       // Check valid port No.
       if (port_no < 4) begin
          lwrite_data_cycle1.enq(BufData{port_no: port_no, data: host_timestamp});
-         lwrite_data_cycle2.enq(BufData{port_no: port_no, data: truncate(ts_reg)});
+         lwrite_data_cycle2.enq(BufData{port_no: port_no, data: zeroExtend(clocal_reg[port_no])});
       end
    endmethod
    method Action dtp_logger_read_cnt(Bit#(8) port_no);
@@ -266,7 +289,7 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
             Bit#(64) remote_message1 = lread_data_cycle1[port_no].first.data;
             Bit#(64) remote_message2 = lread_data_cycle2[port_no].first.data;
             indication.dtp_logger_read_cnt_resp(port_no,
-                                                truncate(ts_reg),
+                                                zeroExtend(cglobal_reg),
                                                 zeroExtend(remote_message1),
                                                 zeroExtend(remote_message2));
             lread_data_cycle1[port_no].deq;
@@ -277,6 +300,19 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
    method Action dtp_read_local_cnt(Bit#(8) port_no);
       if (port_no < 4) begin
          indication.dtp_read_local_cnt_resp(port_no, zeroExtend(clocal_reg[port_no]));
+      end
+   endmethod
+   method Action dtp_read_global_cnt();
+      indication.dtp_read_global_cnt_resp(zeroExtend(cglobal_reg));
+   endmethod
+   method Action dtp_set_beacon_interval(Bit#(8) port_no, Bit#(32) interval);
+      if (port_no < 4) begin
+         beacon_interval[port_no] <= interval;
+      end
+   endmethod
+   method Action dtp_read_beacon_interval(Bit#(8) port_no);
+      if (port_no < 4) begin
+         indication.dtp_read_beacon_interval_resp(port_no, beacon_interval[port_no]);
       end
    endmethod
    endinterface

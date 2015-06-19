@@ -103,6 +103,7 @@ module mkDtpTx#(Integer id, Integer c_local_init)(DtpTx);
    Reg#(Bit#(32))  timeout_count_init <- mkReg(0);
    Reg#(Bit#(32))  timeout_count_sync <- mkReg(0);
    Reg#(Bit#(64))  jumpCount <- mkReg(0);
+   Reg#(Bit#(32))  interval_reg <- mkReg(1000);
 
    Wire#(Bool) init_rcvd    <- mkDWire(False);
    Wire#(Bool) ack_rcvd     <- mkDWire(False);
@@ -156,6 +157,7 @@ module mkDtpTx#(Integer id, Integer c_local_init)(DtpTx);
    FIFOF#(Bit#(32)) stateFifo     <- mkSizedFIFOF(1);
    FIFOF#(Bit#(64)) jumpCountFifo <- mkSizedFIFOF(1);
    FIFOF#(Bit#(53)) cLocalFifo   <- mkSizedFIFOF(1);
+   FIFOF#(Bit#(32)) intervalFifo <- mkSizedFIFOF(1);
 
    rule cyc;
       cycle <= cycle + 1;
@@ -240,7 +242,7 @@ module mkDtpTx#(Integer id, Integer c_local_init)(DtpTx);
 
    // delay measurement
    rule delay_measurment(curr_state == INIT || curr_state == SENT);
-      let init_timeout = fromInteger(valueOf(INIT_TIMEOUT));
+      let init_timeout = interval_reg._read;//fromInteger(valueOf(INIT_TIMEOUT));
       let init_type = fromInteger(valueOf(INIT_TYPE));
       let ack_type = fromInteger(valueOf(ACK_TYPE));
       let rxtx_delay = fromInteger(valueOf(RXTX_DELAY));
@@ -279,7 +281,7 @@ module mkDtpTx#(Integer id, Integer c_local_init)(DtpTx);
    // Beacon
    rule beacon(curr_state == SYNC);
       dmFifo.deq;
-      let sync_timeout = fromInteger(valueOf(SYNC_TIMEOUT));
+      let sync_timeout = interval_reg._read;//fromInteger(valueOf(SYNC_TIMEOUT));
       let beacon_type = fromInteger(valueOf(BEACON_TYPE));
       let ack_type = fromInteger(valueOf(ACK_TYPE));
       if (timeout_count_sync >= sync_timeout) begin
@@ -555,6 +557,12 @@ module mkDtpTx#(Integer id, Integer c_local_init)(DtpTx);
 
    rule export_c_local;
       cLocalFifo.enq(c_local);
+   endrule
+
+   rule import_interval(intervalFifo.notEmpty);
+      let interval = intervalFifo.first;
+      interval_reg <= interval;
+      intervalFifo.deq;
    endrule
 
    method Action tx_ready(Bool v);

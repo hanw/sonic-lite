@@ -36,6 +36,7 @@ import Ethernet::*;
 interface DtpSwitch#(numeric type numPorts);
    interface Vector#(numPorts, PipeIn#(Bit#(53))) dtpLocalIn;
    interface Vector#(numPorts, PipeOut#(Bit#(53))) dtpGlobalOut;
+   interface PipeOut#(Bit#(53)) globalOut;
    (* always_ready, always_enabled *)
    method Action switch_mode(Bool v);
 endinterface
@@ -54,6 +55,7 @@ module mkDtpSwitch(DtpSwitch#(numPorts))
    Reg#(Bit#(32))  cycle   <- mkReg(0);
    Reg#(Bit#(53)) c_global <- mkReg(0);
    Wire#(Bit#(53)) c_global_next <- mkDWire(0);
+   FIFOF#(Bit#(53)) globalFifo <- mkSizedFIFOF(1); //export Fifo
 
    // Stage 1
    Vector#(2, FIFOF#(Bit#(53))) intermediateFifo <- replicateM(mkFIFOF);
@@ -102,12 +104,17 @@ module mkDtpSwitch(DtpSwitch#(numPorts))
       end
    endrule
 
+   rule export_globalOut;
+      globalFifo.enq(c_global);
+   endrule
+
    method Action switch_mode(Bool v);
       switch_mode_wire <= v;
    endmethod
 
    interface dtpLocalIn = map(toPipeIn,dtpLocalInFifo);
    interface dtpGlobalOut = map(toPipeOut,dtpGlobalOutFifo);
+   interface globalOut = toPipeOut(globalFifo);
 endmodule
 
 endpackage
