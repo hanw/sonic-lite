@@ -31,7 +31,12 @@
    
 ` dtp_read_global_cnt()` returns the current **DTP _global_ counter**, if it is running as a **switch**.
    *returns `uint64_t global`
-   
+
+` dtp_set_beacon_interval(uint8_t port_no, uint32_t interval)` sets the beacon interval of port `port_no` to `interval`.
+
+` dtp_read_beacon_interval(uint8_t port_no)` returns the current beacon interval of `port_no`.
+   * returns `uint8_t port_no`, and `uint32_t interval`
+   * 
 ### Needs modification
 ` dtp_logger_read_cnt(uint8_t port_no) ` issues a logger read request to retreive a log message. 
    * returns `uint8_t port_no`, `uint64_t DTP_global_counter`, `uint64_t message1`, `uint64_t message2`.
@@ -46,12 +51,6 @@
   
 ### Needs to be added
 
-
-
-` dtp_set_beacon_interval(uint8_t port_no, uint32_t interval)` sets the beacon interval of port `port_no` to `interval`.
-
-` dtp_read_beacon_interval(uint8_t port_no)` returns the current beacon interval of `port_no`.
-   * returns `uint8_t port_no`, and `uint32_t interval`
 
 ### Currently not implemented
 ` dtp_ctrl_set_local(uint8_t port_no, uint64_t counter)` manually set the counter for port `port_no`.
