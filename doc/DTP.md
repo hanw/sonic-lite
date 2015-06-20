@@ -39,9 +39,9 @@
 
 ### Needs modification
 ` dtp_logger_read_cnt(uint8_t port_no) ` issues a logger read request to retreive a log message. 
-   * returns `uint8_t port_no`, `uint64_t ~~DTP_global_counter~~ timestamp`, `uint64_t message1`, `uint64_t message2`.
+   * returns `uint8_t port_no`, ~~`uint64_t DTP_global_counter`~~ `uint64_t timestamp`, `uint64_t message1`, `uint64_t message2`.
    
-     * **where `~~DTP_global_counter~~ timestamp` is the timestamp using `DTP_global_counter` of the logger if it is a switch, or `DTP_local_counter` of the port if it is a NIC.**
+     * **where ~~`DTP_global_counter`~~ `timestamp` is the timestamp using `DTP_global_counter` of the logger if it is a switch, or `DTP_local_counter` of the port if it is a NIC.**
    
      * ` message1` is the first 56bit of the received message,
    
