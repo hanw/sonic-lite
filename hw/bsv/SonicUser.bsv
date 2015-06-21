@@ -45,6 +45,7 @@ interface DtpIfc;
    interface PipeIn#(Bit#(53)) globalOut;
    interface Vector#(4, PipeOut#(Bit#(32))) interval;
    interface Reset rst;
+   interface PipeIn#(Bit#(1)) isSwitch;
 endinterface
 
 interface SonicUserRequest;
@@ -92,7 +93,8 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
    Reg#(Bit#(64))  last_count  <- mkReg(0);
 
    FIFOF#(Bit#(128)) cntFifo <- mkFIFOF();
-   Reg#(Bit#(128))   ts_reg <- mkReg(0);
+   Reg#(Bit#(128))   cycle_reg <- mkReg(0);
+   Reg#(Bit#(1))     isSwitch_reg <- mkReg(0);
    Vector#(4, Reg#(Bit#(32))) beacon_interval <- replicateM(mkReg(1000)); //default beacon interval is 1000.
 
    Vector#(4, FIFOF#(Bit#(53))) fromHostFifo <- replicateM(mkSizedFIFOF(4));
@@ -103,6 +105,7 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
    Vector#(4, FIFOF#(Bit#(53))) cLocalFifo   <- replicateM(mkSizedFIFOF(4));
    FIFOF#(Bit#(53)) cGlobalFifo <- mkSizedFIFOF(4);
    Vector#(4, FIFOF#(Bit#(32))) intervalFifo <- replicateM(mkSizedFIFOF(4));
+   FIFOF#(Bit#(1)) isSwitchFifo <- mkFIFOF();
 
    Reg#(Bit#(8))  lwrite_port <- mkReg(0);
    FIFOF#(BufData) lwrite_data_cycle1 <- mkSizedFIFOF(8);
@@ -142,7 +145,7 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
    // dtp_read_cnt
    rule snapshot_dtp_timestamp;
       let v <- toGet(cntFifo).get;
-      ts_reg <= v;
+      cycle_reg <= v;
    endrule
 
    // dtp_read_delay
@@ -230,6 +233,11 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
       dtpResetOut.assertReset;
    endrule
 
+   rule switch_mode;
+      let v <- toGet(isSwitchFifo).get;
+      isSwitch_reg <= v;
+   endrule
+
    // Interface to external modules.
    interface dtp = (interface DtpIfc;
       interface timestamp = toPipeIn(cntFifo);
@@ -242,6 +250,7 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
       interface globalOut = toPipeIn(cGlobalFifo);
       interface interval  = map(toPipeOut, intervalFifo);
       interface rst       = dtpResetOut.new_rst;
+      interface isSwitch  = toPipeIn(isSwitchFifo);
    endinterface);
 
    // API implementation
@@ -274,7 +283,7 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
       end
    endmethod
    method Action dtp_read_cnt(Bit#(8) port_no);
-      indication.dtp_read_cnt_resp(truncate(ts_reg));
+      indication.dtp_read_cnt_resp(truncate(cycle_reg));
    endmethod
    method Action dtp_logger_write_cnt(Bit#(8) port_no, Bit#(64) host_timestamp);
       // Check valid port No.
@@ -288,8 +297,16 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
          if (lread_data_cycle1[port_no].notEmpty && lread_data_cycle2[port_no].notEmpty) begin
             Bit#(64) remote_message1 = lread_data_cycle1[port_no].first.data;
             Bit#(64) remote_message2 = lread_data_cycle2[port_no].first.data;
+            Bit#(53) timestamp = 0;
+            if (isSwitch_reg == 0) begin // 0 for NIC, 1 for Switch
+               timestamp = clocal_reg[port_no];
+            end
+            else begin
+               timestamp = cglobal_reg;
+            end
+
             indication.dtp_logger_read_cnt_resp(port_no,
-                                                zeroExtend(cglobal_reg),
+                                                zeroExtend(timestamp),
                                                 zeroExtend(remote_message1),
                                                 zeroExtend(remote_message2));
             lread_data_cycle1[port_no].deq;

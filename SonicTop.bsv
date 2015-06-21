@@ -162,12 +162,20 @@ module mkSonicTop #(Clock pcie_refclk_p,
       edgedetect.itrigger.in(btns.out.getButton1());
    endrule
 
-   SyncBitIfc#(Bit#(1)) switch_ena_sync <- mkSyncBit(clk_50_b4a_buf.outclk, rst_50_n, eth.ifcs.clk_net);
-   rule transfer;
-      switch_ena_sync.send(switches.out.getSwitch2);
+   SyncBitIfc#(Bit#(1)) sw_mode_net <- mkSyncBit(clk_50_b4a_buf.outclk, rst_50_n, eth.ifcs.clk_net);
+   rule read_sw2_to_net;
+      sw_mode_net.send(switches.out.getSwitch2);
    endrule
-   rule send_to_NetTop;
-      eth.ifcs.switchctrl.ena(unpack(switch_ena_sync.read));
+   rule send_isSwitch_to_NetTop;
+      eth.ifcs.switchctrl.ena(unpack(sw_mode_net.read));
+   endrule
+
+   SyncBitIfc#(Bit#(1)) sw_mode_portal <- mkSyncBit(clk_50_b4a_buf.outclk, rst_50_n, host.portalClock);
+   rule read_sw2_to_portal;
+      sw_mode_portal.send(switches.out.getSwitch2);
+   endrule
+   rule send_isSwitch_to_PortalTop;
+      portalTop.pins.isSwitch.enq(unpack(sw_mode_portal.read));
    endrule
 
    // ===========
