@@ -15,9 +15,21 @@ else
 BOARD_USB=-c $(SERIALNO)
 endif
 
-program:
+ifneq (, $(SV))
+PROJDIR=$(PWD)
+firmware: 
+	wget http://xcloud1.cs.cornell.edu/archive/sonic-lite/de5/$(SV)/bin/mkSonicTop.sof
+else
+firmware:
+
+endif
+
+
+program: firmware
 	@echo $(QUARTUS_ROOTDIR)
 	@echo $(QUARTUS_PGM_PATH)
+	@echo $(PROJDIR)
+	@echo $(SV)
 	# program pfl
 	$(QUARTUS_PGM_PATH) -m jtag $(BOARD_USB) -o "p;S5_PFL.sof"
 
