@@ -114,6 +114,7 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
 
    Vector#(4, FIFOF#(BufData)) lread_data_cycle1 <- replicateM(mkSizedFIFOF(8));
    Vector#(4, FIFOF#(BufData)) lread_data_cycle2 <- replicateM(mkSizedFIFOF(8));
+   Vector#(4, FIFOF#(Bit#(53))) lread_data_timestamp <- replicateM(mkSizedFIFOF(8));
 
    Reg#(Bit#(28)) dtp_rst_cntr <- mkReg(0);
    MakeResetIfc dtpResetOut <- mkResetSync(0, False, defaultClock);
@@ -218,13 +219,26 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
    endrule
 
    for (Integer i=0; i<4; i=i+1) begin
-      rule save_host_data (toHostFifo[i].notEmpty);
+      rule save_host_data (toHostFifo[i].notEmpty && lread_data_cycle1[i].notFull &&
+                           lread_data_cycle2[i].notFull && lread_data_timestamp[i].notFull);
          Bit#(53) v = toHostFifo[i].first;
-         toHostFifo[i].deq;
          case (v[52]) matches
-            0: lread_data_cycle1[i].enq(BufData{port_no:fromInteger(i), data:zeroExtend(v[51:0])});
-            1: lread_data_cycle2[i].enq(BufData{port_no:fromInteger(i), data:zeroExtend(v[51:0])});
+            0: begin
+               lread_data_cycle1[i].enq(BufData{port_no:fromInteger(i), data:zeroExtend(v[51:0])});
+            end
+            1: begin
+               lread_data_cycle2[i].enq(BufData{port_no:fromInteger(i), data:zeroExtend(v[51:0])});
+               Bit#(53) timestamp = 0;
+               if (isSwitch_reg == 0) begin // 0 for NIC, 1 for Switch
+                  timestamp = clocal_reg[i];
+               end
+               else begin
+                  timestamp = cglobal_reg;
+               end
+               lread_data_timestamp[i].enq(timestamp);
+            end
          endcase
+         toHostFifo[i].deq;
       endrule
    end
 
@@ -297,20 +311,14 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
          if (lread_data_cycle1[port_no].notEmpty && lread_data_cycle2[port_no].notEmpty) begin
             Bit#(64) remote_message1 = lread_data_cycle1[port_no].first.data;
             Bit#(64) remote_message2 = lread_data_cycle2[port_no].first.data;
-            Bit#(53) timestamp = 0;
-            if (isSwitch_reg == 0) begin // 0 for NIC, 1 for Switch
-               timestamp = clocal_reg[port_no];
-            end
-            else begin
-               timestamp = cglobal_reg;
-            end
-
+            Bit#(53) timestamp = lread_data_timestamp[port_no].first;
             indication.dtp_logger_read_cnt_resp(port_no,
                                                 zeroExtend(timestamp),
                                                 zeroExtend(remote_message1),
                                                 zeroExtend(remote_message2));
             lread_data_cycle1[port_no].deq;
             lread_data_cycle2[port_no].deq;
+            lread_data_timestamp[port_no].deq;
          end
       end
    endmethod
