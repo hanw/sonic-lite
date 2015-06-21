@@ -4,7 +4,6 @@ proc fpgamake_altera_synth_qsys {core_name core_version ip_name} {
     global ipdir boardname partname
 
     exec -ignorestderr -- ip-generate \
-		    --remove-qsys-generate-warning \
             --project-directory=$ipdir/$boardname                            \
             --search-path=$ipdir/../../sonic-lite/qsys/,$                    \
             --output-directory=$ipdir/$boardname/synthesis                   \
