@@ -6,3 +6,5 @@ USE_BUILDCACHE=1 make build.de5
 
 * MAC Avalon Adaptor
 * Ethernet Ring Buffer
+* Switch
+* P4
