@@ -4,6 +4,7 @@ proc fpgamake_altera_ipcore {core_name core_version ip_name} {
     global ipdir boardname partname
 
     exec -ignorestderr -- ip-generate \
+		    --remove-qsys-generate-warning \
             --project-directory=$ipdir/$boardname                            \
             --output-directory=$ipdir/$boardname/synthesis/$ip_name          \
             --file-set=QUARTUS_SYNTH                                         \
