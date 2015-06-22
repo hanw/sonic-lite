@@ -135,6 +135,7 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
          intervalFifo[i].clear();
          lread_data_cycle1[i].clear();
          lread_data_cycle2[i].clear();
+         lread_data_timestamp[i].clear();
       end
       cGlobalFifo.clear();
       cntFifo.clear();
