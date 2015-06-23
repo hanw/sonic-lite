@@ -584,6 +584,7 @@ module mkDtpTx#(Integer id, Integer c_local_init)(DtpTx);
       interface cLocalOut = toPipeOut(cLocalFifo);
       interface toHost   = toPipeOut(toHostFifo);
       interface fromHost = toPipeIn(fromHostFifo);
+      interface interval = toPipeIn(intervalFifo);
    endinterface);
    interface dtpEventIn = toPipeIn(dtpEventInFifo);
    interface dtpTxIn = toPipeIn(dtpTxInFifo);
