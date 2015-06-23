@@ -119,6 +119,8 @@ module mkDtpTx#(Integer id, Integer c_local_init)(DtpTx);
    FIFOF#(Bit#(66)) dtpTxOutFifo <- mkFIFOF;
    FIFOF#(TxStageOneBuf) stageOneFifo <- mkFIFOF;
 
+   FIFOF#(Bit#(53)) initTimestampFifo <- mkSizedFIFOF(8);
+   FIFOF#(Bit#(1)) initParityFifo <- mkSizedFIFOF(8);
    FIFOF#(Bit#(53)) ackTimestampFifo <- mkSizedFIFOF(8);
 
    FIFOF#(Bit#(3))  dtpEventFifo   <- mkFIFOF;
@@ -221,7 +223,11 @@ module mkDtpTx#(Integer id, Integer c_local_init)(DtpTx);
       end
       else if (mux_sel && tx_mux_sel == ack_type) begin
          if(verbose) $display("%d: %d, Enqueued outgoing ack %d", cycle, id, c_local+1);
-         encodeOut = {c_local+1, parity, ack_type, block_type};
+         let init_timestamp = initTimestampFifo.first;
+         let init_parity = initParityFifo.first;
+         encodeOut = {init_timestamp, init_parity, ack_type, block_type};
+         initTimestampFifo.deq;
+         initParityFifo.deq;
       end
       else if (mux_sel && tx_mux_sel == beacon_type) begin
          encodeOut = {c_local+1, parity, beacon_type, block_type};
@@ -381,6 +387,9 @@ module mkDtpTx#(Integer id, Integer c_local_init)(DtpTx);
       if (dtpEventInFifo.notEmpty) begin
          let v <- toGet(dtpEventInFifo).get;
          if (v.e == init_type) begin
+            initTimestampFifo.enq(v.t);
+            let parity = ^(v.t);
+            initParityFifo.enq(parity);
             if(verbose) $display("%d: %d DtpTx init_rcvd %h %d", cycle, id, v.e, v.t);
             init_rcvd_next = True;
          end
