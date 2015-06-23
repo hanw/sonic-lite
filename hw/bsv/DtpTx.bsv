@@ -119,7 +119,7 @@ module mkDtpTx#(Integer id, Integer c_local_init)(DtpTx);
    FIFOF#(Bit#(66)) dtpTxOutFifo <- mkFIFOF;
    FIFOF#(TxStageOneBuf) stageOneFifo <- mkFIFOF;
 
-   FIFOF#(Bit#(53)) outstandingInitRequest <- mkSizedFIFOF(8);
+   FIFOF#(Bit#(53)) ackTimestampFifo <- mkSizedFIFOF(8);
 
    FIFOF#(Bit#(3))  dtpEventFifo   <- mkFIFOF;
    FIFOF#(Bit#(3))  dtpEventOutputFifo   <- mkFIFOF;
@@ -218,7 +218,6 @@ module mkDtpTx#(Integer id, Integer c_local_init)(DtpTx);
       if (mux_sel && tx_mux_sel == init_type) begin
          encodeOut = {c_local+1, parity, init_type, block_type};
          if(verbose) $display("%d: %d, Enqueued outgoing init request %d", cycle, id, c_local+1);
-         outstandingInitRequest.enq(c_local+1);
       end
       else if (mux_sel && tx_mux_sel == ack_type) begin
          if(verbose) $display("%d: %d, Enqueued outgoing ack %d", cycle, id, c_local+1);
@@ -271,10 +270,10 @@ module mkDtpTx#(Integer id, Integer c_local_init)(DtpTx);
 
       // compute delay
       if (ack_rcvd) begin
-         let temp = outstandingInitRequest.first;
+         let temp = ackTimestampFifo.first;
          delay <= (c_local - temp - (rxtx_delay << 1) - 1) >> 1;
          if(verbose) $display("%d: %d update delay=%d, %d, %d", cycle, id, c_local, temp, (c_local-temp-(rxtx_delay<<1)-1)>>1);
-         outstandingInitRequest.deq;
+         ackTimestampFifo.deq;
       end
    endrule
 
@@ -303,10 +302,7 @@ module mkDtpTx#(Integer id, Integer c_local_init)(DtpTx);
       end
 
       if (ack_rcvd) begin
-         let temp = outstandingInitRequest.first;
-         delay <= (c_local - temp - 1) >> 1;
-         if(verbose) $display("%d: %d update delay=%d, %d, %d", cycle, id, c_local, temp, (c_local-temp-1)>>1);
-         outstandingInitRequest.deq;
+         // silently ignore additional ack messages.
       end
    endrule
 
@@ -390,6 +386,8 @@ module mkDtpTx#(Integer id, Integer c_local_init)(DtpTx);
          end
          else if (v.e == ack_type) begin
             ack_rcvd_next = True;
+            // append received timestamp to fifo
+            ackTimestampFifo.enq(v.t);
             if(verbose) $display("%d: %d DtpTx ack_rcvd %h %d", cycle, id, v.e, v.t);
          end
          else if (v.e == beacon_type) begin
