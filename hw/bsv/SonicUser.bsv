@@ -201,27 +201,35 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
       endrule
    end
 
+   Integer chunk_a = 0;
+   Integer chunk_b = 1;
+   function Bit#(2) toState(Integer st);
+      return (1<<st);
+   endfunction
+
+   Reg#(Bit#(2)) lwstate <- mkReg(toState(chunk_a));
    // dtp_logger_write_cnt
-   rule log_from_host_cycle1;
-      let v = lwrite_data_cycle1.first;
-      if (fromHostFifo[v.port_no].notFull) begin
-         fromHostFifo[v.port_no].enq({1'b0, truncate(v.data)});
-         log_write_cf.enq(?);
-         lwrite_data_cycle1.deq;
+   rule log_from_host_cycle;
+      if ((lwstate[chunk_a] == 1) && lwrite_data_cycle1.notEmpty) begin
+         let v1 = lwrite_data_cycle1.first;
+         if (fromHostFifo[v1.port_no].notFull) begin
+            fromHostFifo[v1.port_no].enq({1'b0, truncate(v1.data)});
+            lwrite_data_cycle1.deq;
+            lwstate <= toState(chunk_b);
+         end
       end
-   endrule
-   rule log_from_host_cycle2 (log_write_cf.notEmpty);
-      let v = lwrite_data_cycle2.first;
-      if (fromHostFifo[v.port_no].notFull) begin
-         fromHostFifo[v.port_no].enq({1'b1, truncate(v.data)});
-         lwrite_data_cycle2.deq;
-         log_write_cf.deq;
+      else if((lwstate[chunk_b] == 1) && lwrite_data_cycle2.notEmpty) begin
+         let v2 = lwrite_data_cycle2.first;
+         if (fromHostFifo[v2.port_no].notFull) begin
+            fromHostFifo[v2.port_no].enq({1'b1, truncate(v2.data)});
+            lwrite_data_cycle2.deq;
+            lwstate <= toState(chunk_a);
+         end
       end
    endrule
 
    for (Integer i=0; i<4; i=i+1) begin
-      rule save_host_data (toHostFifo[i].notEmpty && lread_data_cycle1[i].notFull &&
-                           lread_data_cycle2[i].notFull && lread_data_timestamp[i].notFull);
+      rule save_host_data (toHostFifo[i].notEmpty);
          Bit#(53) v = toHostFifo[i].first;
          case (v[52]) matches
             0: begin
@@ -243,9 +251,9 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
       endrule
    end
 
-   rule assert_reset (dtp_rst_cntr != 0);
-      dtp_rst_cntr <= dtp_rst_cntr - 1;
+   rule assert_reset (dtp_rst_cntr > 0);
       dtpResetOut.assertReset;
+      dtp_rst_cntr <= dtp_rst_cntr - 1;
    endrule
 
    rule switch_mode;
@@ -274,9 +282,11 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
       let v = `DtpVersion; //Defined in Makefile as time of compilation.
       indication.dtp_read_version_resp(v);
    endmethod
-   method Action dtp_reset(Bit#(32) len);
+   method Action dtp_reset(Bit#(32) len) if (dtp_rst_cntr == 0);
       Bit#(28) limit = truncate(len) & 28'hFFFFFFF;
-      if (limit == 0) limit = 32;
+      if (limit < 32) begin
+         limit = 32;
+      end
       dtp_rst_cntr <= limit;
    endmethod
    method Action dtp_set_cnt(Bit#(8) port_no, Bit#(64) c);
