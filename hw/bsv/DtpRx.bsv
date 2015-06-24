@@ -103,7 +103,7 @@ module mkDtpRx#(Integer id, Integer c_local_init)(DtpRx);
             if (parity == v[12]) begin
                init_rcvd_next = True;
                if(dtpEventOutFifo.notFull) begin
-                  dtpEventOutFifo.enq(DtpEvent{e:zeroExtend(v[11:10]), t:c_remote_compensated});
+                  dtpEventOutFifo.enq(DtpEvent{e:zeroExtend(v[11:10]), t:c_remote});
                end
                if(verbose) $display("%d: %d init_rcvd %d, forward to tx %d", cycle, id, c_remote, c_remote_compensated);
             end
@@ -115,7 +115,7 @@ module mkDtpRx#(Integer id, Integer c_local_init)(DtpRx);
             if (parity == v[12]) begin
                ack_rcvd_next = True;
                if(dtpEventOutFifo.notFull) begin
-                  dtpEventOutFifo.enq(DtpEvent{e:zeroExtend(v[11:10]), t:c_remote_compensated});
+                  dtpEventOutFifo.enq(DtpEvent{e:zeroExtend(v[11:10]), t:c_remote});
                end
                if(verbose) $display("%d: %d ack_rcvd %d, forward to tx %d", cycle, id, c_remote, c_remote_compensated);
             end

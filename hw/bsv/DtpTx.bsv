@@ -87,7 +87,7 @@ endmodule
 
 module mkDtpTx#(Integer id, Integer c_local_init)(DtpTx);
 
-   let verbose = False;
+   let verbose = True;
    Wire#(Bool) tx_ready_wire <- mkDWire(False);
    Wire#(Bool) rx_ready_wire <- mkDWire(False);
    Wire#(Bool) switch_mode_wire <- mkDWire(False);
@@ -121,7 +121,7 @@ module mkDtpTx#(Integer id, Integer c_local_init)(DtpTx);
 
    FIFOF#(Bit#(53)) initTimestampFifo <- mkBypassFIFOF;
    FIFOF#(Bit#(1)) initParityFifo <- mkBypassFIFOF;
-   FIFOF#(Bit#(53)) ackTimestampFifo <- mkSizedFIFOF(8);
+   FIFOF#(Bit#(53)) ackTimestampFifo <- mkBypassFIFOF;
 
    FIFOF#(Bit#(3))  dtpEventFifo   <- mkFIFOF;
    FIFOF#(Bit#(3))  dtpEventOutputFifo   <- mkFIFOF;
@@ -222,10 +222,10 @@ module mkDtpTx#(Integer id, Integer c_local_init)(DtpTx);
          if(verbose) $display("%d: %d, Enqueued outgoing init request %d", cycle, id, c_local+1);
       end
       else if (mux_sel && tx_mux_sel == ack_type) begin
-         if(verbose) $display("%d: %d, Enqueued outgoing ack %d", cycle, id, c_local+1);
          let init_timestamp = initTimestampFifo.first;
          let init_parity = initParityFifo.first;
          encodeOut = {init_timestamp, init_parity, ack_type, block_type};
+         if(verbose) $display("%d: %d, Enqueued outgoing ack %d", cycle, id, init_timestamp);
          initTimestampFifo.deq;
          initParityFifo.deq;
       end
@@ -289,6 +289,7 @@ module mkDtpTx#(Integer id, Integer c_local_init)(DtpTx);
       let sync_timeout = interval_reg._read;//fromInteger(valueOf(SYNC_TIMEOUT));
       let beacon_type = fromInteger(valueOf(BEACON_TYPE));
       let ack_type = fromInteger(valueOf(ACK_TYPE));
+      let rxtx_delay = fromInteger(valueOf(RXTX_DELAY));
       if (timeout_count_sync >= sync_timeout) begin
          if (is_idle) begin
             timeout_count_sync <= 0;
@@ -307,8 +308,12 @@ module mkDtpTx#(Integer id, Integer c_local_init)(DtpTx);
          tx_mux_sel <= 2'b00;
       end
 
+      // compute delay
       if (ack_rcvd) begin
-         // silently ignore additional ack messages.
+         let temp = ackTimestampFifo.first;
+         delay <= (c_local - temp - (rxtx_delay << 1) - 1) >> 1;
+         if(verbose) $display("%d: %d update delay=%d, %d, %d", cycle, id, c_local, temp, (c_local-temp-(rxtx_delay<<1)-1)>>1);
+         ackTimestampFifo.deq;
       end
    endrule
 
@@ -386,7 +391,7 @@ module mkDtpTx#(Integer id, Integer c_local_init)(DtpTx);
       Bool log_rcvd_next    = False;
       if (dtpEventInFifo.notEmpty) begin
          let v <- toGet(dtpEventInFifo).get;
-         if ((v.e == init_type) && initTimestampFifo.notFull) begin
+         if ((v.e == init_type)) begin
             initTimestampFifo.enq(v.t);
             let parity = ^(v.t);
             initParityFifo.enq(parity);
