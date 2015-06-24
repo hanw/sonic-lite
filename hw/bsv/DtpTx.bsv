@@ -72,10 +72,6 @@ typedef 2'b01 INIT_TYPE;
 typedef 2'b10 ACK_TYPE;
 typedef 2'b11 BEACON_TYPE;
 
-//FIXME: should be controlled by driver.
-typedef 1000 INIT_TIMEOUT;
-typedef 1000 SYNC_TIMEOUT;
-
 typedef enum {INIT, SENT, SYNC} DtpState
 deriving (Bits, Eq);
 
@@ -222,12 +218,10 @@ module mkDtpTx#(Integer id, Integer c_local_init)(DtpTx);
          if(verbose) $display("%d: %d, Enqueued outgoing init request %d", cycle, id, c_local+1);
       end
       else if (mux_sel && tx_mux_sel == ack_type) begin
-         let init_timestamp = initTimestampFifo.first;
-         let init_parity = initParityFifo.first;
+         let init_timestamp <- toGet(initTimestampFifo).get;
+         let init_parity <- toGet(initParityFifo).get;
          encodeOut = {init_timestamp, init_parity, ack_type, block_type};
          if(verbose) $display("%d: %d, Enqueued outgoing ack %d", cycle, id, init_timestamp);
-         initTimestampFifo.deq;
-         initParityFifo.deq;
       end
       else if (mux_sel && tx_mux_sel == beacon_type) begin
          encodeOut = {c_local+1, parity, beacon_type, block_type};
@@ -241,13 +235,13 @@ module mkDtpTx#(Integer id, Integer c_local_init)(DtpTx);
       else begin
          encodeOut = v;
       end
-      //if(verbose) $display("%d: %d dtpTxOut=%h, c_local=%h, encodeOut=%h", cycle, id, v, c_local, encodeOut[12:10]);
+      if(verbose) $display("%d: %d dtpTxOut=%h, c_local=%h, encodeOut=%h", cycle, id, v, c_local, encodeOut[12:10]);
       dtpTxOutFifo.enq(encodeOut);
    endrule
 
    // delay measurement
    rule delay_measurment(curr_state == INIT || curr_state == SENT);
-      let init_timeout = interval_reg._read;//fromInteger(valueOf(INIT_TIMEOUT));
+      let init_timeout = interval_reg._read;
       let init_type = fromInteger(valueOf(INIT_TYPE));
       let ack_type = fromInteger(valueOf(ACK_TYPE));
       let rxtx_delay = fromInteger(valueOf(RXTX_DELAY));
@@ -285,7 +279,7 @@ module mkDtpTx#(Integer id, Integer c_local_init)(DtpTx);
    // Beacon
    rule beacon(curr_state == SYNC);
       dmFifo.deq;
-      let sync_timeout = interval_reg._read;//fromInteger(valueOf(SYNC_TIMEOUT));
+      let sync_timeout = interval_reg._read;
       let beacon_type = fromInteger(valueOf(BEACON_TYPE));
       let ack_type = fromInteger(valueOf(ACK_TYPE));
       let rxtx_delay = fromInteger(valueOf(RXTX_DELAY));
