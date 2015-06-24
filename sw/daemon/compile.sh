@@ -1,5 +1,7 @@
 #! /bin/bash
 
-cp ${HOME}/connectal/drivers/pcieportal/Module.symvers .
+CONNECTAL=/home/kslee/dtp/connectal
+
+cp ${CONNECTAL}/drivers/pcieportal/Module.symvers .
 
 make
