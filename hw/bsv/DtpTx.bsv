@@ -258,7 +258,7 @@ module mkDtpTx#(Integer id, Integer c_local_init)(DtpTx);
          tx_mux_sel <= ack_type;
          if(verbose) $display("%d: %d, send ack, type %d", cycle, id, ack_type);
       end
-      else if (timeout_count_init > init_timeout) begin
+      else if (timeout_count_init > init_timeout-1) begin
          if (is_idle) begin
             timeout_count_init <= 0;
             tx_mux_sel <= init_type;
@@ -276,10 +276,9 @@ module mkDtpTx#(Integer id, Integer c_local_init)(DtpTx);
 
       // compute delay
       if (ack_rcvd) begin
-         let temp = ackTimestampFifo.first;
+         let temp <- toGet(ackTimestampFifo).get;
          delay <= (c_local - temp - (rxtx_delay << 1) - 1) >> 1;
          if(verbose) $display("%d: %d update delay=%d, %d, %d", cycle, id, c_local, temp, (c_local-temp-(rxtx_delay<<1)-1)>>1);
-         ackTimestampFifo.deq;
       end
    endrule
 
@@ -290,7 +289,7 @@ module mkDtpTx#(Integer id, Integer c_local_init)(DtpTx);
       let beacon_type = fromInteger(valueOf(BEACON_TYPE));
       let ack_type = fromInteger(valueOf(ACK_TYPE));
       let rxtx_delay = fromInteger(valueOf(RXTX_DELAY));
-      if (timeout_count_sync >= sync_timeout) begin
+      if (timeout_count_sync >= sync_timeout-1) begin
          if (is_idle) begin
             timeout_count_sync <= 0;
          end
@@ -310,10 +309,9 @@ module mkDtpTx#(Integer id, Integer c_local_init)(DtpTx);
 
       // compute delay
       if (ack_rcvd) begin
-         let temp = ackTimestampFifo.first;
+         let temp <- toGet(ackTimestampFifo).get;
          delay <= (c_local - temp - (rxtx_delay << 1) - 1) >> 1;
          if(verbose) $display("%d: %d update delay=%d, %d, %d", cycle, id, c_local, temp, (c_local-temp-(rxtx_delay<<1)-1)>>1);
-         ackTimestampFifo.deq;
       end
    endrule
 
@@ -392,16 +390,19 @@ module mkDtpTx#(Integer id, Integer c_local_init)(DtpTx);
       if (dtpEventInFifo.notEmpty) begin
          let v <- toGet(dtpEventInFifo).get;
          if ((v.e == init_type)) begin
-            initTimestampFifo.enq(v.t);
             let parity = ^(v.t);
-            initParityFifo.enq(parity);
+            if (initTimestampFifo.notFull && initParityFifo.notFull) begin
+               initTimestampFifo.enq(v.t);
+               initParityFifo.enq(parity);
+            end
             if(verbose) $display("%d: %d DtpTx init_rcvd %h %d", cycle, id, v.e, v.t);
             init_rcvd_next = True;
          end
          else if (v.e == ack_type) begin
             ack_rcvd_next = True;
             // append received timestamp to fifo
-            ackTimestampFifo.enq(v.t);
+            if (ackTimestampFifo.notFull)
+               ackTimestampFifo.enq(v.t);
             if(verbose) $display("%d: %d DtpTx ack_rcvd %h %d", cycle, id, v.e, v.t);
          end
          else if (v.e == beacon_type) begin
