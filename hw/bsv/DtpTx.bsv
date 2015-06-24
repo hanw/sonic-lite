@@ -103,7 +103,7 @@ module mkDtpTx#(Integer id, Integer c_local_init)(DtpTx);
    Reg#(Bit#(32))  timeout_count_init <- mkReg(0);
    Reg#(Bit#(32))  timeout_count_sync <- mkReg(0);
    Reg#(Bit#(64))  jumpCount <- mkReg(0);
-   Reg#(Bit#(32))  interval_reg <- mkReg(10);
+   Reg#(Bit#(32))  interval_reg <- mkReg(1000);
 
    Wire#(Bool) init_rcvd    <- mkDWire(False);
    Wire#(Bool) ack_rcvd     <- mkDWire(False);
@@ -217,7 +217,6 @@ module mkDtpTx#(Integer id, Integer c_local_init)(DtpTx);
 
       block_type = v[9:0];
 
-      $display("%d: tx_mux_sel = %d",cycle, tx_mux_sel);
       if (mux_sel && tx_mux_sel == init_type) begin
          encodeOut = {c_local+1, parity, init_type, block_type};
          if(verbose) $display("%d: %d, Enqueued outgoing init request %d", cycle, id, c_local+1);
