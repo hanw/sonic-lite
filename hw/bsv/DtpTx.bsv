@@ -87,7 +87,7 @@ endmodule
 
 module mkDtpTx#(Integer id, Integer c_local_init)(DtpTx);
 
-   let verbose = True;
+   let verbose = False;
    Wire#(Bool) tx_ready_wire <- mkDWire(False);
    Wire#(Bool) rx_ready_wire <- mkDWire(False);
    Wire#(Bool) switch_mode_wire <- mkDWire(False);
@@ -103,7 +103,7 @@ module mkDtpTx#(Integer id, Integer c_local_init)(DtpTx);
    Reg#(Bit#(32))  timeout_count_init <- mkReg(0);
    Reg#(Bit#(32))  timeout_count_sync <- mkReg(0);
    Reg#(Bit#(64))  jumpCount <- mkReg(0);
-   Reg#(Bit#(32))  interval_reg <- mkReg(1000);
+   Reg#(Bit#(32))  interval_reg <- mkReg(10);
 
    Wire#(Bool) init_rcvd    <- mkDWire(False);
    Wire#(Bool) ack_rcvd     <- mkDWire(False);
@@ -119,8 +119,8 @@ module mkDtpTx#(Integer id, Integer c_local_init)(DtpTx);
    FIFOF#(Bit#(66)) dtpTxOutFifo <- mkFIFOF;
    FIFOF#(TxStageOneBuf) stageOneFifo <- mkFIFOF;
 
-   FIFOF#(Bit#(53)) initTimestampFifo <- mkSizedFIFOF(8);
-   FIFOF#(Bit#(1)) initParityFifo <- mkSizedFIFOF(8);
+   FIFOF#(Bit#(53)) initTimestampFifo <- mkBypassFIFOF;
+   FIFOF#(Bit#(1)) initParityFifo <- mkBypassFIFOF;
    FIFOF#(Bit#(53)) ackTimestampFifo <- mkSizedFIFOF(8);
 
    FIFOF#(Bit#(3))  dtpEventFifo   <- mkFIFOF;
@@ -217,6 +217,7 @@ module mkDtpTx#(Integer id, Integer c_local_init)(DtpTx);
 
       block_type = v[9:0];
 
+      $display("%d: tx_mux_sel = %d",cycle, tx_mux_sel);
       if (mux_sel && tx_mux_sel == init_type) begin
          encodeOut = {c_local+1, parity, init_type, block_type};
          if(verbose) $display("%d: %d, Enqueued outgoing init request %d", cycle, id, c_local+1);
@@ -256,7 +257,7 @@ module mkDtpTx#(Integer id, Integer c_local_init)(DtpTx);
       if (init_rcvd) begin
          timeout_count_init <= timeout_count_init + 1;
          tx_mux_sel <= ack_type;
-         if(verbose) $display("%d: %d, send ack", cycle, id);
+         if(verbose) $display("%d: %d, send ack, type %d", cycle, id, ack_type);
       end
       else if (timeout_count_init > init_timeout) begin
          if (is_idle) begin
@@ -386,7 +387,7 @@ module mkDtpTx#(Integer id, Integer c_local_init)(DtpTx);
       Bool log_rcvd_next    = False;
       if (dtpEventInFifo.notEmpty) begin
          let v <- toGet(dtpEventInFifo).get;
-         if (v.e == init_type) begin
+         if ((v.e == init_type) && initTimestampFifo.notFull) begin
             initTimestampFifo.enq(v.t);
             let parity = ^(v.t);
             initParityFifo.enq(parity);
