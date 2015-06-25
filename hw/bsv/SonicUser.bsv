@@ -108,13 +108,13 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
    FIFOF#(Bit#(1)) isSwitchFifo <- mkFIFOF();
 
    Reg#(Bit#(8))  lwrite_port <- mkReg(0);
-   FIFOF#(BufData) lwrite_data_cycle1 <- mkSizedFIFOF(8);
-   FIFOF#(BufData) lwrite_data_cycle2 <- mkSizedFIFOF(8);
+   FIFOF#(BufData) lwrite_data_cycle1 <- mkSizedFIFOF(2);
+   FIFOF#(BufData) lwrite_data_cycle2 <- mkSizedFIFOF(2);
    FIFOF#(void) log_write_cf <- mkFIFOF;
 
-   Vector#(4, FIFOF#(BufData)) lread_data_cycle1 <- replicateM(mkSizedFIFOF(8));
-   Vector#(4, FIFOF#(BufData)) lread_data_cycle2 <- replicateM(mkSizedFIFOF(8));
-   Vector#(4, FIFOF#(Bit#(53))) lread_data_timestamp <- replicateM(mkSizedFIFOF(8));
+   Vector#(4, FIFOF#(BufData)) lread_data_cycle1 <- replicateM(mkSizedFIFOF(4));
+   Vector#(4, FIFOF#(BufData)) lread_data_cycle2 <- replicateM(mkSizedFIFOF(4));
+   Vector#(4, FIFOF#(Bit#(53))) lread_data_timestamp <- replicateM(mkSizedFIFOF(4));
 
    Reg#(Bit#(28)) dtp_rst_cntr <- mkReg(0);
    MakeResetIfc dtpResetOut <- mkResetSync(0, False, defaultClock);
