@@ -18,6 +18,7 @@ endif
 ifneq (, $(SV))
 PROJDIR=$(PWD)
 firmware: 
+	rm -f mkSonicTop.sof flash_hw.flash flash_hw.map.flash
 	wget http://xcloud1.cs.cornell.edu/archive/sonic-lite/de5/$(SV)/bin/mkSonicTop.sof
 else
 firmware:

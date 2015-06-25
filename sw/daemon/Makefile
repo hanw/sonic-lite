@@ -1,12 +1,13 @@
 dtp := dtp
-dtp_mod := dtp_mod
-
-EXTRA_CFLAGS = -O3 -I${HOME}/connectal/drivers/pcieportal -I${HOME}/connectal/cpp/
+SRC := kernel.c dtp_portal.c
+CONNECTAL_PATH=/home/kslee/dtp/connectal
+SONIC_PATH=/home/kslee/dtp/sonic-lite
+EXTRA_CFLAGS := -O3 -I$(CONNECTAL_PATH)/drivers/pcieportal -I$(CONNECTAL_PATH)/cpp/ -I$(SONIC_PATH)/de5/jni
 
 ifneq ($(KERNELRELEASE),)
 # in Kernel
+$(dtp)-objs := $(SRC:.c=.o)
 obj-m := $(dtp).o
-$(dtp_mod)-objs := dtp_daemon.o 
 
 else
 KVER := $(shell uname -r)
@@ -21,7 +22,7 @@ default:
 
 clean: 
 	$(MAKE) -C $(KDIR) SUBDIRS=$(PWD) clean
-	rm -f dtp_user *.tar.gz *.dev cpu
+	rm -f dtp_user *.tar.gz *.dev
 
 endif
 
