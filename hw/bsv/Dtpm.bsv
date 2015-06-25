@@ -45,6 +45,8 @@ interface Dtpm;
    interface PipeOut#(Bit#(66)) dtpTxOut;
    interface PipeOut#(Bit#(53)) dtpLocalOut;
    interface PipeIn#(Bit#(53))  dtpGlobalIn;
+   interface PipeIn#(Bit#(53))  dtpFromHost;
+   interface PipeOut#(Bit#(53)) dtpToHost;
    (* always_ready, always_enabled *)
    method Action tx_ready(Bool v);
    (* always_ready, always_enabled *)
@@ -110,5 +112,7 @@ module mkDtpm#(Integer id, Integer c_local_init)(Dtpm);
    interface dtpTxOut = dtp_tx.dtpTxOut;
    interface dtpLocalOut = dtp_tx.dtpLocalOut;
    interface dtpGlobalIn = dtp_tx.dtpGlobalIn;
+   interface dtpFromHost = dtp_tx.api.fromHost;
+   interface dtpToHost = dtp_tx.api.toHost;
 endmodule: mkDtpm
 endpackage: Dtpm

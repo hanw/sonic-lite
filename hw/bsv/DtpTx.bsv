@@ -108,7 +108,7 @@ module mkDtpTx#(Integer id, Integer c_local_init)(DtpTx);
    Wire#(Bool) is_idle      <- mkDWire(False);
 
    Wire#(Bit#(53)) c_local_next <- mkDWire(0);
-   Wire#(Bit#(2))  tx_mux_sel   <- mkDWire(0);
+   FIFOF#(Bit#(2)) txMuxSelFifo <- mkSizedBypassFIFOF(3);
 
    // Tx Stage 1
    FIFOF#(Bit#(66)) dtpTxInPipelineFifo <- mkFIFOF;
@@ -213,29 +213,36 @@ module mkDtpTx#(Integer id, Integer c_local_init)(DtpTx);
 
       block_type = v[9:0];
 
-      if (mux_sel && tx_mux_sel == init_type) begin
-         encodeOut = {c_local+1, parity, init_type, block_type};
-         if(verbose) $display("%d: %d, Enqueued outgoing init request %d", cycle, id, c_local+1);
-      end
-      else if (mux_sel && tx_mux_sel == ack_type) begin
-         let init_timestamp <- toGet(initTimestampFifo).get;
-         let init_parity <- toGet(initParityFifo).get;
-         encodeOut = {init_timestamp, init_parity, ack_type, block_type};
-         if(verbose) $display("%d: %d, Enqueued outgoing ack %d", cycle, id, init_timestamp);
-      end
-      else if (mux_sel && tx_mux_sel == beacon_type) begin
-         encodeOut = {c_local+1, parity, beacon_type, block_type};
-      end
-      else if (mux_sel && fromHostFifo.notEmpty) begin
+      if (mux_sel && fromHostFifo.notEmpty) begin
          let host_data = fromHostFifo.first;
          debug_from_host <= host_data;
          encodeOut = {host_data, log_type, block_type};
          fromHostFifo.deq;
       end
+      else if (mux_sel && txMuxSelFifo.notEmpty) begin
+         let sel = txMuxSelFifo.first;
+         if (sel == init_type) begin
+            encodeOut = {c_local+1, parity, init_type, block_type};
+            if(verbose) $display("%d: %d, Enqueued outgoing init request %d", cycle, id, c_local+1);
+         end
+         else if (sel == ack_type) begin
+            let init_timestamp <- toGet(initTimestampFifo).get;
+            let init_parity <- toGet(initParityFifo).get;
+            encodeOut = {init_timestamp, init_parity, ack_type, block_type};
+            if(verbose) $display("%d: %d, Enqueued outgoing ack %d", cycle, id, init_timestamp);
+         end
+         else if (sel == beacon_type) begin
+            encodeOut = {c_local+1, parity, beacon_type, block_type};
+         end
+         else begin
+            encodeOut = v; //should never happen
+         end
+         txMuxSelFifo.deq;
+      end
       else begin
          encodeOut = v;
       end
-      if(verbose) $display("%d: %d dtpTxOut=%h, c_local=%h, encodeOut=%h", cycle, id, v, c_local, encodeOut[12:10]);
+      if(verbose) $display("%d: %d dtpTxOut=%h, c_local=%h, encodeOut=%h", cycle, id, encodeOut, c_local, encodeOut[12:10]);
       dtpTxOutFifo.enq(encodeOut);
    endrule
 
@@ -249,23 +256,25 @@ module mkDtpTx#(Integer id, Integer c_local_init)(DtpTx);
       // Timeout driven output
       if (init_rcvd) begin
          timeout_count_init <= timeout_count_init + 1;
-         tx_mux_sel <= ack_type;
+         if (txMuxSelFifo.notFull) begin
+            txMuxSelFifo.enq(ack_type);
+         end
          if(verbose) $display("%d: %d, send ack, type %d", cycle, id, ack_type);
       end
       else if (timeout_count_init > init_timeout-1) begin
          if (is_idle) begin
             timeout_count_init <= 0;
-            tx_mux_sel <= init_type;
+            if (txMuxSelFifo.notFull) begin
+               txMuxSelFifo.enq(init_type);
+            end
             if(verbose) $display("%d: %d, init timed_out %d", cycle, id, timeout_count_init);
          end
          else begin
-            tx_mux_sel <= 2'b00;
             timeout_count_init <= timeout_count_init + 1;
          end
       end
       else begin
          timeout_count_init <= timeout_count_init + 1;
-         tx_mux_sel <= 2'b00;
       end
 
       // compute delay
@@ -290,15 +299,18 @@ module mkDtpTx#(Integer id, Integer c_local_init)(DtpTx);
          else begin
             timeout_count_sync <= timeout_count_sync + 1;
          end
-         tx_mux_sel <= beacon_type;
+         if (txMuxSelFifo.notFull) begin
+            txMuxSelFifo.enq(beacon_type);
+         end
       end
       else if (init_rcvd) begin
-         tx_mux_sel <= ack_type;
+         if (txMuxSelFifo.notFull) begin
+            txMuxSelFifo.enq(ack_type);
+         end
          timeout_count_sync <= timeout_count_sync + 1;
       end
       else begin
          timeout_count_sync <= timeout_count_sync + 1;
-         tx_mux_sel <= 2'b00;
       end
 
       // compute delay
@@ -315,8 +327,10 @@ module mkDtpTx#(Integer id, Integer c_local_init)(DtpTx);
       cfFifo.deq;
 
       // update states
-      if (tx_mux_sel == init_type && is_idle) begin
-         curr_state <= SENT;
+      if (txMuxSelFifo.notEmpty && is_idle) begin
+         if (txMuxSelFifo.first == init_type) begin
+            curr_state <= SENT;
+         end
       end
       else if (init_rcvd) begin
          curr_state <= INIT;
@@ -338,8 +352,10 @@ module mkDtpTx#(Integer id, Integer c_local_init)(DtpTx);
       else if (ack_rcvd) begin
          curr_state <= SYNC;
       end
-      else if (tx_mux_sel == init_type) begin
-         curr_state <= INIT;
+      else if (txMuxSelFifo.notEmpty) begin
+         if (txMuxSelFifo.first == init_type) begin
+            curr_state <= INIT;
+         end
       end
       else begin
          curr_state <= SENT;
