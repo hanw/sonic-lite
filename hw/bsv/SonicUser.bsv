@@ -233,10 +233,12 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
          Bit#(53) v = toHostFifo[i].first;
          case (v[52]) matches
             0: begin
-               lread_data_cycle1[i].enq(BufData{port_no:fromInteger(i), data:zeroExtend(v[51:0])});
+               if (lread_data_cycle1[i].notFull)
+                  lread_data_cycle1[i].enq(BufData{port_no:fromInteger(i), data:zeroExtend(v[51:0])});
             end
             1: begin
-               lread_data_cycle2[i].enq(BufData{port_no:fromInteger(i), data:zeroExtend(v[51:0])});
+               if (lread_data_cycle2[i].notFull)
+                  lread_data_cycle2[i].enq(BufData{port_no:fromInteger(i), data:zeroExtend(v[51:0])});
                Bit#(53) timestamp = 0;
                if (isSwitch_reg == 0) begin // 0 for NIC, 1 for Switch
                   timestamp = clocal_reg[i];
@@ -244,7 +246,8 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
                else begin
                   timestamp = cglobal_reg;
                end
-               lread_data_timestamp[i].enq(timestamp);
+               if (lread_data_timestamp[i].notFull)
+                  lread_data_timestamp[i].enq(timestamp);
             end
          endcase
          toHostFifo[i].deq;
@@ -319,7 +322,9 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
    endmethod
    method Action dtp_logger_read_cnt(Bit#(8) port_no);
       if (port_no < 4) begin
-         if (lread_data_cycle1[port_no].notEmpty && lread_data_cycle2[port_no].notEmpty) begin
+         if (lread_data_cycle1[port_no].notEmpty &&
+             lread_data_cycle2[port_no].notEmpty &&
+             lread_data_timestamp[port_no].notEmpty) begin
             Bit#(64) remote_message1 = lread_data_cycle1[port_no].first.data;
             Bit#(64) remote_message2 = lread_data_cycle2[port_no].first.data;
             Bit#(53) timestamp = lread_data_timestamp[port_no].first;
