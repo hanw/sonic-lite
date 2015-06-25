@@ -62,6 +62,8 @@ interface SonicUserRequest;
    method Action dtp_read_global_cnt();
    method Action dtp_set_beacon_interval(Bit#(8) port_no, Bit#(32) interval);
    method Action dtp_read_beacon_interval(Bit#(8) port_no);
+   method Action dtp_debug_rcvd_msg(Bit#(8) port_no);
+   method Action dtp_debug_sent_msg(Bit#(8) port_no);
 /* NOT IMPLEMENTED YET.
    method Action dtp_ctrl_disable();
    method Action dtp_ctrl_enable();
@@ -78,6 +80,8 @@ interface SonicUserIndication;
    method Action dtp_read_local_cnt_resp(Bit#(8) port_no, Bit#(64) val);
    method Action dtp_read_global_cnt_resp(Bit#(64) val);
    method Action dtp_read_beacon_interval_resp(Bit#(8) port_no, Bit#(32) interval);
+   method Action dtp_debug_rcvd_msg_resp(Bit#(8) port_no, Bit#(32) lread_cnt_enq1, Bit#(32) lread_cnt_enq2, Bit#(32) lread_cnt_deq);
+   method Action dtp_debug_sent_msg_resp(Bit#(8) port_no, Bit#(32) lwrite_cnt_enq, Bit#(32) lwrite_cnt_deq1, Bit#(32) lwrite_cnt_deq2);
 endinterface
 
 interface SonicUser;
@@ -111,10 +115,16 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
    FIFOF#(BufData) lwrite_data_cycle1 <- mkSizedFIFOF(2);
    FIFOF#(BufData) lwrite_data_cycle2 <- mkSizedFIFOF(2);
    FIFOF#(void) log_write_cf <- mkFIFOF;
+   Vector#(4, Reg#(Bit#(32))) lwrite_cnt_enq <- replicateM(mkReg(0));
+   Vector#(4, Reg#(Bit#(32))) lwrite_cnt_deq1 <- replicateM(mkReg(0));
+   Vector#(4, Reg#(Bit#(32))) lwrite_cnt_deq2 <- replicateM(mkReg(0));
 
    Vector#(4, FIFOF#(BufData)) lread_data_cycle1 <- replicateM(mkSizedFIFOF(4));
    Vector#(4, FIFOF#(BufData)) lread_data_cycle2 <- replicateM(mkSizedFIFOF(4));
    Vector#(4, FIFOF#(Bit#(53))) lread_data_timestamp <- replicateM(mkSizedFIFOF(4));
+   Vector#(4, Reg#(Bit#(32)))  lread_cnt_enq1 <- replicateM(mkReg(0));
+   Vector#(4, Reg#(Bit#(32)))  lread_cnt_enq2 <- replicateM(mkReg(0));
+   Vector#(4, Reg#(Bit#(32)))  lread_cnt_deq <- replicateM(mkReg(0));
 
    Reg#(Bit#(28)) dtp_rst_cntr <- mkReg(0);
    MakeResetIfc dtpResetOut <- mkResetSync(0, False, defaultClock);
@@ -216,6 +226,7 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
             fromHostFifo[v1.port_no].enq({1'b0, truncate(v1.data)});
             lwrite_data_cycle1.deq;
             lwstate <= toState(chunk_b);
+            lwrite_cnt_deq1[v1.port_no] <= lwrite_cnt_deq1[v1.port_no] + 1;
          end
       end
       else if((lwstate[chunk_b] == 1) && lwrite_data_cycle2.notEmpty) begin
@@ -224,6 +235,7 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
             fromHostFifo[v2.port_no].enq({1'b1, truncate(v2.data)});
             lwrite_data_cycle2.deq;
             lwstate <= toState(chunk_a);
+            lwrite_cnt_deq2[v2.port_no] <= lwrite_cnt_deq2[v2.port_no] + 1;
          end
       end
    endrule
@@ -233,12 +245,15 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
          Bit#(53) v = toHostFifo[i].first;
          case (v[52]) matches
             0: begin
-               if (lread_data_cycle1[i].notFull)
+               if (lread_data_cycle1[i].notFull) begin
                   lread_data_cycle1[i].enq(BufData{port_no:fromInteger(i), data:zeroExtend(v[51:0])});
+               lread_cnt_enq1[i] <= lread_cnt_enq1[i] + 1;
+               end
             end
             1: begin
-               if (lread_data_cycle2[i].notFull)
+               if (lread_data_cycle2[i].notFull) begin
                   lread_data_cycle2[i].enq(BufData{port_no:fromInteger(i), data:zeroExtend(v[51:0])});
+               end
                Bit#(53) timestamp = 0;
                if (isSwitch_reg == 0) begin // 0 for NIC, 1 for Switch
                   timestamp = clocal_reg[i];
@@ -246,8 +261,11 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
                else begin
                   timestamp = cglobal_reg;
                end
-               if (lread_data_timestamp[i].notFull)
+
+               if (lread_data_timestamp[i].notFull) begin
                   lread_data_timestamp[i].enq(timestamp);
+               end
+               lread_cnt_enq2[i] <= lread_cnt_enq2[i] + 1;
             end
          endcase
          toHostFifo[i].deq;
@@ -318,6 +336,7 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
       if (port_no < 4) begin
          lwrite_data_cycle1.enq(BufData{port_no: port_no, data: host_timestamp});
          lwrite_data_cycle2.enq(BufData{port_no: port_no, data: zeroExtend(clocal_reg[port_no])});
+         lwrite_cnt_enq[port_no] <= lwrite_cnt_enq[port_no] + 1;
       end
    endmethod
    method Action dtp_logger_read_cnt(Bit#(8) port_no);
@@ -335,6 +354,7 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
             lread_data_cycle1[port_no].deq;
             lread_data_cycle2[port_no].deq;
             lread_data_timestamp[port_no].deq;
+            lread_cnt_deq[port_no] <= lread_cnt_deq[port_no] + 1;
          end
       end
    endmethod
@@ -354,6 +374,16 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
    method Action dtp_read_beacon_interval(Bit#(8) port_no);
       if (port_no < 4) begin
          indication.dtp_read_beacon_interval_resp(port_no, beacon_interval[port_no]);
+      end
+   endmethod
+   method Action dtp_debug_rcvd_msg (Bit#(8) port_no);
+      if (port_no < 4) begin
+         indication.dtp_debug_rcvd_msg_resp(port_no, lread_cnt_enq1[port_no], lread_cnt_enq2[port_no], lread_cnt_deq[port_no]);
+      end
+   endmethod
+   method Action dtp_debug_sent_msg (Bit#(8) port_no);
+      if (port_no < 4) begin
+         indication.dtp_debug_sent_msg_resp(port_no, lwrite_cnt_enq[port_no], lwrite_cnt_deq1[port_no], lwrite_cnt_deq2[port_no]);
       end
    endmethod
    endinterface

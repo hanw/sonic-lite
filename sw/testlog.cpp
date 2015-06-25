@@ -61,6 +61,12 @@ public:
   virtual void dtp_read_beacon_interval_resp(uint8_t p, uint32_t a) {
 	fprintf(stderr, "read from port(%d) local_cnt(%x)\n", p, a);
   }
+  virtual void dtp_debug_rcvd_msg_resp(uint8_t p, uint32_t a, uint32_t b, uint32_t c) {
+	fprintf(stderr, "read from port(%d) enq1(%x) enq2(%x) deq(%x)\n", p, a, b, c);
+  }
+  virtual void dtp_debug_sent_msg_resp(uint8_t p, uint32_t a, uint32_t b, uint32_t c) {
+	fprintf(stderr, "read from port(%d) enq(%x) deq1(%x) deq2(%x)\n", p, a, b, c);
+  }
   SonicUser(unsigned int id) : SonicUserIndicationWrapper(id) {}
 };
 
