@@ -108,8 +108,7 @@ module mkDtpTx#(Integer id, Integer c_local_init)(DtpTx);
    Wire#(Bool) is_idle      <- mkDWire(False);
 
    Wire#(Bit#(53)) c_local_next <- mkDWire(0);
-   //Wire#(Bit#(2))  tx_mux_sel   <- mkDWire(0);
-   FIFOF#(Bit#(2)) txMuxSelFifo <- mkSizedBypassFIFOF(3);
+   Wire#(Bit#(2))  tx_mux_sel   <- mkDWire(0);
 
    // Tx Stage 1
    FIFOF#(Bit#(66)) dtpTxInPipelineFifo <- mkFIFOF;
@@ -189,225 +188,211 @@ module mkDtpTx#(Integer id, Integer c_local_init)(DtpTx);
          is_idle <= False;
       end
       //if(verbose) $display("%d: %d dtpTxIn=%h, c_local=%h, is_idle=%h, curr_state=%d", cycle, id, v, c_local, mux_sel, curr_state);
-         cfFifo.enq(?);
-         dmFifo.enq(?);
-         stageOneFifo.enq(TxStageOneBuf{mux_sel: mux_sel,
-         parity: parity,
-         c_local: c_local+1});
-         dtpTxInPipelineFifo.enq(v);
-      endrule
+      cfFifo.enq(?);
+      dmFifo.enq(?);
+      stageOneFifo.enq(TxStageOneBuf{mux_sel: mux_sel,
+                                     parity: parity,
+                                     c_local: c_local+1});
+      dtpTxInPipelineFifo.enq(v);
+   endrule
 
-      Probe#(Bit#(53)) debug_from_host <- mkProbe();
-      rule tx_stage2(tx_ready_wire && rx_ready_wire);
-         let val <- toGet(stageOneFifo).get;
-         let v <- toGet(dtpTxInPipelineFifo).get();
-         let mux_sel = val.mux_sel;
-         let c_local = val.c_local;
-         let parity = val.parity;
+   Probe#(Bit#(53)) debug_from_host <- mkProbe();
+   rule tx_stage2(tx_ready_wire && rx_ready_wire);
+      let val <- toGet(stageOneFifo).get;
+      let v <- toGet(dtpTxInPipelineFifo).get();
+      let mux_sel = val.mux_sel;
+      let c_local = val.c_local;
+      let parity = val.parity;
 
-         Bit#(10) block_type;
-         Bit#(66) encodeOut;
-         Bit#(3) log_type    = fromInteger(valueOf(LOG_TYPE));
-         Bit#(2) init_type   = fromInteger(valueOf(INIT_TYPE));
-         Bit#(2) ack_type    = fromInteger(valueOf(ACK_TYPE));
-         Bit#(2) beacon_type = fromInteger(valueOf(BEACON_TYPE));
+      Bit#(10) block_type;
+      Bit#(66) encodeOut;
+      Bit#(3) log_type    = fromInteger(valueOf(LOG_TYPE));
+      Bit#(2) init_type   = fromInteger(valueOf(INIT_TYPE));
+      Bit#(2) ack_type    = fromInteger(valueOf(ACK_TYPE));
+      Bit#(2) beacon_type = fromInteger(valueOf(BEACON_TYPE));
 
-         block_type = v[9:0];
+      block_type = v[9:0];
 
-         if (mux_sel && fromHostFifo.notEmpty) begin
-            let host_data = fromHostFifo.first;
-            debug_from_host <= host_data;
-            encodeOut = {host_data, log_type, block_type};
-            fromHostFifo.deq;
-         end
-         else if (mux_sel && txMuxSelFifo.notEmpty) begin
-            let sel = txMuxSelFifo.first;
-            if (sel == init_type) begin
-               encodeOut = {c_local+1, parity, init_type, block_type};
-               if(verbose) $display("%d: %d, Enqueued outgoing init request %d", cycle, id, c_local+1);
-            end
-            else if (sel == ack_type) begin
-               let init_timestamp <- toGet(initTimestampFifo).get;
-               let init_parity <- toGet(initParityFifo).get;
-               encodeOut = {init_timestamp, init_parity, ack_type, block_type};
-               if(verbose) $display("%d: %d, Enqueued outgoing ack %d", cycle, id, init_timestamp);
-            end
-            else if (sel == beacon_type) begin
-               if(verbose) $display("%d: %d, Enqueued outgoing beacon %d", cycle, id, c_local+1);
-               encodeOut = {c_local+1, parity, beacon_type, block_type};
-            end
-            else begin
-               encodeOut = v; //should never happen.
-            end
-            txMuxSelFifo.deq;
+      if (mux_sel && tx_mux_sel == init_type) begin
+         encodeOut = {c_local+1, parity, init_type, block_type};
+         if(verbose) $display("%d: %d, Enqueued outgoing init request %d", cycle, id, c_local+1);
+      end
+      else if (mux_sel && tx_mux_sel == ack_type) begin
+         let init_timestamp <- toGet(initTimestampFifo).get;
+         let init_parity <- toGet(initParityFifo).get;
+         encodeOut = {init_timestamp, init_parity, ack_type, block_type};
+         if(verbose) $display("%d: %d, Enqueued outgoing ack %d", cycle, id, init_timestamp);
+      end
+      else if (mux_sel && tx_mux_sel == beacon_type) begin
+         encodeOut = {c_local+1, parity, beacon_type, block_type};
+      end
+      else if (mux_sel && fromHostFifo.notEmpty) begin
+         let host_data = fromHostFifo.first;
+         debug_from_host <= host_data;
+         encodeOut = {host_data, log_type, block_type};
+         fromHostFifo.deq;
+      end
+      else begin
+         encodeOut = v;
+      end
+      if(verbose) $display("%d: %d dtpTxOut=%h, c_local=%h, encodeOut=%h", cycle, id, v, c_local, encodeOut[12:10]);
+      dtpTxOutFifo.enq(encodeOut);
+   endrule
+
+   // delay measurement
+   rule delay_measurment(curr_state == INIT || curr_state == SENT);
+      let init_timeout = interval_reg._read;
+      let init_type = fromInteger(valueOf(INIT_TYPE));
+      let ack_type = fromInteger(valueOf(ACK_TYPE));
+      let rxtx_delay = fromInteger(valueOf(RXTX_DELAY));
+      dmFifo.deq;
+      // Timeout driven output
+      if (init_rcvd) begin
+         timeout_count_init <= timeout_count_init + 1;
+         tx_mux_sel <= ack_type;
+         if(verbose) $display("%d: %d, send ack, type %d", cycle, id, ack_type);
+      end
+      else if (timeout_count_init > init_timeout-1) begin
+         if (is_idle) begin
+            timeout_count_init <= 0;
+            tx_mux_sel <= init_type;
+            if(verbose) $display("%d: %d, init timed_out %d", cycle, id, timeout_count_init);
          end
          else begin
-            encodeOut = v;
-         end
-         if(verbose) $display("%d: %d dtpTxOut=%h, c_local=%h, encodeOut=%h", cycle, id, encodeOut, c_local, encodeOut[12:10]);
-         dtpTxOutFifo.enq(encodeOut);
-      endrule
-
-      // delay measurement
-      rule delay_measurment(curr_state == INIT || curr_state == SENT);
-         let init_timeout = interval_reg._read;
-         let init_type = fromInteger(valueOf(INIT_TYPE));
-         let ack_type = fromInteger(valueOf(ACK_TYPE));
-         let rxtx_delay = fromInteger(valueOf(RXTX_DELAY));
-         dmFifo.deq;
-         // Timeout driven output
-         if (init_rcvd) begin
+            tx_mux_sel <= 2'b00;
             timeout_count_init <= timeout_count_init + 1;
-            if (txMuxSelFifo.notFull)
-               txMuxSelFifo.enq(ack_type);
-               if(verbose) $display("%d: %d, send ack, type %d", cycle, id, ack_type);
+         end
+      end
+      else begin
+         timeout_count_init <= timeout_count_init + 1;
+         tx_mux_sel <= 2'b00;
+      end
+
+      // compute delay
+      if (ack_rcvd) begin
+         let temp <- toGet(ackTimestampFifo).get;
+         delay <= (c_local - temp - (rxtx_delay << 1) - 1) >> 1;
+         if(verbose) $display("%d: %d update delay=%d, %d, %d", cycle, id, c_local, temp, (c_local-temp-(rxtx_delay<<1)-1)>>1);
+      end
+   endrule
+
+   // Beacon
+   rule beacon(curr_state == SYNC);
+      dmFifo.deq;
+      let sync_timeout = interval_reg._read;
+      let beacon_type = fromInteger(valueOf(BEACON_TYPE));
+      let ack_type = fromInteger(valueOf(ACK_TYPE));
+      let rxtx_delay = fromInteger(valueOf(RXTX_DELAY));
+      if (timeout_count_sync >= sync_timeout-1) begin
+         if (is_idle) begin
+            timeout_count_sync <= 0;
+         end
+         else begin
+            timeout_count_sync <= timeout_count_sync + 1;
+         end
+         tx_mux_sel <= beacon_type;
+      end
+      else if (init_rcvd) begin
+         tx_mux_sel <= ack_type;
+         timeout_count_sync <= timeout_count_sync + 1;
+      end
+      else begin
+         timeout_count_sync <= timeout_count_sync + 1;
+         tx_mux_sel <= 2'b00;
+      end
+
+      // compute delay
+      if (ack_rcvd) begin
+         let temp <- toGet(ackTimestampFifo).get;
+         delay <= (c_local - temp - (rxtx_delay << 1) - 1) >> 1;
+         if(verbose) $display("%d: %d update delay=%d, %d, %d", cycle, id, c_local, temp, (c_local-temp-(rxtx_delay<<1)-1)>>1);
+      end
+   endrule
+
+   // DTP state machine
+   rule state_init (curr_state == INIT);
+      let init_type = fromInteger(valueOf(INIT_TYPE));
+      cfFifo.deq;
+
+      // update states
+      if (tx_mux_sel == init_type && is_idle) begin
+         curr_state <= SENT;
+      end
+      else if (init_rcvd) begin
+         curr_state <= INIT;
+      end
+      else begin
+         curr_state <= INIT;
+      end
+      //if(verbose) $display("%d: %d curr_state=%h", cycle, id, curr_state);
+   endrule
+
+   rule state_sent (curr_state == SENT);
+      let init_type = fromInteger(valueOf(INIT_TYPE));
+      cfFifo.deq;
+
+      // update states
+      if (init_rcvd) begin
+         curr_state <= SENT;
+      end
+      else if (ack_rcvd) begin
+         curr_state <= SYNC;
+      end
+      else if (tx_mux_sel == init_type) begin
+         curr_state <= INIT;
+      end
+      else begin
+         curr_state <= SENT;
+      end
+   endrule
+
+   rule state_sync (curr_state == SYNC);
+      cfFifo.deq;
+
+      // update states
+      if (init_rcvd) begin
+         curr_state <= SYNC;
+      end
+      else begin
+         curr_state <= SYNC;
+      end
+   endrule
+
+   rule switch_in_c_local(is_switch_mode);
+      //if(verbose) $display("%d: send c_local %h to L2", cycle, c_local);
+      dtpLocalOutFifo.enq(c_local);
+   endrule
+
+   rule switch_out_c_global;
+      let v <- toGet(dtpGlobalInFifo).get;
+      if (is_switch_mode && beacon_rcvd) begin
+         if (verbose) $display("%d: received global counter %d", cycle, v);
+         globalCompareRemoteFifo.enq(v + 1);
+         globalCompareLocalFifo.enq(v + 1);
+      end
+   endrule
+
+   rule rx_stage1(tx_ready_wire && rx_ready_wire);
+      let init_type   = fromInteger(valueOf(INIT_TYPE));
+      let ack_type    = fromInteger(valueOf(ACK_TYPE));
+      let beacon_type = fromInteger(valueOf(BEACON_TYPE));
+      let log_type    = fromInteger(valueOf(LOG_TYPE));
+      Bool init_rcvd_next   = False;
+      Bool ack_rcvd_next    = False;
+      Bool beacon_rcvd_next = False;
+      Bool log_rcvd_next    = False;
+      if (dtpEventInFifo.notEmpty) begin
+         let v <- toGet(dtpEventInFifo).get;
+         if ((v.e == init_type)) begin
+            let parity = ^(v.t);
+            if (initTimestampFifo.notFull && initParityFifo.notFull) begin
+               initTimestampFifo.enq(v.t);
+               initParityFifo.enq(parity);
             end
-            else if (timeout_count_init > init_timeout-1) begin
-               if (is_idle) begin
-                  timeout_count_init <= 0;
-                  if (txMuxSelFifo.notFull)
-                     txMuxSelFifo.enq(init_type);
-                     if(verbose) $display("%d: %d, init timed_out %d", cycle, id, timeout_count_init);
-                  end
-                  else begin
-                     //tx_mux_sel <= 2'b00;
-                     timeout_count_init <= timeout_count_init + 1;
-                  end
-               end
-               else begin
-                  timeout_count_init <= timeout_count_init + 1;
-                  //tx_mux_sel <= 2'b00;
-               end
-
-               // compute delay
-               if (ack_rcvd) begin
-                  let temp <- toGet(ackTimestampFifo).get;
-                  delay <= (c_local - temp - (rxtx_delay << 1) - 1) >> 1;
-                  if(verbose) $display("%d: %d update delay=%d, %d, %d", cycle, id, c_local, temp, (c_local-temp-(rxtx_delay<<1)-1)>>1);
-               end
-            endrule
-
-            // Beacon
-            rule beacon(curr_state == SYNC);
-               dmFifo.deq;
-               let sync_timeout = interval_reg._read;
-               let beacon_type = fromInteger(valueOf(BEACON_TYPE));
-               let ack_type = fromInteger(valueOf(ACK_TYPE));
-               let rxtx_delay = fromInteger(valueOf(RXTX_DELAY));
-               if (timeout_count_sync >= sync_timeout-1) begin
-                  if (is_idle) begin
-                     timeout_count_sync <= 0;
-                  end
-                  else begin
-                     timeout_count_sync <= timeout_count_sync + 1;
-                  end
-                  if (txMuxSelFifo.notFull)
-                     txMuxSelFifo.enq(beacon_type);
-                  end
-                  else if (init_rcvd) begin
-                     if (txMuxSelFifo.notFull)
-                        txMuxSelFifo.enq(ack_type);
-                        timeout_count_sync <= timeout_count_sync + 1;
-                     end
-                     else begin
-                        timeout_count_sync <= timeout_count_sync + 1;
-                        //tx_mux_sel <= 2'b00;
-                     end
-
-                     // compute delay
-                     if (ack_rcvd) begin
-                        let temp <- toGet(ackTimestampFifo).get;
-                        delay <= (c_local - temp - (rxtx_delay << 1) - 1) >> 1;
-                        if(verbose) $display("%d: %d update delay=%d, %d, %d", cycle, id, c_local, temp, (c_local-temp-(rxtx_delay<<1)-1)>>1);
-                     end
-                  endrule
-
-                  // DTP state machine
-                  rule state_init (curr_state == INIT);
-                     let init_type = fromInteger(valueOf(INIT_TYPE));
-                     cfFifo.deq;
-
-                     // update states
-                     if (txMuxSelFifo.notEmpty && is_idle) begin
-                        if (txMuxSelFifo.first == init_type)
-                           curr_state <= SENT;
-                        end
-                        else if (init_rcvd) begin
-                           curr_state <= INIT;
-                        end
-                        else begin
-                           curr_state <= INIT;
-                        end
-                        //if(verbose) $display("%d: %d curr_state=%h", cycle, id, curr_state);
-                     endrule
-
-                     rule state_sent (curr_state == SENT);
-                        let init_type = fromInteger(valueOf(INIT_TYPE));
-                        cfFifo.deq;
-
-                        // update states
-                        if (init_rcvd) begin
-                           curr_state <= SENT;
-                        end
-                        else if (ack_rcvd) begin
-                           curr_state <= SYNC;
-                        end
-                        else if (txMuxSelFifo.notEmpty) begin
-                           if (txMuxSelFifo.first == init_type)
-                              curr_state <= INIT;
-                           end
-                           else begin
-                              curr_state <= SENT;
-                           end
-                        endrule
-
-                        rule state_sync (curr_state == SYNC);
-                           cfFifo.deq;
-
-                           // update states
-                           if (init_rcvd) begin
-                              curr_state <= SYNC;
-                           end
-                           else begin
-                              curr_state <= SYNC;
-                           end
-                        endrule
-
-                        rule switch_in_c_local(is_switch_mode);
-                           //if(verbose) $display("%d: send c_local %h to L2", cycle, c_local);
-                              dtpLocalOutFifo.enq(c_local);
-                           endrule
-
-                           rule switch_out_c_global;
-                              let v <- toGet(dtpGlobalInFifo).get;
-                              if (is_switch_mode && beacon_rcvd) begin
-                                 if (verbose) $display("%d: received global counter %d", cycle, v);
-                                 globalCompareRemoteFifo.enq(v + 1);
-                                 globalCompareLocalFifo.enq(v + 1);
-                              end
-                           endrule
-
-                           rule rx_stage1(tx_ready_wire && rx_ready_wire);
-                              let init_type   = fromInteger(valueOf(INIT_TYPE));
-                              let ack_type    = fromInteger(valueOf(ACK_TYPE));
-                              let beacon_type = fromInteger(valueOf(BEACON_TYPE));
-                              let log_type    = fromInteger(valueOf(LOG_TYPE));
-                              Bool init_rcvd_next   = False;
-                              Bool ack_rcvd_next    = False;
-                              Bool beacon_rcvd_next = False;
-                              Bool log_rcvd_next    = False;
-                              if (dtpEventInFifo.notEmpty) begin
-                                 let v <- toGet(dtpEventInFifo).get;
-                                 if ((v.e == init_type)) begin
-                                    let parity = ^(v.t);
-                                    if (initTimestampFifo.notFull && initParityFifo.notFull) begin
-                                       initTimestampFifo.enq(v.t);
-                                       initParityFifo.enq(parity);
-                                    end
-                                    if(verbose) $display("%d: %d DtpTx init_rcvd %h %d", cycle, id, v.e, v.t);
-                                    init_rcvd_next = True;
-                                 end
-                                 else if (v.e == ack_type) begin
+            if(verbose) $display("%d: %d DtpTx init_rcvd %h %d", cycle, id, v.e, v.t);
+            init_rcvd_next = True;
+         end
+         else if (v.e == ack_type) begin
             ack_rcvd_next = True;
             // append received timestamp to fifo
             if (ackTimestampFifo.notFull)
