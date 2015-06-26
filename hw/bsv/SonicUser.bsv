@@ -245,15 +245,11 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
          Bit#(53) v = toHostFifo[i].first;
          case (v[52]) matches
             0: begin
-               if (lread_data_cycle1[i].notFull) begin
-                  lread_data_cycle1[i].enq(BufData{port_no:fromInteger(i), data:zeroExtend(v[51:0])});
+               lread_data_cycle1[i].enq(BufData{port_no:fromInteger(i), data:zeroExtend(v[51:0])});
                lread_cnt_enq1[i] <= lread_cnt_enq1[i] + 1;
-               end
             end
             1: begin
-               if (lread_data_cycle2[i].notFull) begin
-                  lread_data_cycle2[i].enq(BufData{port_no:fromInteger(i), data:zeroExtend(v[51:0])});
-               end
+               lread_data_cycle2[i].enq(BufData{port_no:fromInteger(i), data:zeroExtend(v[51:0])});
                Bit#(53) timestamp = 0;
                if (isSwitch_reg == 0) begin // 0 for NIC, 1 for Switch
                   timestamp = clocal_reg[i];
@@ -261,10 +257,7 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
                else begin
                   timestamp = cglobal_reg;
                end
-
-               if (lread_data_timestamp[i].notFull) begin
-                  lread_data_timestamp[i].enq(timestamp);
-               end
+               lread_data_timestamp[i].enq(timestamp);
                lread_cnt_enq2[i] <= lread_cnt_enq2[i] + 1;
             end
          endcase
