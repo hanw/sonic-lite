@@ -60,10 +60,6 @@ module mkDtpRx#(Integer id, Integer c_local_init)(DtpRx);
    let verbose = True;
 
    Reg#(Bit#(32))  cycle   <- mkReg(0);
-   Wire#(Bool) init_rcvd   <- mkDWire(False);
-   Wire#(Bool) ack_rcvd    <- mkDWire(False);
-   Wire#(Bool) beacon_rcvd <- mkDWire(False);
-   Wire#(Bool) log_rcvd    <- mkDWire(False);
    Wire#(Bool) rx_ready_wire <- mkDWire(False);
    Wire#(Bool) bsync_lock_wire <- mkDWire(False);
 
@@ -96,19 +92,14 @@ module mkDtpRx#(Integer id, Integer c_local_init)(DtpRx);
       Bit#(1)  parity = ^v[65:13];
       Bit#(53) c_remote = v[65:13];
       Bit#(66) vo = v;
-      Bool init_rcvd_next   = False;
-      Bool ack_rcvd_next    = False;
-      Bool beacon_rcvd_next = False;
-      Bool log_rcvd_next    = False;
 
       let c_remote_compensated = c_remote + rxtx_delay;
 
-      if ((v[9:2] == 8'h1e) && (v[12:10] != 0) && bsync_lock_wire) begin
+      if ((v[9:2] == 8'h1e)) begin
          vo[65:10] = 56'h0;
          if (v[11:10] == init_type) begin
             if (parity == v[12]) begin
-               init_rcvd_next = True;
-               if(dtpEventOutFifo.notFull) begin
+               if(dtpEventOutFifo.notFull && bsync_lock_wire) begin
                   dtpEventOutFifo.enq(DtpEvent{e:zeroExtend(v[11:10]), t:c_remote});
                end
                if(verbose) $display("%d: %d init_rcvd %d, forward to tx %d", cycle, id, c_remote, c_remote_compensated);
@@ -119,8 +110,7 @@ module mkDtpRx#(Integer id, Integer c_local_init)(DtpRx);
          end
          else if (v[11:10] == ack_type) begin
             if (parity == v[12]) begin
-               ack_rcvd_next = True;
-               if(dtpEventOutFifo.notFull) begin
+               if(dtpEventOutFifo.notFull && bsync_lock_wire) begin
                   dtpEventOutFifo.enq(DtpEvent{e:zeroExtend(v[11:10]), t:c_remote});
                end
                if(verbose) $display("%d: %d ack_rcvd %d, forward to tx %d", cycle, id, c_remote, c_remote_compensated);
@@ -131,8 +121,7 @@ module mkDtpRx#(Integer id, Integer c_local_init)(DtpRx);
          end
          else if (v[11:10] == beacon_type) begin
             if (parity == v[12]) begin
-               beacon_rcvd_next = True;
-               if(dtpEventOutFifo.notFull) begin
+               if(dtpEventOutFifo.notFull && bsync_lock_wire) begin
                   dtpEventOutFifo.enq(DtpEvent{e:zeroExtend(v[11:10]), t:c_remote_compensated});
                end
                if(verbose) $display("%d: %d beacon_rcvd %d, forward to tx %d", cycle, id, c_remote, c_remote_compensated);
@@ -143,8 +132,7 @@ module mkDtpRx#(Integer id, Integer c_local_init)(DtpRx);
          end
          else if (v[12:10] == log_type) begin
             // send v[65:13] to logger, when bsync_lock is True
-            log_rcvd_next = True;
-            if (dtpEventOutFifo.notFull) begin
+            if (dtpEventOutFifo.notFull && bsync_lock_wire) begin
                $display("%d: %d received log message %h", cycle, id, v[65:13]);
                dtpEventOutFifo.enq(DtpEvent{e:v[12:10], t:v[65:13]});
             end
@@ -155,10 +143,6 @@ module mkDtpRx#(Integer id, Integer c_local_init)(DtpRx);
          end
       end
       //if(verbose) $display("%d: %d curr_state=%h", cycle, id, curr_state);
-      init_rcvd   <= init_rcvd_next;
-      ack_rcvd    <= ack_rcvd_next;
-      beacon_rcvd <= beacon_rcvd_next;
-      log_rcvd    <= log_rcvd_next;
       dtpRxOutFifo.enq(vo);
    endrule
 
