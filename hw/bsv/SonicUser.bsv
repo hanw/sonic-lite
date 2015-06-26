@@ -147,6 +147,12 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
          lread_data_cycle1[i].clear();
          lread_data_cycle2[i].clear();
          lread_data_timestamp[i].clear();
+         lwrite_cnt_enq[i] <= 0;
+         lwrite_cnt_deq1[i]<= 0;
+         lwrite_cnt_deq2[i]<= 0;
+         lread_cnt_enq1[i] <= 0;
+         lread_cnt_enq2[i] <= 0;
+         lread_cnt_deq[i]  <= 0;
       end
       cGlobalFifo.clear();
       cntFifo.clear();
