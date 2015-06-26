@@ -84,8 +84,8 @@ module mkEthPcsRx#(Integer id)(EthPcsRx);
    endrule
 
    method Action rx_ready(Bool v);
-      decoder.rx_ready(v);
-      descram.rx_ready(v);
+      decoder.rx_ready(v && bsync.lock);
+      descram.rx_ready(v && bsync.lock);
       bsync.rx_ready(v);
    endmethod
 

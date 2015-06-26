@@ -37,6 +37,7 @@ interface BlockSync;
    interface PipeOut#(Bit#(66)) dataOut;
    (* always_ready, always_enabled *)
    method Action rx_ready(Bool v);
+   method Bool lock();
 endinterface
 
 typedef enum {LOCK_INIT, RESET_CNT, TEST_SH, GOOD_64, SLIP} State
@@ -179,5 +180,6 @@ module mkBlockSync(BlockSync);
 
    interface blockSyncIn = toPipeIn(fifo_in);
    interface dataOut = toPipeOut(fifo_out);
+   interface lock = block_lock;
 endmodule
 endpackage
