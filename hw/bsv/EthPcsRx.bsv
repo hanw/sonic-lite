@@ -46,6 +46,7 @@ interface EthPcsRx;
    interface PipeIn#(Bit#(66))  dtpRxOut;
    (* always_ready, always_enabled *)
    method Action rx_ready(Bool v);
+   method Bool lock();
 endinterface
 
 (* synthesize *)
@@ -93,5 +94,6 @@ module mkEthPcsRx#(Integer id)(EthPcsRx);
    interface decoderOut   = decoder.decoderOut;
    interface dtpRxIn      = toPipeOut(dtpRxInFifo);
    interface dtpRxOut     = toPipeIn(dtpRxOutFifo);
+   interface lock         = bsync.lock;
 endmodule
 endpackage: EthPcsRx

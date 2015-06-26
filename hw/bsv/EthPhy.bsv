@@ -224,6 +224,7 @@ module mkEthPhy#(Clock mgmt_clk, Clock clk_156_25, Clock clk_644, Reset rst_n)(E
       endrule
       rule dtp_rx_every1;
          dtp_rx[i].rx_ready(rx_ready_rx[i]);
+         dtp_rx[i].bsync_lock(pcs_rx[i].lock);
       endrule
    end
 

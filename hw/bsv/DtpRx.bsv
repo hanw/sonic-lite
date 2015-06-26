@@ -45,6 +45,7 @@ interface DtpRx;
    interface PipeOut#(DtpEvent) dtpEventOut;
    (* always_ready, always_enabled *)
    method Action rx_ready(Bool v);
+   method Action bsync_lock(Bool v);
 endinterface
 
 (* synthesize *)
@@ -63,6 +64,7 @@ module mkDtpRx#(Integer id, Integer c_local_init)(DtpRx);
    Wire#(Bool) beacon_rcvd <- mkDWire(False);
    Wire#(Bool) log_rcvd    <- mkDWire(False);
    Wire#(Bool) rx_ready_wire <- mkDWire(False);
+   Wire#(Bool) bsync_lock_wire <- mkDWire(False);
 
    FIFOF#(Bit#(66)) dtpRxInFifo    <- mkFIFOF;
    FIFOF#(Bit#(66)) dtpRxOutFifo   <- mkFIFOF;
@@ -136,9 +138,9 @@ module mkDtpRx#(Integer id, Integer c_local_init)(DtpRx);
             end
          end
          else if (v[12:10] == log_type) begin
-            // send v[65:13] to logger
+            // send v[65:13] to logger, when bsync_lock is True
             log_rcvd_next = True;
-            if (dtpEventOutFifo.notFull) begin
+            if (dtpEventOutFifo.notFull && bsync_lock_wire) begin
                $display("%d: %d received log message %h", cycle, id, v[65:13]);
                dtpEventOutFifo.enq(DtpEvent{e:v[12:10], t:v[65:13]});
             end
@@ -154,6 +156,10 @@ module mkDtpRx#(Integer id, Integer c_local_init)(DtpRx);
 
    method Action rx_ready(Bool v);
       rx_ready_wire <= v;
+   endmethod
+
+   method Action bsync_lock(Bool v);
+      bsync_lock_wire <= v;
    endmethod
 
    interface dtpRxIn = toPipeIn(dtpRxInFifo);
