@@ -149,8 +149,8 @@ module mkDtpTx#(Integer id, Integer c_local_init)(DtpTx);
    FIFOF#(void) dmFifo <- mkFIFOF;
 
    Reg#(Bool)       log_rcvd     <- mkReg(False);
-   FIFOF#(Bit#(53)) fromHostFifo <- mkSizedFIFOF(1);
-   FIFOF#(Bit#(53)) toHostFifo   <- mkSizedFIFOF(1);
+   FIFOF#(Bit#(53)) fromHostFifo <- mkSizedBypassFIFOF(2);
+   FIFOF#(Bit#(53)) toHostFifo   <- mkSizedBypassFIFOF(2);
    FIFOF#(Bit#(32)) delayFifo    <- mkSizedFIFOF(1);
    FIFOF#(Bit#(32)) stateFifo     <- mkSizedFIFOF(1);
    FIFOF#(Bit#(64)) jumpCountFifo <- mkSizedFIFOF(1);

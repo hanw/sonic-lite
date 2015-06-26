@@ -112,16 +112,16 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
    FIFOF#(Bit#(1)) isSwitchFifo <- mkFIFOF();
 
    Reg#(Bit#(8))  lwrite_port <- mkReg(0);
-   FIFOF#(BufData) lwrite_data_cycle1 <- mkSizedFIFOF(2);
-   FIFOF#(BufData) lwrite_data_cycle2 <- mkSizedFIFOF(2);
+   FIFOF#(BufData) lwrite_data_cycle1 <- mkSizedBypassFIFOF(3);
+   FIFOF#(BufData) lwrite_data_cycle2 <- mkSizedBypassFIFOF(3);
    FIFOF#(void) log_write_cf <- mkFIFOF;
    Vector#(4, Reg#(Bit#(32))) lwrite_cnt_enq <- replicateM(mkReg(0));
    Vector#(4, Reg#(Bit#(32))) lwrite_cnt_deq1 <- replicateM(mkReg(0));
    Vector#(4, Reg#(Bit#(32))) lwrite_cnt_deq2 <- replicateM(mkReg(0));
 
-   Vector#(4, FIFOF#(BufData)) lread_data_cycle1 <- replicateM(mkSizedFIFOF(4));
-   Vector#(4, FIFOF#(BufData)) lread_data_cycle2 <- replicateM(mkSizedFIFOF(4));
-   Vector#(4, FIFOF#(Bit#(53))) lread_data_timestamp <- replicateM(mkSizedFIFOF(4));
+   Vector#(4, FIFOF#(BufData)) lread_data_cycle1 <- replicateM(mkSizedBypassFIFOF(4));
+   Vector#(4, FIFOF#(BufData)) lread_data_cycle2 <- replicateM(mkSizedBypassFIFOF(4));
+   Vector#(4, FIFOF#(Bit#(53))) lread_data_timestamp <- replicateM(mkSizedBypassFIFOF(4));
    Vector#(4, Reg#(Bit#(32)))  lread_cnt_enq1 <- replicateM(mkReg(0));
    Vector#(4, Reg#(Bit#(32)))  lread_cnt_enq2 <- replicateM(mkReg(0));
    Vector#(4, Reg#(Bit#(32)))  lread_cnt_deq <- replicateM(mkReg(0));
@@ -241,8 +241,9 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
    endrule
 
    for (Integer i=0; i<4; i=i+1) begin
-      rule save_host_data (toHostFifo[i].notEmpty);
-         Bit#(53) v = toHostFifo[i].first;
+      rule save_host_data; //(toHostFifo[i].notEmpty);
+         let v <- toGet(toHostFifo[i]).get;
+         //Bit#(53) v = toHostFifo[i].first;
          case (v[52]) matches
             0: begin
                lread_data_cycle1[i].enq(BufData{port_no:fromInteger(i), data:zeroExtend(v[51:0])});
@@ -261,7 +262,7 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
                lread_cnt_enq2[i] <= lread_cnt_enq2[i] + 1;
             end
          endcase
-         toHostFifo[i].deq;
+         //toHostFifo[i].deq;
       endrule
    end
 
