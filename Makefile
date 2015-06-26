@@ -22,7 +22,7 @@ CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/altera_clkctrl/altera_clkctr
 CONNECTALFLAGS += --verilog=$(DTOP)/hw/verilog/si570/
 #CONNECTALFLAGS += --chipscope=$(DTOP)/hw/stp/rx_debug.stp
 CONNECTALFLAGS += --tcl=$(DTOP)/boards/de5_extra.qsf
-CONNECTALFLAGS += -D DtpVersion=$(shell date +"%m%d%Y")
+CONNECTALFLAGS += -D DtpVersion=$(shell date +"%y%m%d%H%M")
 # Supported Platforms:
 # {vendor}_{platform}=1
 ALTERA_SIM_vsim=1
