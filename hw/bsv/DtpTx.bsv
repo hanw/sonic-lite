@@ -58,6 +58,7 @@ interface DtpTx;
    interface DtpToPhyIfc api;
 
    interface PipeIn#(DtpEvent) dtpEventIn;
+   interface PipeIn#(Bit#(32)) dtpErrCnt;
 
    (* always_ready, always_enabled *)
    method Action tx_ready(Bool v);
@@ -123,6 +124,7 @@ module mkDtpTx#(Integer id, Integer c_local_init)(DtpTx);
    FIFOF#(Bit#(3))  dtpEventOutputFifo   <- mkFIFOF;
    FIFOF#(Bit#(66)) dtpRxOutFifo <- mkFIFOF;
    FIFOF#(DtpEvent) dtpEventInFifo <- mkFIFOF;
+   FIFOF#(Bit#(32)) dtpErrCntFifo <- mkFIFOF;
 
    FIFOF#(Bit#(53)) dtpLocalOutFifo <- mkFIFOF;
    FIFOF#(Bit#(53)) dtpGlobalInFifo <- mkFIFOF;
@@ -608,8 +610,10 @@ module mkDtpTx#(Integer id, Integer c_local_init)(DtpTx);
       interface toHost   = toPipeOut(toHostFifo);
       interface fromHost = toPipeIn(fromHostFifo);
       interface interval = toPipeIn(intervalFifo);
+      interface dtpErrCnt = toPipeOut(dtpErrCntFifo);
    endinterface);
    interface dtpEventIn = toPipeIn(dtpEventInFifo);
+   interface dtpErrCnt = toPipeIn(dtpErrCntFifo);
    interface dtpTxIn = toPipeIn(dtpTxInFifo);
    interface dtpTxOut = toPipeOut(dtpTxOutFifo);
    interface dtpLocalOut = toPipeOut(dtpLocalOutFifo);

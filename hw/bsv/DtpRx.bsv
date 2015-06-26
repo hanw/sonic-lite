@@ -43,6 +43,7 @@ interface DtpRx;
    interface PipeIn#(Bit#(66))  dtpRxIn;
    interface PipeOut#(Bit#(66)) dtpRxOut;
    interface PipeOut#(DtpEvent) dtpEventOut;
+   interface PipeOut#(Bit#(32)) dtpErrCnt;
    (* always_ready, always_enabled *)
    method Action rx_ready(Bool v);
    method Action bsync_lock(Bool v);
@@ -69,6 +70,9 @@ module mkDtpRx#(Integer id, Integer c_local_init)(DtpRx);
    FIFOF#(Bit#(66)) dtpRxInFifo    <- mkFIFOF;
    FIFOF#(Bit#(66)) dtpRxOutFifo   <- mkFIFOF;
    FIFOF#(DtpEvent) dtpEventOutFifo <- mkFIFOF;
+   FIFOF#(Bit#(32)) dtpErrCntFifo  <- mkFIFOF;
+
+   Reg#(Bit#(32))  err_cnt <- mkReg(0);
 
    rule cyc;
       cycle <= cycle + 1;
@@ -99,52 +103,58 @@ module mkDtpRx#(Integer id, Integer c_local_init)(DtpRx);
 
       let c_remote_compensated = c_remote + rxtx_delay;
 
-      if (v[9:2] == 8'h1e) begin
+      if ((v[9:2] == 8'h1e) && (v[12:10] != 0) && bsync_lock_wire) begin
          vo[65:10] = 56'h0;
-         if (v[11:10] == init_type) begin
-            if (parity == v[12]) begin
-               init_rcvd_next = True;
-               if(dtpEventOutFifo.notFull) begin
-                  dtpEventOutFifo.enq(DtpEvent{e:zeroExtend(v[11:10]), t:c_remote});
+         case (v[12:10])
+            init_type: begin
+               if (parity == v[12]) begin
+                  init_rcvd_next = True;
+                  if(dtpEventOutFifo.notFull) begin
+                     dtpEventOutFifo.enq(DtpEvent{e:zeroExtend(v[11:10]), t:c_remote});
+                  end
+                  if(verbose) $display("%d: %d init_rcvd %d, forward to tx %d", cycle, id, c_remote, c_remote_compensated);
                end
-               if(verbose) $display("%d: %d init_rcvd %d, forward to tx %d", cycle, id, c_remote, c_remote_compensated);
-            end
-            else begin
-               $display("parity mismatch: expected %h, found %h", parity, v[12]);
-            end
-         end
-         else if (v[11:10] == ack_type) begin
-            if (parity == v[12]) begin
-               ack_rcvd_next = True;
-               if(dtpEventOutFifo.notFull) begin
-                  dtpEventOutFifo.enq(DtpEvent{e:zeroExtend(v[11:10]), t:c_remote});
+               else begin
+                  $display("parity mismatch: expected %h, found %h", parity, v[12]);
                end
-               if(verbose) $display("%d: %d ack_rcvd %d, forward to tx %d", cycle, id, c_remote, c_remote_compensated);
             end
-            else begin
-               $display("parity mismatch: expected %h, found %h", parity, v[12]);
-            end
-         end
-         else if (v[11:10] == beacon_type) begin
-            if (parity == v[12]) begin
-               beacon_rcvd_next = True;
-               if(dtpEventOutFifo.notFull) begin
-                  dtpEventOutFifo.enq(DtpEvent{e:zeroExtend(v[11:10]), t:c_remote_compensated});
+            ack_type: begin
+               if (parity == v[12]) begin
+                  ack_rcvd_next = True;
+                  if(dtpEventOutFifo.notFull) begin
+                     dtpEventOutFifo.enq(DtpEvent{e:zeroExtend(v[11:10]), t:c_remote});
+                  end
+                  if(verbose) $display("%d: %d ack_rcvd %d, forward to tx %d", cycle, id, c_remote, c_remote_compensated);
                end
-               if(verbose) $display("%d: %d beacon_rcvd %d, forward to tx %d", cycle, id, c_remote, c_remote_compensated);
+               else begin
+                  $display("parity mismatch: expected %h, found %h", parity, v[12]);
+               end
             end
-            else begin
-               $display("parity mismatch: expected %h, found %h", parity, v[12]);
+            beacon_type: begin
+               if (parity == v[12]) begin
+                  beacon_rcvd_next = True;
+                  if(dtpEventOutFifo.notFull) begin
+                     dtpEventOutFifo.enq(DtpEvent{e:zeroExtend(v[11:10]), t:c_remote_compensated});
+                  end
+                  if(verbose) $display("%d: %d beacon_rcvd %d, forward to tx %d", cycle, id, c_remote, c_remote_compensated);
+               end
+               else begin
+                  $display("parity mismatch: expected %h, found %h", parity, v[12]);
+               end
             end
-         end
-         else if (v[12:10] == log_type) begin
-            // send v[65:13] to logger, when bsync_lock is True
-            log_rcvd_next = True;
-            if (dtpEventOutFifo.notFull && bsync_lock_wire) begin
-               $display("%d: %d received log message %h", cycle, id, v[65:13]);
-               dtpEventOutFifo.enq(DtpEvent{e:v[12:10], t:v[65:13]});
+            log_type: begin
+               // send v[65:13] to logger, when bsync_lock is True
+               log_rcvd_next = True;
+               if (dtpEventOutFifo.notFull) begin
+                  $display("%d: %d received log message %h", cycle, id, v[65:13]);
+                  dtpEventOutFifo.enq(DtpEvent{e:v[12:10], t:v[65:13]});
+               end
             end
-         end
+            default: begin
+               err_cnt <= err_cnt + 1;
+               dtpErrCntFifo.enq(err_cnt);
+            end
+         endcase
       end
       //if(verbose) $display("%d: %d curr_state=%h", cycle, id, curr_state);
       init_rcvd   <= init_rcvd_next;
@@ -165,5 +175,6 @@ module mkDtpRx#(Integer id, Integer c_local_init)(DtpRx);
    interface dtpRxIn = toPipeIn(dtpRxInFifo);
    interface dtpRxOut = toPipeOut(dtpRxOutFifo);
    interface dtpEventOut = toPipeOut(dtpEventOutFifo);
+   interface dtpErrCnt = toPipeOut(dtpErrCntFifo);
 endmodule
 endpackage: DtpRx

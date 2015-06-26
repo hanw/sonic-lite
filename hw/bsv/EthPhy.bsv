@@ -117,6 +117,9 @@ module mkEthPhy#(Clock mgmt_clk, Clock clk_156_25, Clock clk_644, Reset rst_n)(E
    Vector#(NumPorts, SyncFIFOIfc#(DtpEvent)) dtpEventFifo = newVector;
    Vector#(NumPorts, PipeOut#(DtpEvent)) dtpEventOut = newVector;
    Vector#(NumPorts, PipeIn#(DtpEvent)) dtpEventIn = newVector;
+   Vector#(NumPorts, SyncFIFOIfc#(Bit#(32))) dtpErrCntFifo = newVector;
+   Vector#(NumPorts, PipeOut#(Bit#(32))) dtpErrCntOut = newVector;
+   Vector#(NumPorts, PipeIn#(Bit#(32))) dtpErrCntIn = newVector;
 
    // 156.25MHz to pma4.tx
    Vector#(NumPorts, SyncFIFOIfc#(Bit#(66))) txSyncFifo = newVector;
@@ -143,13 +146,21 @@ module mkEthPhy#(Clock mgmt_clk, Clock clk_156_25, Clock clk_644, Reset rst_n)(E
       dtpEventOut[i] = toPipeOut(dtpEventFifo[i]);
       dtpEventIn[i]  = toPipeIn(dtpEventFifo[i]);
 
+      dtpErrCntFifo[i] <- mkSyncBRAMFIFO(10, pma4.rx_clkout[i], pma4.rx_reset[i], clk_156_25, rst_156_25_n);
+      dtpErrCntOut[i] = toPipeOut(dtpErrCntFifo[i]);
+      dtpErrCntIn[i]  = toPipeIn(dtpErrCntFifo[i]);
+
       // Rx Path: PcsRx -> DtpRx
       mkConnection(pcs_rx[i].dtpRxIn, dtp_rx[i].dtpRxIn);
       // Rx Path: DtpRx -> PcsRx
       mkConnection(dtp_rx[i].dtpRxOut, pcs_rx[i].dtpRxOut);
       // Rx Path: DtpRx -> SyncFIFO
       mkConnection(dtp_rx[i].dtpEventOut, dtpEventIn[i]);
+      // Rx Path DtpRx -> SyncFifo
+      mkConnection(dtp_rx[i].dtpErrCnt, dtpErrCntIn[i]);
 
+      // Tx Path SyncFIfo -> DtpTx
+      mkConnection(dtpErrCntOut[i], dtp_tx[i].dtpErrCnt);
       // Tx Path; SyncFifo -> DtpTx
       mkConnection(dtpEventOut[i], dtp_tx[i].dtpEventIn);
       // Tx Path: Mac -> Encoder

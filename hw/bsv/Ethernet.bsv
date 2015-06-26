@@ -155,6 +155,7 @@ interface DtpToPhyIfc;
    interface PipeOut#(Bit#(53)) toHost;
    interface PipeIn#(Bit#(53))  fromHost;
    interface PipeIn#(Bit#(32))  interval;
+   interface PipeOut#(Bit#(32)) dtpErrCnt;
 endinterface
 
 interface NetToConnectalIfc;

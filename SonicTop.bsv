@@ -271,12 +271,12 @@ module mkSonicTop #(Clock pcie_refclk_p,
    end
 
    // send dtp error count to host
-   Vector#(4, SyncFIFOIfc#(Bit#(64))) errorCountFifo <- replicateM(mkSyncFIFO(8, clk_156_25, rst_156_n, host.portalClock));
-   Vector#(4, PipeOut#(Bit#(64))) errorCountPipeOut = map(toPipeOut, errorCountFifo);
-   Vector#(4, PipeIn#(Bit#(64))) errorCountPipeIn = map(toPipeIn, errorCountFifo);
+   Vector#(4, SyncFIFOIfc#(Bit#(64))) jumpCountFifo <- replicateM(mkSyncFIFO(8, clk_156_25, rst_156_n, host.portalClock));
+   Vector#(4, PipeOut#(Bit#(64))) jumpCountPipeOut = map(toPipeOut, jumpCountFifo);
+   Vector#(4, PipeIn#(Bit#(64))) jumpCountPipeIn = map(toPipeIn, jumpCountFifo);
    for (Integer i=0; i<4; i=i+1) begin
-      mkConnection(eth.api.phys[i].jumpCount, errorCountPipeIn[i]);
-      mkConnection(errorCountPipeOut[i], portalTop.pins.jumpCount[i]);
+      mkConnection(eth.api.phys[i].jumpCount, jumpCountPipeIn[i]);
+      mkConnection(jumpCountPipeOut[i], portalTop.pins.jumpCount[i]);
    end
 
    // send dtp clocal to host
@@ -303,6 +303,16 @@ module mkSonicTop #(Clock pcie_refclk_p,
       mkConnection(portalTop.pins.interval[i], intervalPipeIn[i]);
       mkConnection(intervalPipeOut[i], eth.api.phys[i].interval);
    end
+
+   // send dtp rcvd err count
+   Vector#(4, SyncFIFOIfc#(Bit#(32))) dtpErrCntFifo <- replicateM(mkSyncFIFO(8, clk_156_25, rst_156_n, host.portalClock));
+   Vector#(4, PipeOut#(Bit#(32))) dtpErrCntPipeOut = map(toPipeOut, dtpErrCntFifo);
+   Vector#(4, PipeIn#(Bit#(32))) dtpErrCntPipeIn = map(toPipeIn, dtpErrCntFifo);
+   for (Integer i=0; i<4; i=i+1) begin
+      mkConnection(eth.api.phys[i].dtpErrCnt, dtpErrCntPipeIn[i]);
+      mkConnection(dtpErrCntPipeOut[i], portalTop.pins.dtpErrCnt[i]);
+   end
+
 
    // going from level to edge-triggered interrupt
    Vector#(16, Reg#(Bool)) interruptRequested <- replicateM(mkReg(False, clocked_by host.portalClock, reset_by host.portalReset));
