@@ -24,6 +24,7 @@
 import Clocks::*;
 import FIFO::*;
 import FIFOF::*;
+import SpecialFIFOs::*;
 import Vector::*;
 import Pipe::*;
 import GetPut::*;
