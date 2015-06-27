@@ -53,6 +53,8 @@ interface Dtpm;
    method Action rx_ready(Bool v);
    (* always_ready, always_enabled *)
    method Action switch_mode(Bool v);
+   (* always_ready, always_enabled *)
+   method Action bsync_lock(Bool v);
    interface DtpToPhyIfc api;
 endinterface
 
@@ -70,6 +72,7 @@ module mkDtpm#(Integer id, Integer c_local_init)(Dtpm);
    Wire#(Bool) tx_ready_wire <- mkDWire(False);
    Wire#(Bool) rx_ready_wire <- mkDWire(False);
    Wire#(Bool) switch_mode_wire <- mkDWire(False);
+   Wire#(Bool) bsync_lock_wire <- mkDWire(False);
 
    DtpRx dtp_rx <- mkDtpRx(id, c_local_init);
    DtpTx dtp_tx <- mkDtpTx(id, c_local_init);
@@ -80,6 +83,13 @@ module mkDtpm#(Integer id, Integer c_local_init)(Dtpm);
 
    mkConnection(dtp_rx.dtpEventOut, dtpEventIn);
    mkConnection(dtpEventOut, dtp_tx.dtpEventIn);
+
+   SyncFIFOIfc#(Bit#(32)) dtpErrCntFifo <- mkSyncBRAMFIFO(10, defaultClock, defaultReset, defaultClock, defaultReset);
+   PipeOut#(Bit#(32)) dtpErrCntOut = toPipeOut(dtpErrCntFifo);
+   PipeIn#(Bit#(32)) dtpErrCntIn = toPipeIn(dtpErrCntFifo);
+
+   mkConnection(dtp_rx.dtpErrCnt, dtpErrCntIn);
+   mkConnection(dtpErrCntOut, dtp_tx.dtpErrCnt);
 
    rule rx_rdy;
       dtp_rx.rx_ready(rx_ready_wire);
@@ -94,6 +104,10 @@ module mkDtpm#(Integer id, Integer c_local_init)(Dtpm);
       dtp_tx.switch_mode(switch_mode_wire);
    endrule
 
+   rule lock;
+      dtp_rx.bsync_lock(bsync_lock_wire);
+   endrule
+
    method Action tx_ready(Bool v);
       tx_ready_wire <= v;
    endmethod
@@ -104,6 +118,10 @@ module mkDtpm#(Integer id, Integer c_local_init)(Dtpm);
 
    method Action switch_mode(Bool v);
       switch_mode_wire <= v;
+   endmethod
+
+   method Action bsync_lock(Bool v);
+      bsync_lock_wire <= v;
    endmethod
 
    interface dtpRxIn  = dtp_rx.dtpRxIn;

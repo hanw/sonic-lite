@@ -82,6 +82,8 @@ module mkDtpmTest#(DtpmTestIndication indication) (DtpmTest);
       sc1.tx_ready(True);
       sc2.rx_ready(True);
       sc2.tx_ready(True);
+      sc1.bsync_lock(True);
+      sc2.bsync_lock(True);
    endrule
 
    Vector#(Delay, Reg#(Bit#(66))) sc1_wires <- replicateM(mkReg(0));

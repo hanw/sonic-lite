@@ -230,7 +230,7 @@ module mkEthPhy#(Clock mgmt_clk, Clock clk_156_25, Clock clk_644, Reset rst_n)(E
       endrule
       rule dtp_tx_every1;
          dtp_tx[i].tx_ready(tx_ready_tx[i]);
-         dtp_tx[i].rx_ready(rx_ready_tx[i]);
+         dtp_tx[i].rx_ready(rx_ready_tx[i] && pcs_rx[i].lock);
          dtp_tx[i].switch_mode(switch_en_tx);
       endrule
       rule dtp_rx_every1;

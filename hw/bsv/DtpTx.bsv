@@ -244,7 +244,7 @@ module mkDtpTx#(Integer id, Integer c_local_init)(DtpTx);
       else begin
          encodeOut = v;
       end
-      if(verbose) $display("%d: %d dtpTxOut=%h, c_local=%h, encodeOut=%h", cycle, id, encodeOut, c_local, encodeOut[12:10]);
+      //if(verbose) $display("%d: %d dtpTxOut=%h, c_local=%h, encodeOut=%h", cycle, id, encodeOut, c_local, encodeOut[12:10]);
       dtpTxOutFifo.enq(encodeOut);
    endrule
 

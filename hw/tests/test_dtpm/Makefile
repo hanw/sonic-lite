@@ -6,6 +6,6 @@ MEM_INTERFACES = lDtpmTest.dmaClient,nil
 BSVFILES = DtpmTest.bsv ../../bsv/Dtpm.bsv
 CPPFILES = test_dtp.cpp
 BSCPATHFLAGS+= -bdir $(CONNECTALDIR)/bsv -bdir ../../lib/bsv
-CONNECTALFLAGS+= -D DataBusWidth=64 -m ../../lib/cpp/file_interface.cpp
+CONNECTALFLAGS+= -D DataBusWidth=128
 
 include $(CONNECTALDIR)/Makefile.connectal
