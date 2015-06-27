@@ -152,12 +152,6 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
          lread_data_cycle1[i].clear();
          lread_data_cycle2[i].clear();
          lread_data_timestamp[i].clear();
-         lwrite_cnt_enq[i] <= 0;
-         lwrite_cnt_deq1[i]<= 0;
-         lwrite_cnt_deq2[i]<= 0;
-         lread_cnt_enq1[i] <= 0;
-         lread_cnt_enq2[i] <= 0;
-         lread_cnt_deq[i]  <= 0;
       end
       cGlobalFifo.clear();
       cntFifo.clear();
@@ -239,7 +233,7 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
 
    Reg#(Bit#(2)) lwstate <- mkReg(toState(chunk_a));
    // dtp_logger_write_cnt
-   rule log_from_host_cycle;
+   rule log_from_host_cycle (!dtpResetOut.isAsserted);
       if ((lwstate[chunk_a] == 1) && lwrite_data_cycle1.notEmpty) begin
          let v1 = lwrite_data_cycle1.first;
          if (fromHostFifo[v1.port_no].notFull) begin
@@ -259,30 +253,36 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
          end
       end
    endrule
+   rule reset_from_host (dtpResetOut.isAsserted);
+      for (Integer i=0; i<4; i=i+1) begin
+         lwrite_cnt_deq1[i]<= 0;
+         lwrite_cnt_deq2[i]<= 0;
+      end
+   endrule
 
    for (Integer i=0; i<4; i=i+1) begin
-      rule save_host_data; //(toHostFifo[i].notEmpty);
+      rule save_host_data (!dtpResetOut.isAsserted);
          let v <- toGet(toHostFifo[i]).get;
-         //Bit#(53) v = toHostFifo[i].first;
-         case (v[52]) matches
-            0: begin
-               lread_data_cycle1[i].enq(BufData{port_no:fromInteger(i), data:zeroExtend(v[51:0])});
-               lread_cnt_enq1[i] <= lread_cnt_enq1[i] + 1;
+         if (v[52] == 0) begin
+            lread_data_cycle1[i].enq(BufData{port_no:fromInteger(i), data:zeroExtend(v[51:0])});
+            lread_cnt_enq1[i] <= lread_cnt_enq1[i] + 1;
+         end
+         else if (v[52] == 1) begin
+            lread_data_cycle2[i].enq(BufData{port_no:fromInteger(i), data:zeroExtend(v[51:0])});
+            Bit#(53) timestamp = 0;
+            if (isSwitch_reg == 0) begin // 0 for NIC, 1 for Switch
+               timestamp = clocal_reg[i];
             end
-            1: begin
-               lread_data_cycle2[i].enq(BufData{port_no:fromInteger(i), data:zeroExtend(v[51:0])});
-               Bit#(53) timestamp = 0;
-               if (isSwitch_reg == 0) begin // 0 for NIC, 1 for Switch
-                  timestamp = clocal_reg[i];
-               end
-               else begin
-                  timestamp = cglobal_reg;
-               end
-               lread_data_timestamp[i].enq(timestamp);
-               lread_cnt_enq2[i] <= lread_cnt_enq2[i] + 1;
+            else begin
+               timestamp = cglobal_reg;
             end
-         endcase
-         //toHostFifo[i].deq;
+            lread_data_timestamp[i].enq(timestamp);
+            lread_cnt_enq2[i] <= lread_cnt_enq2[i] + 1;
+         end
+      endrule
+      rule reset_host_data (dtpResetOut.isAsserted);
+         lread_cnt_enq1[i] <= 0;
+         lread_cnt_enq2[i] <= 0;
       endrule
    end
 
@@ -324,6 +324,10 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
          limit = 32;
       end
       dtp_rst_cntr <= limit;
+      for (Integer i=0; i<4; i=i+1) begin
+         lwrite_cnt_enq[i] <= 0;
+         lread_cnt_deq[i]  <= 0;
+      end
    endmethod
    method Action dtp_set_cnt(Bit#(8) port_no, Bit#(64) c);
       //
