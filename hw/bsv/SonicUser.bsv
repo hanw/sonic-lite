@@ -120,20 +120,19 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
    FIFOF#(BufData) lwrite_data_cycle1 <- mkSizedBypassFIFOF(3);
    FIFOF#(BufData) lwrite_data_cycle2 <- mkSizedBypassFIFOF(3);
    FIFOF#(void) log_write_cf <- mkFIFOF;
+   Vector#(4, Reg#(Bit#(32))) lwrite_cnt_enq <- replicateM(mkReg(0));
+   Vector#(4, Reg#(Bit#(32))) lwrite_cnt_deq1 <- replicateM(mkReg(0));
+   Vector#(4, Reg#(Bit#(32))) lwrite_cnt_deq2 <- replicateM(mkReg(0));
 
    Vector#(4, FIFOF#(BufData)) lread_data_cycle1 <- replicateM(mkSizedBypassFIFOF(4));
    Vector#(4, FIFOF#(BufData)) lread_data_cycle2 <- replicateM(mkSizedBypassFIFOF(4));
    Vector#(4, FIFOF#(Bit#(53))) lread_data_timestamp <- replicateM(mkSizedBypassFIFOF(4));
+   Vector#(4, Reg#(Bit#(32)))  lread_cnt_enq1 <- replicateM(mkReg(0));
+   Vector#(4, Reg#(Bit#(32)))  lread_cnt_enq2 <- replicateM(mkReg(0));
+   Vector#(4, Reg#(Bit#(32)))  lread_cnt_deq <- replicateM(mkReg(0));
 
    Reg#(Bit#(28)) dtp_rst_cntr <- mkReg(0);
    MakeResetIfc dtpResetOut <- mkResetSync(0, False, defaultClock);
-
-   Vector#(4, Reg#(Bit#(32))) lwrite_cnt_enq  <- replicateM(mkReg(0, reset_by dtpResetOut.new_rst));
-   Vector#(4, Reg#(Bit#(32))) lwrite_cnt_deq1 <- replicateM(mkReg(0, reset_by dtpResetOut.new_rst));
-   Vector#(4, Reg#(Bit#(32))) lwrite_cnt_deq2 <- replicateM(mkReg(0, reset_by dtpResetOut.new_rst));
-   Vector#(4, Reg#(Bit#(32))) lread_cnt_enq1 <- replicateM(mkReg(0, reset_by dtpResetOut.new_rst));
-   Vector#(4, Reg#(Bit#(32))) lread_cnt_enq2 <- replicateM(mkReg(0, reset_by dtpResetOut.new_rst));
-   Vector#(4, Reg#(Bit#(32))) lread_cnt_deq  <- replicateM(mkReg(0, reset_by dtpResetOut.new_rst));
 
    rule count;
       cycle_count <= cycle_count + 1;
@@ -153,6 +152,12 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
          lread_data_cycle1[i].clear();
          lread_data_cycle2[i].clear();
          lread_data_timestamp[i].clear();
+         lwrite_cnt_enq[i] <= 0;
+         lwrite_cnt_deq1[i]<= 0;
+         lwrite_cnt_deq2[i]<= 0;
+         lread_cnt_enq1[i] <= 0;
+         lread_cnt_enq2[i] <= 0;
+         lread_cnt_deq[i]  <= 0;
       end
       cGlobalFifo.clear();
       cntFifo.clear();
