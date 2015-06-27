@@ -1,7 +1,7 @@
-## SoNIC-lite
+## BlueNIC
 
 ### Platform
-SoNIC-lite is targeted for multiple development platforms. Currently We have support for DE5-net and HTG4 board. We will support NetFPGA-SUME board soon.
+BlueNIC is targeted for multiple development platforms. Currently We have support for DE5-net and HTG4 board. We will support NetFPGA-SUME board soon.
 
 ### Support I/O operation
 #### Kernel
