@@ -97,7 +97,7 @@ module mkDtpRx#(Integer id, Integer c_local_init)(DtpRx);
 
       if (v[9:2] == 8'h1e) begin
          vo[65:10] = 56'h0;
-         if (v[11:10] == init_type) begin
+         if (v[11:10] == init_type && bsync_lock_wire) begin
             if (parity == v[12]) begin
                if(dtpEventOutFifo.notFull && bsync_lock_wire) begin
                   dtpEventOutFifo.enq(DtpEvent{e:zeroExtend(v[11:10]), t:c_remote});
