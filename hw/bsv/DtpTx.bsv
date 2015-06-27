@@ -171,12 +171,12 @@ module mkDtpTx#(Integer id, Integer c_local_init)(DtpTx);
    endrule
 
    // Setup link first if neither Tx or Rx is ready, bypass DTP.
-   rule tx_bypass(!tx_ready_wire || !rx_ready_wire);
+   rule tx_bypass(!tx_ready_wire || !rx_ready_wire || !bsync_lock_wire);
       let v <- toGet(dtpTxInFifo).get;
       dtpTxOutFifo.enq(v);
    endrule
 
-   rule tx_stage1(tx_ready_wire && rx_ready_wire);
+   rule tx_stage1(tx_ready_wire && rx_ready_wire && bsync_lock_wire);
       let v <- toGet(dtpTxInFifo).get();
       Bit#(1) parity;
       Bool    mux_sel;
@@ -202,7 +202,7 @@ module mkDtpTx#(Integer id, Integer c_local_init)(DtpTx);
    endrule
 
    Probe#(Bit#(53)) debug_from_host <- mkProbe();
-   rule tx_stage2(tx_ready_wire && rx_ready_wire);
+   rule tx_stage2(tx_ready_wire && rx_ready_wire && bsync_lock_wire);
       let val <- toGet(stageOneFifo).get;
       let v <- toGet(dtpTxInPipelineFifo).get();
       let mux_sel = val.mux_sel;
@@ -393,7 +393,7 @@ module mkDtpTx#(Integer id, Integer c_local_init)(DtpTx);
       end
    endrule
 
-   rule rx_stage1(tx_ready_wire && rx_ready_wire);
+   rule rx_stage1(tx_ready_wire && rx_ready_wire && bsync_lock_wire);
       let init_type   = fromInteger(valueOf(INIT_TYPE));
       let ack_type    = fromInteger(valueOf(ACK_TYPE));
       let beacon_type = fromInteger(valueOf(BEACON_TYPE));
