@@ -137,10 +137,10 @@ module mkDtpRx#(Integer id, Integer c_local_init)(DtpRx);
                dtpEventOutFifo.enq(DtpEvent{e:v[12:10], t:v[65:13]});
             end
          end
-//         else begin
-//            err_cnt <= err_cnt + 1;
-//            dtpErrCntFifo.enq(err_cnt);
-//         end
+         else begin
+            err_cnt <= err_cnt + 1;
+            dtpErrCntFifo.enq(err_cnt);
+         end
       end
       //if(verbose) $display("%d: %d curr_state=%h", cycle, id, curr_state);
       dtpRxOutFifo.enq(vo);
