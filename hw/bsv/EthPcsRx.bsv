@@ -46,6 +46,7 @@ interface EthPcsRx;
    interface PipeIn#(Bit#(66))  dtpRxOut;
    (* always_ready, always_enabled *)
    method Action rx_ready(Bool v);
+   (* always_ready, always_enabled *)
    method Bool lock();
 endinterface
 

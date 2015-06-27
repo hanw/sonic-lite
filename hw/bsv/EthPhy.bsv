@@ -94,11 +94,13 @@ module mkEthPhy#(Clock mgmt_clk, Clock clk_156_25, Clock clk_644, Reset rst_n)(E
    Vector#(NumPorts, ReadOnly#(Bool)) tx_ready_tx;
    Vector#(NumPorts, ReadOnly#(Bool)) rx_ready_rx;
    Vector#(NumPorts, ReadOnly#(Bool)) tx_ready_rx;
+   Vector#(NumPorts, CrossingReg#(Bool)) lock_tx;
    for (Integer i=0; i<valueOf(NumPorts); i=i+1) begin
       rx_ready_tx[i] <- mkNullCrossingWire(clk_156_25, pma4.rx_ready[i]);
       tx_ready_tx[i] <- mkNullCrossingWire(clk_156_25, pma4.tx_ready[i]);
       rx_ready_rx[i] <- mkNullCrossingWire(pma4.rx_clkout[i], pma4.rx_ready[i]);
       tx_ready_rx[i] <- mkNullCrossingWire(pma4.rx_clkout[i], pma4.tx_ready[i]);
+      lock_tx[i] <- mkNullCrossingReg(clk_156_25, False, clocked_by pma4.rx_clkout[i], reset_by pma4.rx_reset[i]);
    end
 
    Vector#(NumPorts, FIFOF#(Bit#(72)))   txFifo     = newVector;
@@ -174,6 +176,10 @@ module mkEthPhy#(Clock mgmt_clk, Clock clk_156_25, Clock clk_644, Reset rst_n)(E
       ReadOnly#(Bool) rx_lpbk_en <- mkNullCrossingWire(pma4.rx_clkout[i], loopback_en);
       ReadOnly#(Bool) tx_lpbk_en <- mkNullCrossingWire(clk_156_25, loopback_en);
 
+      rule cross_lock_tx;
+         lock_tx[i] <= pcs_rx[i].lock;
+      endrule
+
       // Normal Operation: XCVR -> Pcs
       rule rx_no_loopback(!rx_lpbk_en);
          let v <- toGet(pma4.rx[i]).get;
@@ -230,8 +236,9 @@ module mkEthPhy#(Clock mgmt_clk, Clock clk_156_25, Clock clk_644, Reset rst_n)(E
       endrule
       rule dtp_tx_every1;
          dtp_tx[i].tx_ready(tx_ready_tx[i]);
-         dtp_tx[i].rx_ready(rx_ready_tx[i] && pcs_rx[i].lock);
+         dtp_tx[i].rx_ready(rx_ready_tx[i]);
          dtp_tx[i].switch_mode(switch_en_tx);
+         dtp_tx[i].bsync_lock(lock_tx[i].crossed);
       endrule
       rule dtp_rx_every1;
          dtp_rx[i].rx_ready(rx_ready_rx[i]);

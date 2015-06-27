@@ -95,11 +95,11 @@ module mkDtpRx#(Integer id, Integer c_local_init)(DtpRx);
 
       let c_remote_compensated = c_remote + rxtx_delay;
 
-      if (v[9:2] == 8'h1e) begin
+      if (v[9:2] == 8'h1e && bsync_lock_wire) begin
          vo[65:10] = 56'h0;
-         if (v[11:10] == init_type && bsync_lock_wire) begin
+         if (v[11:10] == init_type ) begin
             if (parity == v[12]) begin
-               if(dtpEventOutFifo.notFull && bsync_lock_wire) begin
+               if(dtpEventOutFifo.notFull) begin
                   dtpEventOutFifo.enq(DtpEvent{e:zeroExtend(v[11:10]), t:c_remote});
                end
                if(verbose) $display("%d: %d init_rcvd %d, forward to tx %d", cycle, id, c_remote, c_remote_compensated);
@@ -108,7 +108,7 @@ module mkDtpRx#(Integer id, Integer c_local_init)(DtpRx);
                $display("parity mismatch: expected %h, found %h", parity, v[12]);
             end
          end
-         else if (v[11:10] == ack_type && bsync_lock_wire) begin
+         else if (v[11:10] == ack_type) begin
             if (parity == v[12]) begin
                if(dtpEventOutFifo.notFull) begin
                   dtpEventOutFifo.enq(DtpEvent{e:zeroExtend(v[11:10]), t:c_remote});
@@ -119,7 +119,7 @@ module mkDtpRx#(Integer id, Integer c_local_init)(DtpRx);
                $display("parity mismatch: expected %h, found %h", parity, v[12]);
             end
          end
-         else if (v[11:10] == beacon_type && bsync_lock_wire) begin
+         else if (v[11:10] == beacon_type) begin
             if (parity == v[12]) begin
                if(dtpEventOutFifo.notFull) begin
                   dtpEventOutFifo.enq(DtpEvent{e:zeroExtend(v[11:10]), t:c_remote_compensated});
@@ -130,7 +130,7 @@ module mkDtpRx#(Integer id, Integer c_local_init)(DtpRx);
                $display("parity mismatch: expected %h, found %h", parity, v[12]);
             end
          end
-         else if (v[12:10] == log_type && bsync_lock_wire) begin
+         else if (v[12:10] == log_type) begin
             // send v[65:13] to logger, when bsync_lock is True
             if (dtpEventOutFifo.notFull) begin
                $display("%d: %d received log message %h", cycle, id, v[65:13]);

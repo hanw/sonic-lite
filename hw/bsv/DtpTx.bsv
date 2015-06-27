@@ -66,6 +66,8 @@ interface DtpTx;
    method Action rx_ready(Bool v);
    (* always_ready, always_enabled *)
    method Action switch_mode(Bool v);
+   (* always_ready, always_enabled *)
+   method Action bsync_lock(Bool v);
 endinterface
 
 typedef 3'b100 LOG_TYPE;
@@ -88,6 +90,7 @@ module mkDtpTx#(Integer id, Integer c_local_init)(DtpTx);
    Wire#(Bool) tx_ready_wire <- mkDWire(False);
    Wire#(Bool) rx_ready_wire <- mkDWire(False);
    Wire#(Bool) switch_mode_wire <- mkDWire(False);
+   Wire#(Bool) bsync_lock_wire <- mkDWire(False);
 
    FIFOF#(Bit#(66)) dtpTxInFifo <- mkFIFOF ();
 
@@ -600,6 +603,10 @@ module mkDtpTx#(Integer id, Integer c_local_init)(DtpTx);
 
    method Action switch_mode(Bool v);
       switch_mode_wire <= v;
+   endmethod
+
+   method Action bsync_lock(Bool v);
+      bsync_lock_wire <= v;
    endmethod
 
    interface api = (interface DtpToPhyIfc;
