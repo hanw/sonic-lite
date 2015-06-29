@@ -135,7 +135,7 @@ module mkEthPhy#(Clock mgmt_clk, Clock clk_156_25, Clock clk_644, Reset rst_n)(E
       vTxPipeOut[i] = toPipeOut(txFifo[i]);
 
       // Gearbox Level Loopback FIFO
-      lpbkSyncFifo[i] <- mkSyncFIFO(10, clk_156_25, rst_156_25_n, pma4.rx_clkout[i], pma4.rx_reset[i]);
+      lpbkSyncFifo[i] <- mkSyncFIFO(10, clk_156_25, rst_156_25_n, pma4.rx_clkout[i]);//, pma4.rx_reset[i]);
       lpbkSyncPipeOut[i] = toPipeOut(lpbkSyncFifo[i]);
       lpbkSyncPipeIn[i] = toPipeIn(lpbkSyncFifo[i]);
 
@@ -144,11 +144,11 @@ module mkEthPhy#(Clock mgmt_clk, Clock clk_156_25, Clock clk_644, Reset rst_n)(E
       dtp_rx[i]    <- mkDtpRxTop(clocked_by pma4.rx_clkout[i], reset_by pma4.rx_reset[i]);
       dtp_tx[i]    <- mkDtpTxTop(clocked_by clk_156_25, reset_by rst_156_25_n);
 
-      dtpEventFifo[i] <- mkSyncFIFO(10, pma4.rx_clkout[i], pma4.rx_reset[i], clk_156_25, rst_156_25_n);
+      dtpEventFifo[i] <- mkSyncFIFO(10, pma4.rx_clkout[i], pma4.rx_reset[i], clk_156_25);//, rst_156_25_n);
       dtpEventOut[i] = toPipeOut(dtpEventFifo[i]);
       dtpEventIn[i]  = toPipeIn(dtpEventFifo[i]);
 
-      dtpErrCntFifo[i] <- mkSyncFIFO(10, pma4.rx_clkout[i], pma4.rx_reset[i], clk_156_25, rst_156_25_n);
+      dtpErrCntFifo[i] <- mkSyncFIFO(10, pma4.rx_clkout[i], pma4.rx_reset[i], clk_156_25);//, rst_156_25_n);
       dtpErrCntOut[i] = toPipeOut(dtpErrCntFifo[i]);
       dtpErrCntIn[i]  = toPipeIn(dtpErrCntFifo[i]);
 
