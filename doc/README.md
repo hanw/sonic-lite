@@ -8,3 +8,4 @@ USE_BUILDCACHE=1 make build.de5
 * Ethernet Ring Buffer
 * Switch
 * P4
+* DMA at Gen3 speed.
