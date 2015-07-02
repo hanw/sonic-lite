@@ -125,7 +125,7 @@ module mkEthPhy#(Clock mgmt_clk, Clock clk_156_25, Clock clk_644, Reset rst_n)(E
    // 156.25MHz to pma4.tx
    Vector#(NumPorts, SyncFIFOIfc#(Bit#(66))) txSyncFifo = newVector;
 
-   FIFOF#(Bit#(1)) switchModeFifo <- mkSizedFIFOF(4);
+   FIFOF#(Bit#(1)) switchModeFifo <- mkFIFOF();
 
    for (Integer i=0; i<valueOf(NumPorts); i=i+1) begin
       rxFifo[i] <- mkFIFOF(clocked_by pma4.rx_clkout[i], reset_by pma4.rx_reset[i]);
