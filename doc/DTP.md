@@ -1,5 +1,12 @@
 ## API
 
+### Needs to be implemented 
+` dtp_set_mode(uint8_t mode)` sets the mode of the board. 
+
+   * `mode` is 0 (for NIC), and 1 (for switch)
+
+` dtp_get_mode(uint8_t mode)` returns the current mode of the board.
+
 ### Currently Implemented
 ` dtp_read_version()` returns the version of firmware in `uint32_t`
    
