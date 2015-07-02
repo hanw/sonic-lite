@@ -85,6 +85,7 @@ int main(int argc, const char **argv)
 	device->pint.busyType = BUSY_SPIN;   /* spin until request portal 'notFull' */
 
 	device->dtp_reset(32);
+    device->dtp_get_mode();
 	device->dtp_read_version();
 
 	fprintf(stderr, "Main::about to go to sleep\n");
@@ -95,6 +96,7 @@ int main(int argc, const char **argv)
 			device->dtp_read_error(i);
 			device->dtp_read_cnt(i);
 		}
+		sleep(1);
 		for (int i=0; i<4; i++) {
 			device->dtp_logger_write_cnt(i, count);
 		}
@@ -102,6 +104,6 @@ int main(int argc, const char **argv)
 			device->dtp_logger_read_cnt(i);
 		}
 		count ++;
-		sleep(2);
+		sleep(1);
 	}
 }
