@@ -70,6 +70,10 @@ public:
   virtual void dtp_debug_rcvd_err_resp(uint8_t p, uint32_t a) {
 	fprintf(stderr, "read from port(%d) err(%x)\n", p, a);
   }
+  virtual void dtp_get_mode_resp(uint8_t a) {
+	fprintf(stderr, "read from mode(%x)\n", a);
+  }
+
   SonicUser(unsigned int id) : SonicUserIndicationWrapper(id) {}
 };
 

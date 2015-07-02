@@ -47,7 +47,7 @@ interface DtpIfc;
    interface Vector#(4, PipeOut#(Bit#(32))) interval;
    interface Vector#(4, PipeIn#(Bit#(32))) dtpErrCnt;
    interface Reset rst;
-   interface PipeIn#(Bit#(1)) isSwitch;
+   interface PipeOut#(Bit#(1)) switchMode;
 endinterface
 
 interface SonicUserRequest;
@@ -67,6 +67,8 @@ interface SonicUserRequest;
    method Action dtp_debug_rcvd_msg(Bit#(8) port_no);
    method Action dtp_debug_sent_msg(Bit#(8) port_no);
    method Action dtp_debug_rcvd_err(Bit#(8) port_no);
+   method Action dtp_set_mode(Bit#(8) mode);
+   method Action dtp_get_mode();
 /* NOT IMPLEMENTED YET.
    method Action dtp_ctrl_disable();
    method Action dtp_ctrl_enable();
@@ -86,6 +88,7 @@ interface SonicUserIndication;
    method Action dtp_debug_rcvd_msg_resp(Bit#(8) port_no, Bit#(32) lread_cnt_enq1, Bit#(32) lread_cnt_enq2, Bit#(32) lread_cnt_deq);
    method Action dtp_debug_sent_msg_resp(Bit#(8) port_no, Bit#(32) lwrite_cnt_enq, Bit#(32) lwrite_cnt_deq1, Bit#(32) lwrite_cnt_deq2);
    method Action dtp_debug_rcvd_err_resp(Bit#(8) port_no, Bit#(32) err_cnt);
+   method Action dtp_get_mode_resp(Bit#(8) mode);
 endinterface
 
 interface SonicUser;
@@ -102,7 +105,7 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
 
    FIFOF#(Bit#(128)) cntFifo <- mkFIFOF();
    Reg#(Bit#(128))   cycle_reg <- mkReg(0);
-   Reg#(Bit#(1))     isSwitch_reg <- mkReg(0);
+   Reg#(Bit#(1))     switch_mode_reg <- mkReg(0);
    Vector#(4, Reg#(Bit#(32))) beacon_interval <- replicateM(mkReg(1000)); //default beacon interval is 1000.
 
    Vector#(4, FIFOF#(Bit#(53))) fromHostFifo <- replicateM(mkSizedFIFOF(4));
@@ -114,7 +117,7 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
    FIFOF#(Bit#(53)) cGlobalFifo <- mkSizedFIFOF(4);
    Vector#(4, FIFOF#(Bit#(32))) intervalFifo <- replicateM(mkSizedFIFOF(4));
    Vector#(4, FIFOF#(Bit#(32))) dtpErrCntFifo <- replicateM(mkSizedFIFOF(4));
-   FIFOF#(Bit#(1)) isSwitchFifo <- mkFIFOF();
+   FIFOF#(Bit#(1)) switchModeFifo <- mkFIFOF();
 
    Reg#(Bit#(8))  lwrite_port <- mkReg(0);
    FIFOF#(BufData) lwrite_data_cycle1 <- mkSizedBypassFIFOF(3);
@@ -270,7 +273,7 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
          else if (v[52] == 1) begin
             lread_data_cycle2[i].enq(BufData{port_no:fromInteger(i), data:zeroExtend(v[51:0])});
             Bit#(53) timestamp = 0;
-            if (isSwitch_reg == 0) begin // 0 for NIC, 1 for Switch
+            if (switch_mode_reg == 0) begin // 0 for NIC, 1 for Switch
                timestamp = clocal_reg[i];
             end
             else begin
@@ -292,8 +295,7 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
    endrule
 
    rule switch_mode;
-      let v <- toGet(isSwitchFifo).get;
-      isSwitch_reg <= v;
+      switchModeFifo.enq(switch_mode_reg);
    endrule
 
    // Interface to external modules.
@@ -309,7 +311,7 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
       interface interval  = map(toPipeOut, intervalFifo);
       interface dtpErrCnt = map(toPipeIn, dtpErrCntFifo);
       interface rst       = dtpResetOut.new_rst;
-      interface isSwitch  = toPipeIn(isSwitchFifo);
+      interface switchMode  = toPipeOut(switchModeFifo);
    endinterface);
 
    // API implementation
@@ -409,6 +411,12 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
       if (port_no < 4) begin
          indication.dtp_debug_rcvd_err_resp(port_no, dtp_err_cnt[port_no]);
       end
+   endmethod
+   method Action dtp_set_mode(Bit#(8) mode);
+      switch_mode_reg <= mode[0];
+   endmethod
+   method Action dtp_get_mode();
+      indication.dtp_get_mode_resp(zeroExtend(switch_mode_reg));
    endmethod
    endinterface
 endmodule

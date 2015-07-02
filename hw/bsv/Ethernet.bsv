@@ -161,6 +161,7 @@ endinterface
 interface NetToConnectalIfc;
    interface PipeOut#(Bit#(128)) timestamp;
    interface PipeOut#(Bit#(53)) globalOut;
+   interface PipeIn#(Bit#(1)) switchMode;
    interface Vector#(NumPorts, DtpToPhyIfc) phys;
 endinterface
 

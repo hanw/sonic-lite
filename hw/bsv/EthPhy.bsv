@@ -58,11 +58,10 @@ interface EthPhyIfc#(numeric type numPorts);
    interface Vector#(numPorts, Clock) rx_clkout;
    (* always_ready, always_enabled *)
    interface LoopbackIfc loopback;
-   (* always_ready, always_enabled *)
-   interface SwitchIfc switchctrl;
 
    interface Vector#(numPorts, Bool) led_rx_ready;
    interface Vector#(numPorts, DtpToPhyIfc) api;
+   interface PipeIn#(Bit#(1)) switchMode;
    interface PipeOut#(Bit#(53)) globalOut;
 endinterface
 
@@ -125,6 +124,8 @@ module mkEthPhy#(Clock mgmt_clk, Clock clk_156_25, Clock clk_644, Reset rst_n)(E
 
    // 156.25MHz to pma4.tx
    Vector#(NumPorts, SyncFIFOIfc#(Bit#(66))) txSyncFifo = newVector;
+
+   FIFOF#(Bit#(1)) switchModeFifo <- mkSizedFIFOF(4);
 
    for (Integer i=0; i<valueOf(NumPorts); i=i+1) begin
       rxFifo[i] <- mkFIFOF(clocked_by pma4.rx_clkout[i], reset_by pma4.rx_reset[i]);
@@ -246,6 +247,11 @@ module mkEthPhy#(Clock mgmt_clk, Clock clk_156_25, Clock clk_644, Reset rst_n)(E
       endrule
    end
 
+   rule switch_mode;
+      let v <- toGet(switchModeFifo).get;
+      switch_en <= unpack(v);
+   endrule
+
    rule dtpswitch_mode;
       dtpswitch.switch_mode(switch_en_tx);
    endrule
@@ -268,12 +274,6 @@ module mkEthPhy#(Clock mgmt_clk, Clock clk_156_25, Clock clk_644, Reset rst_n)(E
       endmethod
    endinterface);
 
-   interface switchctrl = (interface SwitchIfc;
-      method Action ena (Bool en);
-         switch_en <= en;
-      endmethod
-   endinterface);
-
    interface rx_clkout = pma4.rx_clkout;
    interface tx_clkout = pma4.tx_clkout;
    interface serial = pma4.pmd;
@@ -282,6 +282,7 @@ module mkEthPhy#(Clock mgmt_clk, Clock clk_156_25, Clock clk_644, Reset rst_n)(E
    interface led_rx_ready = pma4.rx_ready;
 
    interface api = vapi;
+   interface switchMode = toPipeIn(switchModeFifo);
    interface globalOut = dtpswitch.globalOut;
 
 endmodule: mkEthPhy

@@ -132,11 +132,6 @@ module mkSonicTop #(Clock pcie_refclk_p,
    Si570Wrap            si570 <- mkSi570Wrap(clk_50_b4a_buf.outclk, rst_50_n, clocked_by clk_50_b4a_buf.outclk, reset_by rst_50_n);
    EdgeDetectorWrap     edgedetect <- mkEdgeDetectorWrap(clk_50_b4a_buf.outclk, rst_50_n, clocked_by clk_50_b4a_buf.outclk, reset_by rst_50_n);
 
-   // ========================
-   // Switch[2:0] is used to configure si570
-   //
-   SwitchIfc   switches <- mkSwitch(clocked_by clk_50_b4a_buf.outclk, reset_by rst_50_n);
-
 `ifdef ENABLE_PCIE
    // Reset from PCIe Command
    Reset rst_api <- mkSyncReset(0, portalTop.pins.rst, clk_156_25);
@@ -160,22 +155,6 @@ module mkSonicTop #(Clock pcie_refclk_p,
 
    rule button_to_si570;
       edgedetect.itrigger.in(btns.out.getButton1());
-   endrule
-
-   SyncBitIfc#(Bit#(1)) sw_mode_net <- mkSyncBit(clk_50_b4a_buf.outclk, rst_50_n, eth.ifcs.clk_net);
-   rule read_sw2_to_net;
-      sw_mode_net.send(switches.out.getSwitch2);
-   endrule
-   rule send_isSwitch_to_NetTop;
-      eth.ifcs.switchctrl.ena(unpack(sw_mode_net.read));
-   endrule
-
-   SyncBitIfc#(Bit#(1)) sw_mode_portal <- mkSyncBit(clk_50_b4a_buf.outclk, rst_50_n, host.portalClock);
-   rule read_sw2_to_portal;
-      sw_mode_portal.send(switches.out.getSwitch2);
-   endrule
-   rule send_isSwitch_to_PortalTop;
-      portalTop.pins.isSwitch.enq(unpack(sw_mode_portal.read));
    endrule
 
    // ===========
@@ -313,6 +292,12 @@ module mkSonicTop #(Clock pcie_refclk_p,
       mkConnection(dtpErrCntPipeOut[i], portalTop.pins.dtpErrCnt[i]);
    end
 
+   // send switch mode
+   SyncFIFOIfc#(Bit#(1)) switchModeFifo <- mkSyncFIFO(8, host.portalClock, host.portalReset, clk_156_25);
+   PipeOut#(Bit#(1)) switchModePipeOut = toPipeOut(switchModeFifo);
+   PipeIn#(Bit#(1)) switchModePipeIn = toPipeIn(switchModeFifo);
+   mkConnection(portalTop.pins.switchMode, switchModePipeIn);
+   mkConnection(switchModePipeOut, eth.api.switchMode);
 
    // going from level to edge-triggered interrupt
    Vector#(16, Reg#(Bool)) interruptRequested <- replicateM(mkReg(False, clocked_by host.portalClock, reset_by host.portalReset));
@@ -343,7 +328,6 @@ module mkSonicTop #(Clock pcie_refclk_p,
       interface led3 = si570_cntr[25];
       interface led_bracket = {led_rx_ready_cnt3[19], led_rx_ready_cnt2[19], led_rx_ready_cnt1[19], led_rx_ready_cnt0[19]};
       interface buttons  = btns.in;
-      interface switches = switches.in;
       interface Clock clk_b4a = clk_50_b4a_buf.outclk;
    endinterface);
 //`endif
