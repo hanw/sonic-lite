@@ -46,7 +46,6 @@ import ConnectalClocks    :: *;
 import ALTERA_PLL_156     :: *;
 import EthPorts           :: *;
 import Ethernet           :: *;
-import LedTop             :: *;
 import PinsTop            :: *;
 import AlteraExtra        :: *;
 import ConfigCounter      :: *;
@@ -56,6 +55,7 @@ import ALTERA_ETH_SONIC_PMA :: *;
 import EthSonicPma :: *;
 import SonicUser::*;
 import Pipe::*;
+import LedController::*;
 
 `ifndef DataBusWidth
 `define DataBusWidth 64
@@ -157,47 +157,34 @@ module mkSonicTop #(Clock pcie_refclk_p,
       edgedetect.itrigger.in(btns.out.getButton1());
    endrule
 
-   // ===========
-   // LED Outputs
    Reset sfp_reset_n <- mkAsyncReset(2, user_reset_n, sfp_refclk);
    Reset xcvr_reset_n <- mkAsyncReset(2, user_reset_n, eth.ifcs.clk_xcvr[0]);
 
-   Reg#(Bit#(26)) pcie_cntr <- mkReg(0, clocked_by pcie_refclk_p, reset_by pcie_perst_n);
-   rule heartbeat_pcie;
-      pcie_cntr <= pcie_cntr + 1;
+   LedController pci_led <- mkLedController(False, clocked_by pcie_refclk_p, reset_by pcie_perst_n);
+   LedController eth_tx_led <- mkLedController(False, clocked_by clk_156_25, reset_by rst_156_n);
+   LedController eth_rx_led <- mkLedController(False, clocked_by eth.ifcs.clk_xcvr[0], reset_by xcvr_reset_n);
+   LedController sfp_led <- mkLedController(False, clocked_by sfp_refclk, reset_by sfp_reset_n);
+
+   rule led_pcie;
+      pci_led.setPeriod(led_off, 500, led_on_max, 500);
+   endrule
+   rule led_eth_tx;
+      eth_tx_led.setPeriod(led_off, 500, led_on_max, 500);
+   endrule
+   rule led_eth_rx;
+      eth_rx_led.setPeriod(led_off, 500, led_on_max, 500);
+   endrule
+   rule led_sfp;
+      sfp_led.setPeriod(led_off, 500, led_on_max, 500);
    endrule
 
-   Reg#(Bit#(26)) net_cntr <- mkReg(0, clocked_by clk_156_25, reset_by rst_156_n);
-   rule heartbeat_net;
-      net_cntr <= net_cntr + 1;
-   endrule
+   Vector#(4, LedController) led_xcvr_ <- replicateM(mkLedController(False, clocked_by clk_50_b4a_buf.outclk, reset_by rst_50_n));
+   Led#(4) led_xcvr = combineLeds(led_xcvr_);
 
-   Reg#(Bit#(26)) xcvr_cntr <- mkReg(0, clocked_by eth.ifcs.clk_xcvr[0], reset_by xcvr_reset_n);
-   rule heartbeat_xcvr;
-      xcvr_cntr <= xcvr_cntr + 1;
-   endrule
-
-   Reg#(Bit#(26)) si570_cntr <- mkReg(0, clocked_by sfp_refclk, reset_by sfp_reset_n);
-   rule heartbeat_si570;
-      si570_cntr <= si570_cntr + 1;
-   endrule
-
-   Reg#(Bit#(20)) led_rx_ready_cnt0 <- mkReg(0, clocked_by clk_50_b4a_buf.outclk, reset_by rst_50_n);
-   Reg#(Bit#(20)) led_rx_ready_cnt1 <- mkReg(0, clocked_by clk_50_b4a_buf.outclk, reset_by rst_50_n);
-   Reg#(Bit#(20)) led_rx_ready_cnt2 <- mkReg(0, clocked_by clk_50_b4a_buf.outclk, reset_by rst_50_n);
-   Reg#(Bit#(20)) led_rx_ready_cnt3 <- mkReg(0, clocked_by clk_50_b4a_buf.outclk, reset_by rst_50_n);
-
-   rule rx_ready0 (!eth.ifcs.led_rx_ready[0]);
-      led_rx_ready_cnt0 <= led_rx_ready_cnt0 + 1;
-   endrule
-   rule rx_ready1 (!eth.ifcs.led_rx_ready[1]);
-      led_rx_ready_cnt1 <= led_rx_ready_cnt1 + 1;
-   endrule
-   rule rx_ready2 (!eth.ifcs.led_rx_ready[2]);
-      led_rx_ready_cnt2 <= led_rx_ready_cnt2 + 1;
-   endrule
-   rule rx_ready3 (!eth.ifcs.led_rx_ready[3]);
-      led_rx_ready_cnt3 <= led_rx_ready_cnt3 + 1;
+   rule led_xcvr_ready;
+      for (Integer i = 0; i<4; i=i+1) begin
+         led_xcvr_[i].setPeriod(led_off, 500, led_on_max, 500);
+      end
    endrule
 
 `ifdef ENABLE_PCIE
@@ -322,11 +309,11 @@ module mkSonicTop #(Clock pcie_refclk_p,
    interface pins = (interface PinsTopIfc;
       interface eth  = eth.ifcs;
       interface i2c  = si570.i2c;
-      interface led0 = pcie_cntr[25];
-      interface led1 = net_cntr[25];
-      interface led2 = xcvr_cntr[25];
-      interface led3 = si570_cntr[25];
-      interface led_bracket = {led_rx_ready_cnt3[19], led_rx_ready_cnt2[19], led_rx_ready_cnt1[19], led_rx_ready_cnt0[19]};
+      interface led0 = pci_led.ifc.out;
+      interface led1 = eth_tx_led.ifc.out;
+      interface led2 = eth_rx_led.ifc.out;
+      interface led3 = sfp_led.ifc.out;
+      interface led_bracket = led_xcvr.out;
       interface buttons  = btns.in;
       interface Clock clk_b4a = clk_50_b4a_buf.outclk;
    endinterface);
