@@ -53,8 +53,7 @@ module mkDtpSwitch(DtpSwitch#(numPorts))
 
    Reg#(Bit#(1))   mode <- mkReg(0); // mode=0 NIC, mode=1 SWITCH
    Reg#(Bit#(32))  cycle   <- mkReg(0);
-   Reg#(Bit#(53)) c_global <- mkReg(0);
-   Wire#(Bit#(53)) c_global_next <- mkDWire(0);
+   Wire#(Bit#(53)) c_global <- mkDWire(0);
    FIFOF#(Bit#(53)) globalFifo <- mkSizedFIFOF(1); //export Fifo
 
    // Stage 1
@@ -84,6 +83,7 @@ module mkDtpSwitch(DtpSwitch#(numPorts))
 
    rule stage2;
       Bit#(53) vo = 0;
+      Vector#(numPorts, Bit#(53)) vout = replicate(0);
       let v0 <- toGet(intermediateFifo[0]).get();
       let v1 <- toGet(intermediateFifo[1]).get();
       if (v0 > v1) begin
@@ -96,12 +96,15 @@ module mkDtpSwitch(DtpSwitch#(numPorts))
       //if(verbose) $display("%d: stage 2, %h %h", cycle, v0, v1);
       for (Integer i=0; i<valueOf(numPorts); i=i+1) begin
          if (mode == 1) begin
-            dtpGlobalOutFifo[i].enq(vo+1);
+            vout[i] = vo+1;
          end
          else begin
-            dtpGlobalOutFifo[i].enq(0);
+            vout[i] = 0;
          end
+         dtpGlobalOutFifo[i].enq(vout[i]);
       end
+
+      c_global <= vout[0];
    endrule
 
    rule export_globalOut;
