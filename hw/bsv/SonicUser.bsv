@@ -117,7 +117,7 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
    FIFOF#(Bit#(53)) cGlobalFifo <- mkSizedFIFOF(4);
    Vector#(4, FIFOF#(Bit#(32))) intervalFifo <- replicateM(mkSizedFIFOF(4));
    Vector#(4, FIFOF#(Bit#(32))) dtpErrCntFifo <- replicateM(mkSizedFIFOF(4));
-   FIFOF#(Bit#(1)) switchModeFifo <- mkFIFOF();
+   FIFOF#(Bit#(1)) switchModeFifo <- mkSizedFIFOF(4);
 
    Reg#(Bit#(8))  lwrite_port <- mkReg(0);
    FIFOF#(BufData) lwrite_data_cycle1 <- mkSizedBypassFIFOF(3);
