@@ -9,3 +9,4 @@ USE_BUILDCACHE=1 make build.de5
 * Switch
 * P4
 * DMA at Gen3 speed.
+* Transceiver on Xilinx
