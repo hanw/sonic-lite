@@ -2,6 +2,7 @@ ROOTDIR=$(realpath .)
 CONNECTALDIR?=$(ROOTDIR)/../connectal/
 IPDIR?=$(ROOTDIR)/../fpgamake-cache/$(shell basename `/bin/pwd`)/
 DTOP?=$(ROOTDIR)
+
 S2H_INTERFACES=SonicUserRequest:SonicUser.request
 H2S_INTERFACES=SonicUser:SonicUserIndication
 AUTOTOP= --interface pins:SonicUser.dtp
@@ -14,7 +15,7 @@ QUARTUS_SH=$(shell which quartus_sh)
 
 PIN_TYPE = DtpIfc
 EXPORT_TYPE = PinsTopIfc
-CONNECTALFLAGS += --bscflags="-p +:$(DTOP)/hw/lib/bsv:$(DTOP)/hw/bsv/libs:$(DTOP)/hw/generated"
+CONNECTALFLAGS += --bscflags="-p +:$(DTOP)/hw/lib/bsv:$(DTOP)/hw/bsv:$(DTOP)/hw/generated"
 CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/altera_mac/altera_mac.qip
 CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/pll_156/altera_pll_156.qip
 CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/sv_10g_pma/sv_10g_pma.qip
@@ -22,44 +23,35 @@ CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/altera_clkctrl/altera_clkctr
 CONNECTALFLAGS += --verilog=$(DTOP)/hw/verilog/si570/
 #CONNECTALFLAGS += --chipscope=$(DTOP)/hw/stp/rx_debug.stp
 CONNECTALFLAGS += --tcl=$(DTOP)/boards/de5_extra.qsf
+CONNECTALFLAGS += --bscflags="+RTS -K46777216 -RTS -demote-errors G0066:G0045 -suppress-warnings G0046:G0020:S0015:S0080:S0039 -steps-max-intervals 20"
 CONNECTALFLAGS += -D DtpVersion=$(shell date +"%y%m%d%H%M")
-# Supported Platforms:
-# {vendor}_{platform}=1
-ALTERA_SIM_vsim=1
-ALTERA_SYNTH_de5=1
 
 .PHONY: vsim
+#default build DTP
+DTP=1
 
-ifeq ($(ALTERA_SIM_$(BOARD)), 1)
-CONNECTALFLAGS += --pinfo=boards/sim.json
-CONNECTALFLAGS += --bscflags="+RTS -K46777216 -RTS -demote-errors G0066:G0045 -suppress-warnings G0046:G0020:S0015:S0080:S0039"
+ifneq (, $(DTP))
+ifneq (, $(SIM))
+CONNECTALFLAGS += --pinfo=boards/dtp_sim.json
+else
+CONNECTALFLAGS += --pinfo=boards/dtp_synth.json
 endif
-ifeq ($(ALTERA_SYNTH_$(BOARD)), 1)
-CONNECTALFLAGS += --pinfo=boards/synth.json
-CONNECTALFLAGS += --bscflags="+RTS -K46777216 -RTS -demote-errors G0066:G0045 -suppress-warnings G0046:G0020:S0015:S0080:S0039 -steps-max-intervals 20"
 endif
-
-#PORTAL_DUMP_MAP="SonicUser"
 
 prebuild::
 ifneq (, $(QUARTUS_SH))
-ifeq ($(ALTERA_SIM_$(BOARD)), 1)
-#	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) quartus_sh -t ../scripts/connectal-synth-pll.tcl)
+ifneq (, $(DTP))
+ifneq (, $(SIM))
 	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) $(QUARTUS_SH) -t $(DTOP)/hw/scripts/connectal-simu-pcietb.tcl)
 endif
-ifeq ($(ALTERA_SYNTH_$(BOARD)), 1)
+	echo $(DTP)
 	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) $(QUARTUS_SH) -t $(CONNECTALDIR)/scripts/connectal-synth-pll.tcl)
 	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) $(QUARTUS_SH) -t ../hw/scripts/connectal-synth-mac.tcl)
 	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) $(QUARTUS_SH) -t ../hw/scripts/connectal-synth-eth.tcl)
 endif
 endif
 
-#BSV_VERILOG_FILES+=$(PCIE_TBED_VERILOG_FILES)
-
 vsim: gen.vsim prebuild
 	make -C $@ vsim
-
-boards-de5:
-	make -C boards/de5 program
 
 include $(CONNECTALDIR)/Makefile.connectal

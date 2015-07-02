@@ -72,7 +72,7 @@ typedef `ExportType ExportType;
 
 (* synthesize, no_default_clock, no_default_reset *)
 (* clock_prefix="", reset_prefix="" *)
-module mkSonicTop #(Clock pcie_refclk_p,
+module mkDtpTop #(Clock pcie_refclk_p,
                     Clock osc_50_b3b,
                     Clock osc_50_b3d,
                     Clock osc_50_b4a,

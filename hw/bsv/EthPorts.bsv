@@ -34,9 +34,6 @@ import Pipe::*;
 import Ethernet::*;
 import EthMac::*;
 import EthPhy::*;
-import EthPktCtrl::*;
-import Avalon2ClientServer::*;
-import AvalonStreaming::*;
 
 `ifdef NUMBER_OF_10G_PORTS
 typedef `NUMBER_OF_10G_PORTS NumPorts;

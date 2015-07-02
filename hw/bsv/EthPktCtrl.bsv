@@ -26,8 +26,6 @@ package EthPktCtrl;
 import Clocks::*;
 import GetPut::*;
 import FIFOF::*;
-import AvalonStreaming::*;
-import Avalon2ClientServer::*;
 import ALTERA_TRAFFIC_CONTROLLER_WRAPPER::*;
 
 typedef 64 DataWidth;

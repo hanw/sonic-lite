@@ -23,7 +23,6 @@ import Vector            :: *;
 import Clocks            :: *;
 import GetPut            :: *;
 import FIFO              :: *;
-import LedTop ::*;
 import NetTop ::*;
 import ALTERA_SI570_WRAPPER          ::*;
 
