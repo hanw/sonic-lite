@@ -1,6 +1,6 @@
 #default build DTP
-DTP=
-SONIC=1
+DTP=1
+SONIC=
 
 QUARTUS_SH=$(shell which quartus_sh)
 ROOTDIR=$(realpath .)
