@@ -22,15 +22,15 @@
 #include <stdio.h>
 #include <assert.h>
 
-#include "SonicUserRequest.h"
-#include "SonicUserIndication.h"
+#include "DtpUserRequest.h"
+#include "DtpUserIndication.h"
 
 #define NUMBER_OF_TESTS 1
 
-static SonicUserRequestProxy *device = 0;
+static DtpUserRequestProxy *device = 0;
 //static sem_t wait_log;
 
-class SonicUser : public SonicUserIndicationWrapper
+class DtpUser : public DtpUserIndicationWrapper
 {
 public:
   virtual void dtp_read_version_resp(uint32_t a) {
@@ -74,14 +74,14 @@ public:
 	fprintf(stderr, "read from mode(%x)\n", a);
   }
 
-  SonicUser(unsigned int id) : SonicUserIndicationWrapper(id) {}
+  DtpUser(unsigned int id) : DtpUserIndicationWrapper(id) {}
 };
 
 int main(int argc, const char **argv)
 {
 	uint32_t count = 100;
-	SonicUser indication(IfcNames_SonicUserIndicationH2S);
-	device = new SonicUserRequestProxy(IfcNames_SonicUserRequestS2H);
+	DtpUser indication(IfcNames_DtpUserIndicationH2S);
+	device = new DtpUserRequestProxy(IfcNames_DtpUserRequestS2H);
 	device->pint.busyType = BUSY_SPIN;   /* spin until request portal 'notFull' */
 
 	device->dtp_reset(32);
