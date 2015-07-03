@@ -53,7 +53,7 @@ import ALTERA_SI570_WRAPPER          ::*;
 import ALTERA_EDGE_DETECTOR_WRAPPER  ::*;
 import ALTERA_ETH_SONIC_PMA :: *;
 import EthSonicPma :: *;
-import SonicUser::*;
+import DtpUser::*;
 import Pipe::*;
 import LedController::*;
 
