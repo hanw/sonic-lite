@@ -319,11 +319,11 @@ module mkDtpTx#(Integer id, Integer c_local_init)(DtpTx);
       end
 
       // compute delay
-     // if (ack_rcvd) begin
-     //    let temp <- toGet(ackTimestampFifo).get;
-     //    delay <= (c_local - temp - (rxtx_delay << 1) - 1) >> 1;
-     //    if(verbose) $display("%d: %d update delay=%d, %d, %d", cycle, id, c_local, temp, (c_local-temp-(rxtx_delay<<1)-1)>>1);
-     // end
+      if (ack_rcvd) begin
+         let temp <- toGet(ackTimestampFifo).get;
+         delay <= (c_local - temp - (rxtx_delay << 1) - 1) >> 1;
+         if(verbose) $display("%d: %d update delay=%d, %d, %d", cycle, id, c_local, temp, (c_local-temp-(rxtx_delay<<1)-1)>>1);
+      end
    endrule
 
    // DTP state machine
