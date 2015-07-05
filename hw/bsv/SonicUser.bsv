@@ -33,6 +33,20 @@ import MemTypes::*;
 import MemreadEngine::*;
 import HostInterface::*;
 
+interface SonicIfc;
+   interface PipeIn#(Bit#(128)) timestamp; // streaming time counter from NetTop.
+   interface Vector#(4, PipeOut#(Bit#(53))) fromHost;
+   interface Vector#(4, PipeIn#(Bit#(53)))  toHost;
+   interface Vector#(4, PipeIn#(Bit#(32)))  delay;
+   interface Vector#(4, PipeIn#(Bit#(32)))  state;
+   interface Vector#(4, PipeIn#(Bit#(64)))  jumpCount;
+   interface Vector#(4, PipeIn#(Bit#(53)))  cLocal;
+   interface PipeIn#(Bit#(53)) globalOut;
+   interface Vector#(4, PipeOut#(Bit#(32))) interval;
+   interface Vector#(4, PipeIn#(Bit#(32))) dtpErrCnt;
+   interface PipeOut#(Bit#(1)) switchMode;
+endinterface
+
 interface SonicUserRequest;
    method Action sonic_read_version();
    method Action startRead(Bit#(32) pointer, Bit#(32) numBytes, Bit#(32) burstLen, Bit#(32) iterCnt);
@@ -47,6 +61,7 @@ interface SonicUser;
    interface SonicUserRequest request;
    //interface Vector#(1, MemWriteClient#(DataBusWidth)) dmaWriteClient;
    interface Vector#(1, MemReadClient#(DataBusWidth)) dmaReadClient;
+   interface SonicIfc sonicifc;
 endinterface
 
 typedef 12 NumOutstandingRequests;

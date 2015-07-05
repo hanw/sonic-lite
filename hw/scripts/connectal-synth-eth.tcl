@@ -22,5 +22,5 @@ proc fpgamake_altera_ipcore {core_name core_version ip_name} {
             --output-name=$ip_name
 }
 
-fpgamake_altera_ipcore ../hw/qsys/sv_10g_pma.qsys 14.0 sv_10g_pma
-fpgamake_altera_ipcore ../hw/qsys/altera_clkctrl.qsys 14.0 altera_clkctrl
+fpgamake_altera_ipcore ../../hw/qsys/sv_10g_pma.qsys 14.0 sv_10g_pma
+fpgamake_altera_ipcore ../../hw/qsys/altera_clkctrl.qsys 14.0 altera_clkctrl
