@@ -12,7 +12,6 @@ space := $(null) #
 ifneq (, $(QUARTUS_ROOTDIR))
 NIOS2EDS_ROOTDIR=$(QUARTUS_ROOTDIR)/../nios2eds
 QUARTUS_PGM_PATH=$(QUARTUS_ROOTDIR)/bin/quartus_pgm
-PROJDIR?=../../de5/
 endif
 
 ifeq (, $(SERIALNO))
@@ -21,33 +20,42 @@ else
 BOARD_USB=$(subst $(comma),$(space),$(strip $(SERIALNO)))
 endif
 
-ifneq (, $(SV))
-PROJDIR=$(PWD)
-ifneq (, $(DEBUG))
-BUILDBOT_TREE="dtp-debug"
-else
-BUILDBOT_TREE="sonic-lite"
+ifneq (, $(DTP))
+BUILDBOT_TREE="dtp"
+FIRMWARE="mkDtpTop.sof"
 endif
 
+ifneq (, $(SONIC))
+BUILDBOT_TREE="sonic"
+FIRMWARE="mkSonicTop.sof"
+endif
+
+ifneq (, $(DEBUG))
+BUILDBOT_TREE="$(BUILDBOT_TREE)-debug"
+endif
+
+ifneq (, $(SV))
+PROJDIR=$(PWD)
 firmware:
-	rm -f mkSonicTop.sof flash_hw.flash flash_hw.map.flash
-	wget http://xcloud1.cs.cornell.edu/archive/$(BUILDBOT_TREE)/de5/$(SV)/bin/mkSonicTop.sof
+	rm -f $(FIRMWARE) flash_hw.flash flash_hw.map.flash
+	wget http://xcloud1.cs.cornell.edu/archive/$(BUILDBOT_TREE)/de5/$(SV)/bin/$(FIRMWARE)
 else
+PROJDIR?=../../$(BUILDBOT_TREE)/de5/
 firmware:
 
 endif
 
 program: firmware
-	@echo $(QUARTUS_ROOTDIR)
-	@echo $(QUARTUS_PGM_PATH)
-	@echo $(PROJDIR)
-	@echo $(SV)
-	@echo $(BOARD_USB)
-	@echo $(BUILDBOT_TREE)
+	@echo QUARTUS_ROOTDIR=$(QUARTUS_ROOTDIR)
+	@echo QUARTUS_PGM_PATH=$(QUARTUS_PGM_PATH)
+	@echo SV=$(SV)
+	@echo BOARD_USB=$(BOARD_USB)
+	@echo BUILDBOT_TREE=$(BUILDBOT_TREE)
+	@echo PROJDIR=$(PROJDIR)
 	# convert to .flash
-	$(NIOS2EDS_ROOTDIR)/nios2_command_shell.sh sof2flash --input=$(PROJDIR)/mkSonicTop.sof --output=flash_hw.flash --offset=0x20C0000 --pfl --optionbit=0x00030000 --programmingmode=PS
+	$(NIOS2EDS_ROOTDIR)/nios2_command_shell.sh sof2flash --input=$(PROJDIR)/$(FIRMWARE) --output=flash_hw.flash --offset=0x20C0000 --pfl --optionbit=0x00030000 --programmingmode=PS
 	@rm -f prog.log.*
-#	# program pfl
+	# program pfl
 	@for i in $(BOARD_USB); do $(QUARTUS_PGM_PATH) -m jtag -c $$i -o "p;S5_PFL.sof" >> prog.log.$$i; done
 	#programming with .flash
 	@for i in $(BOARD_USB); do \
