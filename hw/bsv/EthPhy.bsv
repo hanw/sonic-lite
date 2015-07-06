@@ -174,8 +174,10 @@ module mkEthPhy#(Clock mgmt_clk, Clock clk_156_25, Clock clk_644, Reset rst_n)(E
       mkConnection(dtp_tx[i].dtpTxOut, pcs_tx[i].dtpTxOut);
 
       // Loopback Enable Signal
-      ReadOnly#(Bool) rx_lpbk_en <- mkNullCrossingWire(pma4.rx_clkout[i], loopback_en);
-      ReadOnly#(Bool) tx_lpbk_en <- mkNullCrossingWire(clk_156_25, loopback_en);
+      //ReadOnly#(Bool) rx_lpbk_en <- mkNullCrossingWire(pma4.rx_clkout[i], loopback_en);
+      //ReadOnly#(Bool) tx_lpbk_en <- mkNullCrossingWire(clk_156_25, loopback_en);
+      let rx_lpbk_en = False;
+      let tx_lpbk_en = False;
 
       rule cross_lock_tx;
          lock_tx[i] <= pcs_rx[i].lock;
