@@ -18,41 +18,99 @@
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
  * DEALINGS IN THE SOFTWARE.
  */
-
+#include <pthread.h>
 #include <stdio.h>
 #include <assert.h>
-
+#include "MemServerRequest.h"
+#include "StdDmaIndication.h"
+#include "MMURequest.h"
 #include "SonicUserRequest.h"
 #include "SonicUserIndication.h"
 
 #define NUMBER_OF_TESTS 1
 
+int burstLen = 32;
+int numWords = 0x1240000/4; // make sure to allocate at least one entry of each size
+int iterCnt = 64;
 static SonicUserRequestProxy *device = 0;
+static sem_t test_sem;
+static size_t test_sz  = numWords*sizeof(unsigned int);
+static size_t alloc_sz = test_sz;
+static int mismatchCount = 0;
 
-class SonicUser : public SonicUserIndicationWrapper
+class SonicUserIndication : public SonicUserIndicationWrapper
 {
-public:
-  virtual void sonic_read_version_resp(uint32_t a) {
-    fprintf(stderr, "read version %d\n", a);
-  }
-  virtual void readDone(uint32_t a) {
-    fprintf(stderr, "readCycleCount(%x)\n", a);
-  }
-  SonicUser(unsigned int id) : SonicUserIndicationWrapper(id){}
+	public:
+		virtual void sonic_read_version_resp(uint32_t a) {
+			fprintf(stderr, "read version %d\n", a);
+		}
+		virtual void readDone(uint32_t a) {
+			fprintf(stderr, "SonicUser::readDone(%x)\n", a);
+			mismatchCount += a;
+			sem_post(&test_sem);
+		}
+		SonicUserIndication(unsigned int id) : SonicUserIndicationWrapper(id){}
 };
 
 int main(int argc, const char **argv)
 {
-	SonicUser indication(IfcNames_SonicUserIndicationH2S);
-	device = new SonicUserRequestProxy(IfcNames_SonicUserRequestS2H);
-	device->pint.busyType = BUSY_SPIN;   /* spin until request portal 'notFull' */
+    int test_result = 0;
+    int srcAlloc;
+    unsigned int *srcBuffer = 0;
 
-	uint64_t count = 0;
-	for (int i=0; i<10; i++) {
-		count = portalCycleCount();
-		fprintf(stderr, "%lx\n", count);
-	}
+    fprintf(stderr, "Main::%s %s\n", __DATE__, __TIME__);
+    device = new SonicUserRequestProxy(IfcNames_SonicUserRequestS2H);
+    MemServerRequestProxy *hostMemServerRequest = new MemServerRequestProxy(IfcNames_MemServerRequestS2H);
+    MMURequestProxy *dmap = new MMURequestProxy(IfcNames_MMURequestS2H);
+    DmaManager *dma = new DmaManager(dmap);
+    MemServerIndication *hostMemServerIndication = new MemServerIndication(hostMemServerRequest, IfcNames_MemServerIndicationH2S);
+    SonicUserIndication memReadIndication(IfcNames_SonicUserIndicationH2S);
+    MMUIndication mmuIndication(dma, IfcNames_MMUIndicationH2S);
 
-	fprintf(stderr, "Main::about to go to sleep\n");
-	while(true){sleep(2);}
+    fprintf(stderr, "Main::allocating memory...\n");
+    srcAlloc = portalAlloc(alloc_sz, 0);
+    srcBuffer = (unsigned int *)portalMmap(srcAlloc, alloc_sz);
+    for (int i = 0; i < numWords; i++)
+        srcBuffer[i] = i;
+    portalCacheFlush(srcAlloc, srcBuffer, alloc_sz, 1);
+    fprintf(stderr, "Main::flush and invalidate complete\n");
+
+    /* Test 1: check that match is ok */
+    unsigned int ref_srcAlloc = dma->reference(srcAlloc);
+    fprintf(stderr, "ref_srcAlloc=%d\n", ref_srcAlloc);
+    fprintf(stderr, "Main::orig_test read numWords=%d burstLen=%d iterCnt=%d\n", numWords, burstLen, iterCnt);
+    portalTimerStart(0);
+    device->startRead(ref_srcAlloc, numWords * 4, burstLen * 4, iterCnt);
+    sem_wait(&test_sem);
+    if (mismatchCount) {
+        fprintf(stderr, "Main::first test failed to match %d.\n", mismatchCount);
+        test_result++;     // failed
+    }
+    uint64_t cycles = portalTimerLap(0);
+    hostMemServerRequest->memoryTraffic(ChannelType_Read);
+    uint64_t beats = hostMemServerIndication->receiveMemoryTraffic();
+    float read_util = (float)beats/(float)cycles;
+    fprintf(stderr, " iterCnt: %d\n", iterCnt);
+    fprintf(stderr, "   beats: %llx\n", (long long)beats);
+    fprintf(stderr, "numWords: %x\n", numWords);
+    fprintf(stderr, "     est: %llx\n", (long long)(beats*2)/iterCnt);
+    fprintf(stderr, "memory read utilization (beats/cycle): %f\n", read_util);
+
+    /* Test 2: check that mismatch is detected */
+    srcBuffer[0] = -1;
+    srcBuffer[numWords/2] = -1;
+    srcBuffer[numWords-1] = -1;
+    portalCacheFlush(srcAlloc, srcBuffer, alloc_sz, 1);
+
+    fprintf(stderr, "Starting second read, mismatches expected\n");
+    mismatchCount = 0;
+    device->startRead(ref_srcAlloc, numWords * 4, burstLen * 4, iterCnt);
+    sem_wait(&test_sem);
+    if (mismatchCount != 3/*number of errors introduced above*/ * iterCnt) {
+        fprintf(stderr, "Main::second test failed to match mismatchCount=%d (expected %d) iterCnt=%d numWords=%d.\n",
+            mismatchCount, 3*iterCnt,
+            iterCnt, numWords);
+        test_result++;     // failed
+    }
+    return test_result;
 }
