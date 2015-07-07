@@ -302,7 +302,6 @@ module mkDtpTop #(Clock pcie_refclk_p,
    endrule
 `endif //ENABLE_PCIE
 
-
 `ifndef BSIM
 `ifdef ENABLE_PCIE
    interface pcie = host.tep7.pcie;
