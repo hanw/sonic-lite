@@ -7,9 +7,10 @@
 #include <sstream>
 #include <iostream>
 
-#include "StdDmaIndication.h"
-#include "MemServerRequest.h"
-#include "MMURequest.h"
+#include "dmaManager.h"
+//#include "StdDmaIndication.h"
+//#include "MemServerRequest.h"
+//#include "MMURequest.h"
 #include "DtpmTestRequest.h"
 #include "DtpmTestIndication.h"
 
@@ -33,11 +34,13 @@ public:
 int main(int argc, char **argv) {
     DtpmTestRequestProxy *device = new DtpmTestRequestProxy(IfcNames_DtpmTestRequestS2H);
     DtpmTestIndication deviceIndication(IfcNames_DtpmTestIndicationH2S);
-    MemServerRequestProxy *hostMemServerRequest = new MemServerRequestProxy(IfcNames_MemServerRequestS2H);
-    MMURequestProxy *dmap = new MMURequestProxy(IfcNames_MMURequestS2H);
-    DmaManager *dma = new DmaManager(dmap);
-    MemServerIndication hostMemServerIndication(hostMemServerRequest, IfcNames_MemServerIndicationH2S);
-    MMUIndication hostMMUIndication(dma, IfcNames_MMUIndicationH2S);
+
+	DmaManager *dma = platformInit();
+    //MemServerRequestProxy *hostMemServerRequest = new MemServerRequestProxy(IfcNames_MemServerRequestS2H);
+    //MMURequestProxy *dmap = new MMURequestProxy(IfcNames_MMURequestS2H);
+    //DmaManager *dma = new DmaManager(dmap);
+    //MemServerIndication hostMemServerIndication(hostMemServerRequest, IfcNames_MemServerIndicationH2S);
+    //MMUIndication hostMMUIndication(dma, IfcNames_MMUIndicationH2S);
 
     const std::string path="../data/encoded.data2";
     std::ifstream traceinfo(path.c_str());

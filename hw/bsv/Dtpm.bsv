@@ -106,6 +106,7 @@ module mkDtpm#(Integer id, Integer c_local_init)(Dtpm);
 
    rule lock;
       dtp_rx.bsync_lock(bsync_lock_wire);
+      dtp_tx.bsync_lock(bsync_lock_wire);
    endrule
 
    method Action tx_ready(Bool v);
