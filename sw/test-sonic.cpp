@@ -21,9 +21,7 @@
 #include <pthread.h>
 #include <stdio.h>
 #include <assert.h>
-#include "MemServerRequest.h"
-#include "StdDmaIndication.h"
-#include "MMURequest.h"
+#include "dmaManager.h"
 #include "SonicUserRequest.h"
 #include "SonicUserIndication.h"
 
@@ -58,16 +56,14 @@ int main(int argc, const char **argv)
     int srcAlloc;
     unsigned int *srcBuffer = 0;
 
-    fprintf(stderr, "Main::%s %s\n", __DATE__, __TIME__);
-    device = new SonicUserRequestProxy(IfcNames_SonicUserRequestS2H);
-    MemServerRequestProxy *hostMemServerRequest = new MemServerRequestProxy(IfcNames_MemServerRequestS2H);
-    MMURequestProxy *dmap = new MMURequestProxy(IfcNames_MMURequestS2H);
-    DmaManager *dma = new DmaManager(dmap);
-    MemServerIndication *hostMemServerIndication = new MemServerIndication(hostMemServerRequest, IfcNames_MemServerIndicationH2S);
-    SonicUserIndication memReadIndication(IfcNames_SonicUserIndicationH2S);
-    MMUIndication mmuIndication(dma, IfcNames_MMUIndicationH2S);
+	fprintf(stderr, "Main::%s %s\n", __DATE__, __TIME__);
+	DmaManager *dma = platformInit();
+	device = new SonicUserRequestProxy(IfcNames_SonicUserRequestS2H);
+	SonicUserIndication memReadIndication(IfcNames_SonicUserIndicationH2S);
 
-    fprintf(stderr, "Main::allocating memory...\n");
+	device->sonic_read_version();
+
+	fprintf(stderr, "Main::allocating memory...\n");
     srcAlloc = portalAlloc(alloc_sz, 0);
     srcBuffer = (unsigned int *)portalMmap(srcAlloc, alloc_sz);
     for (int i = 0; i < numWords; i++)
@@ -86,15 +82,7 @@ int main(int argc, const char **argv)
         fprintf(stderr, "Main::first test failed to match %d.\n", mismatchCount);
         test_result++;     // failed
     }
-    uint64_t cycles = portalTimerLap(0);
-    hostMemServerRequest->memoryTraffic(ChannelType_Read);
-    uint64_t beats = hostMemServerIndication->receiveMemoryTraffic();
-    float read_util = (float)beats/(float)cycles;
-    fprintf(stderr, " iterCnt: %d\n", iterCnt);
-    fprintf(stderr, "   beats: %llx\n", (long long)beats);
-    fprintf(stderr, "numWords: %x\n", numWords);
-    fprintf(stderr, "     est: %llx\n", (long long)(beats*2)/iterCnt);
-    fprintf(stderr, "memory read utilization (beats/cycle): %f\n", read_util);
+    platformStatistics();
 
     /* Test 2: check that mismatch is detected */
     srcBuffer[0] = -1;

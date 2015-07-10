@@ -33,8 +33,8 @@ import MemTypes::*;
 import MemreadEngine::*;
 import HostInterface::*;
 
-interface SonicIfc;
-endinterface
+//interface SonicIfc;
+//endinterface
 
 interface SonicUserRequest;
    method Action sonic_read_version();
@@ -50,12 +50,11 @@ interface SonicUser;
    interface SonicUserRequest request;
    //interface Vector#(1, MemWriteClient#(DataBusWidth)) dmaWriteClient;
    interface Vector#(1, MemReadClient#(DataBusWidth)) dmaReadClient;
-   interface SonicIfc sonicifc;
+//   interface SonicIfc sonicifc;
 endinterface
 
 typedef 12 NumOutstandingRequests;
 typedef TMul#(NumOutstandingRequests, TMul#(32, 4)) BufferSizeBytes;
-
 module mkSonicUser#(SonicUserIndication indication)(SonicUser);
    Clock defaultClock <- exposeCurrentClock();
    Reg#(SGLId)   pointer <- mkReg(0);
