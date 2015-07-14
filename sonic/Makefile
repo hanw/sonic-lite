@@ -24,6 +24,8 @@ CONNECTALFLAGS += --verilog=$(PROJTOP)/../hw/verilog/si570/
 CONNECTALFLAGS += --tcl=$(PROJTOP)/../boards/de5_extra.qsf
 CONNECTALFLAGS += -D SonicVersion=$(shell date +"%y%m%d%H%M")
 CONNECTALFLAGS += -D PcieHostIF
+CONNECTALFLAGS += -D DataBusWidth=128
+CONNECTALFLAGS += --chipscope=$(PROJTOP)/../../sonic-debug/stp/memread.stp
 CONNECTALFLAGS += --pinfo=$(PROJTOP)/../boards/sonic_synth.json
 
 prebuild::
