@@ -47,6 +47,16 @@ class SonicUserIndication : public SonicUserIndicationWrapper
 			mismatchCount += a;
 			sem_post(&test_sem);
 		}
+		void started(uint32_t words) {
+			fprintf(stderr, "Memwrite::started: words=%x\n", words);
+		}
+		void writeDone ( uint32_t srcGen ) {
+			fprintf(stderr, "Memwrite::writeDone (%08x)\n", srcGen);
+			sem_post(&test_sem);
+		}
+		void reportStateDbg(uint32_t streamWrCnt, uint32_t srcGen) {
+			fprintf(stderr, "Memwrite::reportStateDbg: streamWrCnt=%08x srcGen=%d\n", streamWrCnt, srcGen);
+		}
 		SonicUserIndication(unsigned int id) : SonicUserIndicationWrapper(id){}
 };
 

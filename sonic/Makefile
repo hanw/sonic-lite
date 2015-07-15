@@ -9,9 +9,9 @@ CONNECTALFLAGS += --bscflags="+RTS -K46777216 -RTS -demote-errors G0066:G0045 -s
 
 S2H_INTERFACES=SonicUserRequest:SonicUser.request
 H2S_INTERFACES=SonicUser:SonicUserIndication
-MEM_INTERFACES=lSonicUser.dmaReadClient,nil
+MEM_INTERFACES=lSonicUser.dmaReadClient,lSonicUser.dmaWriteClient
 #AUTOTOP= --interface pins:SonicUser.sonicifc
-BSVFILES=$(PROJTOP)/../hw/bsv/SonicUser.bsv
+BSVFILES=$(PROJTOP)/../sonic/SonicUser.bsv
 CPPFILES=$(PROJTOP)/../sw/test-sonic.cpp
 NUMBER_OF_MASTERS=1
 PIN_BINDINGS?=PCIE:PCIE LED:LED OSC:OSC SFPA:SFPA SFPB:SFPB SFPC:SFPC SFPD:SFPD SFP:SFP I2C:CLOCK BUTTON:BUTTON
