@@ -1,7 +1,7 @@
 ## BlueNIC
 
 ### Platform
-BlueNIC is targeted for multiple development platforms. Currently We have support for DE5-net and HTG4 board. We will support NetFPGA-SUME board soon.
+BlueNIC is targeted for multiple development platforms. Currently We have support for DE5-net, HTG4 and NetFPGA-SUME board.
 
 ### Support I/O operation
 #### Kernel
