@@ -56,14 +56,15 @@ import EthSonicPma :: *;
 import DtpUser::*;
 import Pipe::*;
 import LedController::*;
+import `PinTypeInclude::*;
 
 `ifndef DataBusWidth
 `define DataBusWidth 64
 `endif
 
-`ifndef PinType
-`define PinType Empty
-`endif
+//`ifndef PinType
+//`define PinType Empty
+//`endif
 
 `define ENABLE_PCIE
 
@@ -97,9 +98,9 @@ module mkDtpTop #(Clock pcie_refclk_p,
    PcieHostTop host <- mkPcieHostTop(pcie_refclk_p, osc_50_b3b, pcie_perst_n);
 
 `ifdef IMPORT_HOSTIF
-   ConnectalTop#(PhysAddrWidth, DataBusWidth, PinType, NumberOfMasters) portalTop <- mkConnectalTop(host, clocked_by host.portalClock, reset_by host.portalReset);
+   ConnectalTop portalTop <- mkConnectalTop(host, clocked_by host.portalClock, reset_by host.portalReset);
 `else
-   ConnectalTop#(PhysAddrWidth, DataBusWidth, PinType, NumberOfMasters) portalTop <- mkConnectalTop(clocked_by host.portalClock, reset_by host.portalReset);
+   ConnectalTop portalTop <- mkConnectalTop(clocked_by host.portalClock, reset_by host.portalReset);
 `endif //IMPORT_HOSTIF
 `endif //ENABLE_PCIE
 
