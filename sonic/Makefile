@@ -12,7 +12,8 @@ H2S_INTERFACES=SonicUser:SonicUserIndication
 MEM_INTERFACES=lSonicUser.dmaReadClient,lSonicUser.dmaWriteClient
 #AUTOTOP= --interface pins:SonicUser.sonicifc
 BSVFILES=$(PROJTOP)/../sonic/SonicUser.bsv
-CPPFILES=$(PROJTOP)/../sw/test-sonic.cpp
+CPPFILES=$(PROJTOP)/lib/dpdk.cpp
+CPPFILES2=$(PROJTOP)/../sw/test-dma.cpp
 NUMBER_OF_MASTERS=1
 PIN_BINDINGS?=PCIE:PCIE LED:LED OSC:OSC SFPA:SFPA SFPB:SFPB SFPC:SFPC SFPD:SFPD SFP:SFP I2C:CLOCK BUTTON:BUTTON
 #PIN_TYPE = SonicIfc
@@ -25,8 +26,11 @@ CONNECTALFLAGS += --tcl=$(PROJTOP)/../boards/de5_extra.qsf
 CONNECTALFLAGS += -D SonicVersion=$(shell date +"%y%m%d%H%M")
 CONNECTALFLAGS += -D PcieHostIF
 CONNECTALFLAGS += -D DataBusWidth=128
+CONNECTALFLAGS += --shared
 #CONNECTALFLAGS += --chipscope=$(PROJTOP)/../../sonic-debug/stp/memread.stp
+ifneq (, $(BLUESIM))
 CONNECTALFLAGS += --pinfo=$(PROJTOP)/../boards/sonic_synth.json
+endif
 
 prebuild::
 ifneq (, $(QUARTUS_SH))

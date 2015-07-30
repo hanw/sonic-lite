@@ -23,7 +23,9 @@
 import Top                ::*;
 import Portal             ::*;
 import PcieHost           ::*;
+`ifndef BSIM
 import PcieTop            ::*;
+`endif
 import SonicUser          ::*;
 import HostInterface      ::*;
 
@@ -33,7 +35,9 @@ import HostInterface      ::*;
 typedef `PinType PinType;
 
 interface SonicTopIfc;
+`ifndef BSIM
    interface PcieTop#(PinType) pcie;
+`endif
 endinterface
 
 (* synthesize, no_default_clock, no_default_reset *)
@@ -57,6 +61,7 @@ module mkSonicTop #(Clock pcie_refclk_p,
 
    // packet buffer
 
-
+`ifndef BSIM
    interface pcie = pcie_top;
+`endif
 endmodule
