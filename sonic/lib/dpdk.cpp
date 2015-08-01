@@ -3,6 +3,7 @@
  * @author Han Wang
  * @brief Connectal API for Intel DPDK
  */
+#include <sys/mman.h>
 
 #include "GeneratedTypes.h"
 #include "MMURequest.h"
@@ -18,7 +19,9 @@
 #define PAGE_SHIFT0 12
 #define PAGE_SHIFT4 16
 #define PAGE_SHIFT8 20
-static int shifts[] = {PAGE_SHIFT8, PAGE_SHIFT4, PAGE_SHIFT0, 0};
+#define PAGE_SHIFT12 24
+#define LENGTH (1024UL * 1024 * 1024)
+static int shifts[] = {PAGE_SHIFT12, PAGE_SHIFT8, PAGE_SHIFT4, PAGE_SHIFT0, 0};
 
 static DmaManager *dma = 0;
 static SonicUserRequestProxy *device = 0;
@@ -27,32 +30,33 @@ static int trace_memory = 1;
 /**
  * @brief
  */
-int _send_fd_to_portal(PortalInternal *device, int fd, int id, int pa_fd)
+int snd_fd_to_portal(PortalInternal *device, int fd, int id, size_t sz)
 {
     int rc = 0;
     int i, j;
-    uint32_t regions[3] = {0,0,0};
+    uint32_t regions[4] = {0, 0,0,0};
     uint64_t border = 0;
     unsigned char entryCount = 0;
-    uint64_t borderVal[3];
-    uint32_t indexVal[3];
+    uint64_t borderVal[4];
+    uint32_t indexVal[4];
     unsigned char idxOffset;
     int size_accum = 0;
     rc = id;
-    unsigned entries=4;
+    long len = 1 << PAGE_SHIFT12; // 16MB pages
+    unsigned entries = sz >> PAGE_SHIFT12;
+
+    PORTAL_PRINTF("%s: nb_entries %d\n", __FUNCTION__, entries);
     for(i = 0; 1; i++){
-        long len, addr;
-        len=0x10000; //Each page is 1MB.
+        long addr;
         if (!entries)
             break;
-        entries -= 1;
         if (!len)
             break;
         addr = size_accum;
         size_accum += len;
         addr |= ((long)id) << 32; //[39:32] = truncate(pref);
 
-        for(j = 0; j < 3; j++)
+        for(j = 0; j < 4; j++)
             if (len == 1<<shifts[j]) {
                 regions[j]++;
                 if (addr & ((1L<<shifts[j]) - 1))
@@ -60,11 +64,12 @@ int _send_fd_to_portal(PortalInternal *device, int fd, int id, int pa_fd)
                 addr >>= shifts[j];
                 break;
             }
-        if (j >= 3)
+        if (j >= 4)
             PORTAL_PRINTF("DmaManager:unsupported sglist size %lx\n", len);
         if (trace_memory)
             PORTAL_PRINTF("DmaManager:sglist(id=%08x, i=%d dma_addr=%08lx, len=%08lx)\n", id, i, (long)addr, len);
         MMURequest_sglist(device, id, i, addr, len);
+        entries--;
     } // balance }
 
     // HW interprets zeros as end of sglist
@@ -72,7 +77,7 @@ int _send_fd_to_portal(PortalInternal *device, int fd, int id, int pa_fd)
         PORTAL_PRINTF("DmaManager:sglist(id=%08x, i=%d end of list)\n", id, i);
     MMURequest_sglist(device, id, i, 0, 0); // end list
 
-    for(i = 0; i < 3; i++){
+    for(i = 0; i < 4; i++){
         idxOffset = entryCount - border;
         entryCount += regions[i];
         border += regions[i];
@@ -82,10 +87,10 @@ int _send_fd_to_portal(PortalInternal *device, int fd, int id, int pa_fd)
     }
 
     if (trace_memory) {
-        PORTAL_PRINTF("regions %d (%x %x %x)\n", id,regions[0], regions[1], regions[2]);
-        PORTAL_PRINTF("borders %d (%"PRIx64" %"PRIx64" %"PRIx64")\n", id,borderVal[0], borderVal[1], borderVal[2]);
+        PORTAL_PRINTF("regions %d (%x %x %x %x)\n", id,regions[0], regions[1], regions[2], regions[3]);
+        PORTAL_PRINTF("borders %d (%"PRIx64" %"PRIx64" %"PRIx64" %"PRIx64")\n", id,borderVal[0], borderVal[1], borderVal[2], borderVal[3], indexVal[3]);
     }
-    MMURequest_region(device, id, borderVal[0], indexVal[0], borderVal[1], indexVal[1], borderVal[2], indexVal[2]);
+    MMURequest_region(device, id, borderVal[0], indexVal[0], borderVal[1], indexVal[1], borderVal[2], indexVal[2], borderVal[3], indexVal[3]);
     PORTAL_PRINTF("[%s:%d]\n", __FUNCTION__, __LINE__);
     /* ifdefs here to supress warning during kernel build */
     return rc;
@@ -94,7 +99,7 @@ int _send_fd_to_portal(PortalInternal *device, int fd, int id, int pa_fd)
 /**
  * @brief dma reference
  */
-int dma_reference (DmaManagerPrivate* priv, int fd) {
+int dma_reference (DmaManagerPrivate* priv, int fd, size_t sz) {
     int id = 0;
     int rc = 0;
     PORTAL_PRINTF("[%s:%d] fd=%d\n", __FUNCTION__, __LINE__, fd);
@@ -109,8 +114,8 @@ int dma_reference (DmaManagerPrivate* priv, int fd) {
         sem_wait(&priv->sglIdSem);
     }
     id = priv->sglId;
-    PORTAL_PRINTF("[%s:%d] id=%d, fd=%d, pa_fd=%d\n", __FUNCTION__, __LINE__, id, fd, global_pa_fd);
-    rc = _send_fd_to_portal(priv->sglDevice, fd, id, global_pa_fd);
+    PORTAL_PRINTF("[%s:%d] id=%d, fd=%d\n", __FUNCTION__, __LINE__, id, fd);
+    rc = snd_fd_to_portal(priv->sglDevice, fd, id, sz);
     if (rc <= 0) {
         PORTAL_PRINTF("%s:%d sem_wait\n", __FUNCTION__, __LINE__);
         if (priv->poll) {
@@ -134,6 +139,19 @@ extern "C" {
  *
  */
 
+void write_shared_data(int fd, uint64_t offset) {
+    char *addr;
+    addr = (char *)mmap(0, LENGTH, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
+    if (addr == MAP_FAILED) {
+        fprintf(stderr, "error mmaping fd %d", fd);
+    }
+    unsigned i;
+    for (i=offset; i<offset+100; i++)
+        *(addr + i) = (char)i;
+    fprintf(stderr, "dma_init address %p\n", addr);
+    munmap(addr, LENGTH);
+}
+
 void dma_init (uint32_t fd) {
 	dma = platformInit();
     //hostMemServerIndication = new MemServerIndication(hostMemServerRequest, IfcNames_MemServerIndicationH2S, PLATFORM_TILE);
@@ -141,8 +159,9 @@ void dma_init (uint32_t fd) {
     device = new SonicUserRequestProxy(IfcNames_SonicUserRequestS2H);
     printf("[%s:%d]: dma %p device %p\n", __func__, __LINE__, dma, device);
 
+    //write_shared_data(fd, offset);
     DmaManagerPrivate *priv = &dma->priv;
-    dma_reference(priv, fd);
+    dma_reference(priv, fd, LENGTH);
 }
 
 /**
