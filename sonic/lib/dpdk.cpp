@@ -4,12 +4,8 @@
  * @brief Connectal API for Intel DPDK
  */
 #include <sys/mman.h>
+#include <assert.h>
 
-#include "GeneratedTypes.h"
-#include "MMURequest.h"
-#include "MMUIndication.h"
-#include "MemServerRequest.h"
-#include "MemServerIndication.h"
 #include "dmaManager.h"
 
 #include "SonicUserRequest.h"
@@ -23,8 +19,35 @@
 #define LENGTH (1024UL * 1024 * 1024)
 static int shifts[] = {PAGE_SHIFT12, PAGE_SHIFT8, PAGE_SHIFT4, PAGE_SHIFT0, 0};
 
+static sem_t test_sem;
+static int mismatchCount = 0;
+class SonicUserIndication : public SonicUserIndicationWrapper
+{
+	public:
+		virtual void sonic_read_version_resp(uint32_t a) {
+			fprintf(stderr, "read version %d\n", a);
+		}
+		virtual void readDone(uint32_t a) {
+			fprintf(stderr, "SonicUser::readDone(%x)\n", a);
+			mismatchCount += a;
+			sem_post(&test_sem);
+		}
+		void started(uint32_t words) {
+			fprintf(stderr, "Memwrite::started: words=%x\n", words);
+		}
+		void writeDone ( uint32_t srcGen ) {
+			fprintf(stderr, "Memwrite::writeDone (%08x)\n", srcGen);
+			sem_post(&test_sem);
+		}
+		void reportStateDbg(uint32_t streamWrCnt, uint32_t srcGen) {
+			fprintf(stderr, "Memwrite::reportStateDbg: streamWrCnt=%08x srcGen=%d\n", streamWrCnt, srcGen);
+		}
+		SonicUserIndication(unsigned int id) : SonicUserIndicationWrapper(id){}
+};
+
 static DmaManager *dma = 0;
 static SonicUserRequestProxy *device = 0;
+static SonicUserIndication *indication = 0;
 static int trace_memory = 1;
 
 /**
@@ -139,29 +162,22 @@ extern "C" {
  *
  */
 
-void write_shared_data(int fd, uint64_t offset) {
-    char *addr;
-    addr = (char *)mmap(0, LENGTH, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
-    if (addr == MAP_FAILED) {
-        fprintf(stderr, "error mmaping fd %d", fd);
-    }
-    unsigned i;
-    for (i=offset; i<offset+100; i++)
-        *(addr + i) = (char)i;
-    fprintf(stderr, "dma_init address %p\n", addr);
-    munmap(addr, LENGTH);
-}
-
 void dma_init (uint32_t fd) {
+    // Only create on dma instance
+    if (!dma) {
+    PORTAL_PRINTF("[%s:%d] platformInit\n", __FUNCTION__, __LINE__);
 	dma = platformInit();
-    //hostMemServerIndication = new MemServerIndication(hostMemServerRequest, IfcNames_MemServerIndicationH2S, PLATFORM_TILE);
-    //mmuIndication = new MMUIndication(dma, IfcNames_MMUIndicationH2S, PLATFORM_TILE);
+    PORTAL_PRINTF("[%s:%d] platformInit finished\n", __FUNCTION__, __LINE__);
     device = new SonicUserRequestProxy(IfcNames_SonicUserRequestS2H);
+	//SonicUserIndication memReadIndication(IfcNames_SonicUserIndicationH2S);
+    indication = new SonicUserIndication(IfcNames_SonicUserIndicationH2S);
     printf("[%s:%d]: dma %p device %p\n", __func__, __LINE__, dma, device);
 
     //write_shared_data(fd, offset);
     DmaManagerPrivate *priv = &dma->priv;
     dma_reference(priv, fd, LENGTH);
+    PORTAL_PRINTF("[%s:%d] dma_init finished\n", __FUNCTION__, __LINE__);
+    }
 }
 
 /**
@@ -177,6 +193,15 @@ void tx_send_pa(uint64_t base, uint32_t len) {
  */
 void rx_send_pa(uint64_t base, uint32_t len) {
 
+}
+
+/**
+ * @brief sonic_read_version
+ */
+void read_version(void) {
+    fprintf(stderr, "[%s:%d] read version.\n", __func__, __LINE__);
+    assert(device != NULL);
+    device->sonic_read_version();
 }
 
 } //extern "C"
