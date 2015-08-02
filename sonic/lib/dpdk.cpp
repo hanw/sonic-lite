@@ -7,6 +7,11 @@
 #include <assert.h>
 
 #include "dmaManager.h"
+#include "MMURequest.h"
+#include "MMUIndication.h"
+#include "MemServerRequest.h"
+#include "MemServerIndication.h"
+#include "GeneratedTypes.h" //ChannelType!!
 
 #include "SonicUserRequest.h"
 #include "SonicUserIndication.h"
@@ -18,6 +23,7 @@
 #define PAGE_SHIFT12 24
 #define LENGTH (1024UL * 1024 * 1024)
 static int shifts[] = {PAGE_SHIFT12, PAGE_SHIFT8, PAGE_SHIFT4, PAGE_SHIFT0, 0};
+static int trace_memory = 1;
 
 static sem_t test_sem;
 static int mismatchCount = 0;
@@ -43,13 +49,89 @@ class SonicUserIndication : public SonicUserIndicationWrapper
 			fprintf(stderr, "Memwrite::reportStateDbg: streamWrCnt=%08x srcGen=%d\n", streamWrCnt, srcGen);
 		}
 		SonicUserIndication(unsigned int id) : SonicUserIndicationWrapper(id){}
+		SonicUserIndication(unsigned int id, PortalPoller *poller) : SonicUserIndicationWrapper(id, poller){}
+};
+
+static int mmu_error_limit = 20;
+static int mem_error_limit = 20;
+class MMUIndication : public MMUIndicationWrapper
+{
+    DmaManager *portalMemory;
+    public:
+    MMUIndication(DmaManager *pm, unsigned int  id, struct PortalPoller *poller) : MMUIndicationWrapper(id, poller), portalMemory(pm) {}
+    virtual void configResp(uint32_t pointer){
+        fprintf(stderr, "MMUIndication::configResp: %x\n", pointer);
+        portalMemory->confResp(pointer);
+    }
+    virtual void error (uint32_t code, uint32_t pointer, uint64_t offset, uint64_t extra) {
+        fprintf(stderr, "MMUIndication::error(code=0x%x, pointer=0x%x, offset=0x%"PRIx64" extra=-0x%"PRIx64"\n", code, pointer, offset, extra);
+        if (--mmu_error_limit < 0)
+            exit(-1);
+    }
+    virtual void idResponse(uint32_t sglId){
+        portalMemory->sglIdResp(sglId);
+    }
+};
+
+class MemServerIndication : public MemServerIndicationWrapper
+{
+    MemServerRequestProxy *memServerRequestProxy;
+    sem_t mtSem;
+    uint64_t mtCnt;
+    void init(){
+        if (sem_init(&mtSem, 0, 0))
+            PORTAL_PRINTF("MemServerIndication::init failed to init mtSem\n");
+    }
+    public:
+    MemServerIndication(MemServerRequestProxy *p, unsigned int  id, struct PortalPoller *poller) : MemServerIndicationWrapper(id,poller), memServerRequestProxy(p) {init();}
+    virtual void addrResponse(uint64_t physAddr){
+        fprintf(stderr, "DmaIndication::addrResponse(physAddr=%"PRIx64")\n", physAddr);
+    }
+    virtual void reportStateDbg(const DmaDbgRec rec){
+        fprintf(stderr, "MemServerIndication::reportStateDbg: {x:%08x y:%08x z:%08x w:%08x}\n", rec.x,rec.y,rec.z,rec.w);
+    }
+    virtual void reportMemoryTraffic(uint64_t words){
+        //fprintf(stderr, "reportMemoryTraffic: words=%"PRIx64"\n", words);
+        mtCnt = words;
+        sem_post(&mtSem);
+    }
+    virtual void error (uint32_t code, uint32_t pointer, uint64_t offset, uint64_t extra) {
+        fprintf(stderr, "MemServerIndication::error(code=%x, pointer=%x, offset=%"PRIx64" extra=%"PRIx64"\n", code, pointer, offset, extra);
+        if (--mem_error_limit < 0)
+            exit(-1);
+    }
+    uint64_t receiveMemoryTraffic(){
+        sem_wait(&mtSem);
+        return mtCnt; 
+    }
+    uint64_t getMemoryTraffic(const ChannelType rc){
+        assert(memServerRequestProxy);
+        memServerRequestProxy->memoryTraffic(rc);
+        return receiveMemoryTraffic();
+    }
 };
 
 static DmaManager *dma = 0;
 static SonicUserRequestProxy *device = 0;
 static SonicUserIndication *indication = 0;
-static int trace_memory = 1;
+static MemServerRequestProxy *hostMemServerRequest;
+static MemServerIndication *hostMemServerIndication;
+static MMUIndication *mmuIndication;
+DmaManager *sonicPlatformInit(struct PortalPoller *poller)
+{
+    fprintf(stderr, "[%s:%d]\n", __func__, __LINE__);
+    hostMemServerRequest = new MemServerRequestProxy(IfcNames_MemServerRequestS2H, PLATFORM_TILE);
+    fprintf(stderr, "[%s:%d]\n", __func__, __LINE__);
+    MMURequestProxy *dmap = new MMURequestProxy(IfcNames_MMURequestS2H, PLATFORM_TILE);
+    fprintf(stderr, "[%s:%d]\n", __func__, __LINE__);
+    DmaManager *dma = new DmaManager(dmap);
+    fprintf(stderr, "[%s:%d]\n", __func__, __LINE__);
+    hostMemServerIndication = new MemServerIndication(hostMemServerRequest, IfcNames_MemServerIndicationH2S,  poller);
+    fprintf(stderr, "[%s:%d]\n", __func__, __LINE__);
+    mmuIndication = new MMUIndication(dma, IfcNames_MMUIndicationH2S, poller);
 
+    return dma;
+}
 /**
  * @brief
  */
@@ -161,22 +243,22 @@ extern "C" {
  * returns
  *
  */
+PortalPoller *sonicPoller = new PortalPoller();
 
 void dma_init (uint32_t fd) {
-    // Only create on dma instance
     if (!dma) {
-    PORTAL_PRINTF("[%s:%d] platformInit\n", __FUNCTION__, __LINE__);
-	dma = platformInit();
-    PORTAL_PRINTF("[%s:%d] platformInit finished\n", __FUNCTION__, __LINE__);
-    device = new SonicUserRequestProxy(IfcNames_SonicUserRequestS2H);
-	//SonicUserIndication memReadIndication(IfcNames_SonicUserIndicationH2S);
-    indication = new SonicUserIndication(IfcNames_SonicUserIndicationH2S);
-    printf("[%s:%d]: dma %p device %p\n", __func__, __LINE__, dma, device);
+        PORTAL_PRINTF("[%s:%d] platformInit\n", __FUNCTION__, __LINE__);
+        dma = sonicPlatformInit(sonicPoller);
+        PORTAL_PRINTF("[%s:%d] platformInit finished\n", __FUNCTION__, __LINE__);
+        device = new SonicUserRequestProxy(IfcNames_SonicUserRequestS2H);
+        //SonicUserIndication memReadIndication(IfcNames_SonicUserIndicationH2S);
+        indication = new SonicUserIndication(IfcNames_SonicUserIndicationH2S, sonicPoller);
+        printf("[%s:%d]: dma %p device %p\n", __func__, __LINE__, dma, device);
 
-    //write_shared_data(fd, offset);
-    DmaManagerPrivate *priv = &dma->priv;
-    dma_reference(priv, fd, LENGTH);
-    PORTAL_PRINTF("[%s:%d] dma_init finished\n", __FUNCTION__, __LINE__);
+        //write_shared_data(fd, offset);
+        DmaManagerPrivate *priv = &dma->priv;
+        dma_reference(priv, fd, LENGTH);
+        PORTAL_PRINTF("[%s:%d] dma_init finished\n", __FUNCTION__, __LINE__);
     }
 }
 

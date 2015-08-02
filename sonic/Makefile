@@ -27,6 +27,7 @@ CONNECTALFLAGS += -D SonicVersion=$(shell date +"%y%m%d%H%M")
 CONNECTALFLAGS += -D PcieHostIF
 CONNECTALFLAGS += -D DataBusWidth=128
 CONNECTALFLAGS += --shared
+CONNECTALFLAGS += -D NO_DEFAULT_POLLER
 #CONNECTALFLAGS += --chipscope=$(PROJTOP)/../../sonic-debug/stp/memread.stp
 ifneq (, $(BLUESIM))
 CONNECTALFLAGS += --pinfo=$(PROJTOP)/../boards/sonic_synth.json
