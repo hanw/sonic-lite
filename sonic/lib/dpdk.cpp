@@ -45,7 +45,6 @@ class SonicUserIndication : public SonicUserIndicationWrapper
 #define PAGE_SHIFT4 16
 #define PAGE_SHIFT8 20
 #define PAGE_SHIFT12 24
-#define LENGTH (1024UL * 1024 * 1024)
 static int shifts[] = {PAGE_SHIFT12, PAGE_SHIFT8, PAGE_SHIFT4, PAGE_SHIFT0, 0};
 
 class SonicDpdkManager {
@@ -53,25 +52,28 @@ class SonicDpdkManager {
     SonicUserRequestProxy *device;
     SonicUserIndication *indication;
     int mmu_sglId;
+    uint64_t phys_base;
     public:
         SonicDpdkManager() : dma(0), device(0), indication(0), mmu_sglId(0) {}
 
-        void init(int fd) {
+        void init(int fd, uint64_t phys_addr, uint32_t len) {
             if (!dma) {
                 dma = platformInit();
                 device = new SonicUserRequestProxy(IfcNames_SonicUserRequestS2H);
                 indication = new SonicUserIndication(IfcNames_SonicUserIndicationH2S);
                 DmaManagerPrivate *priv = &dma->priv;
-                mmu_sglId = dma_reference(priv, fd, LENGTH);
-                PORTAL_PRINTF("[%s:%d] mmu sglId=%d\n", __FUNCTION__, __LINE__, mmu_sglId);
+                mmu_sglId = dma_reference(priv, fd, len);
+                phys_base = phys_addr;
+                PORTAL_PRINTF("[%s:%d] mmu sglId=%d at phys_addr 0x%lx with len=0x%lx\n", __FUNCTION__, __LINE__, mmu_sglId, phys_base, len);
             }
         }
         void read_version() {
             assert(device != NULL);
             device->sonic_read_version();
         }
-        void tx_send_pa(uint64_t base, uint32_t len) {
-            device->sonicXmitFrame(mmu_sglId, base, len*4, 32*4); //DMA Burst Len is 128 bytes
+        void tx_send_pa(uint64_t pkt_base, uint32_t len) {
+            uint32_t offset = pkt_base - phys_base;
+            device->startRead(mmu_sglId, offset, len*4, 32*4, 1);
         }
         void rx_send_pa(uint64_t base, uint32_t len) {
         }
@@ -158,9 +160,8 @@ extern "C" {
 
 SonicDpdkManager dpdk;
 
-void dma_init (uint32_t fd) {
-    printf("[%s:%d], dma init.\n", __func__, __LINE__);
-    dpdk.init(fd);
+void dma_init (uint32_t fd, uint64_t phys_addr, uint32_t len) {
+    dpdk.init(fd, phys_addr, len);
 }
 
 void start_default_poller() {
@@ -177,13 +178,12 @@ void poll(void) {
 
 void tx_send_pa(uint64_t base, uint32_t len) {
     printf("[%s:%d], do dma read.\n", __func__, __LINE__);
-    dpdk.tx_send_pa(0, len);
-    sem_wait(&test_sem);
+    dpdk.tx_send_pa(base, len);
 }
 
 void rx_send_pa(uint32_t id, uint64_t base, uint32_t len) {
     printf("[%s:%d], do dma write.\n", __func__, __LINE__);
-    dpdk.rx_send_pa(0, len);
+    dpdk.rx_send_pa(base, len);
 }
 
 void read_version(void) {

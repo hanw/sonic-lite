@@ -84,7 +84,7 @@ int main(int argc, const char **argv)
     fprintf(stderr, "ref_srcAlloc=%d\n", ref_srcAlloc);
     fprintf(stderr, "Main::orig_test read numWords=%d burstLen=%d iterCnt=%d\n", numWords, burstLen, iterCnt);
     portalTimerStart(0);
-    device->startRead(ref_srcAlloc, numWords * 4, burstLen * 4, iterCnt);
+    device->startRead(ref_srcAlloc, 0, numWords * 4, burstLen * 4, iterCnt);
     sem_wait(&test_sem);
     if (mismatchCount) {
         fprintf(stderr, "Main::first test failed to match %d.\n", mismatchCount);
@@ -100,7 +100,7 @@ int main(int argc, const char **argv)
 
     fprintf(stderr, "Starting second read, mismatches expected\n");
     mismatchCount = 0;
-    device->startRead(ref_srcAlloc, numWords * 4, burstLen * 4, iterCnt);
+    device->startRead(ref_srcAlloc, 0, numWords * 4, burstLen * 4, iterCnt);
     sem_wait(&test_sem);
     if (mismatchCount != 3/*number of errors introduced above*/ * iterCnt) {
         fprintf(stderr, "Main::second test failed to match mismatchCount=%d (expected %d) iterCnt=%d numWords=%d.\n",
