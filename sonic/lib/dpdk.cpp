@@ -7,26 +7,14 @@
 #include <assert.h>
 
 #include "dmaManager.h"
-#include "MMURequest.h"
-#include "MMUIndication.h"
-#include "MemServerRequest.h"
-#include "MemServerIndication.h"
 #include "GeneratedTypes.h" //ChannelType!!
-
 #include "SonicUserRequest.h"
 #include "SonicUserIndication.h"
 
-#define PLATFORM_TILE 0
-#define PAGE_SHIFT0 12
-#define PAGE_SHIFT4 16
-#define PAGE_SHIFT8 20
-#define PAGE_SHIFT12 24
-#define LENGTH (1024UL * 1024 * 1024)
-static int shifts[] = {PAGE_SHIFT12, PAGE_SHIFT8, PAGE_SHIFT4, PAGE_SHIFT0, 0};
 static int trace_memory = 1;
-
 static sem_t test_sem;
 static int mismatchCount = 0;
+
 class SonicUserIndication : public SonicUserIndicationWrapper
 {
 	public:
@@ -52,238 +40,155 @@ class SonicUserIndication : public SonicUserIndicationWrapper
 		SonicUserIndication(unsigned int id, PortalPoller *poller) : SonicUserIndicationWrapper(id, poller){}
 };
 
-static int mmu_error_limit = 20;
-static int mem_error_limit = 20;
-class MMUIndication : public MMUIndicationWrapper
-{
-    DmaManager *portalMemory;
+#define PLATFORM_TILE 0
+#define PAGE_SHIFT0 12
+#define PAGE_SHIFT4 16
+#define PAGE_SHIFT8 20
+#define PAGE_SHIFT12 24
+#define LENGTH (1024UL * 1024 * 1024)
+static int shifts[] = {PAGE_SHIFT12, PAGE_SHIFT8, PAGE_SHIFT4, PAGE_SHIFT0, 0};
+
+class SonicDpdkManager {
+    DmaManager *dma;
+    SonicUserRequestProxy *device;
+    SonicUserIndication *indication;
+    int mmu_sglId;
     public:
-    MMUIndication(DmaManager *pm, unsigned int  id, struct PortalPoller *poller) : MMUIndicationWrapper(id, poller), portalMemory(pm) {}
-    virtual void configResp(uint32_t pointer){
-        fprintf(stderr, "MMUIndication::configResp: %x\n", pointer);
-        portalMemory->confResp(pointer);
-    }
-    virtual void error (uint32_t code, uint32_t pointer, uint64_t offset, uint64_t extra) {
-        fprintf(stderr, "MMUIndication::error(code=0x%x, pointer=0x%x, offset=0x%"PRIx64" extra=-0x%"PRIx64"\n", code, pointer, offset, extra);
-        if (--mmu_error_limit < 0)
-            exit(-1);
-    }
-    virtual void idResponse(uint32_t sglId){
-        portalMemory->sglIdResp(sglId);
-    }
-};
+        SonicDpdkManager() : dma(0), device(0), indication(0), mmu_sglId(0) {}
 
-class MemServerIndication : public MemServerIndicationWrapper
-{
-    MemServerRequestProxy *memServerRequestProxy;
-    sem_t mtSem;
-    uint64_t mtCnt;
-    void init(){
-        if (sem_init(&mtSem, 0, 0))
-            PORTAL_PRINTF("MemServerIndication::init failed to init mtSem\n");
-    }
-    public:
-    MemServerIndication(MemServerRequestProxy *p, unsigned int  id, struct PortalPoller *poller) : MemServerIndicationWrapper(id,poller), memServerRequestProxy(p) {init();}
-    virtual void addrResponse(uint64_t physAddr){
-        fprintf(stderr, "DmaIndication::addrResponse(physAddr=%"PRIx64")\n", physAddr);
-    }
-    virtual void reportStateDbg(const DmaDbgRec rec){
-        fprintf(stderr, "MemServerIndication::reportStateDbg: {x:%08x y:%08x z:%08x w:%08x}\n", rec.x,rec.y,rec.z,rec.w);
-    }
-    virtual void reportMemoryTraffic(uint64_t words){
-        //fprintf(stderr, "reportMemoryTraffic: words=%"PRIx64"\n", words);
-        mtCnt = words;
-        sem_post(&mtSem);
-    }
-    virtual void error (uint32_t code, uint32_t pointer, uint64_t offset, uint64_t extra) {
-        fprintf(stderr, "MemServerIndication::error(code=%x, pointer=%x, offset=%"PRIx64" extra=%"PRIx64"\n", code, pointer, offset, extra);
-        if (--mem_error_limit < 0)
-            exit(-1);
-    }
-    uint64_t receiveMemoryTraffic(){
-        sem_wait(&mtSem);
-        return mtCnt; 
-    }
-    uint64_t getMemoryTraffic(const ChannelType rc){
-        assert(memServerRequestProxy);
-        memServerRequestProxy->memoryTraffic(rc);
-        return receiveMemoryTraffic();
-    }
-};
-
-static DmaManager *dma = 0;
-static SonicUserRequestProxy *device = 0;
-static SonicUserIndication *indication = 0;
-static MemServerRequestProxy *hostMemServerRequest;
-static MemServerIndication *hostMemServerIndication;
-static MMUIndication *mmuIndication;
-DmaManager *sonicPlatformInit(struct PortalPoller *poller)
-{
-    fprintf(stderr, "[%s:%d]\n", __func__, __LINE__);
-    hostMemServerRequest = new MemServerRequestProxy(IfcNames_MemServerRequestS2H, PLATFORM_TILE);
-    fprintf(stderr, "[%s:%d]\n", __func__, __LINE__);
-    MMURequestProxy *dmap = new MMURequestProxy(IfcNames_MMURequestS2H, PLATFORM_TILE);
-    fprintf(stderr, "[%s:%d]\n", __func__, __LINE__);
-    DmaManager *dma = new DmaManager(dmap);
-    fprintf(stderr, "[%s:%d]\n", __func__, __LINE__);
-    hostMemServerIndication = new MemServerIndication(hostMemServerRequest, IfcNames_MemServerIndicationH2S,  poller);
-    fprintf(stderr, "[%s:%d]\n", __func__, __LINE__);
-    mmuIndication = new MMUIndication(dma, IfcNames_MMUIndicationH2S, poller);
-
-    return dma;
-}
-/**
- * @brief
- */
-int snd_fd_to_portal(PortalInternal *device, int fd, int id, size_t sz)
-{
-    int rc = 0;
-    int i, j;
-    uint32_t regions[4] = {0, 0,0,0};
-    uint64_t border = 0;
-    unsigned char entryCount = 0;
-    uint64_t borderVal[4];
-    uint32_t indexVal[4];
-    unsigned char idxOffset;
-    int size_accum = 0;
-    rc = id;
-    long len = 1 << PAGE_SHIFT12; // 16MB pages
-    unsigned entries = sz >> PAGE_SHIFT12;
-
-    PORTAL_PRINTF("%s: nb_entries %d\n", __FUNCTION__, entries);
-    for(i = 0; 1; i++){
-        long addr;
-        if (!entries)
-            break;
-        if (!len)
-            break;
-        addr = size_accum;
-        size_accum += len;
-        addr |= ((long)id) << 32; //[39:32] = truncate(pref);
-
-        for(j = 0; j < 4; j++)
-            if (len == 1<<shifts[j]) {
-                regions[j]++;
-                if (addr & ((1L<<shifts[j]) - 1))
-                    PORTAL_PRINTF("%s: addr %lx shift %x *********\n", __FUNCTION__, addr, shifts[j]);
-                addr >>= shifts[j];
-                break;
+        void init(int fd) {
+            if (!dma) {
+                dma = platformInit();
+                device = new SonicUserRequestProxy(IfcNames_SonicUserRequestS2H);
+                indication = new SonicUserIndication(IfcNames_SonicUserIndicationH2S);
+                DmaManagerPrivate *priv = &dma->priv;
+                mmu_sglId = dma_reference(priv, fd, LENGTH);
+                PORTAL_PRINTF("[%s:%d] mmu sglId=%d\n", __FUNCTION__, __LINE__, mmu_sglId);
             }
-        if (j >= 4)
-            PORTAL_PRINTF("DmaManager:unsupported sglist size %lx\n", len);
-        if (trace_memory)
-            PORTAL_PRINTF("DmaManager:sglist(id=%08x, i=%d dma_addr=%08lx, len=%08lx)\n", id, i, (long)addr, len);
-        MMURequest_sglist(device, id, i, addr, len);
-        entries--;
-    } // balance }
-
-    // HW interprets zeros as end of sglist
-    if (trace_memory)
-        PORTAL_PRINTF("DmaManager:sglist(id=%08x, i=%d end of list)\n", id, i);
-    MMURequest_sglist(device, id, i, 0, 0); // end list
-
-    for(i = 0; i < 4; i++){
-        idxOffset = entryCount - border;
-        entryCount += regions[i];
-        border += regions[i];
-        borderVal[i] = border;
-        indexVal[i] = idxOffset;
-        border <<= (shifts[i] - shifts[i+1]);
-    }
-
-    if (trace_memory) {
-        PORTAL_PRINTF("regions %d (%x %x %x %x)\n", id,regions[0], regions[1], regions[2], regions[3]);
-        PORTAL_PRINTF("borders %d (%"PRIx64" %"PRIx64" %"PRIx64" %"PRIx64")\n", id,borderVal[0], borderVal[1], borderVal[2], borderVal[3], indexVal[3]);
-    }
-    MMURequest_region(device, id, borderVal[0], indexVal[0], borderVal[1], indexVal[1], borderVal[2], indexVal[2], borderVal[3], indexVal[3]);
-    PORTAL_PRINTF("[%s:%d]\n", __FUNCTION__, __LINE__);
-    /* ifdefs here to supress warning during kernel build */
-    return rc;
-}
-
-/**
- * @brief dma reference
- */
-int dma_reference (DmaManagerPrivate* priv, int fd, size_t sz) {
-    int id = 0;
-    int rc = 0;
-    PORTAL_PRINTF("[%s:%d] fd=%d\n", __FUNCTION__, __LINE__, fd);
-    MMURequest_idRequest(priv->sglDevice, (SpecialTypeForSendingFd)fd);
-    printf("[%s:%d] polling function %p\n", __FUNCTION__, __LINE__, priv->poll);
-    if (priv->poll) {
-        int rc = priv->poll(priv->shared_mmu_indication, &priv->sglId);
-        printf("[%s:%d] return after idrequest %d %d\n", __FUNCTION__, __LINE__, rc, priv->sglId);
-    }
-    else {
-        PORTAL_PRINTF("[%s:%d] sem_wait on first id request\n", __FUNCTION__, __LINE__);
-        sem_wait(&priv->sglIdSem);
-    }
-    id = priv->sglId;
-    PORTAL_PRINTF("[%s:%d] id=%d, fd=%d\n", __FUNCTION__, __LINE__, id, fd);
-    rc = snd_fd_to_portal(priv->sglDevice, fd, id, sz);
-    if (rc <= 0) {
-        PORTAL_PRINTF("%s:%d sem_wait\n", __FUNCTION__, __LINE__);
-        if (priv->poll) {
-            uint32_t ret;
-            int rc = priv->poll(priv->shared_mmu_indication, &ret);
-            printf("[%s:%d] return after sendfd %d %d\n", __FUNCTION__, __LINE__, rc, ret);
         }
-        else
-            sem_wait(&priv->confSem);
-    }
-    return rc;
-}
+        void read_version() {
+            assert(device != NULL);
+            device->sonic_read_version();
+        }
+        void tx_send_pa(uint64_t base, uint32_t len) {
+            device->sonicXmitFrame(mmu_sglId, base, len*4, 32*4); //DMA Burst Len is 128 bytes
+        }
+        void rx_send_pa(uint64_t base, uint32_t len) {
+        }
+
+    private:
+        int dma_reference (DmaManagerPrivate* priv, int fd, size_t sz) {
+            int id = 0;
+            int rc = 0;
+            MMURequest_idRequest(priv->sglDevice, (SpecialTypeForSendingFd)fd);
+            sem_wait(&priv->sglIdSem);
+            id = priv->sglId;
+            rc = send_fd_to_portal(priv->sglDevice, fd, id, sz);
+            if (rc <= 0) {
+                sem_wait(&priv->confSem);
+            }
+            PORTAL_PRINTF("[%s:%d] rc=%d\n", __FUNCTION__, __LINE__, rc);
+            return rc;
+        }
+        int send_fd_to_portal(PortalInternal *device, int fd, int id, size_t sz)
+        {
+            int rc = 0;
+            int i, j;
+            uint32_t regions[4] = {0,0,0,0};
+            uint64_t border = 0;
+            unsigned char entryCount = 0;
+            uint64_t borderVal[4];
+            uint32_t indexVal[4];
+            unsigned char idxOffset;
+            int size_accum = 0;
+            rc = id;
+            long len = 1 << PAGE_SHIFT12; // 16MB pages
+            unsigned entries = sz >> PAGE_SHIFT12;
+
+            for(i = 0; 1; i++){
+                long addr;
+                if (!entries)
+                    break;
+                if (!len)
+                    break;
+                addr = size_accum;
+                size_accum += len;
+                addr |= ((long)id) << 32; //[39:32] = truncate(pref);
+
+                for(j = 0; j < 4; j++)
+                    if (len == 1<<shifts[j]) {
+                        regions[j]++;
+                        if (addr & ((1L<<shifts[j]) - 1))
+                            PORTAL_PRINTF("%s: addr %lx shift %x *********\n", __FUNCTION__, addr, shifts[j]);
+                        addr >>= shifts[j];
+                        break;
+                    }
+                if (j >= 4)
+                    PORTAL_PRINTF("DmaManager:unsupported sglist size %lx\n", len);
+                if (trace_memory)
+                    PORTAL_PRINTF("DmaManager:sglist(id=%08x, i=%d dma_addr=%08lx, len=%08lx)\n", id, i, (long)addr, len);
+                MMURequest_sglist(device, id, i, addr, len);
+                entries--;
+            } // balance }
+
+            if (trace_memory)
+                PORTAL_PRINTF("DmaManager:sglist(id=%08x, i=%d end of list)\n", id, i);
+            MMURequest_sglist(device, id, i, 0, 0); // end list
+
+            for(i = 0; i < 4; i++){
+                idxOffset = entryCount - border;
+                entryCount += regions[i];
+                border += regions[i];
+                borderVal[i] = border;
+                indexVal[i] = idxOffset;
+                border <<= (shifts[i] - shifts[i+1]);
+            }
+
+            if (trace_memory) {
+                PORTAL_PRINTF("regions %d (%x %x %x %x)\n", id, regions[0], regions[1], regions[2], regions[3]);
+                PORTAL_PRINTF("borders %d (%"PRIx64" %"PRIx64" %"PRIx64" %"PRIx64")\n", id, borderVal[0], borderVal[1], borderVal[2], borderVal[3]);
+            }
+            MMURequest_region(device, id, borderVal[0], indexVal[0], borderVal[1], indexVal[1], borderVal[2], indexVal[2], borderVal[3], indexVal[3]);
+            /* ifdefs here to supress warning during kernel build */
+            return rc;
+        } // send_fd_to_portal
+};
 
 extern "C" {
 
-/**
- * @brief create handle to access connectal device
- *
- * This function instantiates a DMA Manager* to access Connectal DMA engine. It
- * returns
- *
- */
-PortalPoller *sonicPoller = new PortalPoller();
+SonicDpdkManager dpdk;
 
 void dma_init (uint32_t fd) {
-    if (!dma) {
-        PORTAL_PRINTF("[%s:%d] platformInit\n", __FUNCTION__, __LINE__);
-        dma = sonicPlatformInit(sonicPoller);
-        PORTAL_PRINTF("[%s:%d] platformInit finished\n", __FUNCTION__, __LINE__);
-        device = new SonicUserRequestProxy(IfcNames_SonicUserRequestS2H);
-        //SonicUserIndication memReadIndication(IfcNames_SonicUserIndicationH2S);
-        indication = new SonicUserIndication(IfcNames_SonicUserIndicationH2S, sonicPoller);
-        printf("[%s:%d]: dma %p device %p\n", __func__, __LINE__, dma, device);
-
-        //write_shared_data(fd, offset);
-        DmaManagerPrivate *priv = &dma->priv;
-        dma_reference(priv, fd, LENGTH);
-        PORTAL_PRINTF("[%s:%d] dma_init finished\n", __FUNCTION__, __LINE__);
-    }
+    printf("[%s:%d], dma init.\n", __func__, __LINE__);
+    dpdk.init(fd);
 }
 
-/**
- * @brief Used by Tx to send PA(physical address) of a tx_buff to hardware
- */
+void start_default_poller() {
+    defaultPoller->start();
+}
+
+void stop_default_poller() {
+    defaultPoller->stop();
+}
+
+void poll(void) {
+    defaultPoller->event();
+}
+
 void tx_send_pa(uint64_t base, uint32_t len) {
     printf("[%s:%d], do dma read.\n", __func__, __LINE__);
-    // start read
+    dpdk.tx_send_pa(0, len);
+    sem_wait(&test_sem);
 }
 
-/**
- * @brief Used by Rx to send PA(physical address) of a free rx_buff to hardware
- */
-void rx_send_pa(uint64_t base, uint32_t len) {
-
+void rx_send_pa(uint32_t id, uint64_t base, uint32_t len) {
+    printf("[%s:%d], do dma write.\n", __func__, __LINE__);
+    dpdk.rx_send_pa(0, len);
 }
 
-/**
- * @brief sonic_read_version
- */
 void read_version(void) {
     fprintf(stderr, "[%s:%d] read version.\n", __func__, __LINE__);
-    assert(device != NULL);
-    device->sonic_read_version();
+    dpdk.read_version();
 }
 
 } //extern "C"
