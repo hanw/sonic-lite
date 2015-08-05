@@ -57,6 +57,9 @@ class SonicUserIndication : public SonicUserIndicationWrapper
 		void reportStateDbg(uint32_t streamWrCnt, uint32_t srcGen) {
 			fprintf(stderr, "Memwrite::reportStateDbg: streamWrCnt=%08x srcGen=%d\n", streamWrCnt, srcGen);
 		}
+        void writeTxCred (uint32_t cred) {
+            fprintf(stderr, "Received Cred %d\n", cred);
+        }
 		SonicUserIndication(unsigned int id) : SonicUserIndicationWrapper(id){}
 };
 

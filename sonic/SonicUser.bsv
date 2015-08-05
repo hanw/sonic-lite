@@ -34,17 +34,27 @@ import MemTypes::*;
 import MemreadEngine::*;
 import MemwriteEngine::*;
 import HostInterface::*;
+import ConfigCounter::*;
 
 //interface SonicIfc;
 //endinterface
 
+typedef 128    TxCredTotal;
+typedef 32     TxCredThres;
+typedef 100000 TxCredTimeout;
+
 typedef TDiv#(DataBusWidth,32) DataBusWords;
+typedef struct {
+   Bit#(MemOffsetSize) offset;
+   Bit#(32) len;
+} TxDesc deriving (Eq, Bits);
 
 interface SonicUserRequest;
    method Action sonic_read_version();
    method Action startRead(Bit#(32) pointer, Bit#(32) offset, Bit#(32) numBytes, Bit#(32) burstLen, Bit#(32) iterCnt);
    method Action startWrite(Bit#(32) pointer, Bit#(32) offset, Bit#(32) numWords, Bit#(32) burstLen, Bit#(32) iterCnt);
    method Action getStateDbg();
+   method Action writeTxDesc(TxDesc desc);
 endinterface
 
 interface SonicUserIndication;
@@ -53,6 +63,7 @@ interface SonicUserIndication;
    method Action started(Bit#(32) numWords);
    method Action reportStateDbg(Bit#(32) wrCnt, Bit#(32) srcGen);
    method Action writeDone(Bit#(32) v);
+   method Action writeTxCred(UInt#(32) v);
 endinterface
 
 interface SonicUser;
@@ -67,6 +78,8 @@ typedef TMul#(NumOutstandingRequests, TMul#(32, 4)) BufferSizeBytes;
 module mkSonicUser#(SonicUserIndication indication)(SonicUser);
    Clock defaultClock <- exposeCurrentClock();
 
+   Reg#(Bit#(32))  cycle <- mkReg(0);
+
    // DMA Read
    Reg#(SGLId)           pointer <- mkReg(0);
    Reg#(Bit#(32))       numBytes <- mkReg(0);
@@ -75,18 +88,52 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
    Reg#(Bit#(32))  itersToFinish <- mkReg(0);
    Reg#(Bit#(32))   itersToStart <- mkReg(0);
    MemreadEngine#(DataBusWidth,NumOutstandingRequests,1) re <- mkMemreadEngineBuff(valueOf(BufferSizeBytes));
-   FIFO#(Bit#(32)) checkDoneFifo <- mkFIFO();
 
-   rule start (itersToStart > 0);
-      $display("Test: request.put");
-      re.readServers[0].request.put(MemengineCmd{sglId:pointer, base:offset, len:numBytes, burstLen:burstLenBytes});
+   FIFOF#(UInt#(32))         txCredCf <- mkSizedFIFOF(8);
+   ConfigCounter#(32)     txCredFreed <- mkConfigCounter(0);
+   FIFOF#(TxDesc)         txDescQueue <- mkSizedFIFOF(valueof(TxCredTotal));
+
+   rule every_cycle;
+      cycle <= cycle + 1;
+   endrule
+
+   rule enq_tx_desc (txDescQueue.notFull && itersToStart > 0);
+      $display("Test: txDescQueue.enq %d", cycle);
+      txDescQueue.enq(TxDesc{offset: offset, len: numBytes});
       itersToStart <= itersToStart-1;
+   endrule
+
+   // Credit Writeback is triggered by either timeout or threshold.
+   rule tx_cred_wb_timeout ((cycle % fromInteger(valueOf(TxCredTimeout)) == 0) && !txCredCf.notEmpty);
+      if (txCredFreed.read != 0) begin
+         indication.writeTxCred(txCredFreed.read);
+         txCredFreed.decrement(txCredFreed.read);
+      end
+   endrule
+
+   rule tx_cred_wb_threshold;
+      let v <- toGet(txCredCf).get;
+      indication.writeTxCred(v);
+      $display("Test: indication write %d", v);
+   endrule
+
+   rule issue_tx_pkt;
+      $display("Test: request.put");
+      let v <- toGet(txDescQueue).get;
+      re.readServers[0].request.put(MemengineCmd{sglId:pointer, base:offset, len:numBytes, burstLen:burstLenBytes});
+      txCredFreed.increment(1);
+      // tigger writeback is freed txcred is more than threshold
+      if ((txCredFreed.read>=fromInteger(valueOf(TxCredThres))) && txCredCf.notFull) begin
+          $display("Test: txCredFreed %d", txCredFreed.read);
+          txCredCf.enq(txCredFreed.read);
+          txCredFreed.decrement(txCredFreed.read);
+      end
    endrule
 
    rule readData;
       // first pipeline stage
       if (re.dataPipes[0].notEmpty()) begin
-	 let v <- toGet(re.dataPipes[0]).get;
+         let v <- toGet(re.dataPipes[0]).get;
       end
    endrule
 
@@ -179,6 +226,9 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
 	  writeOffset <= off*4;
 	  for(Integer i = 0; i < valueOf(NumberOfMasters); i=i+1)
 	     wrIterCnts[i] <= ic;
+       endmethod
+       method Action writeTxDesc(TxDesc desc);
+
        endmethod
    endinterface
 endmodule
