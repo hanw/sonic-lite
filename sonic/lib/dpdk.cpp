@@ -14,9 +14,9 @@
 #define SONIC_TX_CREDIT 128
 
 static int trace_memory = 1;
-static sem_t test_sem;
 static pthread_mutex_t mutex;
 static int tx_credit = SONIC_TX_CREDIT;
+static int rx_credit = 0;
 
 class SonicUserIndication : public SonicUserIndicationWrapper
 {
@@ -26,14 +26,12 @@ class SonicUserIndication : public SonicUserIndicationWrapper
         }
         void readDone(uint32_t a) {
             fprintf(stderr, "SonicUser::readDone(%x)\n", a);
-            sem_post(&test_sem);
         }
         void started(uint32_t words) {
             fprintf(stderr, "Memwrite::started: words=%x\n", words);
         }
         void writeDone ( uint32_t srcGen ) {
             fprintf(stderr, "Memwrite::writeDone (%08x)\n", srcGen);
-            sem_post(&test_sem);
         }
         void reportStateDbg(uint32_t streamWrCnt, uint32_t srcGen) {
             fprintf(stderr, "Memwrite::reportStateDbg: streamWrCnt=%08x srcGen=%d\n", streamWrCnt, srcGen);
@@ -42,6 +40,11 @@ class SonicUserIndication : public SonicUserIndicationWrapper
             fprintf(stderr, "Received Cred %d\n", cred);
             pthread_mutex_lock(&mutex);
             tx_credit += cred;
+            pthread_mutex_unlock(&mutex);
+        }
+        void writeRxCred (uint32_t cred) {
+            pthread_mutex_lock(&mutex);
+            rx_credit -= cred;
             pthread_mutex_unlock(&mutex);
         }
         SonicUserIndication(unsigned int id) : SonicUserIndicationWrapper(id){}
@@ -62,6 +65,7 @@ class SonicDpdkManager {
         void init (int fd, uint64_t phys_addr, uint32_t len);
         void tx_send_pa(uint64_t pkt_base, uint32_t len);
         void rx_send_pa(uint64_t pkt_base, uint32_t len);
+        uint32_t get_tx_credit();
         void read_version();
     private:
         DmaManager *dma;
@@ -72,11 +76,12 @@ class SonicDpdkManager {
 
         int dma_reference (DmaManagerPrivate* priv, int fd, size_t sz);
         int send_fd_to_portal(PortalInternal *device, int fd, int id, size_t sz);
-
 };
 
 SonicDpdkManager::SonicDpdkManager () {
-    // Nothing here.
+    dma = platformInit();
+    device = new SonicUserRequestProxy(IfcNames_SonicUserRequestS2H);
+    indication = new SonicUserIndication(IfcNames_SonicUserIndicationH2S);
 }
 
 SonicDpdkManager::~SonicDpdkManager() {
@@ -85,19 +90,16 @@ SonicDpdkManager::~SonicDpdkManager() {
 
 void
 SonicDpdkManager::init (int fd, uint64_t phys_addr, uint32_t len) {
-    if (dma)
-        return;
-    dma = platformInit();
-    device = new SonicUserRequestProxy(IfcNames_SonicUserRequestS2H);
-    indication = new SonicUserIndication(IfcNames_SonicUserIndicationH2S);
     DmaManagerPrivate *priv = &dma->priv;
     mmu_sglId = dma_reference(priv, fd, len);
     phys_base = phys_addr;
     pthread_mutex_init(&mutex, NULL);
-
     PORTAL_PRINTF("[%s:%d] mmu sglId=%d at phys_addr 0x%lx with len=0x%lx\n", __FUNCTION__, __LINE__, mmu_sglId, phys_base, len);
 }
 
+uint32_t SonicDpdkManager::get_tx_credit() {
+    return tx_credit;
+}
 
 void
 SonicDpdkManager::read_version() {
@@ -108,11 +110,13 @@ SonicDpdkManager::read_version() {
 void
 SonicDpdkManager::tx_send_pa(uint64_t pkt_base, uint32_t len) {
     uint32_t offset = pkt_base - phys_base;
-    device->startRead(mmu_sglId, offset, len*4, 32*4, 1);
+    device->startRead(mmu_sglId, offset, len*4, 32*4);
 }
 
 void
 SonicDpdkManager::rx_send_pa(uint64_t pkt_base, uint32_t len) {
+    uint32_t offset = pkt_base - phys_base;
+    device->startWrite(mmu_sglId, offset, len*4, 32*4, 1);
 }
 
 int
@@ -196,10 +200,13 @@ SonicDpdkManager::send_fd_to_portal(PortalInternal *device, int fd,
 
 extern "C" {
 
-SonicDpdkManager dpdk;
+SonicDpdkManager& theDpdk() {
+    static SonicDpdkManager dpdk;
+    return dpdk;
+}
 
 void init (uint32_t fd, uint64_t phys_addr, uint32_t len) {
-    dpdk.init(fd, phys_addr, len);
+    theDpdk().init(fd, phys_addr, len);
 }
 
 void start_default_poller() {
@@ -215,15 +222,15 @@ void poll(void) {
 }
 
 void tx_send_pa(uint64_t base, uint32_t len) {
-    dpdk.tx_send_pa(base, len);
+    theDpdk().tx_send_pa(base, len);
 }
 
 void rx_send_pa(uint32_t id, uint64_t base, uint32_t len) {
-    dpdk.rx_send_pa(base, len);
+    theDpdk().rx_send_pa(base, len);
 }
 
 void read_version(void) {
-    dpdk.read_version();
+    theDpdk().read_version();
 }
 
 uint32_t tx_credit_available(void) {
@@ -231,7 +238,19 @@ uint32_t tx_credit_available(void) {
 }
 
 void tx_credit_decrement(uint32_t v) {
+    pthread_mutex_lock(&mutex);
     tx_credit -= v;
+    pthread_mutex_unlock(&mutex);
+}
+
+uint32_t rx_credit_available(void) {
+    return rx_credit;
+}
+
+void rx_credit_increment(uint32_t v) {
+    pthread_mutex_lock(&mutex);
+    rx_credit += v;
+    pthread_mutex_unlock(&mutex);
 }
 
 } //extern "C"

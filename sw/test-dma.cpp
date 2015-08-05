@@ -28,8 +28,8 @@
 #define NUMBER_OF_TESTS 1
 
 int burstLen = 32;
-int numWords = 0x1240000/4; // make sure to allocate at least one entry of each size
-int iterCnt = 64;
+int numWords = 0x124000/4; // make sure to allocate at least one entry of each size
+int iterCnt = 1;
 static SonicUserRequestProxy *device = 0;
 static sem_t test_sem;
 static size_t test_sz  = numWords*sizeof(unsigned int);
@@ -38,78 +38,64 @@ static int mismatchCount = 0;
 
 class SonicUserIndication : public SonicUserIndicationWrapper
 {
-	public:
-		virtual void sonic_read_version_resp(uint32_t a) {
-			fprintf(stderr, "read version %d\n", a);
-		}
-		virtual void readDone(uint32_t a) {
-			fprintf(stderr, "SonicUser::readDone(%x)\n", a);
-			mismatchCount += a;
-			sem_post(&test_sem);
-		}
-		void started(uint32_t words) {
-			fprintf(stderr, "Memwrite::started: words=%x\n", words);
-		}
-		void writeDone ( uint32_t srcGen ) {
-			fprintf(stderr, "Memwrite::writeDone (%08x)\n", srcGen);
-			sem_post(&test_sem);
-		}
-		void reportStateDbg(uint32_t streamWrCnt, uint32_t srcGen) {
-			fprintf(stderr, "Memwrite::reportStateDbg: streamWrCnt=%08x srcGen=%d\n", streamWrCnt, srcGen);
-		}
+    public:
+        virtual void sonic_read_version_resp(uint32_t a) {
+            fprintf(stderr, "read version %d\n", a);
+        }
+        virtual void readDone(uint32_t a) {
+            fprintf(stderr, "SonicUser::readDone(%x)\n", a);
+            mismatchCount += a;
+            sem_post(&test_sem);
+        }
+        void writeDone ( uint32_t srcGen ) {
+            fprintf(stderr, "Memwrite::writeDone (%08x)\n", srcGen);
+            sem_post(&test_sem);
+        }
         void writeTxCred (uint32_t cred) {
             fprintf(stderr, "Received Cred %d\n", cred);
         }
-		SonicUserIndication(unsigned int id) : SonicUserIndicationWrapper(id){}
+        void writeRxCred (uint32_t cred) {
+            fprintf(stderr, "Received Cred %d\n", cred);
+        }
+        SonicUserIndication(unsigned int id) : SonicUserIndicationWrapper(id){}
 };
 
 int main(int argc, const char **argv)
 {
-    int test_result = 0;
-    int srcAlloc;
-    unsigned int *srcBuffer = 0;
+    int mismatch = 0;
+    uint32_t sg = 0;
+    int max_error = 10;
 
-	fprintf(stderr, "Main::allocating memory...\n");
-    srcAlloc = portalAlloc(alloc_sz, 0);
-    srcBuffer = (unsigned int *)portalMmap(srcAlloc, alloc_sz);
+    if (sem_init(&test_sem, 1, 0)) {
+        fprintf(stderr, "error: failed to init test_sem\n");
+        exit(1);
+    }
+    fprintf(stderr, "testmemwrite: start %s %s\n", __DATE__, __TIME__);
+    DmaManager *dma = platformInit();
+    device = new SonicUserRequestProxy(IfcNames_SonicUserRequestS2H);
+    SonicUserIndication deviceIndication(IfcNames_SonicUserIndicationH2S);
+
+    fprintf(stderr, "main::allocating memory...\n");
+    int dstAlloc = portalAlloc(alloc_sz, 0);
+    unsigned int *dstBuffer = (unsigned int *)portalMmap(dstAlloc, alloc_sz);
+    unsigned int ref_dstAlloc = dma->reference(dstAlloc);
     for (int i = 0; i < numWords; i++)
-        srcBuffer[i] = i;
-    portalCacheFlush(srcAlloc, srcBuffer, alloc_sz, 1);
-    fprintf(stderr, "Main::flush and invalidate complete\n");
-
-	fprintf(stderr, "Main::%s %s\n", __DATE__, __TIME__);
-	DmaManager *dma = platformInit();
-	device = new SonicUserRequestProxy(IfcNames_SonicUserRequestS2H);
-	SonicUserIndication memReadIndication(IfcNames_SonicUserIndicationH2S);
-
-    /* Test 1: check that match is ok */
-    unsigned int ref_srcAlloc = dma->reference(srcAlloc);
-    fprintf(stderr, "ref_srcAlloc=%d\n", ref_srcAlloc);
-    fprintf(stderr, "Main::orig_test read numWords=%d burstLen=%d iterCnt=%d\n", numWords, burstLen, iterCnt);
+        dstBuffer[i] = 0xDEADBEEF;
+    portalCacheFlush(dstAlloc, dstBuffer, alloc_sz, 1);
+    fprintf(stderr, "testmemwrite: flush and invalidate complete\n");
+    fprintf(stderr, "testmemwrite: starting write %08x\n", numWords);
     portalTimerStart(0);
-    device->startRead(ref_srcAlloc, 0, numWords * 4, burstLen * 4, iterCnt);
+    device->startWrite(ref_dstAlloc, 0, numWords, burstLen, iterCnt);
     sem_wait(&test_sem);
-    if (mismatchCount) {
-        fprintf(stderr, "Main::first test failed to match %d.\n", mismatchCount);
-        test_result++;     // failed
+    for (int i = 0; i < numWords; i++) {
+        if (dstBuffer[i] != sg) {
+            mismatch++;
+            if (max_error-- > 0)
+                fprintf(stderr, "testmemwrite: [%d] actual %08x expected %08x\n", i, dstBuffer[i], sg);
+        }
+        sg++;
     }
     platformStatistics();
-
-    /* Test 2: check that mismatch is detected */
-    srcBuffer[0] = -1;
-    srcBuffer[numWords/2] = -1;
-    srcBuffer[numWords-1] = -1;
-    portalCacheFlush(srcAlloc, srcBuffer, alloc_sz, 1);
-
-    fprintf(stderr, "Starting second read, mismatches expected\n");
-    mismatchCount = 0;
-    device->startRead(ref_srcAlloc, 0, numWords * 4, burstLen * 4, iterCnt);
-    sem_wait(&test_sem);
-    if (mismatchCount != 3/*number of errors introduced above*/ * iterCnt) {
-        fprintf(stderr, "Main::second test failed to match mismatchCount=%d (expected %d) iterCnt=%d numWords=%d.\n",
-            mismatchCount, 3*iterCnt,
-            iterCnt, numWords);
-        test_result++;     // failed
-    }
-    return test_result;
+    fprintf(stderr, "testmemwrite: mismatch count %d.\n", mismatch);
+    exit(mismatch);
 }

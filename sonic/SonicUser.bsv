@@ -43,27 +43,38 @@ typedef 128    TxCredTotal;
 typedef 32     TxCredThres;
 typedef 100000 TxCredTimeout;
 
+typedef 128    RxCredTotal;
+typedef 32     RxCredThres;
+
 typedef TDiv#(DataBusWidth,32) DataBusWords;
 typedef struct {
+   SGLId sglId;
    Bit#(MemOffsetSize) offset;
    Bit#(32) len;
+   Bit#(BurstLenSize) burstLen;
+   Bit#(32) nDesc;
 } TxDesc deriving (Eq, Bits);
+
+typedef struct {
+   SGLId sglId;
+   Bit#(MemOffsetSize) offset;
+   Bit#(32) len;
+   Bit#(BurstLenSize) burstLen;
+   Bit#(32) nDesc;
+} RxDesc deriving (Eq, Bits);
 
 interface SonicUserRequest;
    method Action sonic_read_version();
-   method Action startRead(Bit#(32) pointer, Bit#(32) offset, Bit#(32) numBytes, Bit#(32) burstLen, Bit#(32) iterCnt);
+   method Action startRead(Bit#(32) pointer, Bit#(32) offset, Bit#(32) numBytes, Bit#(32) burstLen);
    method Action startWrite(Bit#(32) pointer, Bit#(32) offset, Bit#(32) numWords, Bit#(32) burstLen, Bit#(32) iterCnt);
-   method Action getStateDbg();
-   method Action writeTxDesc(TxDesc desc);
 endinterface
 
 interface SonicUserIndication;
    method Action sonic_read_version_resp(Bit#(32) version);
    method Action readDone(Bit#(32) mismatchCnt);
-   method Action started(Bit#(32) numWords);
-   method Action reportStateDbg(Bit#(32) wrCnt, Bit#(32) srcGen);
    method Action writeDone(Bit#(32) v);
    method Action writeTxCred(UInt#(32) v);
+   method Action writeRxCred(UInt#(32) v);
 endinterface
 
 interface SonicUser;
@@ -78,53 +89,50 @@ typedef TMul#(NumOutstandingRequests, TMul#(32, 4)) BufferSizeBytes;
 module mkSonicUser#(SonicUserIndication indication)(SonicUser);
    Clock defaultClock <- exposeCurrentClock();
 
-   Reg#(Bit#(32))  cycle <- mkReg(0);
+   let verbose = True;
 
-   // DMA Read
-   Reg#(SGLId)           pointer <- mkReg(0);
-   Reg#(Bit#(32))       numBytes <- mkReg(0);
-   Reg#(Bit#(MemOffsetSize)) offset <- mkReg(0);
-   Reg#(Bit#(BurstLenSize)) burstLenBytes <- mkReg(0);
-   Reg#(Bit#(32))  itersToFinish <- mkReg(0);
-   Reg#(Bit#(32))   itersToStart <- mkReg(0);
+   Reg#(Bit#(32)) cycle <- mkReg(0);
+   Reg#(TxDesc) newTxDesc <- mkReg(unpack(0));
+   FIFOF#(TxDesc) txDescQueue <- mkSizedFIFOF(valueof(TxCredTotal));
+   ConfigCounter#(32) txCredFreed <- mkConfigCounter(0);
+   FIFOF#(UInt#(32)) txCredCf <- mkSizedFIFOF(8);
+
    MemreadEngine#(DataBusWidth,NumOutstandingRequests,1) re <- mkMemreadEngineBuff(valueOf(BufferSizeBytes));
 
-   FIFOF#(UInt#(32))         txCredCf <- mkSizedFIFOF(8);
-   ConfigCounter#(32)     txCredFreed <- mkConfigCounter(0);
-   FIFOF#(TxDesc)         txDescQueue <- mkSizedFIFOF(valueof(TxCredTotal));
-
-   rule every_cycle;
+   rule everyCycle;
       cycle <= cycle + 1;
    endrule
 
-   rule enq_tx_desc (txDescQueue.notFull && itersToStart > 0);
-      $display("Test: txDescQueue.enq %d", cycle);
-      txDescQueue.enq(TxDesc{offset: offset, len: numBytes});
-      itersToStart <= itersToStart-1;
+   // Tx Path
+   rule enqTxDesc (txDescQueue.notFull && newTxDesc.nDesc > 0);
+      if (verbose) $display("Test: Enqueue TxDesc %d %d", newTxDesc.offset, newTxDesc.len);
+      txDescQueue.enq(newTxDesc);
+      newTxDesc.nDesc <= newTxDesc.nDesc-1;
    endrule
 
    // Credit Writeback is triggered by either timeout or threshold.
-   rule tx_cred_wb_timeout ((cycle % fromInteger(valueOf(TxCredTimeout)) == 0) && !txCredCf.notEmpty);
+   rule txCreditWritebackTimeout ((cycle % fromInteger(valueOf(TxCredTimeout)) == 0) && !txCredCf.notEmpty);
       if (txCredFreed.read != 0) begin
          indication.writeTxCred(txCredFreed.read);
          txCredFreed.decrement(txCredFreed.read);
       end
    endrule
 
-   rule tx_cred_wb_threshold;
+   rule txCreditWritebackThreshold;
       let v <- toGet(txCredCf).get;
       indication.writeTxCred(v);
-      $display("Test: indication write %d", v);
    endrule
 
-   rule issue_tx_pkt;
-      $display("Test: request.put");
+   rule dmaRead;
       let v <- toGet(txDescQueue).get;
-      re.readServers[0].request.put(MemengineCmd{sglId:pointer, base:offset, len:numBytes, burstLen:burstLenBytes});
+      re.readServers[0].request.put(MemengineCmd{tag:0,
+                                                 sglId:v.sglId,
+                                                 base:v.offset,
+                                                 len:v.len,
+                                                 burstLen:v.burstLen});
       txCredFreed.increment(1);
       // tigger writeback is freed txcred is more than threshold
       if ((txCredFreed.read>=fromInteger(valueOf(TxCredThres))) && txCredCf.notFull) begin
-          $display("Test: txCredFreed %d", txCredFreed.read);
           txCredCf.enq(txCredFreed.read);
           txCredFreed.decrement(txCredFreed.read);
       end
@@ -134,69 +142,60 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
       // first pipeline stage
       if (re.dataPipes[0].notEmpty()) begin
          let v <- toGet(re.dataPipes[0]).get;
+         // send to MAC
       end
    endrule
 
-   rule finish if (itersToFinish > 0);
-      $display("Test: response.get itersToFinish %x", itersToFinish);
+   rule finish;
       let rv <- re.readServers[0].response.get;
-      if (itersToFinish == 1) begin
-	 //indication.readDone(mismatchCounts);
-      end
-      itersToFinish <= itersToFinish - 1;
+      // Not Used
    endrule
 
-   // DMA Write
-   Reg#(SGLId)     wrPointer <- mkReg(0);
-   Reg#(Bit#(32)) wrNumWords <- mkReg(0);
-   Reg#(Bit#(32)) wrBurstLen <- mkReg(0);
-   FIFOF#(void)         wrCf <- mkSizedFIFOF(1);
+   // Rx Path
+   FIFOF#(RxDesc) rxDescQueue <- mkSizedFIFOF(valueof(RxCredTotal));
+   Reg#(RxDesc) newRxDesc <- mkReg(unpack(0));
+   Reg#(Bit#(32)) totalRxDesc <- mkReg(0);
 
-   Vector#(NumberOfMasters, Reg#(Bit#(32)))        wrSrcGens <- replicateM(mkReg(0));
-   Reg#(Bit#(32))                                writeOffset <- mkReg(0);
-   Reg#(Bit#(32))                                  wrIterCnt <- mkReg(0);
-   Vector#(NumberOfMasters, Reg#(Bit#(32)))       wrIterCnts <- replicateM(mkReg(0));
-   Vector#(NumberOfMasters, FIFOF#(void))              wrCfs <- replicateM(mkSizedFIFOF(1));
-   Vector#(NumberOfMasters, FIFOF#(Bool))        finishFifos <- replicateM(mkFIFOF);
-   MemwriteEngine#(DataBusWidth,2,NumberOfMasters)        we <- mkMemwriteEngine;
-   Bit#(MemOffsetSize) chunk = (extend(wrNumWords)/fromInteger(valueOf(NumberOfMasters)))*4;
+   Reg#(Bit#(32)) wrSrcGens <- mkReg(0);
+   FIFOF#(Bit#(32)) wrCfs <- mkSizedFIFOF(1);
+   FIFOF#(Bool) finishFifo <- mkFIFOF;
 
-   for(Integer i = 0; i < valueOf(NumberOfMasters); i=i+1) begin
-      rule wrstart (wrIterCnts[i] > 0);
-	 we.writeServers[i].request.put(MemengineCmd{tag:0, sglId:wrPointer, base:extend(writeOffset)+(fromInteger(i)*chunk), len:truncate(chunk), burstLen:truncate(wrBurstLen*4)});
-	 Bit#(32) srcGen = (writeOffset/4)+(fromInteger(i)*truncate(chunk/4));
-	 wrSrcGens[i] <= srcGen;
-	 $display("start %d/%d, %h 0x%x %h", i, valueOf(NumberOfMasters), srcGen, wrIterCnts[i], writeOffset);
-	 wrCfs[i].enq(?);
-	 wrIterCnts[i] <= wrIterCnts[i]-1;
-      endrule
-      rule wrfinish;
-	 $display("finish %d 0x%x", i, wrIterCnts[i]);
-	 let rv <- we.writeServers[i].response.get;
-	 finishFifos[i].enq(rv);
-      endrule
-      rule src if (wrCfs[i].notEmpty);
-	 Vector#(DataBusWords, Bit#(32)) v;
-	 for (Integer j = 0; j < valueOf(DataBusWords); j = j + 1)
-	    v[j] = wrSrcGens[i]+fromInteger(j);
-	 we.dataPipes[i].enq(pack(v));
-	 let new_srcGen = wrSrcGens[i]+fromInteger(valueOf(DataBusWords));
-	 wrSrcGens[i] <= new_srcGen;
-	 if(new_srcGen == (writeOffset/4)+(fromInteger(i+1)*truncate(chunk/4)))
-	    wrCfs[i].deq;
-      endrule
-   end
-
-   PipeOut#(Vector#(NumberOfMasters, Bool)) finishPipe <- mkJoinVector(id, map(toPipeOut, finishFifos));
-   PipeOut#(Bool) finishReducePipe <- mkReducePipe(uncurry(booland), finishPipe);
-
-   rule indicate_finish;
-      let rv <- toGet(finishReducePipe).get();
-      if (wrIterCnt == 1) begin
-	 wrCf.deq;
-	 indication.writeDone(0);
-      end
-      wrIterCnt <= wrIterCnt - 1;
+   MemwriteEngine#(DataBusWidth,2,1) we <- mkMemwriteEngine;
+   rule enqRxDesc(rxDescQueue.notFull && newRxDesc.nDesc>0);
+      $display("Test: PacketGen %d", newRxDesc.nDesc);
+      rxDescQueue.enq(newRxDesc);
+      newRxDesc.nDesc <= newRxDesc.nDesc-1;
+   endrule
+   rule dmaWriteStart;
+      let v <- toGet(rxDescQueue).get;
+      we.writeServers[0].request.put(MemengineCmd{tag:0,
+                                                  sglId:v.sglId,
+                                                  base:extend(v.offset*4),
+                                                  len:v.len*4,
+                                                  burstLen:truncate(v.burstLen*4)});
+      Bit#(32) srcGen = truncate(v.offset/4);
+      wrSrcGens <= srcGen;
+      $display("start %d, %h 0x%x %h", 1, srcGen, newRxDesc.nDesc, v.offset);
+      wrCfs.enq(srcGen);
+   endrule
+   rule dmaWriteFinish;
+      $display("finished");
+      let rv <- we.writeServers[0].response.get;
+      finishFifo.enq(rv);
+   endrule
+   rule dmaSrcGen if (wrCfs.notEmpty);
+      Vector#(DataBusWords, Bit#(32)) v;
+      for (Integer j=0; j<valueof(DataBusWords); j=j+1)
+         v[j] = wrSrcGens+fromInteger(j);
+      let new_srcGen = wrSrcGens + fromInteger(valueOf(DataBusWords));
+      wrSrcGens <= new_srcGen;
+      we.dataPipes[0].enq(pack(v));
+      if (new_srcGen == wrCfs.first)
+         wrCfs.deq;
+   endrule
+   rule dmaSendIndication;
+      let rv <- toGet(finishFifo).get();
+      indication.writeDone(0);
    endrule
 
    interface dmaWriteClient = vec(we.dmaClient);
@@ -206,29 +205,11 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
          let v = `SonicVersion; //Defined in Makefile as time of compilation.
          indication.sonic_read_version_resp(v);
       endmethod
-      method Action startRead(Bit#(32) rp, Bit#(32) off, Bit#(32) nb, Bit#(32) bl, Bit#(32) ic) if (itersToStart == 0 && itersToFinish == 0);
-         $display("start read");
-	 pointer <= rp;
-	 numBytes  <= nb;
-	 burstLenBytes  <= truncate(bl);
-	 itersToFinish <= ic;
-	 itersToStart <= ic;
-         offset <= extend(off);
+      method Action startRead(Bit#(32) rp, Bit#(32) off, Bit#(32) nb, Bit#(32) bl);
+         newTxDesc <= TxDesc{sglId:rp, offset:extend(off), len:nb, burstLen:truncate(bl), nDesc:1};
       endmethod
-      method Action startWrite(Bit#(32) wp, Bit#(32) off, Bit#(32) nw, Bit#(32) bl, Bit#(32) ic);
-	  $display("startWrite pointer=%d offset=%d numWords=%h burstLen=%d iterCnt=%d", wrPointer, off, nw, bl, ic);
-	  indication.started(nw);
-	  wrPointer   <= wp;
-	  wrCf.enq(?);
-	  wrNumWords  <= nw;
-	  wrBurstLen  <= bl;
-	  wrIterCnt   <= ic;
-	  writeOffset <= off*4;
-	  for(Integer i = 0; i < valueOf(NumberOfMasters); i=i+1)
-	     wrIterCnts[i] <= ic;
-       endmethod
-       method Action writeTxDesc(TxDesc desc);
-
+      method Action startWrite(Bit#(32) rp, Bit#(32) off, Bit#(32) nw, Bit#(32) bl, Bit#(32) ic);
+         newRxDesc <= RxDesc{sglId:rp, offset:extend(off), len:nw, burstLen:truncate(bl), nDesc:1};
        endmethod
    endinterface
 endmodule
