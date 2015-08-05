@@ -85,7 +85,7 @@ int main(int argc, const char **argv)
     fprintf(stderr, "testmemwrite: flush and invalidate complete\n");
     fprintf(stderr, "testmemwrite: starting write %08x\n", numWords);
     portalTimerStart(0);
-    device->startWrite(ref_dstAlloc, 0, numWords, burstLen, iterCnt);
+    device->startWrite(ref_dstAlloc, 0, numWords*4, burstLen*4, iterCnt);
     sem_wait(&test_sem);
     for (int i = 0; i < numWords; i++) {
         if (dstBuffer[i] != sg) {

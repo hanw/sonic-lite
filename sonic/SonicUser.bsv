@@ -170,11 +170,11 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
       let v <- toGet(rxDescQueue).get;
       we.writeServers[0].request.put(MemengineCmd{tag:0,
                                                   sglId:v.sglId,
-                                                  base:extend(v.offset*4),
-                                                  len:v.len*4,
-                                                  burstLen:truncate(v.burstLen*4)});
-      Bit#(32) srcGen = truncate(v.offset/4);
-      wrSrcGens <= srcGen;
+                                                  base:extend(v.offset),
+                                                  len:v.len,
+                                                  burstLen:truncate(v.burstLen)});
+      Bit#(32) srcGen = truncate(v.offset);
+      wrSrcGens <= truncate(srcGen);
       $display("start %d, %h 0x%x %h", 1, srcGen, newRxDesc.nDesc, v.offset);
       wrCfs.enq(srcGen);
    endrule
@@ -208,8 +208,8 @@ module mkSonicUser#(SonicUserIndication indication)(SonicUser);
       method Action startRead(Bit#(32) rp, Bit#(32) off, Bit#(32) nb, Bit#(32) bl);
          newTxDesc <= TxDesc{sglId:rp, offset:extend(off), len:nb, burstLen:truncate(bl), nDesc:1};
       endmethod
-      method Action startWrite(Bit#(32) rp, Bit#(32) off, Bit#(32) nw, Bit#(32) bl, Bit#(32) ic);
-         newRxDesc <= RxDesc{sglId:rp, offset:extend(off), len:nw, burstLen:truncate(bl), nDesc:1};
+      method Action startWrite(Bit#(32) rp, Bit#(32) off, Bit#(32) nb, Bit#(32) bl, Bit#(32) ic);
+         newRxDesc <= RxDesc{sglId:rp, offset:extend(off), len:nb, burstLen:truncate(bl), nDesc:1};
        endmethod
    endinterface
 endmodule
