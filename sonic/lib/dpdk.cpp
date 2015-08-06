@@ -8,8 +8,8 @@
 
 #include "dmaManager.h"
 #include "GeneratedTypes.h" //ChannelType!!
-#include "SonicUserRequest.h"
-#include "SonicUserIndication.h"
+#include "SonicTopRequest.h"
+#include "SonicTopIndication.h"
 
 #define SONIC_TX_CREDIT 128
 
@@ -17,15 +17,16 @@ static int trace_memory = 1;
 static pthread_mutex_t mutex;
 static int tx_credit = SONIC_TX_CREDIT;
 static int rx_credit = 0;
+static int rx_nb_avail = 0;
 
-class SonicUserIndication : public SonicUserIndicationWrapper
+class SonicTopIndication : public SonicTopIndicationWrapper
 {
     public:
         void sonic_read_version_resp(uint32_t a) {
             fprintf(stderr, "read version %d\n", a);
         }
         void readDone(uint32_t a) {
-            fprintf(stderr, "SonicUser::readDone(%x)\n", a);
+            fprintf(stderr, "SonicTop::readDone(%x)\n", a);
         }
         void started(uint32_t words) {
             fprintf(stderr, "Memwrite::started: words=%x\n", words);
@@ -45,9 +46,10 @@ class SonicUserIndication : public SonicUserIndicationWrapper
         void writeRxCred (uint32_t cred) {
             pthread_mutex_lock(&mutex);
             rx_credit -= cred;
+            rx_nb_avail += cred;
             pthread_mutex_unlock(&mutex);
         }
-        SonicUserIndication(unsigned int id) : SonicUserIndicationWrapper(id){}
+        SonicTopIndication(unsigned int id) : SonicTopIndicationWrapper(id){}
 };
 
 #define PLATFORM_TILE 0
@@ -69,8 +71,8 @@ class SonicDpdkManager {
         void read_version();
     private:
         DmaManager *dma;
-        SonicUserRequestProxy *device;
-        SonicUserIndication *indication;
+        SonicTopRequestProxy *device;
+        SonicTopIndication *indication;
         int mmu_sglId;
         uint64_t phys_base;
 
@@ -80,8 +82,8 @@ class SonicDpdkManager {
 
 SonicDpdkManager::SonicDpdkManager () {
     dma = platformInit();
-    device = new SonicUserRequestProxy(IfcNames_SonicUserRequestS2H);
-    indication = new SonicUserIndication(IfcNames_SonicUserIndicationH2S);
+    device = new SonicTopRequestProxy(IfcNames_SonicTopRequestS2H);
+    indication = new SonicTopIndication(IfcNames_SonicTopIndicationH2S);
 }
 
 SonicDpdkManager::~SonicDpdkManager() {
@@ -225,7 +227,7 @@ void tx_send_pa(uint64_t base, uint32_t len) {
     theDpdk().tx_send_pa(base, len);
 }
 
-void rx_send_pa(uint32_t id, uint64_t base, uint32_t len) {
+void rx_send_pa(uint64_t base, uint32_t len) {
     theDpdk().rx_send_pa(base, len);
 }
 
@@ -233,7 +235,7 @@ void read_version(void) {
     theDpdk().read_version();
 }
 
-uint32_t tx_credit_available(void) {
+int tx_credit_available(void) {
     return tx_credit;
 }
 
@@ -243,8 +245,12 @@ void tx_credit_decrement(uint32_t v) {
     pthread_mutex_unlock(&mutex);
 }
 
-uint32_t rx_credit_available(void) {
+int rx_credit_available(void) {
     return rx_credit;
+}
+
+int rx_pkt_available(void) {
+    return rx_nb_avail;
 }
 
 void rx_credit_increment(uint32_t v) {

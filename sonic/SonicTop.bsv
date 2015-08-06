@@ -1,3 +1,4 @@
+
 // Copyright (c) 2015 Cornell University.
 
 // Permission is hereby granted, free of charge, to any person
@@ -20,48 +21,217 @@
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-import Top                ::*;
-import Portal             ::*;
-import PcieHost           ::*;
-`ifndef BSIM
-import PcieTop            ::*;
-`endif
-import SonicUser          ::*;
-import HostInterface      ::*;
+import FIFO ::*;
+import FIFOF ::*;
+import SpecialFIFOs ::*;
+import Vector ::*;
+import Arith ::*;
+import BuildVector::*;
+import Pipe ::*;
+import GetPut ::*;
+import ClientServer::*;
+import MemTypes::*;
+import MemreadEngine::*;
+import MemwriteEngine::*;
+import HostInterface::*;
+import ConfigCounter::*;
 
-`ifndef PinType
-`define PinType Empty
-`endif
-typedef `PinType PinType;
+import PacketBuffer::*;
 
-interface SonicTopIfc;
-`ifndef BSIM
-   interface PcieTop#(PinType) pcie;
-`endif
+interface SonicPins;
+   method Action osc_50(Bit#(1) b3b, Bit#(1) b3d, Bit#(1) b4a, Bit#(1) b4d, Bit#(1) b7a, Bit#(1) b7d, Bit#(1) b8a, Bit#(1) b8d);
+   (* prefix="" *)
+   method Action pcie_perst_n(Bit#(1) pcie_perst_n);
+   method Action user_reset_n(Bit#(1) user_reset_n);
 endinterface
 
-(* synthesize, no_default_clock, no_default_reset *)
-(* clock_prefix="", reset_prefix="" *)
-module mkSonicTop #(Clock pcie_refclk_p,
-                    Clock osc_50_b3b,
-                    Clock osc_50_b3d,
-                    Clock osc_50_b4a,
-                    Clock osc_50_b4d,
-                    Clock osc_50_b7a,
-                    Clock osc_50_b7d,
-                    Clock osc_50_b8a,
-                    Clock osc_50_b8d,
-                    //Clock sfp_refclk,
-                    Reset pcie_perst_n,
-                    Reset user_reset_n)(SonicTopIfc);
+typedef 128    TxCredTotal;
+typedef 32     TxCredThres;
+typedef 100000 TxCredTimeout;
 
-`ifdef ALTERA
-   PcieTop#(PinType) pcie_top <- mkPcieTop(pcie_refclk_p, osc_50_b3b, pcie_perst_n);
-`endif
+typedef 128    RxCredTotal;
+typedef 32     RxCredThres;
 
-   // packet buffer
+typedef TDiv#(DataBusWidth,32) DataBusWords;
+typedef struct {
+   SGLId sglId;
+   Bit#(MemOffsetSize) offset;
+   Bit#(32) len;
+   Bit#(BurstLenSize) burstLen;
+   Bit#(32) nDesc;
+} TxDesc deriving (Eq, Bits);
 
-`ifndef BSIM
-   interface pcie = pcie_top;
-`endif
+typedef struct {
+   SGLId sglId;
+   Bit#(MemOffsetSize) offset;
+   Bit#(32) len;
+   Bit#(BurstLenSize) burstLen;
+   Bit#(32) nDesc;
+} RxDesc deriving (Eq, Bits);
+
+interface SonicTopRequest;
+   method Action sonic_read_version();
+   method Action startRead(Bit#(32) pointer, Bit#(32) offset, Bit#(32) numBytes, Bit#(32) burstLen);
+   method Action startWrite(Bit#(32) pointer, Bit#(32) offset, Bit#(32) numWords, Bit#(32) burstLen, Bit#(32) iterCnt);
+endinterface
+
+interface SonicTopIndication;
+   method Action sonic_read_version_resp(Bit#(32) version);
+   method Action readDone(Bit#(32) mismatchCnt);
+   method Action writeDone(Bit#(32) v);
+   method Action writeTxCred(UInt#(32) v);
+   method Action writeRxCred(UInt#(32) v);
+endinterface
+
+interface SonicTop;
+   interface SonicTopRequest request;
+   interface Vector#(1, MemWriteClient#(DataBusWidth)) dmaWriteClient;
+   interface Vector#(1, MemReadClient#(DataBusWidth)) dmaReadClient;
+   interface SonicPins pins;
+endinterface
+
+typedef 12 NumOutstandingRequests;
+typedef TMul#(NumOutstandingRequests, TMul#(32, 4)) BufferSizeBytes;
+module mkSonicTop#(SonicTopIndication indication)(SonicTop);
+   Clock defaultClock <- exposeCurrentClock();
+
+   let verbose = True;
+
+   // DMA Engine
+   Reg#(Bit#(32)) cycle <- mkReg(0);
+   Reg#(TxDesc) newTxDesc <- mkReg(unpack(0));
+   FIFOF#(TxDesc) txDescQueue <- mkSizedFIFOF(valueof(TxCredTotal));
+   ConfigCounter#(32) txCredFreed <- mkConfigCounter(0);
+   FIFOF#(UInt#(32)) txCredCf <- mkSizedFIFOF(8);
+
+   MemreadEngine#(DataBusWidth,NumOutstandingRequests,1) re <- mkMemreadEngineBuff(valueOf(BufferSizeBytes));
+
+   rule everyCycle;
+      cycle <= cycle + 1;
+   endrule
+
+   // Tx Path
+   rule enqTxDesc (txDescQueue.notFull && newTxDesc.nDesc > 0);
+      if (verbose) $display("Test: Enqueue TxDesc %d %d", newTxDesc.offset, newTxDesc.len);
+      txDescQueue.enq(newTxDesc);
+      newTxDesc.nDesc <= newTxDesc.nDesc-1;
+   endrule
+
+   // Credit Writeback is triggered by either timeout or threshold.
+   rule txCreditWritebackTimeout ((cycle % fromInteger(valueOf(TxCredTimeout)) == 0) && !txCredCf.notEmpty);
+      if (txCredFreed.read != 0) begin
+         indication.writeTxCred(txCredFreed.read);
+         txCredFreed.decrement(txCredFreed.read);
+      end
+   endrule
+
+   rule txCreditWritebackThreshold;
+      let v <- toGet(txCredCf).get;
+      indication.writeTxCred(v);
+   endrule
+
+   rule dmaRead;
+      let v <- toGet(txDescQueue).get;
+      re.readServers[0].request.put(MemengineCmd{tag:0,
+                                                 sglId:v.sglId,
+                                                 base:v.offset,
+                                                 len:v.len,
+                                                 burstLen:v.burstLen});
+      txCredFreed.increment(1);
+      // tigger writeback is freed txcred is more than threshold
+      if ((txCredFreed.read>=fromInteger(valueOf(TxCredThres))) && txCredCf.notFull) begin
+          txCredCf.enq(txCredFreed.read);
+          txCredFreed.decrement(txCredFreed.read);
+      end
+   endrule
+
+   rule readData;
+      // first pipeline stage
+      if (re.dataPipes[0].notEmpty()) begin
+         let v <- toGet(re.dataPipes[0]).get;
+         // send to MAC
+      end
+   endrule
+
+   rule finish;
+      let rv <- re.readServers[0].response.get;
+      // Not Used
+   endrule
+
+   // Rx Path
+   FIFOF#(RxDesc) rxDescQueue <- mkSizedFIFOF(valueof(RxCredTotal));
+   Reg#(RxDesc) newRxDesc <- mkReg(unpack(0));
+   Reg#(Bit#(32)) totalRxDesc <- mkReg(0);
+
+   Reg#(Bit#(32)) wrSrcGens <- mkReg(0);
+   FIFOF#(Bit#(32)) wrCfs <- mkSizedFIFOF(1);
+   FIFOF#(Bool) finishFifo <- mkFIFOF;
+
+   FIFOF#(Bit#(32)) testFifo <- mkFIFOF;
+
+   MemwriteEngine#(DataBusWidth,2,1) we <- mkMemwriteEngine;
+   rule enqRxDesc(rxDescQueue.notFull && newRxDesc.nDesc>0);
+      rxDescQueue.enq(newRxDesc);
+      newRxDesc.nDesc <= newRxDesc.nDesc-1;
+      totalRxDesc <= totalRxDesc+1;
+      $display("Test: PacketGen %d", totalRxDesc);
+   endrule
+   rule dmaWriteStart;
+      let v <- toGet(rxDescQueue).get;
+      we.writeServers[0].request.put(MemengineCmd{tag:0,
+                                                  sglId:v.sglId,
+                                                  base:extend(v.offset),
+                                                  len:v.len,
+                                                  burstLen:truncate(v.burstLen)});
+      Bit#(32) srcGen = truncate(v.offset);
+      wrSrcGens <= truncate(srcGen);
+      $display("start %d, %h 0x%x %h", 1, srcGen, newRxDesc.nDesc, v.offset);
+      wrCfs.enq(srcGen);
+   endrule
+   rule dmaWriteFinish;
+      $display("finished");
+      let rv <- we.writeServers[0].response.get;
+      finishFifo.enq(rv);
+   endrule
+   rule dmaSrcGen if (wrCfs.notEmpty);
+      Vector#(DataBusWords, Bit#(32)) v;
+      for (Integer j=0; j<valueof(DataBusWords); j=j+1)
+         v[j] = wrSrcGens+fromInteger(j);
+      let new_srcGen = wrSrcGens + fromInteger(valueOf(DataBusWords));
+      wrSrcGens <= new_srcGen;
+      we.dataPipes[0].enq(pack(v));
+      if (new_srcGen == wrCfs.first)
+         wrCfs.deq;
+   endrule
+   rule dmaSendIndication;
+      let rv <- toGet(finishFifo).get();
+      indication.writeDone(0);
+   endrule
+
+   // Packet Buffer
+
+   // Ethernet Subsystem
+
+   interface pins = (interface SonicPins;
+      // Clocks
+
+      // Resets
+
+      // SFP+
+   endinterface);
+
+   interface dmaWriteClient = vec(we.dmaClient);
+   interface dmaReadClient = vec(re.dmaClient);
+   interface SonicTopRequest request;
+      method Action sonic_read_version();
+         let v = `SonicVersion; //Defined in Makefile as time of compilation.
+         indication.sonic_read_version_resp(v);
+      endmethod
+      method Action startRead(Bit#(32) rp, Bit#(32) off, Bit#(32) nb, Bit#(32) bl);
+         newTxDesc <= TxDesc{sglId:rp, offset:extend(off), len:nb, burstLen:truncate(bl), nDesc:1};
+      endmethod
+      method Action startWrite(Bit#(32) rp, Bit#(32) off, Bit#(32) nb, Bit#(32) bl, Bit#(32) ic);
+         newRxDesc <= RxDesc{sglId:rp, offset:extend(off), len:nb, burstLen:truncate(bl), nDesc:1};
+       endmethod
+   endinterface
 endmodule

@@ -22,28 +22,28 @@
 #include <stdio.h>
 #include <assert.h>
 #include "dmaManager.h"
-#include "SonicUserRequest.h"
-#include "SonicUserIndication.h"
+#include "SonicTopRequest.h"
+#include "SonicTopIndication.h"
 
 #define NUMBER_OF_TESTS 1
 
 int burstLen = 32;
 int numWords = 0x124000/4; // make sure to allocate at least one entry of each size
 int iterCnt = 1;
-static SonicUserRequestProxy *device = 0;
+static SonicTopRequestProxy *device = 0;
 static sem_t test_sem;
 static size_t test_sz  = numWords*sizeof(unsigned int);
 static size_t alloc_sz = test_sz;
 static int mismatchCount = 0;
 
-class SonicUserIndication : public SonicUserIndicationWrapper
+class SonicTopIndication : public SonicTopIndicationWrapper
 {
     public:
         virtual void sonic_read_version_resp(uint32_t a) {
             fprintf(stderr, "read version %d\n", a);
         }
         virtual void readDone(uint32_t a) {
-            fprintf(stderr, "SonicUser::readDone(%x)\n", a);
+            fprintf(stderr, "SonicTop::readDone(%x)\n", a);
             mismatchCount += a;
             sem_post(&test_sem);
         }
@@ -57,7 +57,7 @@ class SonicUserIndication : public SonicUserIndicationWrapper
         void writeRxCred (uint32_t cred) {
             fprintf(stderr, "Received Cred %d\n", cred);
         }
-        SonicUserIndication(unsigned int id) : SonicUserIndicationWrapper(id){}
+        SonicTopIndication(unsigned int id) : SonicTopIndicationWrapper(id){}
 };
 
 int main(int argc, const char **argv)
@@ -72,8 +72,8 @@ int main(int argc, const char **argv)
     }
     fprintf(stderr, "testmemwrite: start %s %s\n", __DATE__, __TIME__);
     DmaManager *dma = platformInit();
-    device = new SonicUserRequestProxy(IfcNames_SonicUserRequestS2H);
-    SonicUserIndication deviceIndication(IfcNames_SonicUserIndicationH2S);
+    device = new SonicTopRequestProxy(IfcNames_SonicTopRequestS2H);
+    SonicTopIndication deviceIndication(IfcNames_SonicTopIndicationH2S);
 
     fprintf(stderr, "main::allocating memory...\n");
     int dstAlloc = portalAlloc(alloc_sz, 0);
