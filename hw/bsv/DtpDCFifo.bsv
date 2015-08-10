@@ -43,9 +43,10 @@ endinterface
 
 module mkDtpDCFifo#(Clock wrclk, Reset wrrst, Clock rdclk)(SyncFIFOIfc#(DtpEvent));
 
-    DtpDCFifoWrap dc <- mkDtpDCFifoWrap(wrclk, wrrst, rdclk);
+    Reset wrrst_n <- mkResetInverter(wrrst, clocked_by wrclk);
+    DtpDCFifoWrap dc <- mkDtpDCFifoWrap(wrclk, wrrst_n, rdclk);
 
-    method Action enq (DtpEvent v) ;
+    method Action enq (DtpEvent v) if (!dc.wrFull);
         dc.enq(v);
     endmethod
 
@@ -58,11 +59,11 @@ module mkDtpDCFifo#(Clock wrclk, Reset wrrst, Clock rdclk)(SyncFIFOIfc#(DtpEvent
     endmethod
 
     method Bool notEmpty() ;
-        return !dc.rdEmpty;
+        return !dc.rdEmpty();
     endmethod
 
     method Bool notFull() ;
-        return !dc.wrFull;
+        return !dc.wrFull();
     endmethod
 
 endmodule

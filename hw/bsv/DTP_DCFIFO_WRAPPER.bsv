@@ -47,14 +47,14 @@ module mkDtpDCFifoWrap#(Clock wrclk, Reset aclr, Clock rdclk)(DtpDCFifoWrap);
     default_clock clk() = wrclk;
     default_reset rst() = aclr;
     input_reset aclr(aclr) = aclr;
-    input_clock rdclk(rdclk) = rdclk;   
-    input_clock wrclk(wrclk) = wrclk;
+    input_clock rdclk(rdclk, (*unused*) UNUSED) = rdclk;   
+    input_clock wrclk(wrclk, (*unused*) UNUSED) = wrclk;
 
     method enq (data) enable(wrreq) clocked_by (wrclk);
     method deq ()   enable(rdreq) clocked_by (rdclk);
     method q first() clocked_by (rdclk);
-    method wrfull wrFull() clocked_by (wrclk);
     method rdempty rdEmpty() clocked_by (rdclk);
+    method wrfull wrFull() clocked_by (wrclk);
 
     schedule (enq, wrFull) CF (deq, first, rdEmpty);
     schedule (first, rdEmpty) CF (first, rdEmpty);
