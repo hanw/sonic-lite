@@ -1,4 +1,3 @@
-
 // Copyright (c) 2015 Cornell University.
 
 // Permission is hereby granted, free of charge, to any person
@@ -36,6 +35,7 @@ import MemwriteEngine::*;
 import HostInterface::*;
 import ConfigCounter::*;
 
+import Ethernet::*;
 import PacketBuffer::*;
 
 interface SonicPins;
@@ -73,6 +73,7 @@ interface SonicTopRequest;
    method Action sonic_read_version();
    method Action startRead(Bit#(32) pointer, Bit#(32) offset, Bit#(32) numBytes, Bit#(32) burstLen);
    method Action startWrite(Bit#(32) pointer, Bit#(32) offset, Bit#(32) numWords, Bit#(32) burstLen, Bit#(32) iterCnt);
+   method Action writePacketData(Bit#(64) upper, Bit#(64) lower, Bit#(1) sop, Bit#(1) eop);
 endinterface
 
 interface SonicTopIndication;
@@ -159,64 +160,53 @@ module mkSonicTop#(SonicTopIndication indication)(SonicTop);
    endrule
 
    // Rx Path
-   FIFOF#(RxDesc) rxDescQueue <- mkSizedFIFOF(valueof(RxCredTotal));
-   Reg#(RxDesc) newRxDesc <- mkReg(unpack(0));
-   Reg#(Bit#(32)) totalRxDesc <- mkReg(0);
+   FIFOF#(RxDesc)            rxDescQueue <- mkSizedFIFOF(valueof(RxCredTotal));
+   Reg#(RxDesc)              newRxDesc   <- mkReg(unpack(0));
+   Reg#(Bit#(32))            totalRxDesc <- mkReg(0);
 
-   Reg#(Bit#(32)) wrSrcGens <- mkReg(0);
-   FIFOF#(Bit#(32)) wrCfs <- mkSizedFIFOF(1);
-   FIFOF#(Bool) finishFifo <- mkFIFOF;
+   FIFOF#(Bit#(EthernetLen)) wrCfs       <- mkSizedFIFOF(1);
+   FIFOF#(Bool)              finishFifo  <- mkFIFOF;
+   Reg#(Bit#(EthernetLen))   currDmaWrLen <- mkReg(0);
 
-   FIFOF#(Bit#(32)) testFifo <- mkFIFOF;
+   RxPacketBuffer            rxPktBuff   <- mkRxPacketBuffer();
 
    MemwriteEngine#(DataBusWidth,2,1) we <- mkMemwriteEngine;
    rule enqRxDesc(rxDescQueue.notFull && newRxDesc.nDesc>0);
       rxDescQueue.enq(newRxDesc);
       newRxDesc.nDesc <= newRxDesc.nDesc-1;
       totalRxDesc <= totalRxDesc+1;
-      $display("Test: PacketGen %d", totalRxDesc);
+      $display("SonicTop::enqRxDesc PacketGen %d", totalRxDesc);
    endrule
    rule dmaWriteStart;
-      let v <- toGet(rxDescQueue).get;
+      let rxDesc <- toGet(rxDescQueue).get;
+      let pktLen <- rxPktBuff.readServer.readLen.get;
       we.writeServers[0].request.put(MemengineCmd{tag:0,
-                                                  sglId:v.sglId,
-                                                  base:extend(v.offset),
-                                                  len:v.len,
-                                                  burstLen:truncate(v.burstLen)});
-      Bit#(32) srcGen = truncate(v.offset);
-      wrSrcGens <= truncate(srcGen);
-      $display("start %d, %h 0x%x %h", 1, srcGen, newRxDesc.nDesc, v.offset);
-      wrCfs.enq(srcGen);
+                                        sglId:rxDesc.sglId,
+                                        base:extend(rxDesc.offset),
+                                        len:extend(pktLen),
+                                        burstLen:truncate(pktLen)});
+      $display("SonicTop::dmaWriteStart offset=%x pktlen=%d", rxDesc.offset, pktLen);
+      rxPktBuff.readServer.readReq.put(EthernetRequest{len: pktLen});
+      wrCfs.enq(pktLen);
+   endrule
+   rule dmaWriteInProgress if (wrCfs.notEmpty);
+      let v <- rxPktBuff.readServer.readData.get;
+      we.dataPipes[0].enq(extend(v.data));
    endrule
    rule dmaWriteFinish;
-      $display("finished");
+      $display("SonicTop::dmaWriteFinish");
       let rv <- we.writeServers[0].response.get;
+      wrCfs.deq;
       finishFifo.enq(rv);
-   endrule
-   rule dmaSrcGen if (wrCfs.notEmpty);
-      Vector#(DataBusWords, Bit#(32)) v;
-      for (Integer j=0; j<valueof(DataBusWords); j=j+1)
-         v[j] = wrSrcGens+fromInteger(j);
-      let new_srcGen = wrSrcGens + fromInteger(valueOf(DataBusWords));
-      wrSrcGens <= new_srcGen;
-      we.dataPipes[0].enq(pack(v));
-      if (new_srcGen == wrCfs.first)
-         wrCfs.deq;
    endrule
    rule dmaSendIndication;
       let rv <- toGet(finishFifo).get();
       indication.writeDone(0);
    endrule
 
-   // Packet Buffer
-
-   // Ethernet Subsystem
-
    interface pins = (interface SonicPins;
       // Clocks
-
       // Resets
-
       // SFP+
    endinterface);
 
@@ -231,7 +221,12 @@ module mkSonicTop#(SonicTopIndication indication)(SonicTop);
          newTxDesc <= TxDesc{sglId:rp, offset:extend(off), len:nb, burstLen:truncate(bl), nDesc:1};
       endmethod
       method Action startWrite(Bit#(32) rp, Bit#(32) off, Bit#(32) nb, Bit#(32) bl, Bit#(32) ic);
+         $display("rp=%x offset=%x len=%x burstLen=%x", rp, off, nb, bl);
          newRxDesc <= RxDesc{sglId:rp, offset:extend(off), len:nb, burstLen:truncate(bl), nDesc:1};
-       endmethod
+      endmethod
+      method Action writePacketData(Bit#(64) upper, Bit#(64) lower, Bit#(1) sop, Bit#(1) eop);
+         let d = EthernetData{data: {upper, lower}, sop: unpack(sop), eop: unpack(eop)};
+         rxPktBuff.writeServer.writeData.put(d);
+      endmethod
    endinterface
 endmodule

@@ -27,8 +27,8 @@
 
 #define NUMBER_OF_TESTS 1
 
-int burstLen = 32;
-int numWords = 0x124000/4; // make sure to allocate at least one entry of each size
+int burstLen = 8;
+int numWords = 0x4000/4; // make sure to allocate at least one entry of each size
 int iterCnt = 1;
 static SonicTopRequestProxy *device = 0;
 static sem_t test_sem;
@@ -62,10 +62,6 @@ class SonicTopIndication : public SonicTopIndicationWrapper
 
 int main(int argc, const char **argv)
 {
-    int mismatch = 0;
-    uint32_t sg = 0;
-    int max_error = 10;
-
     if (sem_init(&test_sem, 1, 0)) {
         fprintf(stderr, "error: failed to init test_sem\n");
         exit(1);
@@ -79,6 +75,30 @@ int main(int argc, const char **argv)
     int dstAlloc = portalAlloc(alloc_sz, 0);
     unsigned int *dstBuffer = (unsigned int *)portalMmap(dstAlloc, alloc_sz);
     unsigned int ref_dstAlloc = dma->reference(dstAlloc);
+
+    int i,j;
+    int dataWidth = 128; // 16 bytes per beat
+    int numBeats = 13; // number of beats
+    int wordsPerBeat = dataWidth / 16;
+    int wordsPerBeat2 = wordsPerBeat / 2;
+    unsigned long long data_hi;
+    unsigned long long data_lo;
+    for (i=0; i< numBeats; i++) {
+        data_hi = 0;
+        data_lo = 0;
+        for (j=0; j < wordsPerBeat2; j++) {
+            data_hi = (data_hi << 16) + (i*8 + j + 4);
+            data_lo = (data_lo << 16) + (i*8 + j);
+        }
+        if (i==0) {
+            device->writePacketData(data_hi, data_lo, 1, 0);
+        } else if (i==numBeats-1) {
+            device->writePacketData(data_hi, data_lo, 0, 1);
+        } else {
+            device->writePacketData(data_hi, data_lo, 0, 0);
+        }
+    }
+
     for (int i = 0; i < numWords; i++)
         dstBuffer[i] = 0xDEADBEEF;
     portalCacheFlush(dstAlloc, dstBuffer, alloc_sz, 1);
@@ -86,16 +106,12 @@ int main(int argc, const char **argv)
     fprintf(stderr, "testmemwrite: starting write %08x\n", numWords);
     portalTimerStart(0);
     device->startWrite(ref_dstAlloc, 0, numWords*4, burstLen*4, iterCnt);
+
     sem_wait(&test_sem);
-    for (int i = 0; i < numWords; i++) {
-        if (dstBuffer[i] != sg) {
-            mismatch++;
-            if (max_error-- > 0)
-                fprintf(stderr, "testmemwrite: [%d] actual %08x expected %08x\n", i, dstBuffer[i], sg);
-        }
-        sg++;
+
+    for (int i=0; i<numBeats*4; i++) {
+        if (i % 4 == 0) fprintf(stderr, "%d ", i * 4);
+        fprintf(stderr, "%08x ", dstBuffer[i]);
+        if ((i+1) % 4 == 0) fprintf(stderr, "\n");
     }
-    platformStatistics();
-    fprintf(stderr, "testmemwrite: mismatch count %d.\n", mismatch);
-    exit(mismatch);
 }

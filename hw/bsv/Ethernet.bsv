@@ -170,4 +170,31 @@ typedef struct {
    Bit#(53) t; //timestamp
 } DtpEvent deriving (Eq, Bits, FShow);
 
+typedef 12   PktAddrWidth;
+typedef 128  PktDataWidth;
+typedef 16   EthernetLen;
+typedef struct {
+   Bool sop;
+   Bool eop;
+   Bit#(PktDataWidth) data;
+} EthernetData deriving (Eq, Bits);
+
+typedef struct {
+   Bit#(EthernetLen) len;
+} EthernetRequest deriving (Eq, Bits);
+
+typedef struct {
+   Bit#(PktAddrWidth) addr;
+   EthernetData       data;
+} ReqTup deriving (Eq, Bits);
+
+instance FShow#(ReqTup);
+   function Fmt fshow (ReqTup req);
+      return ($format(" addr=0x%x ", req.addr)
+              + $format(" data=0x%x ", req.data.data)
+              + $format(" sop= %d ", req.data.sop)
+              + $format(" eop= %d ", req.data.eop));
+   endfunction
+endinstance
+
 endpackage: Ethernet
