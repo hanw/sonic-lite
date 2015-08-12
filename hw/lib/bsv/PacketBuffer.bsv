@@ -36,25 +36,25 @@ import Vector::*;
 import Ethernet::*;
 
 interface PktWriteServer;
-   interface Put#(EthernetData) writeData;
+   interface Put#(EtherData) writeData;
 endinterface
 
 interface PktReadServer;
-   interface Get#(EthernetData) readData;
-   interface Get#(Bit#(EthernetLen)) readLen;
-   interface Put#(EthernetRequest) readReq;
+   interface Get#(EtherData) readData;
+   interface Get#(Bit#(EtherLen)) readLen;
+   interface Put#(EtherReq) readReq;
 endinterface
 
-interface RxPacketBuffer;
+interface PacketBuffer;
    interface PktWriteServer writeServer;
    interface PktReadServer readServer;
 endinterface
 
-module mkRxPacketBuffer(RxPacketBuffer);
+module mkPacketBuffer(PacketBuffer);
    Clock current_clock <- exposeCurrentClock;
    Reset current_reset <- exposeCurrentReset;
 
-   let verbose = True;
+   let verbose = False;
 
    Reg#(Bit#(32))  cycle <- mkReg(0);
    // Mac
@@ -66,47 +66,41 @@ module mkRxPacketBuffer(RxPacketBuffer);
    Wire#(Bool)                  badFrame    <- mkWire;
 
    Reg#(Bit#(PktAddrWidth))     wrCurrPtr   <- mkReg(0);
-   Reg#(Bit#(PktAddrWidth))     wrStartPtr  <- mkReg(0);
-   Reg#(Bit#(EthernetLen))      packetLen   <- mkReg(0);
+   Reg#(Bit#(EtherLen))         packetLen   <- mkReg(0);
    Reg#(Bool)                   inPacket    <- mkReg(False);
 
    // Memory
    BRAM_Configure bramConfig = defaultValue;
    bramConfig.latency = 1;
-   BRAM2Port#(Bit#(PktAddrWidth), EthernetData) memBuffer <- mkBRAM2Server(bramConfig);
+   BRAM2Port#(Bit#(PktAddrWidth), EtherData) memBuffer <- mkBRAM2Server(bramConfig);
 
-   FIFO#(EthernetData) fifoWriteData <- mkFIFO;
-   FIFOF#(Bit#(EthernetLen)) fifoEop <- mkFIFOF;
-   FIFO#(ReqTup) incomingReqs        <- mkFIFO;
+   FIFO#(EtherData) fifoWriteData <- mkFIFO;
+   FIFOF#(Bit#(EtherLen)) fifoEop <- mkFIFOF;
+   FIFO#(ReqTup) incomingReqs     <- mkFIFO;
 
    // Client
    Reg#(Bit#(PktAddrWidth))     rdCurrPtr   <- mkReg(0);
-   Reg#(Bit#(PktAddrWidth))     rdStartPtr  <- mkReg(0);
    Reg#(Bool)                   outPacket   <- mkReg(False);
 
-   FIFOF#(Bit#(EthernetLen))    fifoLen     <- mkSizedFIFOF(16);
-   FIFOF#(Bit#(EthernetLen))    fifoReadReq <- mkSizedFIFOF(4);
-   FIFOF#(EthernetData)         fifoReadData <- mkBypassFIFOF();
+   FIFOF#(Bit#(EtherLen))    fifoLen     <- mkSizedFIFOF(16);
+   FIFOF#(Bit#(EtherLen))    fifoReadReq <- mkSizedFIFOF(4);
+   FIFOF#(EtherData)         fifoReadData <- mkBypassFIFOF();
 
    rule every1;
       cycle <= cycle + 1;
    endrule
 
    rule enq_stage1;
-      EthernetData d <- toGet(fifoWriteData).get;
+      EtherData d <- toGet(fifoWriteData).get;
       incomingReqs.enq(ReqTup{addr: wrCurrPtr, data:d});
-      if (d.sop) begin
-         wrCurrPtr <= wrStartPtr + 1;
-         packetLen <= packetLen + 1;
-      end
-      else if (d.eop) begin
-         wrStartPtr <= wrCurrPtr;
-         fifoEop.enq(packetLen + 1);
+      wrCurrPtr <= wrCurrPtr + 1;
+      Bit#(EtherLen) newPacketLen = packetLen + 1;
+      if (d.eop) begin
+         fifoEop.enq(newPacketLen);
          packetLen <= 0;
       end
       else begin
-         wrCurrPtr <= wrCurrPtr + 1;
-         packetLen <= packetLen + 1;
+         packetLen <= newPacketLen;
       end
    endrule
 
@@ -114,7 +108,7 @@ module mkRxPacketBuffer(RxPacketBuffer);
       ReqTup req <- toGet(incomingReqs).get;
       if (verbose) $display("PacketBuffer::enqueue_first_beat %d", cycle, fshow(req));
       memBuffer.portA.request.put(BRAMRequest{write:True, responseOnWrite:False,
-         address:truncate(req.addr), datain:req.data});
+         address:req.addr, datain:req.data});
       inPacket <= True;
    endrule
 
@@ -122,14 +116,14 @@ module mkRxPacketBuffer(RxPacketBuffer);
       ReqTup req <- toGet(incomingReqs).get;
       if (verbose) $display("PacketBuffer::enqueue_next_beat %d", cycle, fshow(req));
       memBuffer.portA.request.put(BRAMRequest{write:True, responseOnWrite:False,
-         address:truncate(req.addr), datain:req.data});
+         address:req.addr, datain:req.data});
    endrule
 
    rule commit_packet(fifoEop.notEmpty && inPacket);
       ReqTup req <- toGet(incomingReqs).get;
       if (verbose) $display("PacketBuffer::commit_packet %d", cycle, fshow(req));
       memBuffer.portA.request.put(BRAMRequest{write:True, responseOnWrite:False,
-         address:truncate(req.addr), datain:req.data});
+         address:req.addr, datain:req.data});
       let v <- toGet(fifoEop).get;
       fifoLen.enq(v << 4); // beats to bytes
       inPacket <= False;
@@ -137,7 +131,7 @@ module mkRxPacketBuffer(RxPacketBuffer);
 
    rule dequeue_first_beat(!outPacket);
       let v <- toGet(fifoReadReq).get;
-      //if (verbose) $display("PacketBuffer::dequeue_first_beat %d: %x", cycle, v);
+      if (verbose) $display("PacketBuffer::dequeue_first_beat %d: %x %x", cycle, rdCurrPtr, v);
       memBuffer.portB.request.put(BRAMRequest{write:False, responseOnWrite:False,
          address:truncate(rdCurrPtr), datain:?});
       outPacket <= True;
@@ -147,43 +141,42 @@ module mkRxPacketBuffer(RxPacketBuffer);
    rule dequeue_next_beat(outPacket);
       let d <- memBuffer.portB.response.get;
       fifoReadData.enq(d);
-      //if (verbose) $display("PacketBuffer::dequeue_next_beat %d:%x", cycle, d);
       if (d.eop) begin
          outPacket <= False;
-         rdStartPtr <= rdCurrPtr;
       end
       else begin
          memBuffer.portB.request.put(BRAMRequest{write:False, responseOnWrite:False,
             address:truncate(rdCurrPtr), datain:?});
          rdCurrPtr <= rdCurrPtr + 1;
       end
+      if (verbose) $display("PacketBuffer::dequeue_next_beat %d: %x %x", cycle, rdCurrPtr, d);
    endrule
 
    interface PktWriteServer writeServer;
       interface Put writeData;
-         method Action put(EthernetData d);
-            //if (verbose) $display("PacketBuffer::writeData %d: Packet data %x", cycle, d.data);
+         method Action put(EtherData d);
+            if (verbose) $display("PacketBuffer::writeData %d: Packet data %x", cycle, d.data);
             fifoWriteData.enq(d);
          endmethod
       endinterface
    endinterface
    interface PktReadServer readServer;
       interface Get readData;
-         method ActionValue#(EthernetData) get if (fifoReadData.notEmpty);
+         method ActionValue#(EtherData) get if (fifoReadData.notEmpty);
             let v = fifoReadData.first;
             fifoReadData.deq;
             return v;
          endmethod
       endinterface
       interface Get readLen;
-         method ActionValue#(Bit#(EthernetLen)) get if (fifoLen.notEmpty);
+         method ActionValue#(Bit#(EtherLen)) get if (fifoLen.notEmpty);
             let v = fifoLen.first;
             fifoLen.deq;
             return v;
          endmethod
       endinterface
       interface Put readReq;
-         method Action put(EthernetRequest r);
+         method Action put(EtherReq r);
             fifoReadReq.enq(r.len);
          endmethod
       endinterface

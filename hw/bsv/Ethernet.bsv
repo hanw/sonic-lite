@@ -172,20 +172,20 @@ typedef struct {
 
 typedef 12   PktAddrWidth;
 typedef 128  PktDataWidth;
-typedef 16   EthernetLen;
+typedef 16   EtherLen;
 typedef struct {
    Bool sop;
    Bool eop;
    Bit#(PktDataWidth) data;
-} EthernetData deriving (Eq, Bits);
+} EtherData deriving (Eq, Bits);
 
 typedef struct {
-   Bit#(EthernetLen) len;
-} EthernetRequest deriving (Eq, Bits);
+   Bit#(EtherLen) len;
+} EtherReq deriving (Eq, Bits);
 
 typedef struct {
    Bit#(PktAddrWidth) addr;
-   EthernetData       data;
+   EtherData          data;
 } ReqTup deriving (Eq, Bits);
 
 instance FShow#(ReqTup);

@@ -98,20 +98,22 @@ module mkSonicTop#(SonicTopIndication indication)(SonicTop);
 
    let verbose = True;
 
-   // DMA Engine
+   // Tx Path
    Reg#(Bit#(32)) cycle <- mkReg(0);
    Reg#(TxDesc) newTxDesc <- mkReg(unpack(0));
    FIFOF#(TxDesc) txDescQueue <- mkSizedFIFOF(valueof(TxCredTotal));
    ConfigCounter#(32) txCredFreed <- mkConfigCounter(0);
    FIFOF#(UInt#(32)) txCredCf <- mkSizedFIFOF(8);
 
+   FIFOF#(void) txMacCfs <- mkSizedFIFOF(1);
+
    MemreadEngine#(DataBusWidth,NumOutstandingRequests,1) re <- mkMemreadEngineBuff(valueOf(BufferSizeBytes));
+   PacketBuffer txPktBuff <- mkPacketBuffer();
 
    rule everyCycle;
       cycle <= cycle + 1;
    endrule
 
-   // Tx Path
    rule enqTxDesc (txDescQueue.notFull && newTxDesc.nDesc > 0);
       if (verbose) $display("Test: Enqueue TxDesc %x %d", newTxDesc.offset, newTxDesc.len);
       txDescQueue.enq(newTxDesc);
@@ -134,30 +136,46 @@ module mkSonicTop#(SonicTopIndication indication)(SonicTop);
 
    rule dmaRead;
       let v <- toGet(txDescQueue).get;
-      re.readServers[0].request.put(MemengineCmd{tag:0,
-                                       sglId:v.sglId,
-                                       base:v.offset,
-                                       len:(v.len),
-                                       burstLen:truncate(v.len)});
-      txCredFreed.increment(1);
-      // tigger writeback is freed txcred is more than threshold
-      if ((txCredFreed.read>=fromInteger(valueOf(TxCredThres))) && txCredCf.notFull) begin
-          txCredCf.enq(txCredFreed.read);
-          txCredFreed.decrement(txCredFreed.read);
-      end
+      //FIXME: burstlen
+      re.read_servers[0].cmdServer.request.put(MemengineCmd{tag:0, sglId:v.sglId, base:v.offset, len:v.len,
+                                               burstLen:truncate(v.len)});
    endrule
 
    rule readData;
-      // first pipeline stage
-      if (re.dataPipes[0].notEmpty()) begin
-         let v <- toGet(re.dataPipes[0]).get;
-         //$display("Send: %x", v);
+      if (re.read_servers[0].memDataPipe.notEmpty()) begin
+         let v <- toGet(re.read_servers[0].memDataPipe).get;
+         txPktBuff.writeServer.writeData.put(EtherData{sop: v.first, eop: v.last, data:v.data});
       end
    endrule
 
+   rule txMacStart;
+      let pktLen <- txPktBuff.readServer.readLen.get;
+      txPktBuff.readServer.readReq.put(EtherReq{len: pktLen});
+      txMacCfs.enq(?);
+   endrule
+
+   rule txMacInProgress if (txMacCfs.notEmpty);
+      let v <- txPktBuff.readServer.readData.get;
+      if (verbose) $display("Send: data=%x sop=%x eop=%x", v.data, v.sop, v.eop);
+      // rule to read 128 bit packet from buffer, and enqueue 64 bit twice to txfifo
+
+
+      if (v.eop) begin
+         txCredFreed.increment(1);
+         // tigger writeback is freed txcred is more than threshold
+         if ((txCredFreed.read>=fromInteger(valueOf(TxCredThres))) && txCredCf.notFull) begin
+            txCredCf.enq(txCredFreed.read);
+            txCredFreed.decrement(txCredFreed.read);
+         end
+         txMacCfs.deq;
+      end
+   endrule
+
+   // rule to clock crossing txfifo to 156.25MHz domain, and output MAC interface.
+
    rule dmaReadFinish;
-      let rv <- re.readServers[0].response.get;
-      //indication.readDone(0);
+      // clear cmdServer response
+      let rv <- re.read_servers[0].cmdServer.response.get;
    endrule
 
    // Rx Path
@@ -165,11 +183,11 @@ module mkSonicTop#(SonicTopIndication indication)(SonicTop);
    Reg#(RxDesc)              newRxDesc   <- mkReg(unpack(0));
    Reg#(Bit#(32))            totalRxDesc <- mkReg(0);
 
-   FIFOF#(Bit#(EthernetLen)) wrCfs       <- mkSizedFIFOF(1);
+   FIFOF#(Bit#(EtherLen)) wrCfs       <- mkSizedFIFOF(1);
    FIFOF#(Bool)              finishFifo  <- mkFIFOF;
-   Reg#(Bit#(EthernetLen))   currDmaWrLen <- mkReg(0);
+   Reg#(Bit#(EtherLen))   currDmaWrLen <- mkReg(0);
 
-   RxPacketBuffer            rxPktBuff   <- mkRxPacketBuffer();
+   PacketBuffer                rxPktBuff <- mkPacketBuffer();
 
    MemwriteEngine#(DataBusWidth,2,1) we <- mkMemwriteEngine;
    rule enqRxDesc(rxDescQueue.notFull && newRxDesc.nDesc>0);
@@ -181,28 +199,30 @@ module mkSonicTop#(SonicTopIndication indication)(SonicTop);
    rule dmaWriteStart;
       let rxDesc <- toGet(rxDescQueue).get;
       let pktLen <- rxPktBuff.readServer.readLen.get;
-      we.writeServers[0].request.put(MemengineCmd{tag:0,
-                                        sglId:rxDesc.sglId,
-                                        base:extend(rxDesc.offset),
-                                        len:extend(pktLen),
-                                        burstLen:truncate(pktLen)});
+      we.write_servers[0].cmdServer.request.put(MemengineCmd{tag:0, sglId:rxDesc.sglId,
+                                                base:extend(rxDesc.offset), len:extend(pktLen),
+                                                burstLen:truncate(pktLen)});
       $display("SonicTop::dmaWriteStart offset=%x pktlen=%d", rxDesc.offset, pktLen);
-      rxPktBuff.readServer.readReq.put(EthernetRequest{len: pktLen});
+      rxPktBuff.readServer.readReq.put(EtherReq{len: pktLen});
       wrCfs.enq(pktLen);
    endrule
    rule dmaWriteInProgress if (wrCfs.notEmpty);
       let v <- rxPktBuff.readServer.readData.get;
-      we.dataPipes[0].enq(extend(v.data));
+      we.write_servers[0].dataPipe.enq(extend(v.data));
    endrule
    rule dmaWriteFinish;
       $display("SonicTop::dmaWriteFinish");
-      let rv <- we.writeServers[0].response.get;
+      let rv <- we.write_servers[0].cmdServer.response.get;
       wrCfs.deq;
       indication.writeDone(0);
    endrule
 
-   Reg#(Bit#(32)) tx_cnt <- mkReg(0);
+   // rule to clock crossing from 156.25MHz to 250MHz with 64bit
+   // rule to pack 2x64 read from MAC interface to 128bit, and write to rxbuff
 
+   // Network MAC and PHY
+
+   Reg#(Bit#(32)) tx_cnt <- mkReg(0);
    interface pins = (interface SonicPins;
       // Clocks
       // Resets
@@ -225,7 +245,7 @@ module mkSonicTop#(SonicTopIndication indication)(SonicTop);
          newRxDesc <= RxDesc{sglId:rp, offset:extend(off), len:nb, burstLen:truncate(bl), nDesc:1};
       endmethod
       method Action writePacketData(Bit#(64) upper, Bit#(64) lower, Bit#(1) sop, Bit#(1) eop);
-         let d = EthernetData{data: {upper, lower}, sop: unpack(sop), eop: unpack(eop)};
+         let d = EtherData{data: {upper, lower}, sop: unpack(sop), eop: unpack(eop)};
          rxPktBuff.writeServer.writeData.put(d);
       endmethod
    endinterface
