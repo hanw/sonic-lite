@@ -14,7 +14,7 @@ AUTOTOP= --interface pins:SonicTop.pins
 PIN_TYPE = SonicPins
 PIN_TYPE_INCLUDE = SonicTop
 BSVFILES=$(CONNECTALDIR)/bsv/MemTypes.bsv $(PROJTOP)/../sonic/SonicTop.bsv
-CPPFILES=$(PROJTOP)/lib/dpdk.cpp
+CPPFILES=$(PROJTOP)/cpp/dpdk.cpp
 CPPFILES2=$(PROJTOP)/t/test-transmit-single-packet.cpp
 CONNECTALFLAGS += -l="tins"
 NUMBER_OF_MASTERS=1
