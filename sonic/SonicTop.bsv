@@ -72,7 +72,7 @@ typedef struct {
 interface SonicTopRequest;
    method Action sonic_read_version();
    method Action startRead(Bit#(32) pointer, Bit#(32) offset, Bit#(32) numBytes, Bit#(32) burstLen);
-   method Action startWrite(Bit#(32) pointer, Bit#(32) offset, Bit#(32) numWords, Bit#(32) burstLen, Bit#(32) iterCnt);
+   method Action startWrite(Bit#(32) pointer, Bit#(32) offset, Bit#(32) numWords, Bit#(32) burstLen);
    method Action writePacketData(Bit#(64) upper, Bit#(64) lower, Bit#(1) sop, Bit#(1) eop);
 endinterface
 
@@ -113,7 +113,7 @@ module mkSonicTop#(SonicTopIndication indication)(SonicTop);
 
    // Tx Path
    rule enqTxDesc (txDescQueue.notFull && newTxDesc.nDesc > 0);
-      if (verbose) $display("Test: Enqueue TxDesc %d %d", newTxDesc.offset, newTxDesc.len);
+      if (verbose) $display("Test: Enqueue TxDesc %x %d", newTxDesc.offset, newTxDesc.len);
       txDescQueue.enq(newTxDesc);
       newTxDesc.nDesc <= newTxDesc.nDesc-1;
    endrule
@@ -129,15 +129,16 @@ module mkSonicTop#(SonicTopIndication indication)(SonicTop);
    rule txCreditWritebackThreshold;
       let v <- toGet(txCredCf).get;
       indication.writeTxCred(v);
+      if (verbose) $display("Write back cred %d", v);
    endrule
 
    rule dmaRead;
       let v <- toGet(txDescQueue).get;
       re.readServers[0].request.put(MemengineCmd{tag:0,
-                                                 sglId:v.sglId,
-                                                 base:v.offset,
-                                                 len:v.len,
-                                                 burstLen:v.burstLen});
+                                       sglId:v.sglId,
+                                       base:v.offset,
+                                       len:(v.len),
+                                       burstLen:truncate(v.len)});
       txCredFreed.increment(1);
       // tigger writeback is freed txcred is more than threshold
       if ((txCredFreed.read>=fromInteger(valueOf(TxCredThres))) && txCredCf.notFull) begin
@@ -150,13 +151,13 @@ module mkSonicTop#(SonicTopIndication indication)(SonicTop);
       // first pipeline stage
       if (re.dataPipes[0].notEmpty()) begin
          let v <- toGet(re.dataPipes[0]).get;
-         // send to MAC
+         //$display("Send: %x", v);
       end
    endrule
 
-   rule finish;
+   rule dmaReadFinish;
       let rv <- re.readServers[0].response.get;
-      // Not Used
+      //indication.readDone(0);
    endrule
 
    // Rx Path
@@ -197,19 +198,16 @@ module mkSonicTop#(SonicTopIndication indication)(SonicTop);
       $display("SonicTop::dmaWriteFinish");
       let rv <- we.writeServers[0].response.get;
       wrCfs.deq;
-      finishFifo.enq(rv);
-   endrule
-   rule dmaSendIndication;
-      let rv <- toGet(finishFifo).get();
       indication.writeDone(0);
    endrule
+
+   Reg#(Bit#(32)) tx_cnt <- mkReg(0);
 
    interface pins = (interface SonicPins;
       // Clocks
       // Resets
       // SFP+
    endinterface);
-
    interface dmaWriteClient = vec(we.dmaClient);
    interface dmaReadClient = vec(re.dmaClient);
    interface SonicTopRequest request;
@@ -218,9 +216,11 @@ module mkSonicTop#(SonicTopIndication indication)(SonicTop);
          indication.sonic_read_version_resp(v);
       endmethod
       method Action startRead(Bit#(32) rp, Bit#(32) off, Bit#(32) nb, Bit#(32) bl);
+         $display("rp=%x offset=%x len=%x burstLen=%x, tx_cnt=%d", rp, off, nb, bl, tx_cnt);
          newTxDesc <= TxDesc{sglId:rp, offset:extend(off), len:nb, burstLen:truncate(bl), nDesc:1};
+         tx_cnt <= tx_cnt + 1;
       endmethod
-      method Action startWrite(Bit#(32) rp, Bit#(32) off, Bit#(32) nb, Bit#(32) bl, Bit#(32) ic);
+      method Action startWrite(Bit#(32) rp, Bit#(32) off, Bit#(32) nb, Bit#(32) bl);
          $display("rp=%x offset=%x len=%x burstLen=%x", rp, off, nb, bl);
          newRxDesc <= RxDesc{sglId:rp, offset:extend(off), len:nb, burstLen:truncate(bl), nDesc:1};
       endmethod

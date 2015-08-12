@@ -15,7 +15,8 @@ PIN_TYPE = SonicPins
 PIN_TYPE_INCLUDE = SonicTop
 BSVFILES=$(CONNECTALDIR)/bsv/MemTypes.bsv $(PROJTOP)/../sonic/SonicTop.bsv
 CPPFILES=$(PROJTOP)/lib/dpdk.cpp
-CPPFILES2=$(PROJTOP)/../sw/test-dma.cpp
+CPPFILES2=$(PROJTOP)/t/test-transmit-single-packet.cpp
+CONNECTALFLAGS += -l="tins"
 NUMBER_OF_MASTERS=1
 PIN_BINDINGS?=PCIE:PCIE LED:LED OSC:OSC SFPA:SFPA SFPB:SFPB SFPC:SFPC SFPD:SFPD SFP:SFP I2C:CLOCK BUTTON:BUTTON
 CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/altera_mac/altera_mac.qip # To be removed.

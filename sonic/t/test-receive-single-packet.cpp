@@ -18,14 +18,13 @@
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
  * DEALINGS IN THE SOFTWARE.
  */
+#include <assert.h>
 #include <pthread.h>
 #include <stdio.h>
-#include <assert.h>
+
 #include "dmaManager.h"
 #include "SonicTopRequest.h"
 #include "SonicTopIndication.h"
-
-#define NUMBER_OF_TESTS 1
 
 int burstLen = 8;
 int numWords = 0x4000/4; // make sure to allocate at least one entry of each size

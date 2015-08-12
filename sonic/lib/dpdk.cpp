@@ -38,10 +38,10 @@ class SonicTopIndication : public SonicTopIndicationWrapper
             fprintf(stderr, "Memwrite::reportStateDbg: streamWrCnt=%08x srcGen=%d\n", streamWrCnt, srcGen);
         }
         void writeTxCred (uint32_t cred) {
-            fprintf(stderr, "Received Cred %d\n", cred);
             pthread_mutex_lock(&mutex);
             tx_credit += cred;
             pthread_mutex_unlock(&mutex);
+            fprintf(stderr, "Current credit %d\n", tx_credit);
         }
         void writeRxCred (uint32_t cred) {
             pthread_mutex_lock(&mutex);
@@ -112,13 +112,13 @@ SonicDpdkManager::read_version() {
 void
 SonicDpdkManager::tx_send_pa(uint64_t pkt_base, uint32_t len) {
     uint32_t offset = pkt_base - phys_base;
-    device->startRead(mmu_sglId, offset, len*4, 32*4);
+    device->startRead(mmu_sglId, offset, len, len);
 }
 
 void
 SonicDpdkManager::rx_send_pa(uint64_t pkt_base, uint32_t len) {
     uint32_t offset = pkt_base - phys_base;
-    device->startWrite(mmu_sglId, offset, len*4, 32*4, 1);
+    device->startWrite(mmu_sglId, offset, len, len);
 }
 
 int

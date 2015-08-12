@@ -66,6 +66,7 @@ module mkRxPacketBuffer(RxPacketBuffer);
    Wire#(Bool)                  badFrame    <- mkWire;
 
    Reg#(Bit#(PktAddrWidth))     wrCurrPtr   <- mkReg(0);
+   Reg#(Bit#(PktAddrWidth))     wrStartPtr  <- mkReg(0);
    Reg#(Bit#(EthernetLen))      packetLen   <- mkReg(0);
    Reg#(Bool)                   inPacket    <- mkReg(False);
 
@@ -75,9 +76,8 @@ module mkRxPacketBuffer(RxPacketBuffer);
    BRAM2Port#(Bit#(PktAddrWidth), EthernetData) memBuffer <- mkBRAM2Server(bramConfig);
 
    FIFO#(EthernetData) fifoWriteData <- mkFIFO;
-   FIFOF#(void) fifoSop              <- mkFIFOF;
-   FIFOF#(void) fifoEop              <- mkFIFOF;
-   FIFO#(ReqTup) incomingReqs        <- mkFIFO();
+   FIFOF#(Bit#(EthernetLen)) fifoEop <- mkFIFOF;
+   FIFO#(ReqTup) incomingReqs        <- mkFIFO;
 
    // Client
    Reg#(Bit#(PktAddrWidth))     rdCurrPtr   <- mkReg(0);
@@ -95,8 +95,19 @@ module mkRxPacketBuffer(RxPacketBuffer);
    rule enq_stage1;
       EthernetData d <- toGet(fifoWriteData).get;
       incomingReqs.enq(ReqTup{addr: wrCurrPtr, data:d});
-      wrCurrPtr <= wrCurrPtr + 1;
-      if (d.eop) fifoEop.enq(?);
+      if (d.sop) begin
+         wrCurrPtr <= wrStartPtr + 1;
+         packetLen <= packetLen + 1;
+      end
+      else if (d.eop) begin
+         wrStartPtr <= wrCurrPtr;
+         fifoEop.enq(packetLen + 1);
+         packetLen <= 0;
+      end
+      else begin
+         wrCurrPtr <= wrCurrPtr + 1;
+         packetLen <= packetLen + 1;
+      end
    endrule
 
    rule enqueue_first_beat(!inPacket);
@@ -105,7 +116,6 @@ module mkRxPacketBuffer(RxPacketBuffer);
       memBuffer.portA.request.put(BRAMRequest{write:True, responseOnWrite:False,
          address:truncate(req.addr), datain:req.data});
       inPacket <= True;
-      packetLen <= packetLen + 1;
    endrule
 
    rule enqueue_next_beat(!fifoEop.notEmpty && inPacket);
@@ -113,8 +123,6 @@ module mkRxPacketBuffer(RxPacketBuffer);
       if (verbose) $display("PacketBuffer::enqueue_next_beat %d", cycle, fshow(req));
       memBuffer.portA.request.put(BRAMRequest{write:True, responseOnWrite:False,
          address:truncate(req.addr), datain:req.data});
-      inPacket <= True;
-      packetLen <= packetLen + 1;
    endrule
 
    rule commit_packet(fifoEop.notEmpty && inPacket);
@@ -122,10 +130,9 @@ module mkRxPacketBuffer(RxPacketBuffer);
       if (verbose) $display("PacketBuffer::commit_packet %d", cycle, fshow(req));
       memBuffer.portA.request.put(BRAMRequest{write:True, responseOnWrite:False,
          address:truncate(req.addr), datain:req.data});
-      fifoLen.enq((packetLen+1) << 4); //FIXME: more intuitive
-      fifoEop.deq;
+      let v <- toGet(fifoEop).get;
+      fifoLen.enq(v << 4); // beats to bytes
       inPacket <= False;
-      packetLen <= 0;
    endrule
 
    rule dequeue_first_beat(!outPacket);
@@ -182,4 +189,5 @@ module mkRxPacketBuffer(RxPacketBuffer);
       endinterface
    endinterface
 endmodule
+
 endpackage: PacketBuffer
