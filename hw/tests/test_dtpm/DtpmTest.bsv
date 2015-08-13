@@ -115,7 +115,18 @@ module mkDtpmTest#(DtpmTestIndication indication) (DtpmTest);
       let v = 64'h79;
       write_encoder_data1.enq({2'b00, v[63:0]});
       write_encoder_data2.enq({2'b00, v[63:0]});
+
+      if (cycle % 25000 == 0) begin
+          Bit#(53) msg = {1'b0, zeroExtend(cycle)};
+          sc1.dtpFromHost.enq(msg);
+      end
+
       if(verbose) $display("mkDtpmTest.write_data v=%h", v[63:0]);
+   endrule
+
+   rule log_rcvd;
+      let v <- toGet(sc2.dtpToHost).get;
+      if(verbose) $display("%d: sc1 rcvd %d", cycle, v[52:0]);
    endrule
 
    rule out;
