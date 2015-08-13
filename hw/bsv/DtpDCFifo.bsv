@@ -27,7 +27,6 @@ import FIFOF ::*;
 import SpecialFIFOs ::*;
 import Pipe ::*;
 import Ethernet ::*;
-
 import DTP_DCFIFO_WRAPPER ::*;
 
 //TODO: Xilinx and Altera
@@ -50,11 +49,11 @@ module mkDtpDCFifo#(Clock wrclk, Reset wrrst, Clock rdclk)(SyncFIFOIfc#(DtpEvent
         dc.enq(v);
     endmethod
 
-    method Action deq () ;
+    method Action deq () if (!dc.rdEmpty);
         dc.deq();
     endmethod
     
-    method DtpEvent first() if (!dc.rdEmpty);
+    method DtpEvent first();
         return dc.first();
     endmethod
 

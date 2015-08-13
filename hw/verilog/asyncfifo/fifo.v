@@ -90,7 +90,7 @@ module fifo (
 	defparam
 		dcfifo_component.intended_device_family = "Stratix V",
 		dcfifo_component.lpm_numwords = 4,
-		dcfifo_component.lpm_showahead = "OFF",
+		dcfifo_component.lpm_showahead = "ON",
 		dcfifo_component.lpm_type = "dcfifo",
 		dcfifo_component.lpm_width = 56,
 		dcfifo_component.lpm_widthu = 2,
@@ -143,7 +143,7 @@ endmodule
 // Retrieval info: LIBRARY: altera_mf altera_mf.altera_mf_components.all
 // Retrieval info: CONSTANT: INTENDED_DEVICE_FAMILY STRING "Stratix V"
 // Retrieval info: CONSTANT: LPM_NUMWORDS NUMERIC "4"
-// Retrieval info: CONSTANT: LPM_SHOWAHEAD STRING "OFF"
+// Retrieval info: CONSTANT: LPM_SHOWAHEAD STRING "ON"
 // Retrieval info: CONSTANT: LPM_TYPE STRING "dcfifo"
 // Retrieval info: CONSTANT: LPM_WIDTH NUMERIC "56"
 // Retrieval info: CONSTANT: LPM_WIDTHU NUMERIC "2"
