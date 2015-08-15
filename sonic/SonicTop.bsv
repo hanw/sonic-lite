@@ -151,13 +151,13 @@ module mkSonicTop#(Clock derivedClock, Reset derivedReset, SonicTopIndication in
    rule dmaRead;
       let v <- toGet(txDescQueue).get;
       //FIXME: burstlen
-      re.read_servers[0].request.put(MemengineCmd{tag:0, sglId:v.sglId, base:v.offset, len:v.len,
+      re.readServers[0].request.put(MemengineCmd{tag:0, sglId:v.sglId, base:v.offset, len:v.len,
                                                burstLen:truncate(v.len)});
    endrule
 
    rule readData;
-      if (re.read_servers[0].memDataPipe.notEmpty()) begin
-         let v <- toGet(re.read_servers[0].memDataPipe).get;
+      if (re.readServers[0].memDataPipe.notEmpty()) begin
+         let v <- toGet(re.readServers[0].memDataPipe).get;
          txPktBuff.writeServer.writeData.put(EtherData{sop: v.first, eop: v.last, data:v.data});
       end
    endrule
@@ -237,7 +237,7 @@ module mkSonicTop#(Clock derivedClock, Reset derivedReset, SonicTopIndication in
       let rxDesc <- toGet(rxDescQueue).get;
       let pktLen <- rxPktBuff.readServer.readLen.get;
       // write packet metadata
-      we.write_servers[0].cmdServer.request.put(MemengineCmd{tag:0, sglId:rxDesc.sglId,
+      we.writeServers[0].cmdServer.request.put(MemengineCmd{tag:0, sglId:rxDesc.sglId,
                                                 base:extend(rxDesc.offset - fromInteger(valueOf(RxMetadataLen))),
                                                 len:extend(pktLen + fromInteger(valueOf(RxMetadataLen))),
                                                 burstLen:truncate(pktLen + fromInteger(valueOf(RxMetadataLen)))});
@@ -247,20 +247,20 @@ module mkSonicTop#(Clock derivedClock, Reset derivedReset, SonicTopIndication in
    rule dmaWriteMeta;
       let meta <- toGet(currRxMetadata).get;
       $display("SonicTop::dmaWriteMeta %d: filled=%x, len=%x", cycle, meta.filled, meta.len);
-      we.write_servers[0].dataPipe.enq(pack(meta));
+      we.writeServers[0].dataPipe.enq(pack(meta));
       rxPktBuff.readServer.readReq.put(EtherReq{len: truncate(meta.len)});
       recvInProgress.enq(truncate(meta.len));
    endrule
    rule dmaWriteInProgress if (recvInProgress.notEmpty);
       let v <- rxPktBuff.readServer.readData.get;
       $display("SonicTop::dmaWriteInProgress %d: data=%x sop=%x eop=%x", cycle, v.data, v.sop, v.eop);
-      we.write_servers[0].dataPipe.enq(extend(v.data));
+      we.writeServers[0].dataPipe.enq(extend(v.data));
       if (v.eop) begin
          recvInProgress.deq;
       end
    endrule
    rule dmaWriteFinish;
-      let rv <- we.write_servers[0].cmdServer.response.get;
+      let rv <- we.writeServers[0].cmdServer.response.get;
       $display("SonicTop::dmaWriteFinish");
    endrule
    // rule to clock crossing from 156.25MHz to 250MHz with 64bit
