@@ -33,8 +33,6 @@ import Xilinx            :: *;
 import Portal            :: *;
 import Top               :: *;
 import Leds              :: *;
-import MemSlaveEngine    :: *;
-import MemMasterEngine   :: *;
 import PcieCsr           :: *;
 import MemTypes          :: *;
 import Bscan             :: *;
