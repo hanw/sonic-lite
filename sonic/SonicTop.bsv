@@ -151,7 +151,7 @@ module mkSonicTop#(Clock derivedClock, Reset derivedReset, SonicTopIndication in
    rule dmaRead;
       let v <- toGet(txDescQueue).get;
       //FIXME: burstlen
-      re.read_servers[0].cmdServer.request.put(MemengineCmd{tag:0, sglId:v.sglId, base:v.offset, len:v.len,
+      re.read_servers[0].request.put(MemengineCmd{tag:0, sglId:v.sglId, base:v.offset, len:v.len,
                                                burstLen:truncate(v.len)});
    endrule
 
@@ -215,11 +215,6 @@ module mkSonicTop#(Clock derivedClock, Reset derivedReset, SonicTopIndication in
    //PipeIn#(PacketData) txMacSyncPipeIn = toPipeIn(txMacSyncFifo);
    //mkConnection(toPipeOut(txMacFifo), txMacSyncPipeIn);
    //mkConnection(txMacSyncPipeOut, );
-
-   rule dmaReadFinish;
-      // clear cmdServer response
-      let rv <- re.read_servers[0].cmdServer.response.get;
-   endrule
 
    // Rx Path
    FIFOF#(RxDesc)            rxDescQueue <- mkSizedFIFOF(valueof(RxCredTotal));
