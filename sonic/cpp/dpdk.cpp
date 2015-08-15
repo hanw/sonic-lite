@@ -16,8 +16,6 @@
 static int trace_memory = 1;
 static pthread_mutex_t mutex;
 static int tx_credit = SONIC_TX_CREDIT;
-static int rx_credit = 0;
-static int rx_nb_avail = 0;
 
 class SonicTopIndication : public SonicTopIndicationWrapper
 {
@@ -41,13 +39,7 @@ class SonicTopIndication : public SonicTopIndicationWrapper
             pthread_mutex_lock(&mutex);
             tx_credit += cred;
             pthread_mutex_unlock(&mutex);
-            fprintf(stderr, "Current credit %d\n", tx_credit);
-        }
-        void writeRxCred (uint32_t cred) {
-            pthread_mutex_lock(&mutex);
-            rx_credit -= cred;
-            rx_nb_avail += cred;
-            pthread_mutex_unlock(&mutex);
+            fprintf(stderr, "Current Tx credit %d\n", tx_credit);
         }
         SonicTopIndication(unsigned int id) : SonicTopIndicationWrapper(id){}
 };
@@ -67,8 +59,10 @@ class SonicDpdkManager {
         void init (int fd, uint64_t phys_addr, uint32_t len);
         void tx_send_pa(uint64_t pkt_base, uint32_t len);
         void rx_send_pa(uint64_t pkt_base, uint32_t len);
+        void reset_rx(uint32_t qid);
         uint32_t get_tx_credit();
         void read_version();
+        void read_packet();
     private:
         DmaManager *dma;
         SonicTopRequestProxy *device;
@@ -119,6 +113,11 @@ void
 SonicDpdkManager::rx_send_pa(uint64_t pkt_base, uint32_t len) {
     uint32_t offset = pkt_base - phys_base;
     device->startWrite(mmu_sglId, offset, len, len);
+}
+
+void
+SonicDpdkManager::reset_rx(uint32_t qid) {
+    device->resetWrite(qid);
 }
 
 int
@@ -235,27 +234,22 @@ void read_version(void) {
     theDpdk().read_version();
 }
 
+void reset_rx(uint32_t qid) {
+    fprintf(stderr, "reset_rx");
+    theDpdk().reset_rx(qid);
+}
+
 int tx_credit_available(void) {
-    return tx_credit;
+    int v = 0;
+    pthread_mutex_lock(&mutex);
+    v = tx_credit;
+    pthread_mutex_unlock(&mutex);
+    return v;
 }
 
 void tx_credit_decrement(uint32_t v) {
     pthread_mutex_lock(&mutex);
     tx_credit -= v;
-    pthread_mutex_unlock(&mutex);
-}
-
-int rx_credit_available(void) {
-    return rx_credit;
-}
-
-int rx_pkt_available(void) {
-    return rx_nb_avail;
-}
-
-void rx_credit_increment(uint32_t v) {
-    pthread_mutex_lock(&mutex);
-    rx_credit += v;
     pthread_mutex_unlock(&mutex);
 }
 

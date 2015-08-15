@@ -20,22 +20,25 @@
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-import FIFO ::*;
-import FIFOF ::*;
-import SpecialFIFOs ::*;
-import Vector ::*;
 import Arith ::*;
 import BuildVector::*;
-import Pipe ::*;
-import GetPut ::*;
 import ClientServer::*;
+import ConfigCounter::*;
+import Connectable::*;
+import DefaultValue::*;
+import FIFO ::*;
+import FIFOF ::*;
+import GetPut ::*;
+import Gearbox ::*;
+import Pipe ::*;
+import SpecialFIFOs ::*;
+import Vector ::*;
+
+import Ethernet::*;
+import HostInterface::*;
 import MemTypes::*;
 import MemreadEngine::*;
 import MemwriteEngine::*;
-import HostInterface::*;
-import ConfigCounter::*;
-
-import Ethernet::*;
 import PacketBuffer::*;
 
 interface SonicPins;
@@ -45,12 +48,13 @@ interface SonicPins;
    method Action user_reset_n(Bit#(1) user_reset_n);
 endinterface
 
-typedef 128    TxCredTotal;
+typedef 512    TxCredTotal;
 typedef 32     TxCredThres;
 typedef 100000 TxCredTimeout;
 
-typedef 128    RxCredTotal;
+typedef 512    RxCredTotal;
 typedef 32     RxCredThres;
+typedef 100000 RxCredTimeout;
 
 typedef TDiv#(DataBusWidth,32) DataBusWords;
 typedef struct {
@@ -69,11 +73,20 @@ typedef struct {
    Bit#(32) nDesc;
 } RxDesc deriving (Eq, Bits);
 
+typedef 16 RxMetadataLen;
+typedef struct {
+   Bit#(32) filled;
+   Bit#(32) len;
+   Bit#(64) reserved;
+} RxMeta deriving (Eq, Bits);
+
 interface SonicTopRequest;
    method Action sonic_read_version();
    method Action startRead(Bit#(32) pointer, Bit#(32) offset, Bit#(32) numBytes, Bit#(32) burstLen);
    method Action startWrite(Bit#(32) pointer, Bit#(32) offset, Bit#(32) numWords, Bit#(32) burstLen);
    method Action writePacketData(Bit#(64) upper, Bit#(64) lower, Bit#(1) sop, Bit#(1) eop);
+   method Action writeMacData(Bit#(64) data, Bit#(1) sop, Bit#(1) eop);
+   method Action resetWrite(Bit#(32) qid);
 endinterface
 
 interface SonicTopIndication;
@@ -81,7 +94,6 @@ interface SonicTopIndication;
    method Action readDone(Bit#(32) mismatchCnt);
    method Action writeDone(Bit#(32) v);
    method Action writeTxCred(UInt#(32) v);
-   method Action writeRxCred(UInt#(32) v);
 endinterface
 
 interface SonicTop;
@@ -93,8 +105,9 @@ endinterface
 
 typedef 12 NumOutstandingRequests;
 typedef TMul#(NumOutstandingRequests, TMul#(32, 4)) BufferSizeBytes;
-module mkSonicTop#(SonicTopIndication indication)(SonicTop);
+module mkSonicTop#(Clock derivedClock, Reset derivedReset, SonicTopIndication indication)(SonicTop);
    Clock defaultClock <- exposeCurrentClock();
+   Reset defaultReset <- exposeCurrentReset();
 
    let verbose = True;
 
@@ -105,7 +118,8 @@ module mkSonicTop#(SonicTopIndication indication)(SonicTop);
    ConfigCounter#(32) txCredFreed <- mkConfigCounter(0);
    FIFOF#(UInt#(32)) txCredCf <- mkSizedFIFOF(8);
 
-   FIFOF#(void) txMacCfs <- mkSizedFIFOF(1);
+   FIFOF#(void) xmitInProgress <- mkSizedFIFOF(1);
+   Gearbox#(2, 1, PacketData#(64)) fifoTxData <- mkNto1Gearbox(defaultClock, defaultReset, defaultClock, defaultReset);
 
    MemreadEngine#(DataBusWidth,NumOutstandingRequests,1) re <- mkMemreadEngineBuff(valueOf(BufferSizeBytes));
    PacketBuffer txPktBuff <- mkPacketBuffer();
@@ -151,14 +165,32 @@ module mkSonicTop#(SonicTopIndication indication)(SonicTop);
    rule txMacStart;
       let pktLen <- txPktBuff.readServer.readLen.get;
       txPktBuff.readServer.readReq.put(EtherReq{len: pktLen});
-      txMacCfs.enq(?);
+      xmitInProgress.enq(?);
    endrule
 
-   rule txMacInProgress if (txMacCfs.notEmpty);
+   //FIXME::
+   function Vector#(2, PacketData#(64)) split(EtherData in);
+      Vector#(2, PacketData#(64)) v = defaultValue;
+      v[0].sop = in.sop;
+      v[0].eop = False;
+      v[0].err = 0;
+      v[0].empty = 0;
+      v[0].data = in.data[63:0];
+      v[0].valid = True;
+      v[1].sop = False;
+      v[1].eop = in.eop;
+      v[1].err = 0;
+      v[1].empty = 0;
+      v[1].data = in.data[127:64];
+      v[1].valid = True;
+      return v;
+   endfunction
+   rule txMacInProgress if (xmitInProgress.notEmpty);
       let v <- txPktBuff.readServer.readData.get;
-      if (verbose) $display("Send: data=%x sop=%x eop=%x", v.data, v.sop, v.eop);
+      //if (verbose) $display("Send: data=%x sop=%x eop=%x", v.data, v.sop, v.eop);
       // rule to read 128 bit packet from buffer, and enqueue 64 bit twice to txfifo
-
+      Vector#(2, PacketData#(64)) txdata = split(v);
+      fifoTxData.enq(txdata);
 
       if (v.eop) begin
          txCredFreed.increment(1);
@@ -167,11 +199,22 @@ module mkSonicTop#(SonicTopIndication indication)(SonicTop);
             txCredCf.enq(txCredFreed.read);
             txCredFreed.decrement(txCredFreed.read);
          end
-         txMacCfs.deq;
+         xmitInProgress.deq;
       end
    endrule
 
-   // rule to clock crossing txfifo to 156.25MHz domain, and output MAC interface.
+ //  rule txMacClockCrossing if (fifoTxData.notEmpty);
+ //     let data = fifoTxData.first;
+ //     let temp = head(data);
+ //     //if(verbose) $display("Send %d data=%x sop=%x eop=%x", cycle, temp.data, temp.sop, temp.eop);
+ //     fifoTxData.deq;
+ //  endrule
+
+   //SyncFIFOIfc#(Bit#(64)) txMacSyncFifo <- mkSyncFIFO(8, clk_156_25, rst_156_n, host.portalClock);
+   //PipeOut#(PacketData) txMacSyncPipeOut = toPipeOut(txMacSyncFifo);
+   //PipeIn#(PacketData) txMacSyncPipeIn = toPipeIn(txMacSyncFifo);
+   //mkConnection(toPipeOut(txMacFifo), txMacSyncPipeIn);
+   //mkConnection(txMacSyncPipeOut, );
 
    rule dmaReadFinish;
       // clear cmdServer response
@@ -180,51 +223,77 @@ module mkSonicTop#(SonicTopIndication indication)(SonicTop);
 
    // Rx Path
    FIFOF#(RxDesc)            rxDescQueue <- mkSizedFIFOF(valueof(RxCredTotal));
-   Reg#(RxDesc)              newRxDesc   <- mkReg(unpack(0));
-   Reg#(Bit#(32))            totalRxDesc <- mkReg(0);
-
-   FIFOF#(Bit#(EtherLen)) wrCfs       <- mkSizedFIFOF(1);
-   FIFOF#(Bool)              finishFifo  <- mkFIFOF;
-   Reg#(Bit#(EtherLen))   currDmaWrLen <- mkReg(0);
-
+   FIFOF#(RxMeta)         currRxMetadata <- mkSizedFIFOF(1);
+   FIFOF#(Bit#(EtherLen)) recvInProgress <- mkSizedFIFOF(1);
+   FIFOF#(Bool)               finishFifo <- mkFIFOF;
+   Reg#(RxDesc)                newRxDesc <- mkReg(unpack(0));
+   Reg#(Bit#(32))                totalRx <- mkReg(0);
+   Reg#(Bit#(EtherLen))     currDmaWrLen <- mkReg(0);
    PacketBuffer                rxPktBuff <- mkPacketBuffer();
-
    MemwriteEngine#(DataBusWidth,2,1) we <- mkMemwriteEngine;
+   Gearbox#(1, 2, PacketData#(64)) fifoRxData <- mk1toNGearbox(defaultClock, defaultReset, defaultClock, defaultReset);
+
    rule enqRxDesc(rxDescQueue.notFull && newRxDesc.nDesc>0);
       rxDescQueue.enq(newRxDesc);
       newRxDesc.nDesc <= newRxDesc.nDesc-1;
-      totalRxDesc <= totalRxDesc+1;
-      $display("SonicTop::enqRxDesc PacketGen %d", totalRxDesc);
+      totalRx <= totalRx+1;
    endrule
    rule dmaWriteStart;
       let rxDesc <- toGet(rxDescQueue).get;
       let pktLen <- rxPktBuff.readServer.readLen.get;
+      // write packet metadata
       we.write_servers[0].cmdServer.request.put(MemengineCmd{tag:0, sglId:rxDesc.sglId,
-                                                base:extend(rxDesc.offset), len:extend(pktLen),
-                                                burstLen:truncate(pktLen)});
-      $display("SonicTop::dmaWriteStart offset=%x pktlen=%d", rxDesc.offset, pktLen);
-      rxPktBuff.readServer.readReq.put(EtherReq{len: pktLen});
-      wrCfs.enq(pktLen);
+                                                base:extend(rxDesc.offset - fromInteger(valueOf(RxMetadataLen))),
+                                                len:extend(pktLen + fromInteger(valueOf(RxMetadataLen))),
+                                                burstLen:truncate(pktLen + fromInteger(valueOf(RxMetadataLen)))});
+      $display("SonicTop::dmaWriteStart offset=%x pktlen=%d", rxDesc.offset - fromInteger(valueof(RxMetadataLen)), pktLen);
+      currRxMetadata.enq(RxMeta{filled: 1, len: extend(pktLen), reserved: 0});
    endrule
-   rule dmaWriteInProgress if (wrCfs.notEmpty);
+   rule dmaWriteMeta;
+      let meta <- toGet(currRxMetadata).get;
+      $display("SonicTop::dmaWriteMeta %d: filled=%x, len=%x", cycle, meta.filled, meta.len);
+      we.write_servers[0].dataPipe.enq(pack(meta));
+      rxPktBuff.readServer.readReq.put(EtherReq{len: truncate(meta.len)});
+      recvInProgress.enq(truncate(meta.len));
+   endrule
+   rule dmaWriteInProgress if (recvInProgress.notEmpty);
       let v <- rxPktBuff.readServer.readData.get;
+      $display("SonicTop::dmaWriteInProgress %d: data=%x sop=%x eop=%x", cycle, v.data, v.sop, v.eop);
       we.write_servers[0].dataPipe.enq(extend(v.data));
+      if (v.eop) begin
+         recvInProgress.deq;
+      end
    endrule
    rule dmaWriteFinish;
-      $display("SonicTop::dmaWriteFinish");
       let rv <- we.write_servers[0].cmdServer.response.get;
-      wrCfs.deq;
-      indication.writeDone(0);
+      $display("SonicTop::dmaWriteFinish");
+   endrule
+   // rule to clock crossing from 156.25MHz to 250MHz with 64bit
+   function EtherData combine(Vector#(2, PacketData#(64)) in);
+      return EtherData {sop: in[0].sop, eop: in[1].eop, data: {in[1].data, in[0].data}};
+   endfunction
+
+   rule rxWriteData;
+      // rule to pack 2x64 read from MAC interface to 128bit
+      let data = fifoRxData.first; fifoRxData.deq;
+      let temp = combine(data);
+      $display("Recv %d: data=%x sop=%x eop=%x", cycle, temp.data, temp.sop, temp.eop);
+      rxPktBuff.writeServer.writeData.put(temp);
    endrule
 
-   // rule to clock crossing from 156.25MHz to 250MHz with 64bit
-   // rule to pack 2x64 read from MAC interface to 128bit, and write to rxbuff
+//   rule rxMacClockCrossing;
+//      fifoRxData.enq(data);
+//   endrule
 
    // Network MAC and PHY
+
+   // Loopback
+   mkConnection(toPipeOut(fifoTxData), toPipeIn(fifoRxData));
 
    Reg#(Bit#(32)) tx_cnt <- mkReg(0);
    interface pins = (interface SonicPins;
       // Clocks
+
       // Resets
       // SFP+
    endinterface);
@@ -241,12 +310,25 @@ module mkSonicTop#(SonicTopIndication indication)(SonicTop);
          tx_cnt <= tx_cnt + 1;
       endmethod
       method Action startWrite(Bit#(32) rp, Bit#(32) off, Bit#(32) nb, Bit#(32) bl);
-         $display("rp=%x offset=%x len=%x burstLen=%x", rp, off, nb, bl);
+         //$display("NewRxDesc: rp=%x offset=%x len=%x burstLen=%x", rp, off, nb, bl);
          newRxDesc <= RxDesc{sglId:rp, offset:extend(off), len:nb, burstLen:truncate(bl), nDesc:1};
       endmethod
       method Action writePacketData(Bit#(64) upper, Bit#(64) lower, Bit#(1) sop, Bit#(1) eop);
          let d = EtherData{data: {upper, lower}, sop: unpack(sop), eop: unpack(eop)};
          rxPktBuff.writeServer.writeData.put(d);
+      endmethod
+      method Action writeMacData(Bit#(64) data, Bit#(1) sop, Bit#(1) eop);
+         PacketData#(64) v = defaultValue;
+         v.data = data;
+         v.sop = unpack(sop);
+         v.eop = unpack(eop);
+         fifoRxData.enq(vec(v));
+      endmethod
+      method Action resetWrite(Bit#(32) qid);
+         rxDescQueue.clear();
+         currRxMetadata.clear();
+         recvInProgress.clear();
+         finishFifo.clear();
       endmethod
    endinterface
 endmodule

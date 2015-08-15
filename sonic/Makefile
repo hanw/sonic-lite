@@ -7,15 +7,15 @@ PROJTOP?=$(ROOTDIR)
 CONNECTALFLAGS += --bscflags="-p +:$(PROJTOP)/../hw/lib/bsv:$(PROJTOP)/../hw/bsv:$(PROJTOP)/../hw/generated"
 CONNECTALFLAGS += --bscflags="+RTS -K46777216 -RTS -demote-errors G0066:G0045 -suppress-warnings G0046:G0020:S0015:S0080:S0039 -steps-max-intervals 20"
 
-S2H_INTERFACES=SonicTopRequest:SonicTop.request
-H2S_INTERFACES=SonicTop:SonicTopIndication
+S2H_INTERFACES=SonicTopRequest:SonicTop.request:host.derivedClock,host.derivedReset
+H2S_INTERFACES=SonicTop:SonicTopIndication:host.derivedClock,host.derivedReset
 MEM_INTERFACES=lSonicTop.dmaReadClient,lSonicTop.dmaWriteClient
 AUTOTOP= --interface pins:SonicTop.pins
 PIN_TYPE = SonicPins
 PIN_TYPE_INCLUDE = SonicTop
 BSVFILES=$(CONNECTALDIR)/bsv/MemTypes.bsv $(PROJTOP)/../sonic/SonicTop.bsv
 CPPFILES=$(PROJTOP)/cpp/dpdk.cpp
-CPPFILES2=$(PROJTOP)/t/test-transmit-single-packet.cpp
+CPPFILES2=$(PROJTOP)/t/test-receive-single-packet.cpp
 CONNECTALFLAGS += -l="tins"
 NUMBER_OF_MASTERS=1
 PIN_BINDINGS?=PCIE:PCIE LED:LED OSC:OSC SFPA:SFPA SFPB:SFPB SFPC:SFPC SFPD:SFPD SFP:SFP I2C:CLOCK BUTTON:BUTTON
@@ -30,6 +30,8 @@ CONNECTALFLAGS += -D PcieHostIF
 CONNECTALFLAGS += -D DataBusWidth=128
 CONNECTALFLAGS += --shared
 CONNECTALFLAGS += -D NO_DEFAULT_POLLER
+CONNECTALFLAGS += -D IMPORT_HOST_CLOCKS
+CONNECTALFLAGS += --derivedclockperiod=6.4
 #CONNECTALFLAGS += --chipscope=$(PROJTOP)/../../sonic-debug/stp/memread.stp
 ifneq (, $(BLUESIM))
 CONNECTALFLAGS += --pinfo=$(PROJTOP)/../boards/sonic_synth.json
