@@ -42,10 +42,11 @@ import MemwriteEngine::*;
 import PacketBuffer::*;
 
 interface SonicPins;
-   method Action osc_50(Bit#(1) b3b, Bit#(1) b3d, Bit#(1) b4a, Bit#(1) b4d, Bit#(1) b7a, Bit#(1) b7d, Bit#(1) b8a, Bit#(1) b8d);
+   method Action osc_50(Bit#(1) b3d, Bit#(1) b4a, Bit#(1) b4d, Bit#(1) b7a, Bit#(1) b7d, Bit#(1) b8a, Bit#(1) b8d);
    (* prefix="" *)
-   method Action pcie_perst_n(Bit#(1) pcie_perst_n);
    method Action user_reset_n(Bit#(1) user_reset_n);
+   interface Clock deleteme_unused_clock;
+   interface Reset deleteme_unused_reset;
 endinterface
 
 typedef 512    TxCredTotal;
@@ -286,12 +287,6 @@ module mkSonicTop#(Clock derivedClock, Reset derivedReset, SonicTopIndication in
    mkConnection(toPipeOut(fifoTxData), toPipeIn(fifoRxData));
 
    Reg#(Bit#(32)) tx_cnt <- mkReg(0);
-   interface pins = (interface SonicPins;
-      // Clocks
-
-      // Resets
-      // SFP+
-   endinterface);
    interface dmaWriteClient = vec(we.dmaClient);
    interface dmaReadClient = vec(re.dmaClient);
    interface SonicTopRequest request;
@@ -325,5 +320,12 @@ module mkSonicTop#(Clock derivedClock, Reset derivedReset, SonicTopIndication in
          recvInProgress.clear();
          finishFifo.clear();
       endmethod
+   endinterface
+   interface SonicPins pins;
+      // Clocks
+      interface deleteme_unused_clock = defaultClock;
+      interface deleteme_unused_reset = defaultReset;
+      // Resets
+      // SFP+
    endinterface
 endmodule
