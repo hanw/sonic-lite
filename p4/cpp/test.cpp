@@ -23,21 +23,21 @@
 #include <stdio.h>
 #include <tins/tins.h>
 
-#include "NicTopIndication.h"
-#include "NicTopRequest.h"
+#include "P4TopIndication.h"
+#include "P4TopRequest.h"
 #include "GeneratedTypes.h"
 
 using namespace Tins;
 
-static NicTopRequestProxy *device = 0;
+static P4TopRequestProxy *device = 0;
 
-class NicTopIndication : public NicTopIndicationWrapper
+class P4TopIndication : public P4TopIndicationWrapper
 {
 public:
     virtual void sonic_read_version_resp(uint32_t a) {
         fprintf(stderr, "version %08x\n", a);
     }
-    NicTopIndication(unsigned int id) : NicTopIndicationWrapper(id) {}
+    P4TopIndication(unsigned int id) : P4TopIndicationWrapper(id) {}
 };
 
 #define SRC_MAC "77:22:33:11:ad:ad"
@@ -50,8 +50,8 @@ public:
 
 int main(int argc, const char **argv)
 {
-    NicTopIndication echoIndication(IfcNames_NicTopIndicationH2S);
-    device = new NicTopRequestProxy(IfcNames_NicTopRequestS2H);
+    P4TopIndication echoIndication(IfcNames_P4TopIndicationH2S);
+    device = new P4TopRequestProxy(IfcNames_P4TopRequestS2H);
 
     int packet_size;
     int numBeats;
@@ -61,29 +61,23 @@ int main(int argc, const char **argv)
                      RawPDU(PAYLOAD);
     PDU::serialization_type buff = eth.serialize();
     packet_size = buff.size();
-    numBeats = packet_size / 16; // 16 bytes per beat for 128-bit datawidth;
-    if (packet_size % 16 != 0) numBeats++;
+    numBeats = packet_size / 8; // 16 bytes per beat for 128-bit datawidth;
+    if (packet_size % 8 != 0) numBeats++;
     fprintf(stderr, "nBeats=%d\n", numBeats);
+    fprintf(stderr, "src_mac=%s, dst_mac=%s\n", SRC_MAC, DST_MAC);
+    fprintf(stderr, "src_ip=%s, dst_ip=%s\n", SRC_IP, DST_IP);
 
     // transfer packet to receive
-    uint64_t *data_hi, *data_lo;
-    int i;
+    uint64_t data[2];
+    int i, sop, eop;
     for (i=0; i<numBeats; i++) {
-        data_hi = 0;
-        data_lo = 0;
-
-        data_hi = (uint64_t *)(&buff[0]) + i;
-        data_lo = (uint64_t *)(&buff[0]) + i + 1;
-
-        if (i==0) {
-            device->writePacketData(*data_hi, *data_lo, 1, 0);
-        } else if (i==(numBeats-1)*2) {
-            device->writePacketData(*data_hi, *data_lo, 0, 1);
-        } else {
-            device->writePacketData(*data_hi, *data_lo, 0, 0);
+        data[i%2] = *((uint64_t *)(&buff[0]) + i);
+        sop = (i/2 == 0) ? 1 : 0;
+        eop = (i/2 == (numBeats-1)/2) ? 1 : 0;
+        if (i%2) {
+            device->writePacketData(data, sop, eop);
+            fprintf(stderr, "%016lx %016lx %d %d\n", data[1], data[0], sop, eop);
         }
-
-        fprintf(stderr, "%p %016lx %p %016lx \n", data_hi, *data_hi, data_lo, *data_lo);
     }
 
     return 0;

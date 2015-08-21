@@ -3,18 +3,28 @@ ROOTDIR=$(realpath .)
 CONNECTALDIR?=$(ROOTDIR)/../../connectal/
 IPDIR?=$(ROOTDIR)/../../fpgamake-cache/$(shell basename `/bin/pwd`)/
 PROJTOP?=$(ROOTDIR)
+PROJLIB=$(PROJTOP)/../hw/lib/bsv:$(PROJTOP)/../hw/bsv
+
 ALTERAPINOUT=$(PROJTOP)/boards/de5.json
 
-CONNECTALFLAGS += --bscflags="-p +:$(PROJTOP)/hw/bsv:$(CONNECTALDIR)/bsv"
+ifndef P4FACTORY
+P4FACTORY=$(ROOTDIR)/../../p4/p4factory/
+endif
+
+ifeq ($(P4),)
+CONNECTALFLAGS += --bscflags="-p +:$(PROJTOP)/bsv:$(CONNECTALDIR)/bsv:$(PROJLIB)"
+else
+CONNECTALFLAGS += --bscflags="-p +:$(PROJTOP)/build/bluespec/src:$(CONNECTALDIR)/bsv:$(PROJLIB)"
+endif
 CONNECTALFLAGS += --bscflags="+RTS -K46777216 -RTS -demote-errors G0066:G0045 -suppress-warnings G0046:G0020:S0015:S0080:S0039 -steps-max-intervals 20"
 
-S2H_INTERFACES=NicTopRequest:NicTop.request:host.derivedClock,host.derivedReset
-H2S_INTERFACES=NicTop:NicTopIndication:host.derivedClock,host.derivedReset
-AUTOTOP= --interface pins:NicTop.pins
-PIN_TYPE = NicPins
-PIN_TYPE_INCLUDE = NicTop
-BSVFILES=$(PROJTOP)/NicTop.bsv
-CPPFILES=$(PROJTOP)/sw/test.cpp
+S2H_INTERFACES=P4TopRequest:P4Top.request:host.derivedClock,host.derivedReset
+H2S_INTERFACES=P4Top:P4TopIndication:host.derivedClock,host.derivedReset
+AUTOTOP= --interface pins:P4Top.pins
+PIN_TYPE = P4Pins
+PIN_TYPE_INCLUDE = P4Top
+BSVFILES=$(PROJTOP)/P4Top.bsv
+CPPFILES=$(PROJTOP)/cpp/test.cpp
 NUMBER_OF_MASTERS=0
 PIN_BINDINGS?=PCIE:PCIE LED:LED OSC:OSC SFPA:SFPA SFPB:SFPB SFPC:SFPC SFPD:SFPD SFP:SFP I2C:CLOCK BUTTON:BUTTON
 CONNECTALFLAGS += --tcl=$(PROJTOP)/../boards/de5_extra.qsf
@@ -30,4 +40,19 @@ ifneq (, $(BLUESIM))
 CONNECTALFLAGS += --pinfo=$(PROJTOP)/boards/sonic_synth.json
 endif
 
+# P4 support
+export TARGET_ROOT :=$(abspath $(dir $(lastword $(MAKEFILE_LIST))))
+export P4_INPUT := p4src/sonic.p4
+export P4_NAME := sonic
+include ${P4FACTORY}/init.mk
+MAKEFILES_DIR := ${P4FACTORY}/makefiles
+include ${MAKEFILES_DIR}/common.mk
+SUBMODULE_P4C_FPGA := ${P4FACTORY}/../p4c-fpga
+include ${SUBMODULE_P4C_FPGA}/p4c-fpga.mk
+
 include $(CONNECTALDIR)/Makefile.connectal
+
+p4.%: p4fpga
+#	make build.$*
+
+.PHONY: p4fpga

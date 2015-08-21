@@ -20,61 +20,90 @@
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-import Vector      :: *;
-import Clocks      :: *;
-import DefaultValue ::*;
-import GetPut      :: *;
-import FIFO        :: *;
-import BRAMFIFO    :: *;
-//import Pipe::*;
-import Parser      :: *;
-import Types    :: *;
+import BRAMFIFO::*;
+import Clocks::*;
+import DefaultValue::*;
+import FIFO::*;
+import FIFOF::*;
+import GetPut::*;
+import Vector::*;
 
-interface NicPins;
+import Parser::*;
+import Ethernet::*;
+import PacketBuffer::*;
+
+interface P4Pins;
    method Action osc_50(Bit#(1) b3d, Bit#(1) b4a, Bit#(1) b4d, Bit#(1) b7a, Bit#(1) b7d, Bit#(1) b8a, Bit#(1) b8d);
    (* prefix="" *)
    method Action user_reset_n(Bit#(1) user_reset_n);
 endinterface
 
-interface NicTopIndication;
+interface P4TopIndication;
    method Action sonic_read_version_resp(Bit#(32) version);
 endinterface
 
-interface NicTopRequest;
+interface P4TopRequest;
    method Action sonic_read_version();
    method Action sonic_start_parsing();
-   method Action writePacketData(Bit#(64) data_hi, Bit#(64) data_lo, Bit#(1) sop, Bit#(1) eop);
+   method Action writePacketData(Vector#(2, Bit#(64)) data, Bit#(1) sop, Bit#(1) eop);
 endinterface
 
-interface NicTop;
-   interface NicTopRequest request;
-   interface NicPins pins;
+interface P4Top;
+   interface P4TopRequest request;
+   interface P4Pins pins;
 endinterface
 
 //`define ENABLE_PCIE
-module mkNicTop#(Clock derivedClock, Reset derivedReset, NicTopIndication indication)(NicTop);
+module mkP4Top#(Clock derivedClock, Reset derivedReset, P4TopIndication indication)(P4Top);
    Clock defaultClock <- exposeCurrentClock();
    Reset defaultReset <- exposeCurrentReset();
 
+   Reg#(Bit#(32)) cycle <- mkReg(0);
+
+   rule every1;
+      cycle <= cycle + 1;
+   endrule
+
+   PacketBuffer rxPktBuff <- mkPacketBuffer();
    Parser pr <- mkParser();
 
-   interface NicTopRequest request;
+   Reg#(Bit#(EtherLen)) pktLen <- mkReg(0);
+   FIFOF#(void) readInProgress <- mkFIFOF;
+
+   rule packetParseStart;
+      let pktLen <- rxPktBuff.readServer.readLen.get;
+      rxPktBuff.readServer.readReq.put(EtherReq{len: truncate(pktLen)});
+      readInProgress.enq(?);
+      pr.startParse();
+      $display("readPacket %d: pktLen %x", cycle, pktLen);
+   endrule
+
+   //FIXME: instead of sending entire packet to parser, only send header to parser.
+   rule packetParseInProgress if (readInProgress.notEmpty);
+      let v <- rxPktBuff.readServer.readData.get;
+      $display("inprogress %d:", cycle);
+      pr.enqPacketData(v);
+      if (v.eop) begin
+         readInProgress.deq;
+      end
+   endrule
+
+   interface P4TopRequest request;
       method Action sonic_read_version();
          let v= `NicVersion;
          indication.sonic_read_version_resp(v);
       endmethod
       method Action sonic_start_parsing();
-         EtherData beat = defaultValue;
-         pr.startParse(beat);
+         pr.startParse();
       endmethod
-      method Action writePacketData(Bit#(64) dataHi, Bit#(64) dataLo, Bit#(1) sop, Bit#(1) eop);
+      method Action writePacketData(Vector#(2, Bit#(64)) data, Bit#(1) sop, Bit#(1) eop);
          EtherData beat = defaultValue;
-         beat.data = {dataHi, dataLo};
+         beat.data = pack(reverse(data));
          beat.sop = unpack(sop);
          beat.eop = unpack(eop);
-         pr.enqPacket(beat);
+         rxPktBuff.writeServer.writeData.put(beat);
       endmethod
    endinterface
-   interface NicPins pins;
+   interface P4Pins pins;
    endinterface
 endmodule

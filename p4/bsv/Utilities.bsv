@@ -20,22 +20,13 @@
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-import DefaultValue          ::*;
+import Vector::*;
 
-typedef 12   PktAddrWidth;
-typedef 128  PktDataWidth;
-typedef 16   EtherLen;
-typedef struct {
-   Bool sop;
-   Bool eop;
-   Bit#(PktDataWidth) data;
-} EtherData deriving (Eq, Bits);
+function alpha byteSwap(alpha w)
+   provisos (Bits#(alpha, asz),
+             Div#(asz, 8, avec),
+             Bits#(Vector::Vector#(avec, Bit#(8)), asz));
+   Vector#(avec, Bit#(8)) bytes = unpack(pack(w));
+   return unpack(pack(reverse(bytes)));
+endfunction
 
-instance DefaultValue#(EtherData);
-   defaultValue =
-   EtherData {
-      data : 0,
-      sop : False,
-      eop : False
-   };
-endinstance

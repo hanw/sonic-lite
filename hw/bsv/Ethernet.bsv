@@ -53,7 +53,7 @@ typedef struct {
 } XGMII_LANES deriving (Bits);
 
 instance DefaultValue#(PacketData#(n));
-   defaultValue = 
+   defaultValue =
    PacketData {
       sop : False,
       eop : False,
@@ -173,6 +173,15 @@ typedef struct {
    Bool eop;
    Bit#(PktDataWidth) data;
 } EtherData deriving (Eq, Bits);
+
+instance DefaultValue#(EtherData);
+   defaultValue =
+   EtherData {
+   data : 0,
+   sop : False,
+   eop : False
+   };
+endinstance
 
 typedef struct {
    Bit#(EtherLen) len;
