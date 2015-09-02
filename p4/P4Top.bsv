@@ -27,10 +27,13 @@ import FIFO::*;
 import FIFOF::*;
 import GetPut::*;
 import Vector::*;
+import Connectable::*;
 
 import Parser::*;
 import Ethernet::*;
 import PacketBuffer::*;
+import SimpleMatchTable::*;
+import SimpleActionEngine::*;
 
 interface P4Pins;
    method Action osc_50(Bit#(1) b3d, Bit#(1) b4a, Bit#(1) b4d, Bit#(1) b7a, Bit#(1) b7d, Bit#(1) b8a, Bit#(1) b8d);
@@ -44,8 +47,8 @@ endinterface
 
 interface P4TopRequest;
    method Action sonic_read_version();
-   method Action sonic_start_parsing();
    method Action writePacketData(Vector#(2, Bit#(64)) data, Bit#(1) sop, Bit#(1) eop);
+   method Action writeMatchRule();
 endinterface
 
 interface P4Top;
@@ -53,7 +56,6 @@ interface P4Top;
    interface P4Pins pins;
 endinterface
 
-//`define ENABLE_PCIE
 module mkP4Top#(Clock derivedClock, Reset derivedReset, P4TopIndication indication)(P4Top);
    Clock defaultClock <- exposeCurrentClock();
    Reset defaultReset <- exposeCurrentReset();
@@ -65,7 +67,9 @@ module mkP4Top#(Clock derivedClock, Reset derivedReset, P4TopIndication indicati
    endrule
 
    PacketBuffer rxPktBuff <- mkPacketBuffer();
-   Parser pr <- mkParser();
+   Parser parser <- mkParser();
+   Table tbl <- mkSimpleMatchTable();
+   //ActionEngineIfc actionEng <- mkSimpleActionEngine();
 
    Reg#(Bit#(EtherLen)) pktLen <- mkReg(0);
    FIFOF#(void) readInProgress <- mkFIFOF;
@@ -74,7 +78,6 @@ module mkP4Top#(Clock derivedClock, Reset derivedReset, P4TopIndication indicati
       let pktLen <- rxPktBuff.readServer.readLen.get;
       rxPktBuff.readServer.readReq.put(EtherReq{len: truncate(pktLen)});
       readInProgress.enq(?);
-      pr.startParse();
       $display("readPacket %d: pktLen %x", cycle, pktLen);
    endrule
 
@@ -82,19 +85,43 @@ module mkP4Top#(Clock derivedClock, Reset derivedReset, P4TopIndication indicati
    rule packetParseInProgress if (readInProgress.notEmpty);
       let v <- rxPktBuff.readServer.readData.get;
       $display("inprogress %d:", cycle);
-      pr.enqPacketData(v);
+      parser.enqPacketData(v);
       if (v.eop) begin
+         $display("eop %d:", cycle);
          readInProgress.deq;
       end
    endrule
+
+   rule matchTableStart;
+      let v <- toGet(parser.parseDone).get;
+      $display("Parse Done");
+      parser.parserReset();
+   endrule
+
+   rule forwardPayload;
+      let v <- toGet(parser.payloadOut).get;
+   endrule
+
+   // loop to connect 32 stages.
+   mkConnection(parser.etherOut, tbl.etherIn);
+   mkConnection(parser.ipv4Out, tbl.ipv4In);
+
+   // connect from table to action engine
+
+   // connect from action to next match table
+   // connect from match table to action engine
+
+   // till the end, we connect action to queue
+   // queue to output match table and action engine
+
+   // queue sub-system
+
+   // match table
 
    interface P4TopRequest request;
       method Action sonic_read_version();
          let v= `NicVersion;
          indication.sonic_read_version_resp(v);
-      endmethod
-      method Action sonic_start_parsing();
-         pr.startParse();
       endmethod
       method Action writePacketData(Vector#(2, Bit#(64)) data, Bit#(1) sop, Bit#(1) eop);
          EtherData beat = defaultValue;
@@ -102,6 +129,10 @@ module mkP4Top#(Clock derivedClock, Reset derivedReset, P4TopIndication indicati
          beat.sop = unpack(sop);
          beat.eop = unpack(eop);
          rxPktBuff.writeServer.writeData.put(beat);
+      endmethod
+      // API for each match table.
+      method Action writeMatchRule();
+
       endmethod
    endinterface
    interface P4Pins pins;

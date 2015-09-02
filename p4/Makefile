@@ -35,6 +35,7 @@ CONNECTALFLAGS += -D DataBusWidth=128
 CONNECTALFLAGS += -D IMPORT_HOST_CLOCKS
 CONNECTALFLAGS += --derivedclockperiod=6.4
 CONNECTALFLAGS += -l="tins"
+CONNECTALFLAGS += -I="../sw/"
 #CONNECTALFLAGS += --chipscope=$(PROJTOP)/../../sonic-debug/stp/memread.stp
 ifneq (, $(BLUESIM))
 CONNECTALFLAGS += --pinfo=$(PROJTOP)/boards/sonic_synth.json

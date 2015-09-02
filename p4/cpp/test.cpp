@@ -26,6 +26,7 @@
 #include "P4TopIndication.h"
 #include "P4TopRequest.h"
 #include "GeneratedTypes.h"
+#include "utils.h"
 
 using namespace Tins;
 
@@ -55,6 +56,7 @@ int main(int argc, const char **argv)
 
     int packet_size;
     int numBeats;
+    int numPackets;
     EthernetII eth = EthernetII(DST_MAC, SRC_MAC) /
                      IP(DST_IP, SRC_IP) /
                      TCP(DST_TCP, SRC_TCP) /
@@ -62,22 +64,29 @@ int main(int argc, const char **argv)
     PDU::serialization_type buff = eth.serialize();
     packet_size = buff.size();
     numBeats = packet_size / 8; // 16 bytes per beat for 128-bit datawidth;
+    numPackets = 2;
     if (packet_size % 8 != 0) numBeats++;
-    fprintf(stderr, "nBeats=%d\n", numBeats);
-    fprintf(stderr, "src_mac=%s, dst_mac=%s\n", SRC_MAC, DST_MAC);
-    fprintf(stderr, "src_ip=%s, dst_ip=%s\n", SRC_IP, DST_IP);
+    PRINT_INFO("nBeats=%d\n", numBeats);
+    PRINT_INFO("src_mac=%s, dst_mac=%s\n", SRC_MAC, DST_MAC);
+    PRINT_INFO("src_ip=%s, dst_ip=%s\n", SRC_IP, DST_IP);
 
     // transfer packet to receive
     uint64_t data[2];
-    int i, sop, eop;
-    for (i=0; i<numBeats; i++) {
-        data[i%2] = *((uint64_t *)(&buff[0]) + i);
-        sop = (i/2 == 0) ? 1 : 0;
-        eop = (i/2 == (numBeats-1)/2) ? 1 : 0;
-        if (i%2) {
-            device->writePacketData(data, sop, eop);
-            fprintf(stderr, "%016lx %016lx %d %d\n", data[1], data[0], sop, eop);
+    int i, j, sop, eop;
+    for (j=0; j<numPackets; j++) {
+        for (i=0; i<numBeats; i++) {
+            data[i%2] = *((uint64_t *)(&buff[0]) + i);
+            sop = (i/2 == 0) ? 1 : 0;
+            eop = (i/2 == (numBeats-1)/2) ? 1 : 0;
+            if (i%2) {
+                device->writePacketData(data, sop, eop);
+                PRINT_INFO("%016lx %016lx %d %d\n", data[1], data[0], sop, eop);
+            }
         }
+    }
+
+    while(1) {
+        sleep(1);
     }
 
     return 0;
