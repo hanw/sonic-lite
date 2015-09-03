@@ -296,8 +296,8 @@ module mkDtpTx#(Integer id, Integer c_local_init)(DtpTx);
       if (ack_rcvd) begin
          let temp <- toGet(ackTimestampFifo).get;
          Bit#(53) tmp2 = zeroExtend(cycle);
-         delay <= (tmp2 - temp - 5) >> 1;
-         if(verbose) $display("%d: %d update delay=%d, %d, %d", cycle, id, c_local, temp, (tmp2-temp-5)>>1);
+         delay <= (tmp2 - temp - 3) >> 1;
+         if(verbose) $display("%d: %d update delay=%d, %d, %d", cycle, id, c_local, temp, (tmp2-temp-3)>>1);
       end
    endrule
 
@@ -456,7 +456,7 @@ module mkDtpTx#(Integer id, Integer c_local_init)(DtpTx);
       let v_local <- toGet(localCompareRemoteFifo).get();
       let v_remote <- toGet(remoteCompareLocalFifo).get();
       if(verbose) $display("%d: %d, v_local=%d, v_remote=%d, delay=%d", cycle, id, v_local, v_remote, delay);
-      if (v_local + 1 < v_remote + delay) begin
+      if (v_local < v_remote + delay) begin
          localLtRemoteFifo.enq(True);
          localGeRemoteFifo.enq(False);
       end
