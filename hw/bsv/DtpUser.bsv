@@ -267,18 +267,19 @@ module mkDtpUser#(DtpUserIndication indication)(DtpUser);
          let v <- toGet(toHostFifo[i]).get;
          if (v[52] == 0) begin
             lread_data_cycle1[i].enq(BufData{port_no:fromInteger(i), data:zeroExtend(v[51:0])});
+            Bit#(53) timestamp = 0;
+            if (switch_mode_reg == 0) begin // 0 for NIC, 1 for Switch
+               timestamp = clocal_reg[i] + 3;
+            end
+            else begin
+               timestamp = cglobal_reg + 3;
+            end 
+            lread_data_timestamp[i].enq(timestamp); 
             lread_cnt_enq1[i] <= lread_cnt_enq1[i] + 1;
+            if (verbose) $display("%d: %d, received %d\n", cycle_count, i, timestamp);
          end
          else if (v[52] == 1) begin
             lread_data_cycle2[i].enq(BufData{port_no:fromInteger(i), data:zeroExtend(v[51:0])});
-            Bit#(53) timestamp = 0;
-            if (switch_mode_reg == 0) begin // 0 for NIC, 1 for Switch
-               timestamp = clocal_reg[i];
-            end
-            else begin
-               timestamp = cglobal_reg;
-            end
-            lread_data_timestamp[i].enq(timestamp);
             lread_cnt_enq2[i] <= lread_cnt_enq2[i] + 1;
          end
       endrule
@@ -354,8 +355,8 @@ module mkDtpUser#(DtpUserIndication indication)(DtpUser);
    method Action dtp_logger_write_cnt(Bit#(8) port_no, Bit#(64) host_timestamp);
       // Check valid port No.
       if (port_no < 4) begin
-         lwrite_data_cycle1.enq(BufData{port_no: port_no, data: host_timestamp});
-         lwrite_data_cycle2.enq(BufData{port_no: port_no, data: zeroExtend(clocal_reg[port_no])});
+         lwrite_data_cycle1.enq(BufData{port_no: port_no, data: zeroExtend(clocal_reg[port_no])});
+         lwrite_data_cycle2.enq(BufData{port_no: port_no, data: host_timestamp});
          lwrite_cnt_enq[port_no] <= lwrite_cnt_enq[port_no] + 1;
       end
    endmethod
@@ -380,11 +381,11 @@ module mkDtpUser#(DtpUserIndication indication)(DtpUser);
    endmethod
    method Action dtp_read_local_cnt(Bit#(8) port_no);
       if (port_no < 4) begin
-         indication.dtp_read_local_cnt_resp(port_no, zeroExtend(clocal_reg[port_no]));
+         indication.dtp_read_local_cnt_resp(port_no, zeroExtend(clocal_reg[port_no]) + 3);
       end
    endmethod
    method Action dtp_read_global_cnt();
-      indication.dtp_read_global_cnt_resp(zeroExtend(cglobal_reg));
+      indication.dtp_read_global_cnt_resp(zeroExtend(cglobal_reg) + 3);
    endmethod
    method Action dtp_set_beacon_interval(Bit#(8) port_no, Bit#(32) interval);
       if (port_no < 4) begin

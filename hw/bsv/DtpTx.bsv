@@ -221,14 +221,23 @@ module mkDtpTx#(Integer id, Integer c_local_init)(DtpTx);
       if (mux_sel && fromHostFifo.notEmpty) begin
          let host_data = fromHostFifo.first;
          debug_from_host <= host_data;
-         encodeOut = {host_data, log_type, block_type};
+
+         if (host_data[52] == 0) begin
+             Bit#(52) tmp = c_local[51:0] + 1;
+             encodeOut = {1'b0, tmp, log_type, block_type};
+             if(verbose) $display("%d: %d, sending a log message %d", cycle, id, tmp);
+         end
+         else begin
+             encodeOut = {host_data, log_type, block_type};
+         end
          fromHostFifo.deq;
       end
       else if (mux_sel && txMuxSelFifo.notEmpty) begin
          let sel = txMuxSelFifo.first;
          if (sel == init_type) begin
-            encodeOut = {c_local+1, parity, init_type, block_type};
-            if(verbose) $display("%d: %d, Enqueued outgoing init request %d", cycle, id, c_local+1);
+            Bit#(53)    tmp = zeroExtend(cycle);
+            encodeOut = {tmp+1, parity, init_type, block_type};
+            if(verbose) $display("%d: %d, Enqueued outgoing init request %d", cycle, id, tmp+1);
          end
          else if (sel == ack_type) begin
             let init_timestamp <- toGet(initTimestampFifo).get;
@@ -238,6 +247,7 @@ module mkDtpTx#(Integer id, Integer c_local_init)(DtpTx);
          end
          else if (sel == beacon_type) begin
             encodeOut = {c_local+1, parity, beacon_type, block_type};
+            if(verbose) $display("%d: %d, Enqueued outgoing beacon %d", cycle, id, c_local+1);
          end
          else begin
             encodeOut = v; //should never happen
@@ -285,8 +295,9 @@ module mkDtpTx#(Integer id, Integer c_local_init)(DtpTx);
       // compute delay
       if (ack_rcvd) begin
          let temp <- toGet(ackTimestampFifo).get;
-         delay <= (c_local - temp - (rxtx_delay << 1) - 1) >> 1;
-         if(verbose) $display("%d: %d update delay=%d, %d, %d", cycle, id, c_local, temp, (c_local-temp-(rxtx_delay<<1)-1)>>1);
+         Bit#(53) tmp2 = zeroExtend(cycle);
+         delay <= (tmp2 - temp - 3) >> 1;
+         if(verbose) $display("%d: %d update delay=%d, %d, %d", cycle, id, c_local, temp, (tmp2-temp-3)>>1);
       end
    endrule
 
@@ -316,13 +327,6 @@ module mkDtpTx#(Integer id, Integer c_local_init)(DtpTx);
       end
       else begin
          timeout_count_sync <= timeout_count_sync + 1;
-      end
-
-      // compute delay
-      if (ack_rcvd) begin
-         let temp <- toGet(ackTimestampFifo).get;
-         delay <= (c_local - temp - (rxtx_delay << 1) - 1) >> 1;
-         if(verbose) $display("%d: %d update delay=%d, %d, %d", cycle, id, c_local, temp, (c_local-temp-(rxtx_delay<<1)-1)>>1);
       end
    endrule
 
@@ -422,7 +426,7 @@ module mkDtpTx#(Integer id, Integer c_local_init)(DtpTx);
          end
          else if (v.e == beacon_type) begin
             beacon_rcvd_next = True;
-            if(verbose) $display("%d: %d DtpTx beacon_rcvd %h %d", cycle, id, v.e, v.t);
+            if(verbose) $display("%d: %d DtpTx beacon_rcvd %h %d %d", cycle, id, v.e, v.t, c_local);
             localCompareRemoteFifo.enq(c_local+1);
             remoteCompareLocalFifo.enq(v.t+1);
             if (is_switch_mode) begin
@@ -452,7 +456,7 @@ module mkDtpTx#(Integer id, Integer c_local_init)(DtpTx);
       let v_local <- toGet(localCompareRemoteFifo).get();
       let v_remote <- toGet(remoteCompareLocalFifo).get();
       if(verbose) $display("%d: %d, v_local=%d, v_remote=%d, delay=%d", cycle, id, v_local, v_remote, delay);
-      if (v_local + 1 < v_remote + delay) begin
+      if (v_local < v_remote + delay) begin
          localLtRemoteFifo.enq(True);
          localGeRemoteFifo.enq(False);
       end
