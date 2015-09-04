@@ -29,11 +29,10 @@ import GetPut::*;
 import Vector::*;
 import Connectable::*;
 
-import Parser::*;
 import Ethernet::*;
+import IngressPipeline::*;
 import PacketBuffer::*;
-import SimpleMatchTable::*;
-import SimpleActionEngine::*;
+import Parser::*;
 import Types::*;
 
 interface P4Pins;
@@ -69,8 +68,7 @@ module mkP4Top#(Clock derivedClock, Reset derivedReset, P4TopIndication indicati
 
    PacketBuffer rxPktBuff <- mkPacketBuffer();
    Parser parser <- mkParser();
-   Table tbl <- mkSimpleMatchTable();
-   ActionEngineIfc actionEngine <- mkSimpleActionEngine();
+   Pipeline_port_mapping ingress_port_mapping <- mkIngressPipeline_port_mapping();
 
    Reg#(Bit#(EtherLen)) pktLen <- mkReg(0);
    FIFOF#(void) readInProgress <- mkFIFOF;
@@ -103,20 +101,7 @@ module mkP4Top#(Clock derivedClock, Reset derivedReset, P4TopIndication indicati
       let v <- toGet(parser.payloadOut).get;
    endrule
 
-   // loop to connect 32 stages
-   mkConnection(parser.etherOut, tbl.etherIn);
-   mkConnection(parser.ipv4Out, tbl.ipv4In);
-   // mkConnection(parser.header, tbl.headerIn);
-
-   // connect from table to action engine
-   // mkConnection(tbl.header, action.headerIn);
-   // mkConnection(tbl.action, action.actionIn);
-   mkConnection(tbl.actionOut, actionEngine.action_in);
-   // till the end, we connect action to queue
-   // queue to output match table and action engine
-
-   // queue sub-system
-   // match table
+   mkConnection(parser.phvOut, ingress_port_mapping.phvIn);
 
    interface P4TopRequest request;
       method Action sonic_read_version();
@@ -135,7 +120,6 @@ module mkP4Top#(Clock derivedClock, Reset derivedReset, P4TopIndication indicati
          $display("table add on miss");
          MatchEntry entry = defaultValue;
          entry.dlEtherType = data;
-         tbl.putKey.put(entry);
       endmethod
       // table entry modify
       // table entry delete

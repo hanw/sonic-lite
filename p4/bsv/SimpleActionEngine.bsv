@@ -59,7 +59,6 @@ module mkSimpleActionEngine(ActionEngineIfc);
    endrule
 
    // implement primitive actions
-   // swap mac address
    rule modify_dst_addr if (fifo_out.notFull);
       let v <- toGet(fifo_in).get;
       fifo_out.enq(v);
@@ -73,3 +72,4 @@ module mkSimpleActionEngine(ActionEngineIfc);
    interface PipeIn action_in = toPipeIn(fifo_in_action);
    interface PipeOut phv_out = toPipeOut(fifo_out);
 endmodule
+

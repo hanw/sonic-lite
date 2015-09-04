@@ -38,8 +38,7 @@ interface Parser;
    method Action enqPacketData(EtherData b);
    method Action parserReset();
    interface PipeOut#(void) parseDone;
-   interface PipeOut#(HeaderType_ethernet) etherOut;
-   interface PipeOut#(HeaderType_ipv4) ipv4Out;
+   interface PipeOut#(PHV_port_mapping) phvOut;
    interface PipeOut#(Bit#(128)) payloadOut;
 endinterface
 
@@ -60,8 +59,7 @@ module mkParser(Parser);
    Reg#(HeaderType_standard_metadata) reg_standard_metadata <- mkReg(defaultValue);
    Reg#(HeaderType_ingress_metadata) reg_ingress_metadata <- mkReg(defaultValue);
 
-   FIFOF#(HeaderType_ethernet) fifo_out_ether <- mkBypassFIFOF();
-   FIFOF#(HeaderType_ipv4) fifo_out_ipv4<- mkBypassFIFOF();
+   FIFOF#(PHV_port_mapping) fifo_out_phv <- mkBypassFIFOF();
    FIFOF#(Bit#(128)) fifo_out_payload <- mkBypassFIFOF();
 
    rule every;
@@ -127,8 +125,10 @@ module mkParser(Parser);
       ipv4.dstAddr = pack(dstAddr);
       reg_ipv4 <= ipv4;
       parse_done_fifo.enq(?);
-      fifo_out_ether.enq(reg_ethernet);
-      fifo_out_ipv4.enq(ipv4);
+
+      PHV_port_mapping phv = defaultValue;
+      phv.ipv4_dstAddr = ipv4.dstAddr;
+      fifo_out_phv.enq(phv);
       payload_cfFifo.enq(?);
    endaction
    endseq;
@@ -165,8 +165,7 @@ module mkParser(Parser);
    endmethod
 
    interface parseDone = toPipeOut(parse_done_fifo);
-   interface etherOut = toPipeOut(fifo_out_ether);
-   interface ipv4Out = toPipeOut(fifo_out_ipv4);
+   interface phvOut = toPipeOut(fifo_out_phv);
    interface payloadOut = toPipeOut(fifo_out_payload);
 endmodule
 

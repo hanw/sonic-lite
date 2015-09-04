@@ -20,24 +20,30 @@
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 import Clocks::*;
+import Connectable::*;
 import DefaultValue::*;
 import FIFO::*;
 import FIFOF::*;
 import GetPut::*;
 import Vector::*;
+
 import Pipe::*;
+import SimpleMatchTable::*;
+import SimpleActionEngine::*;
 import Types::*;
 
 interface Pipeline_port_mapping;
-   PipeIn#(PHV_port_mapping) phv_in;
-   PipeOut#(PHV_bd)          phv_out;
+   interface PipeIn#(PHV_port_mapping) phvIn;
+   interface PipeOut#(PHV_bd)          phvOut;
 endinterface
 
 module mkIngressPipeline_port_mapping(Pipeline_port_mapping);
    FIFOF#(PHV_port_mapping) fifo_in_phv <- mkSizedFIFOF(1);
    FIFOF#(PHV_bd) fifo_out_phv <- mkSizedFIFOF(1);
 
-   rule build_phv_out;
+   // Rules to forward bypass signals.
+   // can further optimized
+   rule build_phvOut;
       let v <- toGet(fifo_in_phv).get;
       PHV_bd bd = defaultValue;
       bd.ingress_metadata_vrf = v.ingress_metadata_vrf;
@@ -50,9 +56,13 @@ module mkIngressPipeline_port_mapping(Pipeline_port_mapping);
       fifo_out_phv.enq(bd);
    endrule
 
-   interface PipeIn phv_in = toPipeIn(fifo_in_phv);
-   interface PipeOut phv_out = toPipeOut(fifo_out_phv);
+   // generate table specific interface
+   Table matchTable <- mkSimpleMatchTable();
+   ActionEngineIfc actionEngine <- mkSimpleActionEngine();
+
+   mkConnection(matchTable.actionOut, actionEngine.action_in);
+
+   interface PipeIn phvIn = toPipeIn(fifo_in_phv);
+   interface PipeOut phvOut = toPipeOut(fifo_out_phv);
 endmodule
-
-
 
