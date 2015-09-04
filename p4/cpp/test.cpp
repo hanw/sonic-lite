@@ -70,6 +70,8 @@ int main(int argc, const char **argv)
     PRINT_INFO("src_mac=%s, dst_mac=%s\n", SRC_MAC, DST_MAC);
     PRINT_INFO("src_ip=%s, dst_ip=%s\n", SRC_IP, DST_IP);
 
+    device->ipv4_table_add_with_on_miss(1);
+
     // transfer packet to receive
     uint64_t data[2];
     int i, j, sop, eop;

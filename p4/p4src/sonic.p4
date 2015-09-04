@@ -22,7 +22,7 @@ limitations under the License.
 #define IPV4_LPM_TABLE_SIZE                    16384
 #define IPV4_HOST_TABLE_SIZE                   131072
 #define NEXTHOP_TABLE_SIZE                     32768
-#define REWRITE_IPV4_TABLE_SIZE                32768
+#define REWRITE_MAC_TABLE_SIZE                 32768
 
 #define VRF_BIT_WIDTH                          12
 #define BD_BIT_WIDTH                           16
@@ -40,6 +40,34 @@ header_type ingress_metadata_t {
 metadata ingress_metadata_t ingress_metadata;
 
 action on_miss() {
+}
+
+action set_bd(bd) {
+    modify_field(ingress_metadata.bd, bd);
+}
+
+table port_mapping {
+    reads {
+        standard_metadata.ingress_port : exact;
+    }
+    actions {
+        set_bd;
+    }
+    size : PORT_VLAN_TABLE_SIZE;
+}
+
+action set_vrf(vrf) {
+    modify_field(ingress_metadata.vrf, vrf);
+}
+
+table bd {
+    reads {
+        ingress_metadata.bd : exact;
+    }
+    actions {
+        set_vrf;
+    }
+    size : BD_TABLE_SIZE;
 }
 
 action fib_hit_nexthop(nexthop_index) {
@@ -88,6 +116,11 @@ table nexthop {
 
 control ingress {
     if (valid(ipv4)) {
+        /* derive ingress_metadata.bd */
+        apply(port_mapping);
+
+        /* derive ingress_metadata.vrf */
+        apply(bd);
 
         /* fib lookup, set ingress_metadata.nexthop_index */
         apply(ipv4_fib) {
@@ -101,36 +134,23 @@ control ingress {
     }
 }
 
-action f_insert_ipv4_header(proto) {
-    add_header(ipv4);
-    modify_field(ipv4.protocol, proto);
-    modify_field(ipv4.ttl, 64);
-    modify_field(ipv4.version, 0x4);
-    modify_field(ipv4.ihl, 0x5);
+action rewrite_src_dst_mac(smac, dmac) {
+    modify_field(ethernet.srcAddr, smac);
+    modify_field(ethernet.dstAddr, dmac);
 }
 
-action ipv4_ipv4_rewrite() {
-    f_insert_ipv4_header(IP_PROTOCOLS_IPV4);
-    modify_field(ethernet.etherType, ETHERTYPE_IPV4);
-}
-
-action ipv4_ipv6_rewrite() {
-    f_insert_ipv4_header(IP_PROTOCOLS_IPV6);
-    modify_field(ethernet.etherType, ETHERTYPE_IPV4);
-}
-
-table rewrite_ipv4 {
+table rewrite_mac {
     reads {
-        ipv4.dstAddr : exact;
+        ingress_metadata.nexthop_index : exact;
     }
     actions {
-        ipv4_ipv4_rewrite;
-        ipv4_ipv6_rewrite;
+        on_miss;
+        rewrite_src_dst_mac;
     }
-    size : REWRITE_IPV4_TABLE_SIZE;
+    size : REWRITE_MAC_TABLE_SIZE;
 }
 
 control egress {
     /* set smac and dmac from ingress_metadata.nexthop_index */
-    apply(rewrite_ipv4);
+    apply(rewrite_mac);
 }

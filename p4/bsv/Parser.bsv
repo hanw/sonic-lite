@@ -35,7 +35,6 @@ import Ethernet::*;
 import Types::*;
 
 interface Parser;
-   method Action startParse();
    method Action enqPacketData(EtherData b);
    method Action parserReset();
    interface PipeOut#(void) parseDone;
@@ -145,6 +144,7 @@ module mkParser(Parser);
    rule forward_header (!payload_cfFifo.notEmpty);
       let v <- toGet(data_fifo_in).get;
       header_fifo_in.enq(v.data);
+      fifo_out_payload.enq(v.data);
    endrule
 
    rule forward_payload (payload_cfFifo.notEmpty);

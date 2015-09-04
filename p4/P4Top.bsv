@@ -34,6 +34,7 @@ import Ethernet::*;
 import PacketBuffer::*;
 import SimpleMatchTable::*;
 import SimpleActionEngine::*;
+import Types::*;
 
 interface P4Pins;
    method Action osc_50(Bit#(1) b3d, Bit#(1) b4a, Bit#(1) b4d, Bit#(1) b7a, Bit#(1) b7d, Bit#(1) b8a, Bit#(1) b8d);
@@ -48,7 +49,7 @@ endinterface
 interface P4TopRequest;
    method Action sonic_read_version();
    method Action writePacketData(Vector#(2, Bit#(64)) data, Bit#(1) sop, Bit#(1) eop);
-   method Action writeMatchRule();
+   method Action ipv4_table_add_with_on_miss(Bit#(16) data);
 endinterface
 
 interface P4Top;
@@ -69,7 +70,7 @@ module mkP4Top#(Clock derivedClock, Reset derivedReset, P4TopIndication indicati
    PacketBuffer rxPktBuff <- mkPacketBuffer();
    Parser parser <- mkParser();
    Table tbl <- mkSimpleMatchTable();
-   //ActionEngineIfc actionEng <- mkSimpleActionEngine();
+   ActionEngineIfc actionEngine <- mkSimpleActionEngine();
 
    Reg#(Bit#(EtherLen)) pktLen <- mkReg(0);
    FIFOF#(void) readInProgress <- mkFIFOF;
@@ -102,20 +103,19 @@ module mkP4Top#(Clock derivedClock, Reset derivedReset, P4TopIndication indicati
       let v <- toGet(parser.payloadOut).get;
    endrule
 
-   // loop to connect 32 stages.
+   // loop to connect 32 stages
    mkConnection(parser.etherOut, tbl.etherIn);
    mkConnection(parser.ipv4Out, tbl.ipv4In);
+   // mkConnection(parser.header, tbl.headerIn);
 
    // connect from table to action engine
-
-   // connect from action to next match table
-   // connect from match table to action engine
-
+   // mkConnection(tbl.header, action.headerIn);
+   // mkConnection(tbl.action, action.actionIn);
+   mkConnection(tbl.actionOut, actionEngine.actionIn);
    // till the end, we connect action to queue
    // queue to output match table and action engine
 
    // queue sub-system
-
    // match table
 
    interface P4TopRequest request;
@@ -130,10 +130,23 @@ module mkP4Top#(Clock derivedClock, Reset derivedReset, P4TopIndication indicati
          beat.eop = unpack(eop);
          rxPktBuff.writeServer.writeData.put(beat);
       endmethod
-      // API for each match table.
-      method Action writeMatchRule();
-
+      // Generate api for each table, meter, etc.
+      method Action ipv4_table_add_with_on_miss(Bit#(16) data);
+         $display("table add on miss");
+         MatchEntry entry = defaultValue;
+         entry.dlEtherType = data;
+         tbl.putKey.put(entry);
       endmethod
+      // table entry modify
+      // table entry delete
+      // get first entry
+      // table set default action
+      // indirect action data and match select
+      // clean all
+      // clean table state
+      // global table counter
+      // meters
+      // mirroring api
    endinterface
    interface P4Pins pins;
    endinterface

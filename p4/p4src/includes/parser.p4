@@ -19,8 +19,6 @@ parser start {
 }
 
 #define ETHERTYPE_IPV4 0x0800
-#define IP_PROTOCOLS_IPV4 4
-#define IP_PROTOCOLS_IPV6 6
 
 header ethernet_t ethernet;
 

@@ -32,7 +32,11 @@ import FIFO::*;
 import FIFOF::*;
 import GetPut::*;
 import Vector::*;
+import Pipe::*;
 
+import Types::*;
+
+// Generate interface from match table
 typedef struct {
    Bit#(48) src_mac;
    Bit#(48) dst_mac;
@@ -46,6 +50,7 @@ instance DefaultValue#(PacketFieldIn);
    };
 endinstance
 
+// Generate interface to next match table
 typedef struct {
    Bit#(48) src_mac;
    Bit#(48) dst_mac;
@@ -59,22 +64,30 @@ instance DefaultValue#(PacketFieldOut);
    };
 endinstance
 
+// Action Types
+
 interface ActionEngineIfc;
    interface Put#(PacketFieldIn) actionPacketIn;
-   interface Get#(PacketFieldOut) actionPacketOut;
+   interface PipeIn#(ActionEntry) actionIn;
+   interface PipeOut#(PacketFieldOut) actionOut;
 endinterface
 
 (* synthesize *)
 module mkSimpleActionEngine(ActionEngineIfc);
+   FIFOF#(ActionEntry) fifo_in_action <- mkSizedFIFOF(1);
    FIFOF#(PacketFieldIn) fifo_in <- mkSizedFIFOF(1);
    FIFOF#(PacketFieldOut) fifo_out <- mkSizedFIFOF(1);
-
    // Action should implement individual actions, and only generate used one.
    // Typical one action is implemented as a single rule, with:
    // - one set of input and output
    // - one rule to compute change
    // - action behaves as guard
+   rule getAction;
+      let v <- toGet(fifo_in_action).get;
+      $display("Received Action");
+   endrule
 
+   // implement primitive actions
    // swap mac address
    rule swap_mac_address if (fifo_out.notFull);
       let v <- toGet(fifo_in).get;
@@ -89,11 +102,6 @@ module mkSimpleActionEngine(ActionEngineIfc);
          fifo_in.enq(p);
       endmethod
    endinterface
-   interface Get actionPacketOut;
-      method ActionValue#(PacketFieldOut) get();
-         let v = fifo_out.first;
-         fifo_out.deq;
-         return v;
-      endmethod
-   endinterface
+   interface PipeIn actionIn = toPipeIn(fifo_in_action);
+   interface PipeOut actionOut = toPipeOut(fifo_out);
 endmodule

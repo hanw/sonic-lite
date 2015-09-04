@@ -36,27 +36,6 @@ import Types::*;
 
 typedef 16 BramAddrWidth;
 
-typedef struct {
-   Bit#(24) dlVlanTag;
-   Bit#(8) tos;
-   Bit#(8) srcPort;
-   Bit#(48) dlSrc;
-   Bit#(48) dlDst;
-   Bit#(16) dlEtherType;
-   Bit#(32) src;
-   Bit#(32) dst;
-   Bit#(8) proto;
-   Bit#(16) tpSrc;
-   Bit#(16) tpDst;
-} MatchEntry deriving (Bits, Eq);
-
-typedef struct {
-   Bit#(32) ipv4;
-   Bit#(48) stats;
-   Bit#(32) insts;
-   Bit#(16) actions;
-} ActionEntry deriving (Bits, Eq);
-
 interface Table;
    // Get/Put interface??
    interface PipeIn#(HeaderType_ethernet) etherIn;
@@ -72,6 +51,10 @@ module mkSimpleMatchTable(Table);
    FIFOF#(HeaderType_ethernet) fifo_in_ether <- mkSizedFIFOF(1);
    FIFOF#(HeaderType_ipv4) fifo_in_ipv4 <- mkSizedFIFOF(1);
    FIFOF#(ActionEntry) fifo_out_action <- mkSizedFIFOF(1);
+   FIFOF#(HeaderType_ethernet) fifo_out_ether <- mkSizedFIFOF(1);
+   FIFOF#(HeaderType_ipv4) fifo_out_ipv4 <- mkSizedFIFOF(1);
+
+   FIFOF#(Bit#(16)) match_cfFifo <- mkSizedFIFOF(1);
 
    // MatchTable
    BRAM_Configure matchBramConfig = defaultValue;
@@ -86,11 +69,26 @@ module mkSimpleMatchTable(Table);
    rule get_ether;
       let v <- toGet(fifo_in_ether).get;
       $display("ethernet, %x %x", v.srcAddr, v.dstAddr);
+      // hash
+      fifo_out_ether.enq(v);
    endrule
 
    rule get_ipv4;
       let v <- toGet(fifo_in_ipv4).get;
       $display("ipv4 %x %x", v.srcAddr, v.dstAddr);
+      // hash
+      fifo_out_ipv4.enq(v);
+      match_cfFifo.enq(1);
+   endrule
+
+   rule doMatch;
+      let v <- toGet(match_cfFifo).get;
+      matchRam.portB.request.put(BRAMRequest{write:False, address: zeroExtend(v), datain:?, responseOnWrite:?});
+   endrule
+
+   rule getMatchResult;
+      let entry <- matchRam.portB.response.get;
+      fifo_out_action.enq(ActionEntry{ipv4:0, stats:0, insts:0, actions:0});
    endrule
 
    interface Put putKey;

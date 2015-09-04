@@ -105,4 +105,35 @@ instance DefaultValue#(HeaderType_ingress_metadata);
    };
 endinstance
 
+// Match structs
+typedef struct {
+   Bit#(16) dlEtherType;
+   Bit#(32) src;
+   Bit#(32) dst;
+} MatchEntry deriving (Bits, Eq);
+instance DefaultValue#(MatchEntry);
+   defaultValue =
+   MatchEntry {
+     dlEtherType : 0,
+     src : 0,
+     dst : 0
+   };
+endinstance
+
+// Action structs
+typedef struct {
+   Bit#(32) ipv4;
+   Bit#(48) stats;
+   Bit#(32) insts;
+   Bit#(16) actions;
+} ActionEntry deriving (Bits, Eq);
+instance DefaultValue#(ActionEntry);
+   defaultValue =
+   ActionEntry {
+      ipv4 : 0,
+      stats : 0,
+      insts : 0,
+      actions : 0
+   };
+endinstance
 
