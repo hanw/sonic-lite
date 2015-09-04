@@ -111,7 +111,7 @@ module mkP4Top#(Clock derivedClock, Reset derivedReset, P4TopIndication indicati
    // connect from table to action engine
    // mkConnection(tbl.header, action.headerIn);
    // mkConnection(tbl.action, action.actionIn);
-   mkConnection(tbl.actionOut, actionEngine.actionIn);
+   mkConnection(tbl.actionOut, actionEngine.action_in);
    // till the end, we connect action to queue
    // queue to output match table and action engine
 

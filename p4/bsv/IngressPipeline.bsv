@@ -19,14 +19,39 @@
 // ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
+import Clocks::*;
+import DefaultValue::*;
+import FIFO::*;
+import FIFOF::*;
+import GetPut::*;
+import Vector::*;
+import Pipe::*;
+import Types::*;
 
-interface PipelineStage;
-
+interface Pipeline_port_mapping;
+   PipeIn#(PHV_port_mapping) phv_in;
+   PipeOut#(PHV_bd)          phv_out;
 endinterface
 
-module mkIngressPipelineStage_ipv4();
+module mkIngressPipeline_port_mapping(Pipeline_port_mapping);
+   FIFOF#(PHV_port_mapping) fifo_in_phv <- mkSizedFIFOF(1);
+   FIFOF#(PHV_bd) fifo_out_phv <- mkSizedFIFOF(1);
 
+   rule build_phv_out;
+      let v <- toGet(fifo_in_phv).get;
+      PHV_bd bd = defaultValue;
+      bd.ingress_metadata_vrf = v.ingress_metadata_vrf;
+      bd.ingress_metadata_bd = v.ingress_metadata_bd;
+      bd.ipv4_dstAddr = v.ipv4_dstAddr;
+      bd.ingress_metadata_nexthop_index = v.ingress_metadata_nexthop_index;
+      bd.header_addr = v.header_addr;
+      bd.payload_addr = v.payload_addr;
+      bd.payload_len = v.payload_len;
+      fifo_out_phv.enq(bd);
+   endrule
 
+   interface PipeIn phv_in = toPipeIn(fifo_in_phv);
+   interface PipeOut phv_out = toPipeOut(fifo_out_phv);
 endmodule
 
 

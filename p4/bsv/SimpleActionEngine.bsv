@@ -36,47 +36,18 @@ import Pipe::*;
 
 import Types::*;
 
-// Generate interface from match table
-typedef struct {
-   Bit#(48) src_mac;
-   Bit#(48) dst_mac;
-} PacketFieldIn deriving (Bits, Eq);
-
-instance DefaultValue#(PacketFieldIn);
-   defaultValue =
-   PacketFieldIn {
-      src_mac : 0,
-      dst_mac : 0
-   };
-endinstance
-
-// Generate interface to next match table
-typedef struct {
-   Bit#(48) src_mac;
-   Bit#(48) dst_mac;
-} PacketFieldOut deriving (Bits, Eq);
-
-instance DefaultValue#(PacketFieldOut);
-   defaultValue =
-   PacketFieldOut {
-      src_mac : 0,
-      dst_mac : 0
-   };
-endinstance
-
 // Action Types
-
 interface ActionEngineIfc;
-   interface Put#(PacketFieldIn) actionPacketIn;
-   interface PipeIn#(ActionEntry) actionIn;
-   interface PipeOut#(PacketFieldOut) actionOut;
+   interface Put#(PHV_port_mapping) phv_in;
+   interface PipeIn#(ActionEntry) action_in;
+   interface PipeOut#(PHV_port_mapping) phv_out;
 endinterface
 
 (* synthesize *)
 module mkSimpleActionEngine(ActionEngineIfc);
    FIFOF#(ActionEntry) fifo_in_action <- mkSizedFIFOF(1);
-   FIFOF#(PacketFieldIn) fifo_in <- mkSizedFIFOF(1);
-   FIFOF#(PacketFieldOut) fifo_out <- mkSizedFIFOF(1);
+   FIFOF#(PHV_port_mapping) fifo_in <- mkSizedFIFOF(1);
+   FIFOF#(PHV_port_mapping) fifo_out <- mkSizedFIFOF(1);
    // Action should implement individual actions, and only generate used one.
    // Typical one action is implemented as a single rule, with:
    // - one set of input and output
@@ -89,19 +60,16 @@ module mkSimpleActionEngine(ActionEngineIfc);
 
    // implement primitive actions
    // swap mac address
-   rule swap_mac_address if (fifo_out.notFull);
+   rule modify_dst_addr if (fifo_out.notFull);
       let v <- toGet(fifo_in).get;
-      PacketFieldOut vout = defaultValue;
-      vout.src_mac = v.dst_mac;
-      vout.dst_mac = v.src_mac;
-      fifo_out.enq(vout);
+      fifo_out.enq(v);
    endrule
 
-   interface Put actionPacketIn;
-      method Action put(PacketFieldIn p) if (fifo_in.notFull);
+   interface Put phv_in;
+      method Action put(PHV_port_mapping p) if (fifo_in.notFull);
          fifo_in.enq(p);
       endmethod
    endinterface
-   interface PipeIn actionIn = toPipeIn(fifo_in_action);
-   interface PipeOut actionOut = toPipeOut(fifo_out);
+   interface PipeIn action_in = toPipeIn(fifo_in_action);
+   interface PipeOut phv_out = toPipeOut(fifo_out);
 endmodule
