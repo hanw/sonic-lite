@@ -38,14 +38,14 @@ import Types::*;
 
 // Action Types
 interface ActionEngineIfc;
-   interface Put#(PHV_port_mapping) phv_in;
-   interface PipeIn#(ActionEntry) action_in;
+   interface PipeIn#(PHV_port_mapping) phv_in;
+   interface PipeIn#(ActionSpec_port_mapping) action_in;
    interface PipeOut#(PHV_port_mapping) phv_out;
 endinterface
 
 (* synthesize *)
 module mkSimpleActionEngine(ActionEngineIfc);
-   FIFOF#(ActionEntry) fifo_in_action <- mkSizedFIFOF(1);
+   FIFOF#(ActionSpec_port_mapping) fifo_in_action <- mkSizedFIFOF(1);
    FIFOF#(PHV_port_mapping) fifo_in <- mkSizedFIFOF(1);
    FIFOF#(PHV_port_mapping) fifo_out <- mkSizedFIFOF(1);
    // Action should implement individual actions, and only generate used one.
@@ -64,11 +64,7 @@ module mkSimpleActionEngine(ActionEngineIfc);
       fifo_out.enq(v);
    endrule
 
-   interface Put phv_in;
-      method Action put(PHV_port_mapping p) if (fifo_in.notFull);
-         fifo_in.enq(p);
-      endmethod
-   endinterface
+   interface PipeIn phv_in = toPipeIn(fifo_in);
    interface PipeIn action_in = toPipeIn(fifo_in_action);
    interface PipeOut phv_out = toPipeOut(fifo_out);
 endmodule

@@ -107,7 +107,6 @@ instance DefaultValue#(HeaderType_ingress_metadata);
    };
 endinstance
 
-// TODO: Generate input data type for each ingress and egress stage
 typedef struct {
    Bit#(12) ingress_metadata_vrf;
    Bit#(9) standard_metadata_ingress_port;
@@ -221,34 +220,121 @@ instance DefaultValue#(PHV_rewrite_mac);
    };
 endinstance
 
-// Match structs
+//FIXME: handle lpm match_spec
 typedef struct {
-   Bit#(16) dlEtherType;
-   Bit#(32) src;
-   Bit#(32) dst;
-} MatchEntry deriving (Bits, Eq);
-instance DefaultValue#(MatchEntry);
+   Bit#(9) standard_metadata_ingress_port;
+} MatchSpec_port_mapping deriving (Bits, Eq);
+instance DefaultValue#(MatchSpec_port_mapping);
    defaultValue =
-   MatchEntry {
-     dlEtherType : 0,
-     src : 0,
-     dst : 0
+   MatchSpec_port_mapping {
+      standard_metadata_ingress_port : 0
+   };
+endinstance
+typedef struct {
+   Bit#(16) ingress_metadata_bd;
+} MatchSpec_bd deriving (Bits, Eq);
+instance DefaultValue#(MatchSpec_bd);
+   defaultValue =
+   MatchSpec_bd {
+      ingress_metadata_bd : 0
+   };
+endinstance
+typedef struct {
+   Bit#(12) ingress_metadata_vrf;
+   Bit#(32) ipv4_dstAddr;
+} MatchSpec_ipv4_fib deriving (Bits, Eq);
+instance DefaultValue#(MatchSpec_ipv4_fib);
+   defaultValue =
+   MatchSpec_ipv4_fib {
+      ingress_metadata_vrf : 0,
+      ipv4_dstAddr : 0
+   };
+endinstance
+typedef struct {
+   Bit#(12) ingress_metadata_vrf;
+   Bit#(32) ipv4_dstAddr;
+} MatchSpec_ipv4_fib_lpm deriving (Bits, Eq);
+instance DefaultValue#(MatchSpec_ipv4_fib_lpm);
+   defaultValue =
+   MatchSpec_ipv4_fib_lpm {
+      ingress_metadata_vrf : 0,
+      ipv4_dstAddr : 0
+   };
+endinstance
+typedef struct {
+   Bit#(16) ingress_metadata_nexthop_index;
+} MatchSpec_nexthop deriving (Bits, Eq);
+instance DefaultValue#(MatchSpec_nexthop);
+   defaultValue =
+   MatchSpec_nexthop {
+      ingress_metadata_nexthop_index : 0
+   };
+endinstance
+typedef struct {
+   Bit#(16) ingress_metadata_nexthop_index;
+} MatchSpec_rewrite_mac deriving (Bits, Eq);
+instance DefaultValue#(MatchSpec_rewrite_mac);
+   defaultValue =
+   MatchSpec_rewrite_mac {
+      ingress_metadata_nexthop_index : 0
    };
 endinstance
 
-// Action structs
+//FIXME: bug! duplicate params
 typedef struct {
-   Bit#(32) ipv4;
-   Bit#(48) stats;
-   Bit#(32) insts;
-   Bit#(16) actions;
-} ActionEntry deriving (Bits, Eq);
-instance DefaultValue#(ActionEntry);
+   Bit#(16) bd;
+} ActionSpec_port_mapping deriving (Bits, Eq);
+instance DefaultValue#(ActionSpec_port_mapping);
    defaultValue =
-   ActionEntry {
-      ipv4 : 0,
-      stats : 0,
-      insts : 0,
-      actions : 0
+   ActionSpec_port_mapping {
+      bd : 0
    };
 endinstance
+typedef struct {
+   Bit#(12) vrf;
+} ActionSpec_bd deriving (Bits, Eq);
+instance DefaultValue#(ActionSpec_bd);
+   defaultValue =
+   ActionSpec_bd {
+      vrf : 0
+   };
+endinstance
+typedef struct {
+   Bit#(16) nexthop_index;
+} ActionSpec_ipv4_fib deriving (Bits, Eq);
+instance DefaultValue#(ActionSpec_ipv4_fib);
+   defaultValue =
+   ActionSpec_ipv4_fib {
+      nexthop_index : 0
+   };
+endinstance
+typedef struct {
+   Bit#(16) nexthop_index;
+} ActionSpec_ipv4_fib_lpm deriving (Bits, Eq);
+instance DefaultValue#(ActionSpec_ipv4_fib_lpm);
+   defaultValue =
+   ActionSpec_ipv4_fib_lpm {
+      nexthop_index : 0
+   };
+endinstance
+typedef struct {
+   Bit#(9) egress_spec;
+} ActionSpec_nexthop deriving (Bits, Eq);
+instance DefaultValue#(ActionSpec_nexthop);
+   defaultValue =
+   ActionSpec_nexthop {
+      egress_spec : 0
+   };
+endinstance
+typedef struct {
+   Bit#(48) smac;
+   Bit#(48) dmac;
+} ActionSpec_rewrite_mac deriving (Bits, Eq);
+instance DefaultValue#(ActionSpec_rewrite_mac);
+   defaultValue =
+   ActionSpec_rewrite_mac {
+      smac : 0,
+      dmac : 0
+   };
+endinstance
+

@@ -48,7 +48,7 @@ endinterface
 interface P4TopRequest;
    method Action sonic_read_version();
    method Action writePacketData(Vector#(2, Bit#(64)) data, Bit#(1) sop, Bit#(1) eop);
-   method Action ipv4_table_add_with_on_miss(Bit#(16) data);
+   method Action ipv4_table_add_with_on_miss(MatchSpec_port_mapping match_spec, ActionSpec_port_mapping action_spec);
 endinterface
 
 interface P4Top;
@@ -116,10 +116,8 @@ module mkP4Top#(Clock derivedClock, Reset derivedReset, P4TopIndication indicati
          rxPktBuff.writeServer.writeData.put(beat);
       endmethod
       // Generate api for each table, meter, etc.
-      method Action ipv4_table_add_with_on_miss(Bit#(16) data);
+      method Action ipv4_table_add_with_on_miss(MatchSpec_port_mapping match_spec, ActionSpec_port_mapping action_spec);
          $display("table add on miss");
-         MatchEntry entry = defaultValue;
-         entry.dlEtherType = data;
       endmethod
       // table entry modify
       // table entry delete

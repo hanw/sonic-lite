@@ -40,9 +40,9 @@ interface Table;
    // Get/Put interface??
    interface PipeIn#(HeaderType_ethernet) etherIn;
    interface PipeIn#(HeaderType_ipv4) ipv4In;
-   interface Put#(MatchEntry) putKey;
-   interface Get#(Maybe#(MatchEntry)) readData;
-   interface PipeOut#(ActionEntry) actionOut;
+   interface Put#(MatchSpec_port_mapping) putKey;
+   interface Get#(Maybe#(MatchSpec_port_mapping)) readData;
+   interface PipeOut#(ActionSpec_port_mapping) actionOut;
 endinterface
 
 (* synthesize *)
@@ -50,7 +50,7 @@ module mkSimpleMatchTable(Table);
 
    FIFOF#(HeaderType_ethernet) fifo_in_ether <- mkSizedFIFOF(1);
    FIFOF#(HeaderType_ipv4) fifo_in_ipv4 <- mkSizedFIFOF(1);
-   FIFOF#(ActionEntry) fifo_out_action <- mkSizedFIFOF(1);
+   FIFOF#(ActionSpec_port_mapping) fifo_out_action <- mkSizedFIFOF(1);
    FIFOF#(HeaderType_ethernet) fifo_out_ether <- mkSizedFIFOF(1);
    FIFOF#(HeaderType_ipv4) fifo_out_ipv4 <- mkSizedFIFOF(1);
 
@@ -59,12 +59,12 @@ module mkSimpleMatchTable(Table);
    // MatchTable
    BRAM_Configure matchBramConfig = defaultValue;
    matchBramConfig.latency = 1;
-   BRAM2Port#(Bit#(BramAddrWidth), MatchEntry) matchRam <- mkBRAM2Server(matchBramConfig);
+   BRAM2Port#(Bit#(BramAddrWidth), MatchSpec_port_mapping) matchRam <- mkBRAM2Server(matchBramConfig);
 
    // ActionTable
    BRAM_Configure actionBramConfig = defaultValue;
    actionBramConfig.latency = 1;
-   BRAM2Port#(Bit#(BramAddrWidth), ActionEntry) actionRam <- mkBRAM2Server(actionBramConfig);
+   BRAM2Port#(Bit#(BramAddrWidth), ActionSpec_port_mapping) actionRam <- mkBRAM2Server(actionBramConfig);
 
    rule get_ether;
       let v <- toGet(fifo_in_ether).get;
@@ -88,18 +88,18 @@ module mkSimpleMatchTable(Table);
 
    rule getMatchResult;
       let entry <- matchRam.portB.response.get;
-      fifo_out_action.enq(ActionEntry{ipv4:0, stats:0, insts:0, actions:0});
+      fifo_out_action.enq(ActionSpec_port_mapping{bd:0});
    endrule
 
    interface Put putKey;
-      method Action put(MatchEntry e);
-         matchRam.portA.request.put(BRAMRequest{write:True, address: truncate(pack(e)), datain: e, responseOnWrite:? });
+      method Action put(MatchSpec_port_mapping e);
+         matchRam.portA.request.put(BRAMRequest{write:True, address: zeroExtend(pack(e)), datain: e, responseOnWrite:? });
       endmethod
    endinterface
    interface Get readData;
-      method ActionValue#(Maybe#(MatchEntry)) get();
+      method ActionValue#(Maybe#(MatchSpec_port_mapping)) get();
          let entry <- matchRam.portA.response.get;
-         Maybe#(MatchEntry) v = tagged Valid entry;
+         Maybe#(MatchSpec_port_mapping) v = tagged Valid entry;
          return v;
       endmethod
    endinterface
