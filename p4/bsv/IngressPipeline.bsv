@@ -57,10 +57,10 @@ module mkIngressPipeline_port_mapping(Pipeline_port_mapping);
    endrule
 
    // generate table specific interface
-   Table matchTable <- mkSimpleMatchTable();
-   ActionEngineIfc actionEngine <- mkSimpleActionEngine();
+   MatchTable_port_mapping matchTable <- mkSimpleMatchTable();
+   ActionEngine_port_mapping actionEngine <- mkSimpleActionEngine();
 
-   mkConnection(matchTable.actionOut, actionEngine.action_in);
+   mkConnection(matchTable.action_data, actionEngine.action_data);
 
    interface PipeIn phvIn = toPipeIn(fifo_in_phv);
    interface PipeOut phvOut = toPipeOut(fifo_out_phv);

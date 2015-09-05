@@ -80,7 +80,6 @@ module mkP4Top#(Clock derivedClock, Reset derivedReset, P4TopIndication indicati
       $display("readPacket %d: pktLen %x", cycle, pktLen);
    endrule
 
-   //FIXME: instead of sending entire packet to parser, only send header to parser.
    rule packetParseInProgress if (readInProgress.notEmpty);
       let v <- rxPktBuff.readServer.readData.get;
       $display("inprogress %d:", cycle);

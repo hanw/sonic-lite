@@ -37,35 +37,66 @@ import Pipe::*;
 import Types::*;
 
 // Action Types
-interface ActionEngineIfc;
+interface ActionEngine_port_mapping;
    interface PipeIn#(PHV_port_mapping) phv_in;
-   interface PipeIn#(ActionSpec_port_mapping) action_in;
-   interface PipeOut#(PHV_port_mapping) phv_out;
+   // params from match table
+   interface PipeIn#(ActionSpec_port_mapping) action_data;
+   interface PipeOut#(PHV_bd) phv_out;
 endinterface
 
 (* synthesize *)
-module mkSimpleActionEngine(ActionEngineIfc);
+module mkSimpleActionEngine(ActionEngine_port_mapping);
    FIFOF#(ActionSpec_port_mapping) fifo_in_action <- mkSizedFIFOF(1);
-   FIFOF#(PHV_port_mapping) fifo_in <- mkSizedFIFOF(1);
-   FIFOF#(PHV_port_mapping) fifo_out <- mkSizedFIFOF(1);
-   // Action should implement individual actions, and only generate used one.
-   // Typical one action is implemented as a single rule, with:
-   // - one set of input and output
-   // - one rule to compute change
-   // - action behaves as guard
-   rule getAction;
+   FIFOF#(PHV_port_mapping) fifo_in_phv <- mkSizedFIFOF(1);
+   FIFOF#(PHV_bd) fifo_out_phv <- mkSizedFIFOF(1);
+
+   FIFOF#(Bit#(12)) ingress_metadata_vrf <- mkSizedFIFOF(1);
+   FIFOF#(Bit#(16)) ingress_metadata_bd <- mkSizedFIFOF(1);
+   FIFOF#(Bit#(9)) standard_metadata_ingress_port <- mkSizedFIFOF(1);
+   FIFOF#(Bit#(32)) ipv4_dstAddr <- mkSizedFIFOF(1);
+   FIFOF#(Bit#(16)) ingress_metadata_nexthop_index <- mkSizedFIFOF(1);
+
+   FIFOF#(Bit#(16)) res_ingress_metadata_bd <- mkSizedFIFOF(1);
+
+   FIFOF#(Bit#(16)) action_data_bd <- mkSizedFIFOF(1);
+
+   rule get_phv;
+      let v <- toGet(fifo_in_phv).get;
+      ingress_metadata_vrf.enq(v.ingress_metadata_vrf);
+      ingress_metadata_bd.enq(v.ingress_metadata_bd);
+      ingress_metadata_nexthop_index.enq(v.ingress_metadata_nexthop_index);
+      standard_metadata_ingress_port.enq(v.standard_metadata_ingress_port);
+      ipv4_dstAddr.enq(v.ipv4_dstAddr);
+   endrule
+
+   rule get_action_data;
       let v <- toGet(fifo_in_action).get;
-      $display("Received Action");
+      action_data_bd.enq(v.bd);
    endrule
 
-   // implement primitive actions
-   rule modify_dst_addr if (fifo_out.notFull);
-      let v <- toGet(fifo_in).get;
-      fifo_out.enq(v);
+   // Action Engine Operations
+   rule modify_field_ingress_metadata_bd;
+      let field <- toGet(ingress_metadata_bd).get;
+      let action_data <- toGet(action_data_bd).get;
+      // modify field
+      field = action_data;
+      res_ingress_metadata_bd.enq(field);
    endrule
 
-   interface PipeIn phv_in = toPipeIn(fifo_in);
-   interface PipeIn action_in = toPipeIn(fifo_in_action);
-   interface PipeOut phv_out = toPipeOut(fifo_out);
+   rule mk_phv_bd;
+      let v_ingress_metadata_vrf <- toGet(ingress_metadata_vrf).get;
+      let v_ingress_metadata_nexthop_index <- toGet(ingress_metadata_nexthop_index).get;
+      let v_standard_metadata_ingress_port <- toGet(standard_metadata_ingress_port).get;
+      let v_ipv4_dstAddr <- toGet(ipv4_dstAddr).get;
+      PHV_bd data = defaultValue;
+      data.ingress_metadata_vrf = v_ingress_metadata_vrf;
+      data.ingress_metadata_nexthop_index = v_ingress_metadata_nexthop_index;
+      data.ipv4_dstAddr = v_ipv4_dstAddr;
+      fifo_out_phv.enq(data);
+   endrule
+
+   interface PipeIn phv_in = toPipeIn(fifo_in_phv);
+   interface PipeIn action_data = toPipeIn(fifo_in_action);
+   interface PipeOut phv_out = toPipeOut(fifo_out_phv);
 endmodule
 

@@ -36,17 +36,17 @@ import Types::*;
 
 typedef 16 BramAddrWidth;
 
-interface Table;
+interface MatchTable_port_mapping;
    // Get/Put interface??
    interface PipeIn#(HeaderType_ethernet) etherIn;
    interface PipeIn#(HeaderType_ipv4) ipv4In;
    interface Put#(MatchSpec_port_mapping) putKey;
    interface Get#(Maybe#(MatchSpec_port_mapping)) readData;
-   interface PipeOut#(ActionSpec_port_mapping) actionOut;
+   interface PipeOut#(ActionSpec_port_mapping) action_data;
 endinterface
 
 (* synthesize *)
-module mkSimpleMatchTable(Table);
+module mkSimpleMatchTable(MatchTable_port_mapping);
 
    FIFOF#(HeaderType_ethernet) fifo_in_ether <- mkSizedFIFOF(1);
    FIFOF#(HeaderType_ipv4) fifo_in_ipv4 <- mkSizedFIFOF(1);
@@ -106,5 +106,5 @@ module mkSimpleMatchTable(Table);
 
    interface PipeIn etherIn = toPipeIn(fifo_in_ether);
    interface PipeIn ipv4In = toPipeIn(fifo_in_ipv4);
-   interface PipeOut actionOut = toPipeOut(fifo_out_action);
+   interface PipeOut action_data = toPipeOut(fifo_out_action);
 endmodule
