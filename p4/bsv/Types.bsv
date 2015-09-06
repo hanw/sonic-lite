@@ -108,44 +108,6 @@ instance DefaultValue#(HeaderType_ingress_metadata);
 endinstance
 
 typedef struct {
-   Bit#(16) ingress_metadata_bd;
-} ActionInput_port_mapping deriving (Bits, Eq);
-instance DefaultValue#(ActionInput_port_mapping);
-   defaultValue =
-   ActionInput_port_mapping {
-     ingress_metadata_bd : 0
-   };
-endinstance
-typedef struct {
-   Bit#(12) ingress_metadata_vrf;
-} ActionInput_bd deriving (Bits, Eq);
-instance DefaultValue#(ActionInput_bd);
-   defaultValue =
-   ActionInput_bd {
-     ingress_metadata_vrf : 0
-   };
-endinstance
-
-typedef struct {
-   Bit#(16) ingress_metadata_bd;
-} ActionOutput_port_mapping deriving (Bits, Eq);
-instance DefaultValue#(ActionOutput_port_mapping);
-   defaultValue =
-   ActionOutput_port_mapping {
-     ingress_metadata_bd : 0
-   };
-endinstance
-typedef struct {
-   Bit#(12) ingress_metadata_vrf;
-} ActionOutput_bd deriving (Bits, Eq);
-instance DefaultValue#(ActionOutput_bd);
-   defaultValue =
-   ActionOutput_bd {
-     ingress_metadata_vrf : 0
-   };
-endinstance
-
-typedef struct {
    Bit#(12) ingress_metadata_vrf;
    Bit#(9) standard_metadata_ingress_port;
    Bit#(16) ingress_metadata_bd;
@@ -373,6 +335,187 @@ instance DefaultValue#(ActionSpec_rewrite_mac);
    ActionSpec_rewrite_mac {
       smac : 0,
       dmac : 0
+   };
+endinstance
+
+typedef struct {
+   Bit#(16) ingress_metadata_bd;
+} ActionInput_port_mapping deriving (Bits, Eq);
+instance DefaultValue#(ActionInput_port_mapping);
+   defaultValue =
+   ActionInput_port_mapping {
+      ingress_metadata_bd : 0
+   };
+endinstance
+typedef struct {
+   Bit#(12) ingress_metadata_vrf;
+} ActionInput_bd deriving (Bits, Eq);
+instance DefaultValue#(ActionInput_bd);
+   defaultValue =
+   ActionInput_bd {
+      ingress_metadata_vrf : 0
+   };
+endinstance
+typedef struct {
+   Bit#(16) ingress_metadata_nexthop_index;
+   Bit#(8) ipv4_ttl;
+} ActionInput_ipv4_fib deriving (Bits, Eq);
+instance DefaultValue#(ActionInput_ipv4_fib);
+   defaultValue =
+   ActionInput_ipv4_fib {
+      ingress_metadata_nexthop_index : 0,
+      ipv4_ttl : 0
+   };
+endinstance
+typedef struct {
+   Bit#(16) ingress_metadata_nexthop_index;
+   Bit#(8) ipv4_ttl;
+} ActionInput_ipv4_fib_lpm deriving (Bits, Eq);
+instance DefaultValue#(ActionInput_ipv4_fib_lpm);
+   defaultValue =
+   ActionInput_ipv4_fib_lpm {
+      ingress_metadata_nexthop_index : 0,
+      ipv4_ttl : 0
+   };
+endinstance
+typedef struct {
+   Bit#(9) standard_metadata_egress_spec;
+} ActionInput_nexthop deriving (Bits, Eq);
+instance DefaultValue#(ActionInput_nexthop);
+   defaultValue =
+   ActionInput_nexthop {
+      standard_metadata_egress_spec : 0
+   };
+endinstance
+typedef struct {
+   Bit#(48) ethernet_srcAddr;
+   Bit#(48) ethernet_dstAddr;
+} ActionInput_rewrite_mac deriving (Bits, Eq);
+instance DefaultValue#(ActionInput_rewrite_mac);
+   defaultValue =
+   ActionInput_rewrite_mac {
+      ethernet_srcAddr : 0,
+      ethernet_dstAddr : 0
+   };
+endinstance
+
+typedef struct {
+   Bit#(16) ingress_metadata_bd;
+} ActionOutput_port_mapping deriving (Bits, Eq);
+instance DefaultValue#(ActionOutput_port_mapping);
+   defaultValue =
+   ActionOutput_port_mapping {
+      ingress_metadata_bd : 0
+   };
+endinstance
+typedef struct {
+   Bit#(12) ingress_metadata_vrf;
+} ActionOutput_bd deriving (Bits, Eq);
+instance DefaultValue#(ActionOutput_bd);
+   defaultValue =
+   ActionOutput_bd {
+      ingress_metadata_vrf : 0
+   };
+endinstance
+typedef struct {
+   Bit#(16) ingress_metadata_nexthop_index;
+   Bit#(8) ipv4_ttl;
+} ActionOutput_ipv4_fib deriving (Bits, Eq);
+instance DefaultValue#(ActionOutput_ipv4_fib);
+   defaultValue =
+   ActionOutput_ipv4_fib {
+      ingress_metadata_nexthop_index : 0,
+      ipv4_ttl : 0
+   };
+endinstance
+typedef struct {
+   Bit#(16) ingress_metadata_nexthop_index;
+   Bit#(8) ipv4_ttl;
+} ActionOutput_ipv4_fib_lpm deriving (Bits, Eq);
+instance DefaultValue#(ActionOutput_ipv4_fib_lpm);
+   defaultValue =
+   ActionOutput_ipv4_fib_lpm {
+      ingress_metadata_nexthop_index : 0,
+      ipv4_ttl : 0
+   };
+endinstance
+typedef struct {
+   Bit#(9) standard_metadata_egress_spec;
+} ActionOutput_nexthop deriving (Bits, Eq);
+instance DefaultValue#(ActionOutput_nexthop);
+   defaultValue =
+   ActionOutput_nexthop {
+      standard_metadata_egress_spec : 0
+   };
+endinstance
+typedef struct {
+   Bit#(48) ethernet_srcAddr;
+   Bit#(48) ethernet_dstAddr;
+} ActionOutput_rewrite_mac deriving (Bits, Eq);
+instance DefaultValue#(ActionOutput_rewrite_mac);
+   defaultValue =
+   ActionOutput_rewrite_mac {
+      ethernet_srcAddr : 0,
+      ethernet_dstAddr : 0
+   };
+endinstance
+
+typedef struct {
+   Bit#(9) standard_metadata_ingress_port;
+} MatchInput_port_mapping deriving (Bits, Eq);
+instance DefaultValue#(MatchInput_port_mapping);
+   defaultValue =
+   MatchInput_port_mapping {
+      standard_metadata_ingress_port : 0
+   };
+endinstance
+typedef struct {
+   Bit#(16) ingress_metadata_bd;
+} MatchInput_bd deriving (Bits, Eq);
+instance DefaultValue#(MatchInput_bd);
+   defaultValue =
+   MatchInput_bd {
+      ingress_metadata_bd : 0
+   };
+endinstance
+typedef struct {
+   Bit#(12) ingress_metadata_vrf;
+   Bit#(32) ipv4_dstAddr;
+} MatchInput_ipv4_fib deriving (Bits, Eq);
+instance DefaultValue#(MatchInput_ipv4_fib);
+   defaultValue =
+   MatchInput_ipv4_fib {
+      ingress_metadata_vrf : 0,
+      ipv4_dstAddr : 0
+   };
+endinstance
+typedef struct {
+   Bit#(12) ingress_metadata_vrf;
+   Bit#(32) ipv4_dstAddr;
+} MatchInput_ipv4_fib_lpm deriving (Bits, Eq);
+instance DefaultValue#(MatchInput_ipv4_fib_lpm);
+   defaultValue =
+   MatchInput_ipv4_fib_lpm {
+      ingress_metadata_vrf : 0,
+      ipv4_dstAddr : 0
+   };
+endinstance
+typedef struct {
+   Bit#(16) ingress_metadata_nexthop_index;
+} MatchInput_nexthop deriving (Bits, Eq);
+instance DefaultValue#(MatchInput_nexthop);
+   defaultValue =
+   MatchInput_nexthop {
+      ingress_metadata_nexthop_index : 0
+   };
+endinstance
+typedef struct {
+   Bit#(16) ingress_metadata_nexthop_index;
+} MatchInput_rewrite_mac deriving (Bits, Eq);
+instance DefaultValue#(MatchInput_rewrite_mac);
+   defaultValue =
+   MatchInput_rewrite_mac {
+      ingress_metadata_nexthop_index : 0
    };
 endinstance
 

@@ -37,25 +37,26 @@ import Types::*;
 typedef 16 BramAddrWidth;
 
 interface MatchTable_port_mapping;
-   interface PipeIn#(PHV_port_mapping) phv_in;
+   interface PipeIn#(MatchInput_port_mapping) phv_in;
    interface PipeOut#(ActionSpec_port_mapping) action_data;
    interface Put#(MatchSpec_port_mapping) put_entry;
    interface Get#(Maybe#(MatchSpec_port_mapping)) get_entry;
 endinterface
 
 interface MatchTable_bd;
-   interface PipeIn#(PHV_bd) phv_in;
+   interface PipeIn#(MatchInput_bd) phv_in;
    interface PipeOut#(ActionSpec_bd) action_data;
    interface Put#(MatchSpec_bd) put_entry;
    interface Get#(Maybe#(MatchSpec_bd)) get_entry;
 endinterface
 
+// Input: MatchInput
 // Input: MatchSpec
 // Output: ActionSpec
 (* synthesize *)
 module mkMatchTable_port_mapping(MatchTable_port_mapping);
 
-   FIFOF#(PHV_port_mapping) fifo_in_port_mapping <- mkSizedFIFOF(1);
+   FIFOF#(MatchInput_port_mapping) fifo_in_port_mapping <- mkSizedFIFOF(1);
    FIFOF#(ActionSpec_port_mapping) fifo_out_action_data <- mkSizedFIFOF(1);
 
    FIFOF#(Bit#(16)) match_cfFifo <- mkSizedFIFOF(1);
@@ -105,7 +106,7 @@ endmodule
 (* synthesize *)
 module mkMatchTable_bd(MatchTable_bd);
 
-   FIFOF#(PHV_bd) fifo_in_bd <- mkSizedFIFOF(1);
+   FIFOF#(MatchInput_bd) fifo_in_bd <- mkSizedFIFOF(1);
    FIFOF#(ActionSpec_bd) fifo_out_action_data <- mkSizedFIFOF(1);
 
    FIFOF#(Bit#(16)) match_cfFifo <- mkSizedFIFOF(1);
