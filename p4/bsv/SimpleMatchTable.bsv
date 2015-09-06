@@ -37,22 +37,26 @@ import Types::*;
 typedef 16 BramAddrWidth;
 
 interface MatchTable_port_mapping;
-   // Get/Put interface??
-   interface PipeIn#(HeaderType_ethernet) etherIn;
-   interface PipeIn#(HeaderType_ipv4) ipv4In;
-   interface Put#(MatchSpec_port_mapping) putKey;
-   interface Get#(Maybe#(MatchSpec_port_mapping)) readData;
+   interface PipeIn#(PHV_port_mapping) phv_in;
    interface PipeOut#(ActionSpec_port_mapping) action_data;
+   interface Put#(MatchSpec_port_mapping) put_entry;
+   interface Get#(Maybe#(MatchSpec_port_mapping)) get_entry;
 endinterface
 
-(* synthesize *)
-module mkSimpleMatchTable(MatchTable_port_mapping);
+interface MatchTable_bd;
+   interface PipeIn#(PHV_bd) phv_in;
+   interface PipeOut#(ActionSpec_bd) action_data;
+   interface Put#(MatchSpec_bd) put_entry;
+   interface Get#(Maybe#(MatchSpec_bd)) get_entry;
+endinterface
 
-   FIFOF#(HeaderType_ethernet) fifo_in_ether <- mkSizedFIFOF(1);
-   FIFOF#(HeaderType_ipv4) fifo_in_ipv4 <- mkSizedFIFOF(1);
-   FIFOF#(ActionSpec_port_mapping) fifo_out_action <- mkSizedFIFOF(1);
-   FIFOF#(HeaderType_ethernet) fifo_out_ether <- mkSizedFIFOF(1);
-   FIFOF#(HeaderType_ipv4) fifo_out_ipv4 <- mkSizedFIFOF(1);
+// Input: MatchSpec
+// Output: ActionSpec
+(* synthesize *)
+module mkMatchTable_port_mapping(MatchTable_port_mapping);
+
+   FIFOF#(PHV_port_mapping) fifo_in_port_mapping <- mkSizedFIFOF(1);
+   FIFOF#(ActionSpec_port_mapping) fifo_out_action_data <- mkSizedFIFOF(1);
 
    FIFOF#(Bit#(16)) match_cfFifo <- mkSizedFIFOF(1);
 
@@ -66,18 +70,8 @@ module mkSimpleMatchTable(MatchTable_port_mapping);
    actionBramConfig.latency = 1;
    BRAM2Port#(Bit#(BramAddrWidth), ActionSpec_port_mapping) actionRam <- mkBRAM2Server(actionBramConfig);
 
-   rule get_ether;
-      let v <- toGet(fifo_in_ether).get;
-      $display("ethernet, %x %x", v.srcAddr, v.dstAddr);
-      // hash
-      fifo_out_ether.enq(v);
-   endrule
-
-   rule get_ipv4;
-      let v <- toGet(fifo_in_ipv4).get;
-      $display("ipv4 %x %x", v.srcAddr, v.dstAddr);
-      // hash
-      fifo_out_ipv4.enq(v);
+   rule get_phv;
+      let v <- toGet(fifo_in_port_mapping).get;
       match_cfFifo.enq(1);
    endrule
 
@@ -88,15 +82,15 @@ module mkSimpleMatchTable(MatchTable_port_mapping);
 
    rule getMatchResult;
       let entry <- matchRam.portB.response.get;
-      fifo_out_action.enq(ActionSpec_port_mapping{bd:0});
+      fifo_out_action_data.enq(ActionSpec_port_mapping{bd:0});
    endrule
 
-   interface Put putKey;
+   interface Put put_entry;
       method Action put(MatchSpec_port_mapping e);
          matchRam.portA.request.put(BRAMRequest{write:True, address: zeroExtend(pack(e)), datain: e, responseOnWrite:? });
       endmethod
    endinterface
-   interface Get readData;
+   interface Get get_entry;
       method ActionValue#(Maybe#(MatchSpec_port_mapping)) get();
          let entry <- matchRam.portA.response.get;
          Maybe#(MatchSpec_port_mapping) v = tagged Valid entry;
@@ -104,7 +98,56 @@ module mkSimpleMatchTable(MatchTable_port_mapping);
       endmethod
    endinterface
 
-   interface PipeIn etherIn = toPipeIn(fifo_in_ether);
-   interface PipeIn ipv4In = toPipeIn(fifo_in_ipv4);
-   interface PipeOut action_data = toPipeOut(fifo_out_action);
+   interface PipeIn phv_in = toPipeIn(fifo_in_port_mapping);
+   interface PipeOut action_data = toPipeOut(fifo_out_action_data);
+endmodule
+
+(* synthesize *)
+module mkMatchTable_bd(MatchTable_bd);
+
+   FIFOF#(PHV_bd) fifo_in_bd <- mkSizedFIFOF(1);
+   FIFOF#(ActionSpec_bd) fifo_out_action_data <- mkSizedFIFOF(1);
+
+   FIFOF#(Bit#(16)) match_cfFifo <- mkSizedFIFOF(1);
+
+   // MatchTable
+   BRAM_Configure matchBramConfig = defaultValue;
+   matchBramConfig.latency = 1;
+   BRAM2Port#(Bit#(BramAddrWidth), MatchSpec_bd) matchRam <- mkBRAM2Server(matchBramConfig);
+
+   // ActionTable
+   BRAM_Configure actionBramConfig = defaultValue;
+   actionBramConfig.latency = 1;
+   BRAM2Port#(Bit#(BramAddrWidth), ActionSpec_bd) actionRam <- mkBRAM2Server(actionBramConfig);
+
+   rule get_phv;
+      let v <- toGet(fifo_in_bd).get;
+      match_cfFifo.enq(1);
+   endrule
+
+   rule doMatch;
+      let v <- toGet(match_cfFifo).get;
+      matchRam.portB.request.put(BRAMRequest{write:False, address: zeroExtend(v), datain:?, responseOnWrite:?});
+   endrule
+
+   rule getMatchResult;
+      let entry <- matchRam.portB.response.get;
+      fifo_out_action_data.enq(ActionSpec_bd{vrf:0});
+   endrule
+
+   interface Put put_entry;
+      method Action put(MatchSpec_bd e);
+         matchRam.portA.request.put(BRAMRequest{write:True, address: zeroExtend(pack(e)), datain: e, responseOnWrite:? });
+      endmethod
+   endinterface
+   interface Get get_entry;
+      method ActionValue#(Maybe#(MatchSpec_bd)) get();
+         let entry <- matchRam.portA.response.get;
+         Maybe#(MatchSpec_bd) v = tagged Valid entry;
+         return v;
+      endmethod
+   endinterface
+
+   interface PipeIn phv_in = toPipeIn(fifo_in_bd);
+   interface PipeOut action_data = toPipeOut(fifo_out_action_data);
 endmodule

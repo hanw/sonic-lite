@@ -108,6 +108,44 @@ instance DefaultValue#(HeaderType_ingress_metadata);
 endinstance
 
 typedef struct {
+   Bit#(16) ingress_metadata_bd;
+} ActionInput_port_mapping deriving (Bits, Eq);
+instance DefaultValue#(ActionInput_port_mapping);
+   defaultValue =
+   ActionInput_port_mapping {
+     ingress_metadata_bd : 0
+   };
+endinstance
+typedef struct {
+   Bit#(12) ingress_metadata_vrf;
+} ActionInput_bd deriving (Bits, Eq);
+instance DefaultValue#(ActionInput_bd);
+   defaultValue =
+   ActionInput_bd {
+     ingress_metadata_vrf : 0
+   };
+endinstance
+
+typedef struct {
+   Bit#(16) ingress_metadata_bd;
+} ActionOutput_port_mapping deriving (Bits, Eq);
+instance DefaultValue#(ActionOutput_port_mapping);
+   defaultValue =
+   ActionOutput_port_mapping {
+     ingress_metadata_bd : 0
+   };
+endinstance
+typedef struct {
+   Bit#(12) ingress_metadata_vrf;
+} ActionOutput_bd deriving (Bits, Eq);
+instance DefaultValue#(ActionOutput_bd);
+   defaultValue =
+   ActionOutput_bd {
+     ingress_metadata_vrf : 0
+   };
+endinstance
+
+typedef struct {
    Bit#(12) ingress_metadata_vrf;
    Bit#(9) standard_metadata_ingress_port;
    Bit#(16) ingress_metadata_bd;
