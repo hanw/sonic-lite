@@ -32,7 +32,9 @@ import Connectable::*;
 import FIFOF::*;
 import Pipe::*;
 import SpecialFIFOs::*;
+
 import Types::*;
+import Bcam::*;
 
 typedef 16 BramAddrWidth;
 
@@ -66,10 +68,6 @@ module mkMatchTable_port_mapping(MatchTable_port_mapping);
    matchBramConfig.latency = 1;
    BRAM2Port#(Bit#(BramAddrWidth), MatchSpec_port_mapping) matchRam <- mkBRAM2Server(matchBramConfig);
 
-   // ActionTable
-   BRAM_Configure actionBramConfig = defaultValue;
-   actionBramConfig.latency = 1;
-   BRAM2Port#(Bit#(BramAddrWidth), ActionSpec_port_mapping) actionRam <- mkBRAM2Server(actionBramConfig);
 
    rule get_phv;
       let v <- toGet(fifo_in_port_mapping).get;
@@ -115,11 +113,6 @@ module mkMatchTable_bd(MatchTable_bd);
    BRAM_Configure matchBramConfig = defaultValue;
    matchBramConfig.latency = 1;
    BRAM2Port#(Bit#(BramAddrWidth), MatchSpec_bd) matchRam <- mkBRAM2Server(matchBramConfig);
-
-   // ActionTable
-   BRAM_Configure actionBramConfig = defaultValue;
-   actionBramConfig.latency = 1;
-   BRAM2Port#(Bit#(BramAddrWidth), ActionSpec_bd) actionRam <- mkBRAM2Server(actionBramConfig);
 
    rule get_phv;
       let v <- toGet(fifo_in_bd).get;

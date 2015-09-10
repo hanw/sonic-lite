@@ -28,12 +28,17 @@ import FIFOF::*;
 import GetPut::*;
 import Vector::*;
 import Connectable::*;
+import StmtFSM::*;
+import Pipe::*;
 
 import Ethernet::*;
 import IngressPipeline::*;
 import PacketBuffer::*;
 import Parser::*;
 import Types::*;
+
+import Bcam::*;
+import M20k::*;
 
 interface P4Pins;
    method Action osc_50(Bit#(1) b3d, Bit#(1) b4a, Bit#(1) b4d, Bit#(1) b7a, Bit#(1) b7d, Bit#(1) b8a, Bit#(1) b8d);
@@ -48,7 +53,9 @@ endinterface
 interface P4TopRequest;
    method Action sonic_read_version();
    method Action writePacketData(Vector#(2, Bit#(64)) data, Bit#(1) sop, Bit#(1) eop);
-   method Action ipv4_table_add_with_on_miss(MatchSpec_port_mapping match_spec, ActionSpec_port_mapping action_spec);
+   method Action write_m20k(Bit#(12) wAddr, Bit#(5) wData);
+   method Action read_m20k_addr(Bit#(9) rAddr);
+   method Action read_clear();
 endinterface
 
 interface P4Top;
@@ -70,8 +77,13 @@ module mkP4Top#(Clock derivedClock, Reset derivedReset, P4TopIndication indicati
    Parser parser <- mkParser();
    Pipeline_port_mapping ingress_port_mapping <- mkIngressPipeline_port_mapping();
 
+   Bcam#(1, 1) bcam <- mkBcam_internal();
+
+   M20k#(5, 40, 4096) m20k <- mkM20k();
+
    Reg#(Bit#(EtherLen)) pktLen <- mkReg(0);
    FIFOF#(void) readInProgress <- mkFIFOF;
+   Reg#(Bit#(9)) rAddr_wires <- mkReg(0);
 
    rule packetParseStart;
       let pktLen <- rxPktBuff.readServer.readLen.get;
@@ -102,6 +114,20 @@ module mkP4Top#(Clock derivedClock, Reset derivedReset, P4TopIndication indicati
 
    mkConnection(parser.phvOut, ingress_port_mapping.phvIn);
 
+   Stmt readStmt=
+   seq
+      action
+         m20k.rAddr.enq(rAddr_wires);
+      endaction
+      action
+         let v <- toGet(m20k.rData).get;
+         $display("%x: %x", cycle, v);
+      endaction
+   endseq;
+
+   FSM fsm <- mkFSM(readStmt);
+   Once readOnce <- mkOnce(fsm.start);
+
    interface P4TopRequest request;
       method Action sonic_read_version();
          let v= `NicVersion;
@@ -115,8 +141,18 @@ module mkP4Top#(Clock derivedClock, Reset derivedReset, P4TopIndication indicati
          rxPktBuff.writeServer.writeData.put(beat);
       endmethod
       // Generate api for each table, meter, etc.
-      method Action ipv4_table_add_with_on_miss(MatchSpec_port_mapping match_spec, ActionSpec_port_mapping action_spec);
-         $display("table add on miss");
+      method Action write_m20k(Bit#(12) wAddr, Bit#(5) wData);
+         $display("%x: %x %x", cycle, wAddr, wData);
+         m20k.wEnb.enq(True);
+         m20k.wAddr.enq(wAddr);
+         m20k.wData.enq(wData);
+      endmethod
+      method Action read_m20k_addr(Bit#(9) rAddr);
+         rAddr_wires <= rAddr;
+         readOnce.start;
+      endmethod
+      method Action read_clear();
+         readOnce.clear;
       endmethod
       // table entry modify
       // table entry delete

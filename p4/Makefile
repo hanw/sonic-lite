@@ -16,7 +16,7 @@ CONNECTALFLAGS += --bscflags="-p +:$(PROJTOP)/bsv:$(CONNECTALDIR)/bsv:$(PROJLIB)
 else
 CONNECTALFLAGS += --bscflags="-p +:$(PROJTOP)/build/bluespec/src:$(CONNECTALDIR)/bsv:$(PROJLIB)"
 endif
-CONNECTALFLAGS += --bscflags="+RTS -K46777216 -RTS -demote-errors G0066:G0045 -suppress-warnings G0046:G0020:S0015:S0080:S0039 -steps-max-intervals 20"
+CONNECTALFLAGS += --bscflags="-show-range-conflict +RTS -K46777216 -RTS -demote-errors G0066:G0045 -suppress-warnings G0046:G0020:S0015:S0080:S0039 -steps-max-intervals 20"
 
 S2H_INTERFACES=P4TopRequest:P4Top.request:host.derivedClock,host.derivedReset
 H2S_INTERFACES=P4Top:P4TopIndication:host.derivedClock,host.derivedReset
