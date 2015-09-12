@@ -162,6 +162,8 @@ module mkDtpTx#(Integer id, Integer c_local_init)(DtpTx);
    FIFOF#(Bit#(53)) cLocalFifo   <- mkSizedFIFOF(1);
    FIFOF#(Bit#(32)) intervalFifo <- mkSizedFIFOF(1);
 
+   Wire#(Bit#(53)) dtpGlobal_wires <- mkDWire(0);
+
    rule cyc;
       cycle <= cycle + 1;
    endrule
@@ -221,7 +223,22 @@ module mkDtpTx#(Integer id, Integer c_local_init)(DtpTx);
       if (mux_sel && fromHostFifo.notEmpty) begin
          let host_data = fromHostFifo.first;
          debug_from_host <= host_data;
-         encodeOut = {host_data, log_type, block_type};
+
+         if (host_data[52] == 0) begin
+             Bit#(52) tmp;
+             if (is_switch_mode) begin
+                tmp = dtpGlobal_wires[51:0] + 1;
+             end
+             else begin
+                tmp = c_local[51:0] + 1;
+             end
+//             Bit#(52) tmp = c_local[51:0] + 1;
+             encodeOut = {1'b0, tmp, log_type, block_type};
+             if(verbose) $display("%d: %d, sending a log message %d", cycle, id, tmp);
+         end
+         else begin
+             encodeOut = {host_data, log_type, block_type};
+         end
          fromHostFifo.deq;
       end
       else if (mux_sel && txMuxSelFifo.notEmpty) begin
@@ -237,7 +254,15 @@ module mkDtpTx#(Integer id, Integer c_local_init)(DtpTx);
             if(verbose) $display("%d: %d, Enqueued outgoing ack %d", cycle, id, init_timestamp);
          end
          else if (sel == beacon_type) begin
-            encodeOut = {c_local+1, parity, beacon_type, block_type};
+            Bit#(53) tmp;
+            if (is_switch_mode) begin
+                tmp = dtpGlobal_wires + 1;
+            end
+            else begin
+                tmp = c_local+1;
+            end
+            encodeOut = {tmp, parity, beacon_type, block_type};
+            if(verbose) $display("%d: %d, Enqueued outgoing beacon %d", cycle, id, c_local+1);
          end
          else begin
             encodeOut = v; //should never happen
@@ -386,6 +411,8 @@ module mkDtpTx#(Integer id, Integer c_local_init)(DtpTx);
 
    rule switch_out_c_global;
       let v <- toGet(dtpGlobalInFifo).get;
+      let global_delay = fromInteger(valueOf(GLOBAL_DELAY));
+      dtpGlobal_wires <= v + global_delay;
       if (is_switch_mode && beacon_rcvd) begin
          if (verbose) $display("%d: received global counter %d", cycle, v);
          globalCompareRemoteFifo.enq(v + 1);
@@ -535,7 +562,7 @@ module mkDtpTx#(Integer id, Integer c_local_init)(DtpTx);
       if(verbose) $display("%d: isGR=%d, isGL=%d, isLR=%d, isLG=%d, isRG=%d, isRL=%d", cycle, isGR, isGL, isLR, isLG, isRG, isRL);
       if (isGR && isGL) begin
          c_local_next <= v_global + global_delay;
-         err = True;
+//        err = True;
       end
       else if (isLR && isLG) begin
          c_local_next <= v_local + 1;
@@ -546,7 +573,7 @@ module mkDtpTx#(Integer id, Integer c_local_init)(DtpTx);
       end
       else begin
          c_local_next <= v_local + 1;
-         err = True;
+//         err = True;
       end
 
       if (err) begin
