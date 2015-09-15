@@ -62,9 +62,9 @@ module mkMatchTable_port_mapping(MatchTable_port_mapping);
 
    CAM#(16, Bit#(9), Bit#(9)) cam <- mkCAM();
 
-   BRAM_Config cfg = defaultValue;
+   BRAM_Configure cfg = defaultValue;
    cfg.latency = 1;
-   BRAM2Port#(Bit#(9), Bit#(16)) actionRam <- mkBRAM2Server(cfg);
+   BRAM2Port#(Bit#(9), ActionSpec_port_mapping) actionRam <- mkBRAM2Server(cfg);
 
    rule every1;
       cycle <= cycle + 1;
@@ -78,16 +78,17 @@ module mkMatchTable_port_mapping(MatchTable_port_mapping);
 
    rule action_param_lookup;
       let v <- cam.readPort.response.get;
-
-   rule action_param_output;
-      $display("%x: match table domatch %x", cycle, v);
-      // either match or not match
       if (isValid(v)) begin
-         fifo_out_action_data.enq(ActionSpec_port_mapping{bd:0});
+         actionRam.portA.request.put(BRAMRequest{write:False, responseOnWrite:False, address:fromMaybe(?, v), datain:?});
       end
       else begin
-         $display("packet match missed");
+         $display("Packed match missed");
       end
+   endrule
+
+   rule action_param_output;
+      let v <- actionRam.portA.response.get;
+      fifo_out_action_data.enq(v);
    endrule
 
    interface Put put_entry;
