@@ -122,7 +122,7 @@ module mkDtpRx#(Integer id, Integer c_local_init)(DtpRx);
          else if (v[11:10] == beacon_type) begin
             if (parity == v[12]) begin
                if(dtpEventOutFifo.notFull) begin
-                  dtpEventOutFifo.enq(DtpEvent{e:zeroExtend(v[11:10]), t:c_remote_compensated});
+                  dtpEventOutFifo.enq(DtpEvent{e:zeroExtend(v[11:10]), t:c_remote});
                end
                if(verbose) $display("%d: %d beacon_rcvd %d, forward to tx %d", cycle, id, c_remote, c_remote_compensated);
             end

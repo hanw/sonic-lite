@@ -39,6 +39,8 @@ import EthPcsRx                      ::*;
 import DtpTx                         ::*;
 import DtpRx                         ::*;
 import DtpSwitch                     ::*;
+//import DTP_DCFIFO_WRAPPER            ::*;
+import DtpDCFifo            ::*;
 import ALTERA_SI570_WRAPPER          ::*;
 import ALTERA_EDGE_DETECTOR_WRAPPER  ::*;
 import AlteraExtra                   ::*;
@@ -146,6 +148,7 @@ module mkEthPhy#(Clock mgmt_clk, Clock clk_156_25, Clock clk_644, Reset rst_n)(E
       dtp_tx[i]    <- mkDtpTxTop(clocked_by clk_156_25, reset_by rst_156_25_n);
 
       dtpEventFifo[i] <- mkSyncFIFO(10, pma4.rx_clkout[i], pma4.rx_reset[i], clk_156_25);//, rst_156_25_n);
+      //dtpEventFifo[i] <- mkDtpDCFifo(pma4.rx_clkout[i], pma4.rx_reset[i], clk_156_25);//, rst_156_25_n);
       dtpEventOut[i] = toPipeOut(dtpEventFifo[i]);
       dtpEventIn[i]  = toPipeIn(dtpEventFifo[i]);
 

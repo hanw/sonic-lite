@@ -23,7 +23,8 @@ CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/pll_156/altera_pll_156.qip
 CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/sv_10g_pma/sv_10g_pma.qip
 CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/altera_clkctrl/altera_clkctrl.qip
 CONNECTALFLAGS += --verilog=$(PROJTOP)/../hw/verilog/si570/
-#CONNECTALFLAGS += --chipscope=$(PROJTOP)/hw/stp/rx_debug.stp
+CONNECTALFLAGS += --verilog=$(PROJTOP)/../hw/verilog/asyncfifo/
+#CONNECTALFLAGS += --chipscope=$(PROJTOP)/stp/fifo_stp.stp
 CONNECTALFLAGS += --tcl=$(PROJTOP)/../boards/de5_extra.qsf
 CONNECTALFLAGS += -D DtpVersion=$(shell date +"%y%m%d%H%M")
 CONNECTALFLAGS += --pinfo=$(PROJTOP)/../boards/dtp_synth.json
