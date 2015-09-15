@@ -34,7 +34,7 @@ import Pipe::*;
 import SpecialFIFOs::*;
 
 import Types::*;
-import Bcam::*;
+import SimpleCAM::*;
 
 typedef 16 BramAddrWidth;
 
@@ -61,39 +61,36 @@ module mkMatchTable_port_mapping(MatchTable_port_mapping);
    FIFOF#(MatchInput_port_mapping) fifo_in_port_mapping <- mkSizedFIFOF(1);
    FIFOF#(ActionSpec_port_mapping) fifo_out_action_data <- mkSizedFIFOF(1);
 
-   FIFOF#(Bit#(16)) match_cfFifo <- mkSizedFIFOF(1);
+   FIFOF#(Bit#(9)) match_cfFifo <- mkSizedFIFOF(1);
 
-   // MatchTable
-   BRAM_Configure matchBramConfig = defaultValue;
-   matchBramConfig.latency = 1;
-   BRAM2Port#(Bit#(BramAddrWidth), MatchSpec_port_mapping) matchRam <- mkBRAM2Server(matchBramConfig);
+   CAM#(16, Bit#(9), Bit#(9)) cam <- mkCAM();
+   Reg#(Bit#(32)) cycle <- mkReg(0);
 
+   rule every1;
+      cycle <= cycle + 1;
+   endrule
 
    rule get_phv;
       let v <- toGet(fifo_in_port_mapping).get;
+      $display("%x: match table get_phv %x", cycle, v);
       match_cfFifo.enq(1);
    endrule
 
    rule doMatch;
       let v <- toGet(match_cfFifo).get;
-      matchRam.portB.request.put(BRAMRequest{write:False, address: zeroExtend(v), datain:?, responseOnWrite:?});
+      $display("%x: match table domatch %x", cycle, v);
+      cam.readPort.request.put(v);
    endrule
 
    rule getMatchResult;
-      let entry <- matchRam.portB.response.get;
+      let entry <- cam.readPort.response.get;
+      $display("%x: match table domatch %x", cycle, entry);
       fifo_out_action_data.enq(ActionSpec_port_mapping{bd:0});
    endrule
 
    interface Put put_entry;
       method Action put(MatchSpec_port_mapping e);
-         matchRam.portA.request.put(BRAMRequest{write:True, address: zeroExtend(pack(e)), datain: e, responseOnWrite:? });
-      endmethod
-   endinterface
-   interface Get get_entry;
-      method ActionValue#(Maybe#(MatchSpec_port_mapping)) get();
-         let entry <- matchRam.portA.response.get;
-         Maybe#(MatchSpec_port_mapping) v = tagged Valid entry;
-         return v;
+         cam.writePort.put(tuple2(zeroExtend(pack(e)), pack(e)));
       endmethod
    endinterface
 
@@ -109,10 +106,7 @@ module mkMatchTable_bd(MatchTable_bd);
 
    FIFOF#(Bit#(16)) match_cfFifo <- mkSizedFIFOF(1);
 
-   // MatchTable
-   BRAM_Configure matchBramConfig = defaultValue;
-   matchBramConfig.latency = 1;
-   BRAM2Port#(Bit#(BramAddrWidth), MatchSpec_bd) matchRam <- mkBRAM2Server(matchBramConfig);
+   CAM#(16, Bit#(16), Bit#(16)) cam <- mkCAM();
 
    rule get_phv;
       let v <- toGet(fifo_in_bd).get;
@@ -121,24 +115,17 @@ module mkMatchTable_bd(MatchTable_bd);
 
    rule doMatch;
       let v <- toGet(match_cfFifo).get;
-      matchRam.portB.request.put(BRAMRequest{write:False, address: zeroExtend(v), datain:?, responseOnWrite:?});
+      cam.readPort.request.put(zeroExtend(v));
    endrule
 
    rule getMatchResult;
-      let entry <- matchRam.portB.response.get;
+      let entry <- cam.readPort.response.get;
       fifo_out_action_data.enq(ActionSpec_bd{vrf:0});
    endrule
 
    interface Put put_entry;
       method Action put(MatchSpec_bd e);
-         matchRam.portA.request.put(BRAMRequest{write:True, address: zeroExtend(pack(e)), datain: e, responseOnWrite:? });
-      endmethod
-   endinterface
-   interface Get get_entry;
-      method ActionValue#(Maybe#(MatchSpec_bd)) get();
-         let entry <- matchRam.portA.response.get;
-         Maybe#(MatchSpec_bd) v = tagged Valid entry;
-         return v;
+         cam.writePort.put(tuple2(pack(e), pack(e)));
       endmethod
    endinterface
 

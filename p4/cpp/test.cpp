@@ -70,20 +70,6 @@ int main(int argc, const char **argv)
     PRINT_INFO("src_mac=%s, dst_mac=%s\n", SRC_MAC, DST_MAC);
     PRINT_INFO("src_ip=%s, dst_ip=%s\n", SRC_IP, DST_IP);
 
-    device->write_m20k(0, 1);
-    device->write_m20k(1, 1);
-    device->write_m20k(2, 1);
-    device->write_m20k(3, 1);
-    device->write_m20k(4, 1);
-    device->write_m20k(5, 1);
-    device->write_m20k(6, 1);
-    device->write_m20k(7, 1);
-    device->write_m20k(8, 1);
-    device->write_m20k(9, 1);
-    device->write_m20k(10, 1);
-    device->read_m20k_addr(0);
-    device->read_clear();
-    device->read_m20k_addr(1);
     // transfer packet to receive
     uint64_t data[2];
     int i, j, sop, eop;

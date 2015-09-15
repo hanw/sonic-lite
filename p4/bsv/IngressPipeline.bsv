@@ -69,6 +69,7 @@ module mkIngressPipeline_port_mapping(Pipeline_port_mapping);
    rule get_phv_in;
       let v <- toGet(fifo_in_phv).get;
       // match field -> match table
+      matchTable.phv_in.enq(MatchInput_port_mapping{standard_metadata_ingress_port:v.standard_metadata_ingress_port});
    endrule
 
    // Rules to forward bypass signals.
