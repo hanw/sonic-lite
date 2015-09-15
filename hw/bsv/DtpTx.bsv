@@ -184,13 +184,13 @@ module mkDtpTx#(Integer id, Integer c_local_init)(DtpTx);
       Bit#(1) parity;
       Bool    mux_sel;
       Bit#(53) c_local_out;
-      if (is_switch_mode) begin
-          c_local_out = c_global + 2;
-      end
-      else begin
-          c_local_out = c_local + 2;
-      end
-      //c_local_out = c_local+2; // forward compute parity.
+//      if (is_switch_mode) begin
+//          c_local_out = c_global + 2;
+//      end
+//      else begin
+//          c_local_out = c_local + 2;
+//      end
+      c_local_out = c_local+2; // forward compute parity.
       parity = ^c_local_out[52:0];
 
       if(v[9:2] == 8'h1e) begin
@@ -206,7 +206,7 @@ module mkDtpTx#(Integer id, Integer c_local_init)(DtpTx);
       dmFifo.enq(?);
       stageOneFifo.enq(TxStageOneBuf{mux_sel: mux_sel,
                                      parity: parity,
-                                     c_local: c_local+1});
+                                     c_local: c_local + 1});
       dtpTxInPipelineFifo.enq(v);
    endrule
 
@@ -232,7 +232,14 @@ module mkDtpTx#(Integer id, Integer c_local_init)(DtpTx);
          debug_from_host <= host_data;
 
          if (host_data[52] == 0) begin
-             Bit#(52) tmp = c_local[51:0] + 1;
+             Bit#(52) tmp;
+             if (is_switch_mode) begin
+                tmp = c_global[51:0] + 1;
+             end
+             else begin
+                tmp = c_local[51:0] + 1;
+             end
+//             Bit#(52) tmp = c_local[51:0] + 1;
              encodeOut = {1'b0, tmp, log_type, block_type};
              if(verbose) $display("%d: %d, sending a log message %d", cycle, id, tmp);
          end
@@ -255,7 +262,15 @@ module mkDtpTx#(Integer id, Integer c_local_init)(DtpTx);
             if(verbose) $display("%d: %d, Enqueued outgoing ack %d", cycle, id, init_timestamp);
          end
          else if (sel == beacon_type) begin
-            encodeOut = {c_local+1, parity, beacon_type, block_type};
+            Bit#(53) tmp;
+            if (is_switch_mode) begin
+                tmp = c_global + 1;
+                parity = ^tmp[52:0];
+            end
+            else begin
+                tmp = c_local+1;
+            end
+            encodeOut = {tmp, parity, beacon_type, block_type};
             if(verbose) $display("%d: %d, Enqueued outgoing beacon %d", cycle, id, c_local+1);
          end
          else begin
