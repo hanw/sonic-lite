@@ -12,20 +12,21 @@ P4FACTORY=$(ROOTDIR)/../../p4/p4factory/
 endif
 
 ifeq ($(P4),)
+# compile manual bsv
+BSVFILES=$(PROJTOP)/bsv/P4Top.bsv $(PROJTOP)/bsv/Types.bsv
 CONNECTALFLAGS += --bscflags="-p +:$(PROJTOP)/bsv:$(CONNECTALDIR)/bsv:$(PROJLIB)"
 else
+# compile generated P4 code
+BSVFILES=$(PROJTOP)/build/bluespec/src/P4Top.bsv $(PROJTOP)/build/bluespec/src/Types.bsv
 CONNECTALFLAGS += --bscflags="-p +:$(PROJTOP)/build/bluespec/src:$(CONNECTALDIR)/bsv:$(PROJLIB)"
 endif
-CONNECTALFLAGS += --bscflags="-show-range-conflict +RTS -K46777216 -RTS -demote-errors G0066:G0045 -suppress-warnings G0046:G0020:S0015:S0080:S0039 -steps-max-intervals 20"
 
 S2H_INTERFACES=P4TopRequest:P4Top.request:host.derivedClock,host.derivedReset
 H2S_INTERFACES=P4Top:P4TopIndication:host.derivedClock,host.derivedReset
 AUTOTOP= --interface pins:P4Top.pins
 PIN_TYPE = P4Pins
 PIN_TYPE_INCLUDE = P4Top
-BSVFILES=$(PROJTOP)/P4Top.bsv $(PROJTOP)/bsv/Types.bsv
 CPPFILES=$(PROJTOP)/cpp/test.cpp
-NUMBER_OF_MASTERS=0
 PIN_BINDINGS?=PCIE:PCIE LED:LED OSC:OSC SFPA:SFPA SFPB:SFPB SFPC:SFPC SFPD:SFPD SFP:SFP I2C:CLOCK BUTTON:BUTTON
 CONNECTALFLAGS += --tcl=$(PROJTOP)/../boards/de5_extra.qsf
 CONNECTALFLAGS += -D NicVersion=$(shell date +"%y%m%d%H%M")
@@ -36,10 +37,8 @@ CONNECTALFLAGS += -D IMPORT_HOST_CLOCKS
 CONNECTALFLAGS += --derivedclockperiod=6.4
 CONNECTALFLAGS += -l="tins"
 CONNECTALFLAGS += -I="../sw/"
+CONNECTALFLAGS += --bscflags="-show-range-conflict +RTS -K46777216 -RTS -demote-errors G0066:G0045 -suppress-warnings G0046:G0020:S0015:S0080:S0039 -steps-max-intervals 20"
 #CONNECTALFLAGS += --chipscope=$(PROJTOP)/../../sonic-debug/stp/memread.stp
-ifneq (, $(BLUESIM))
-CONNECTALFLAGS += --pinfo=$(PROJTOP)/boards/sonic_synth.json
-endif
 
 # P4 support
 export TARGET_ROOT :=$(abspath $(dir $(lastword $(MAKEFILE_LIST))))
@@ -54,6 +53,5 @@ include ${SUBMODULE_P4C_FPGA}/p4c-fpga.mk
 include $(CONNECTALDIR)/Makefile.connectal
 
 p4.%: p4fpga
-#	make build.$*
 
 .PHONY: p4fpga

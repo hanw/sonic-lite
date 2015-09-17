@@ -37,6 +37,12 @@ import PacketBuffer::*;
 import Parser::*;
 import Types::*;
 
+// Generate Top.bsv
+typedef struct {
+   Bit#(32) param1;
+   Bit#(32) param2;
+} MatchTableParam deriving (Bits, Eq);
+
 interface P4Pins;
    method Action osc_50(Bit#(1) b3d, Bit#(1) b4a, Bit#(1) b4d, Bit#(1) b7a, Bit#(1) b7d, Bit#(1) b8a, Bit#(1) b8d);
    (* prefix="" *)
@@ -50,8 +56,8 @@ endinterface
 interface P4TopRequest;
    method Action sonic_read_version();
    method Action writePacketData(Vector#(2, Bit#(64)) data, Bit#(1) sop, Bit#(1) eop);
-   method Action cam_write(Bit#(10) address, Bit#(9) data);
-   method Action cam_search(Bit#(9) data);
+
+   method Action portmapping_add_entry(Bit#(32) table_name, MatchTableParam match_field);
 endinterface
 
 interface P4Top;
@@ -118,18 +124,16 @@ module mkP4Top#(Clock derivedClock, Reset derivedReset, P4TopIndication indicati
          beat.eop = unpack(eop);
          rxPktBuff.writeServer.writeData.put(beat);
       endmethod
-      // Generate api for each table, meter, etc.
+      // Generate fixed standard set of API function
+      // In software, we should hide the details of match table different behind api
+      // expose thrift-server to software to take advantage of existing thrift infra.
+      // expose raw connectal cpp generated interface to test application.
+      method Action table_name_add_entry(Bit#(32) table_name, MatchTableParam match_field);
 
-      // table entry modify
-      // table entry delete
-      // get first entry
-      // table set default action
-      // indirect action data and match select
-      // clean all
-      // clean table state
-      // global table counter
-      // meters
-      // mirroring api
+      endmethod
+      // -- Internal of API depends on P4 program.
+      // -- Use dispatcher to send table info to corresponding table.
+      // -- Invalid table tag will result in error.
    endinterface
    interface P4Pins pins;
    endinterface

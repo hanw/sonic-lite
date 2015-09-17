@@ -62,23 +62,23 @@ module mkActionEngine_port_mapping(ActionEngine_port_mapping);
    FIFOF#(Bit#(16)) res_ingress_metadata_bd <- mkSizedFIFOF(1);
    FIFOF#(Bit#(16)) action_data_bd <- mkSizedFIFOF(1);
 
-   rule get_phv;
+   rule get_packet_phv;
       let v <- toGet(fifo_in_field).get;
       ingress_metadata_bd.enq(v.ingress_metadata_bd);
    endrule
 
    rule get_action_data;
       let v <- toGet(fifo_in_action).get;
-      action_data_bd.enq(v.bd);
+      fifo_data_set_bd.enq(v.bd);
    endrule
 
    // Action Engine Operations
    rule modify_field_ingress_metadata_bd;
-      let field <- toGet(ingress_metadata_bd).get;
-      let action_data <- toGet(action_data_bd).get;
+      let field_ingress_metadata_bd <- toGet(ingress_metadata_bd).get;
+      let data_bd <- toGet(action_data_bd).get;
       // modify field
-      field = action_data;
-      res_ingress_metadata_bd.enq(field);
+      field_ingress_metadata_bd = data_bd;
+      res_ingress_metadata_bd.enq(field_ingress_metadata_bd);
    endrule
 
    rule mk_header_field_port_mapping;
