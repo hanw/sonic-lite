@@ -37,12 +37,6 @@ import PacketBuffer::*;
 import Parser::*;
 import Types::*;
 
-// Generate Top.bsv
-typedef struct {
-   Bit#(32) param1;
-   Bit#(32) param2;
-} MatchTableParam deriving (Bits, Eq);
-
 interface P4Pins;
    method Action osc_50(Bit#(1) b3d, Bit#(1) b4a, Bit#(1) b4d, Bit#(1) b7a, Bit#(1) b7d, Bit#(1) b8a, Bit#(1) b8d);
    (* prefix="" *)
@@ -57,7 +51,30 @@ interface P4TopRequest;
    method Action sonic_read_version();
    method Action writePacketData(Vector#(2, Bit#(64)) data, Bit#(1) sop, Bit#(1) eop);
 
-   method Action portmapping_add_entry(Bit#(32) table_name, MatchTableParam match_field);
+   method Action port_mapping_add_entry(Bit#(32) table_name, MatchInput_port_mapping match_key);
+   method Action port_mapping_set_default_action(Bit#(32) table_name);
+   method Action port_mapping_delete_entry(Bit#(32) table_name, Bit#(32) id);
+   method Action port_mapping_modify_entry(Bit#(32) table_name, Bit#(32) id, ActionInput_port_mapping actions);
+   method Action bd_add_entry(Bit#(32) table_name, MatchInput_bd match_key);
+   method Action bd_set_default_action(Bit#(32) table_name);
+   method Action bd_delete_entry(Bit#(32) table_name, Bit#(32) id);
+   method Action bd_modify_entry(Bit#(32) table_name, Bit#(32) id, ActionInput_bd actions);
+   method Action ipv4_fib_add_entry(Bit#(32) table_name, MatchInput_ipv4_fib match_key);
+   method Action ipv4_fib_set_default_action(Bit#(32) table_name);
+   method Action ipv4_fib_delete_entry(Bit#(32) table_name, Bit#(32) id);
+   method Action ipv4_fib_modify_entry(Bit#(32) table_name, Bit#(32) id, ActionInput_ipv4_fib actions);
+   method Action ipv4_fib_lpm_add_entry(Bit#(32) table_name, MatchInput_ipv4_fib_lpm match_key);
+   method Action ipv4_fib_lpm_set_default_action(Bit#(32) table_name);
+   method Action ipv4_fib_lpm_delete_entry(Bit#(32) table_name, Bit#(32) id);
+   method Action ipv4_fib_lpm_modify_entry(Bit#(32) table_name, Bit#(32) id, ActionInput_ipv4_fib_lpm actions);
+   method Action nexthop_add_entry(Bit#(32) table_name, MatchInput_nexthop match_key);
+   method Action nexthop_set_default_action(Bit#(32) table_name);
+   method Action nexthop_delete_entry(Bit#(32) table_name, Bit#(32) id);
+   method Action nexthop_modify_entry(Bit#(32) table_name, Bit#(32) id, ActionInput_nexthop actions);
+   method Action rewrite_mac_add_entry(Bit#(32) table_name, MatchInput_rewrite_mac match_key);
+   method Action rewrite_mac_set_default_action(Bit#(32) table_name);
+   method Action rewrite_mac_delete_entry(Bit#(32) table_name, Bit#(32) id);
+   method Action rewrite_mac_modify_entry(Bit#(32) table_name, Bit#(32) id, ActionInput_rewrite_mac actions);
 endinterface
 
 interface P4Top;
@@ -69,8 +86,8 @@ module mkP4Top#(Clock derivedClock, Reset derivedReset, P4TopIndication indicati
    Clock defaultClock <- exposeCurrentClock();
    Reset defaultReset <- exposeCurrentReset();
 
-   Reg#(Bit#(32)) cycle <- mkReg(0);
-
+   let verbose = True;
+   Reg#(Cycle_t) cycle <- mkReg(0);
    rule every1;
       cycle <= cycle + 1;
    endrule
@@ -80,23 +97,20 @@ module mkP4Top#(Clock derivedClock, Reset derivedReset, P4TopIndication indicati
    Pipeline_port_mapping ingress_port_mapping <- mkIngressPipeline_port_mapping();
 
    Reg#(Bit#(EtherLen)) pktLen <- mkReg(0);
-   FIFOF#(void) readInProgress <- mkFIFOF;
    Reg#(Bit#(9)) rAddr_wires <- mkReg(0);
 
    rule packetParseStart;
       let pktLen <- rxPktBuff.readServer.readLen.get;
       rxPktBuff.readServer.readReq.put(EtherReq{len: truncate(pktLen)});
-      readInProgress.enq(?);
-      $display("readPacket %d: pktLen %x", cycle, pktLen);
+      if (verbose) $display(fshow(cycle) + fshow(" read packt ") + fshow(pktLen));
    endrule
 
-   rule packetParseInProgress if (readInProgress.notEmpty);
+   rule packetParseInProgress;
       let v <- rxPktBuff.readServer.readData.get;
-      $display("inprogress %d:", cycle);
-      parser.enqPacketData(v);
+      if (verbose) $display(fshow(cycle) + fshow(" load packet ") + fshow(v));
+      parser.frameIn.enq(v);
       if (v.eop) begin
-         $display("eop %d:", cycle);
-         readInProgress.deq;
+         if (verbose) $display(fshow(cycle) + fshow(" eop."));
       end
    endrule
 
@@ -110,7 +124,7 @@ module mkP4Top#(Clock derivedClock, Reset derivedReset, P4TopIndication indicati
       let v <- toGet(parser.payloadOut).get;
    endrule
 
-   mkConnection(parser.phvOut, ingress_port_mapping.phvIn);
+   //mkConnection(parser.phvOut, ingress_port_mapping.phvIn);
 
    interface P4TopRequest request;
       method Action sonic_read_version();
@@ -128,9 +142,109 @@ module mkP4Top#(Clock derivedClock, Reset derivedReset, P4TopIndication indicati
       // In software, we should hide the details of match table different behind api
       // expose thrift-server to software to take advantage of existing thrift infra.
       // expose raw connectal cpp generated interface to test application.
-      method Action table_name_add_entry(Bit#(32) table_name, MatchTableParam match_field);
 
+      method Action port_mapping_add_entry(Bit#(32) table_name, MatchInput_port_mapping match_key);
+         // write entries to table.
+         // queue read flow_id
       endmethod
+
+      method Action port_mapping_set_default_action(Bit#(32) table_name);
+         // write default action to action engine
+      endmethod
+
+      method Action port_mapping_delete_entry(Bit#(32) table_name, Bit#(32) flow_id);
+         // invalidate entries in table
+      endmethod
+
+      method Action port_mapping_modify_entry(Bit#(32) table_name, Bit#(32) flow_id, ActionInput_port_mapping actions);
+         // enqueue match key
+      endmethod
+
+      method Action bd_add_entry(Bit#(32) table_name, MatchInput_bd match_key);
+         // write entries to table.
+         // queue read flow_id
+      endmethod
+
+      method Action bd_set_default_action(Bit#(32) table_name);
+         // write default action to action engine
+      endmethod
+
+      method Action bd_delete_entry(Bit#(32) table_name, Bit#(32) flow_id);
+         // invalidate entries in table
+      endmethod
+
+      method Action bd_modify_entry(Bit#(32) table_name, Bit#(32) flow_id, ActionInput_bd actions);
+         // enqueue match key
+      endmethod
+
+      method Action ipv4_fib_add_entry(Bit#(32) table_name, MatchInput_ipv4_fib match_key);
+         // write entries to table.
+         // queue read flow_id
+      endmethod
+
+      method Action ipv4_fib_set_default_action(Bit#(32) table_name);
+         // write default action to action engine
+      endmethod
+
+      method Action ipv4_fib_delete_entry(Bit#(32) table_name, Bit#(32) flow_id);
+         // invalidate entries in table
+      endmethod
+
+      method Action ipv4_fib_modify_entry(Bit#(32) table_name, Bit#(32) flow_id, ActionInput_ipv4_fib actions);
+         // enqueue match key
+      endmethod
+
+      method Action ipv4_fib_lpm_add_entry(Bit#(32) table_name, MatchInput_ipv4_fib_lpm match_key);
+         // write entries to table.
+         // queue read flow_id
+      endmethod
+
+      method Action ipv4_fib_lpm_set_default_action(Bit#(32) table_name);
+         // write default action to action engine
+      endmethod
+
+      method Action ipv4_fib_lpm_delete_entry(Bit#(32) table_name, Bit#(32) flow_id);
+         // invalidate entries in table
+      endmethod
+
+      method Action ipv4_fib_lpm_modify_entry(Bit#(32) table_name, Bit#(32) flow_id, ActionInput_ipv4_fib_lpm actions);
+         // enqueue match key
+      endmethod
+
+      method Action nexthop_add_entry(Bit#(32) table_name, MatchInput_nexthop match_key);
+         // write entries to table.
+         // queue read flow_id
+      endmethod
+
+      method Action nexthop_set_default_action(Bit#(32) table_name);
+         // write default action to action engine
+      endmethod
+
+      method Action nexthop_delete_entry(Bit#(32) table_name, Bit#(32) flow_id);
+         // invalidate entries in table
+      endmethod
+
+      method Action nexthop_modify_entry(Bit#(32) table_name, Bit#(32) flow_id, ActionInput_nexthop actions);
+         // enqueue match key
+      endmethod
+
+      method Action rewrite_mac_add_entry(Bit#(32) table_name, MatchInput_rewrite_mac match_key);
+         // write entries to table.
+         // queue read flow_id
+      endmethod
+
+      method Action rewrite_mac_set_default_action(Bit#(32) table_name);
+         // write default action to action engine
+      endmethod
+
+      method Action rewrite_mac_delete_entry(Bit#(32) table_name, Bit#(32) flow_id);
+         // invalidate entries in table
+      endmethod
+
+      method Action rewrite_mac_modify_entry(Bit#(32) table_name, Bit#(32) flow_id, ActionInput_rewrite_mac actions);
+         // enqueue match key
+      endmethod
+
       // -- Internal of API depends on P4 program.
       // -- Use dispatcher to send table info to corresponding table.
       // -- Invalid table tag will result in error.

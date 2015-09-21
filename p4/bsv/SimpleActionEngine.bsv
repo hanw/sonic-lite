@@ -69,7 +69,7 @@ module mkActionEngine_port_mapping(ActionEngine_port_mapping);
 
    rule get_action_data;
       let v <- toGet(fifo_in_action).get;
-      fifo_data_set_bd.enq(v.bd);
+      action_data_bd.enq(v.bd);
    endrule
 
    // Action Engine Operations

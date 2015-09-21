@@ -24,14 +24,21 @@
 
 import DefaultValue::*;
 
+typedef Bit#(32) Cycle_t;
+instance FShow#(Cycle_t);
+   function Fmt fshow(Cycle_t cycle);
+      return $format("Cycle %d: ", cycle);
+   endfunction
+endinstance
+
 typedef struct {
    Bit#(48) dstAddr;
    Bit#(48) srcAddr;
    Bit#(16) etherType;
-} HeaderType_ethernet deriving(Bits, Eq);
-instance DefaultValue#(HeaderType_ethernet);
+} Ethernet_t deriving(Bits, Eq);
+instance DefaultValue#(Ethernet_t);
    defaultValue =
-   HeaderType_ethernet {
+   Ethernet_t {
      dstAddr : 0,
      srcAddr : 0,
      etherType : 0
@@ -50,10 +57,10 @@ typedef struct {
    Bit#(16) hdrChecksum;
    Bit#(32) srcAddr;
    Bit#(32) dstAddr;
-} HeaderType_ipv4 deriving(Bits, Eq);
-instance DefaultValue#(HeaderType_ipv4);
+} Ipv4_t deriving(Bits, Eq);
+instance DefaultValue#(Ipv4_t);
    defaultValue =
-   HeaderType_ipv4 {
+   Ipv4_t {
      version : 0,
      ihl : 0,
      diffserv : 0,
@@ -77,10 +84,10 @@ typedef struct {
    Bit#(32) instance_type;
    Bit#(32) clone_spec;
    Bit#(5) _padding;
-} HeaderType_standard_metadata deriving(Bits, Eq);
-instance DefaultValue#(HeaderType_standard_metadata);
+} Standard_metadata_t deriving(Bits, Eq);
+instance DefaultValue#(Standard_metadata_t);
    defaultValue =
-   HeaderType_standard_metadata {
+   Standard_metadata_t {
      ingress_port : 0,
      packet_length : 0,
      egress_spec : 0,
@@ -96,10 +103,10 @@ typedef struct {
    Bit#(16) bd;
    Bit#(16) nexthop_index;
    Bit#(4) _padding;
-} HeaderType_ingress_metadata deriving(Bits, Eq);
-instance DefaultValue#(HeaderType_ingress_metadata);
+} Ingress_metadata_t deriving(Bits, Eq);
+instance DefaultValue#(Ingress_metadata_t);
    defaultValue =
-   HeaderType_ingress_metadata {
+   Ingress_metadata_t {
      vrf : 0,
      bd : 0,
      nexthop_index : 0,

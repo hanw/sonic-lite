@@ -173,6 +173,13 @@ typedef struct {
    Bool eop;
    Bit#(PktDataWidth) data;
 } EtherData deriving (Eq, Bits);
+instance FShow#(EtherData);
+   function Fmt fshow (EtherData v);
+      return ($format("sop=%x ", v.sop)
+              + $format("eop=%x ", v.eop)
+              + $format("data=%x", v.data));
+   endfunction
+endinstance
 
 instance DefaultValue#(EtherData);
    defaultValue =
@@ -191,7 +198,6 @@ typedef struct {
    Bit#(PktAddrWidth) addr;
    EtherData          data;
 } ReqTup deriving (Eq, Bits);
-
 instance FShow#(ReqTup);
    function Fmt fshow (ReqTup req);
       return ($format(" addr=0x%x ", req.addr)
