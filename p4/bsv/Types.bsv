@@ -45,6 +45,36 @@ instance DefaultValue#(Ethernet_t);
    };
 endinstance
 typedef struct {
+   Bit#(3) pcp;
+   Bit#(1) cfi;
+   Bit#(12) vid;
+   Bit#(16) etherType;
+} Vlan_tag_t deriving(Bits, Eq);
+instance DefaultValue#(Vlan_tag_t);
+   defaultValue =
+   Vlan_tag_t {
+     pcp : 0,
+     cfi : 0,
+     vid : 0,
+     etherType : 0
+   };
+endinstance
+typedef struct {
+   Bit#(3) pcp;
+   Bit#(1) cfi;
+   Bit#(20) vid;
+   Bit#(16) etherType;
+} Vlan_tag_5b_t deriving(Bits, Eq);
+instance DefaultValue#(Vlan_tag_5b_t);
+   defaultValue =
+   Vlan_tag_5b_t {
+     pcp : 0,
+     cfi : 0,
+     vid : 0,
+     etherType : 0
+   };
+endinstance
+typedef struct {
    Bit#(4) version;
    Bit#(4) ihl;
    Bit#(8) diffserv;

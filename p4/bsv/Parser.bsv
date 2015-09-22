@@ -57,6 +57,16 @@ interface ParseEthernet;
    method Action clear;
 endinterface
 
+interface ParseVlan;
+   interface PipeIn#(Bit#(128)) packetIn;
+   interface PipeOut#(Vlan_tag_t) parsedOut;
+   interface PipeOut#(Bit#(16)) unparsedOut;
+   interface PipeIn#(Bool) start;
+   interface PipeOut#(Bool) done;
+   method Action init;
+   method Action clear;
+endinterface
+
 interface ParseIpv4;
    interface PipeIn#(Bit#(128)) packetIn;
    interface PipeIn#(Bit#(16)) unparsedIn;
@@ -86,7 +96,6 @@ module mkParseEthernet(ParseEthernet);
    seq
    action // parse_ethernet
       let data <- toGet(packet_in_fifo).get;
-      if (verbose) $display(fshow(cycle) + fshow("Should take 1 cycle"));
       Vector#(128, Bit#(1)) dataVec = unpack(data);
       Vector#(48, Bit#(1)) dstAddr = takeAt(0, dataVec);
       Vector#(48, Bit#(1)) srcAddr = takeAt(48, dataVec);
@@ -96,6 +105,9 @@ module mkParseEthernet(ParseEthernet);
       ethernet.dstAddr = pack(dstAddr);
       ethernet.srcAddr = pack(srcAddr);
       ethernet.etherType = pack(etherType);
+      if (verbose) $display(fshow(cycle)
+                            +fshow("ether.dstAddr=")+fshow(ethernet.dstAddr)
+                            +fshow("ether.srcAddr=")+fshow(ethernet.srcAddr));
       finish_fifo.enq(True);
    endaction
    endseq;
@@ -110,6 +122,28 @@ module mkParseEthernet(ParseEthernet);
    interface unparsedOut = toPipeOut(unparsed_out_fifo);
    interface parsedOut = toPipeOut(parsed_out_fifo);
    interface start = toPipeIn(start_fifo);
+endmodule
+
+module mkParseVlan(ParseVlan);
+   FIFOF#(Bool) start_fifo <- mkBypassFIFOF;
+   FIFOF#(Bit#(128)) packet_in_fifo <- mkBypassFIFOF;
+   FIFOF#(Vlan_tag_t) parsed_out_fifo <- mkSizedFIFOF(1);
+   FIFOF#(Bit#(16)) unparsed_out_fifo <- mkSizedFIFOF(1);
+   FIFOF#(Bool) finish_fifo <- mkBypassFIFOF;
+
+   let verbose = True;
+   Reg#(Cycle_t) cycle <- mkReg(0);
+   rule every;
+      cycle <= cycle + 1;
+   endrule
+
+   Stmt parse_vlan =
+   seq
+   action
+   noAction;
+   endaction
+   endseq;
+
 endmodule
 
 module mkParseIpv4(ParseIpv4);
@@ -137,8 +171,7 @@ module mkParseIpv4(ParseIpv4);
       Bit#(144) data = {data_current, 0}; //residue_last};
       Vector#(144, Bit#(1)) dataVec = unpack(data);
       internal_fifo.enq(data);
-      if (verbose) $display(fshow(cycle) + fshow("Should take 2 cycles."));
-      if (verbose) $display(fshow(cycle) + fshow("wait_for_ip ") + fshow(data));
+      if (verbose) $display(fshow(cycle) + fshow("wait one cycle!"));
    endaction
    action // parse_ipv4 0
       let data_current <- toGet(packet_in_fifo).get;
@@ -171,7 +204,9 @@ module mkParseIpv4(ParseIpv4);
       ipv4.hdrChecksum = pack(hdrChecksum);
       ipv4.srcAddr = pack(srcAddr);
       ipv4.dstAddr = pack(dstAddr);
-      if (verbose) $display(fshow(cycle) + fshow("parse_ipv4 ") + fshow(data));
+      if (verbose) $display(fshow(cycle)
+                            +fshow("ipv4.dstAddr=")+fshow(ipv4.dstAddr)
+                            +fshow("ipv4.srcAddr=")+fshow(ipv4.srcAddr));
       done_fifo.enq(True);
    endaction
    endseq;
@@ -214,6 +249,7 @@ module mkParser(Parser);
 
    Reg#(ParserState) curr_state <- mkReg(S0);
 
+   // Parsing Graph
    (* fire_when_enabled *)
    rule state_S0 (curr_state == S0);
       let v = data_in_fifo.first;
@@ -221,39 +257,24 @@ module mkParser(Parser);
          curr_state <= S1;
          parse_ethernet.init;
          parse_ipv4.init;
+         if (verbose) $display(fshow(cycle) + fshow("Done with") + fshow(curr_state));
       end
       else begin
          data_in_fifo.deq;
       end
-      if (verbose) $display(fshow(cycle) + fshow("Done with") + fshow(curr_state));
    endrule
-
-   rule state_S1_input (curr_state == S1);
-      let v <- toGet(data_in_fifo).get;
-      parse_ethernet.packetIn.enq(v.data);
-      if (verbose) $display(fshow(cycle) + fshow("parse_ethernet enqueue ")+ fshow(v));
-   endrule
-
    (* fire_when_enabled *)
    rule state_S1 (curr_state == S1);
       let v <- toGet(parse_ethernet.done).get;
       curr_state <= S2;
       if (verbose) $display(fshow(cycle) + fshow("Done with") + fshow(curr_state));
    endrule
-
-   rule state_S2_input (curr_state == S2);
-      let v <- toGet(data_in_fifo).get;
-      parse_ipv4.packetIn.enq(v.data);
-      if (verbose) $display(fshow(cycle) + fshow("parse_ipv4 enqueue ") + fshow(v));
-   endrule
-
    (* fire_when_enabled *)
    rule state_S2 (curr_state == S2);
       let v <- toGet(parse_ipv4.done).get;
       curr_state <= S3;
       if (verbose) $display(fshow(cycle) + fshow("Done with") + fshow(curr_state));
    endrule
-
    (* fire_when_enabled *)
    rule state_S3 (curr_state == S3);
       let v <- toGet(data_in_fifo).get;
@@ -264,6 +285,18 @@ module mkParser(Parser);
          parse_ipv4.clear;
          if (verbose) $display(fshow(cycle) + fshow("Done with") + fshow(curr_state));
       end
+   endrule
+
+   // Data dispatcher.
+   rule state_S1_input (curr_state == S1);
+      let v <- toGet(data_in_fifo).get;
+      parse_ethernet.packetIn.enq(v.data);
+      if (verbose) $display(fshow(cycle) + fshow("parse_ethernet enqueue ")+ fshow(v));
+   endrule
+   rule state_S2_input (curr_state == S2);
+      let v <- toGet(data_in_fifo).get;
+      parse_ipv4.packetIn.enq(v.data);
+      if (verbose) $display(fshow(cycle) + fshow("parse_ipv4 enqueue ") + fshow(v));
    endrule
 
    // derive parse done from state machine

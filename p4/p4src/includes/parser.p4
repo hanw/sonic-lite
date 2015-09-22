@@ -18,13 +18,29 @@ parser start {
     return parse_ethernet;
 }
 
-#define ETHERTYPE_IPV4 0x0800
+#define ETHERTYPE_IPV4         0x0800
+#define ETHERTYPE_VLAN         0x8100, 0x9100
 
 header ethernet_t ethernet;
 
 parser parse_ethernet {
     extract(ethernet);
     return select(latest.etherType) {
+        ETHERTYPE_VLAN : parse_vlan;
+        ETHERTYPE_IPV4 : parse_ipv4;
+        default: ingress;
+    }
+}
+
+#define VLAN_DEPTH 2
+header vlan_tag_t vlan_tag_[VLAN_DEPTH];
+header vlan_tag_3b_t vlan_tag_3b[VLAN_DEPTH];
+header vlan_tag_5b_t vlan_tag_5b[VLAN_DEPTH];
+
+parser parse_vlan {
+    extract(vlan_tag_[next]);
+    return select(latest.etherType) {
+        ETHERTYPE_VLAN : parse_vlan;
         ETHERTYPE_IPV4 : parse_ipv4;
         default: ingress;
     }

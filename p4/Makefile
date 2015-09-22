@@ -40,6 +40,7 @@ CONNECTALFLAGS += -I="../sw/"
 CONNECTALFLAGS += --bscflags="-show-range-conflict +RTS -K46777216 -RTS -demote-errors G0066:G0045 -suppress-warnings G0046:G0020:S0015:S0080:S0039 -steps-max-intervals 20"
 #CONNECTALFLAGS += --chipscope=$(PROJTOP)/../../sonic-debug/stp/memread.stp
 
+
 # P4 support
 export TARGET_ROOT :=$(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 export P4_INPUT := p4src/sonic.p4
@@ -50,8 +51,16 @@ include ${MAKEFILES_DIR}/common.mk
 SUBMODULE_P4C_FPGA := ${P4FACTORY}/../p4c-fpga
 include ${SUBMODULE_P4C_FPGA}/p4c-fpga.mk
 
+P4_TARGET=bluesim altera xilinx
+$(addprefix p4.,$(P4_TARGET)): p4fpga
+
+TEST_PACKET_DIR=$(ROOTDIR)/tests/pcap
+include ${TEST_PACKET_DIR}/packet.mk
+
+pcap.timestamp:
+	$(Q)python ${TEST_PACKET_DIR}/generate-pcap.py --out-dir=${TEST_PACKET_DIR}
+
+$(addprefix test.,$(TEST_PACKET)): pcap.timestamp
+	RUN_ARGS=${TEST_PACKET_DIR}/$(subst test.,,$@).pcap make run.bluesim
+
 include $(CONNECTALDIR)/Makefile.connectal
-
-p4.%: p4fpga
-
-.PHONY: p4fpga
