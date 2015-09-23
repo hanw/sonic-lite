@@ -562,3 +562,61 @@ instance DefaultValue#(MatchInput_rewrite_mac);
    };
 endinstance
 
+function Ethernet_t extrace_ethernet(Bit#(112) data);
+   Vector#(112, Bit#(1)) dataVec = unpack(data);
+   Vector#(48, Bit#(1)) dstAddr = takeAt(0, dataVec);
+   Vector#(48, Bit#(1)) srcAddr = takeAt(48, dataVec);
+   Vector#(16, Bit#(1)) etherType = takeAt(96, dataVec);
+   Ethernet_t ethernet = defaultValue;
+   ethernet.dstAddr = pack(dstAddr);
+   ethernet.srcAddr = pack(srcAddr);
+   ethernet.etherType = pack(etherType);
+   return ethernet;
+endfunction
+
+function Vlan_tag_t extract_vlan(Bit#(32) data);
+   Vector#(32, Bit#(1)) dataVec = unpack(data);
+   Vector#(3, Bit#(1)) pcp = takeAt(0, dataVec);
+   Vector#(1, Bit#(1)) cfi = takeAt(3, dataVec);
+   Vector#(12, Bit#(1)) vid = takeAt(4, dataVec);
+   Vector#(16, Bit#(1)) etherType = takeAt(16, dataVec);
+   Vlan_tag_t vlan = defaultValue;
+   vlan.pcp = pack(pcp);
+   vlan.cfi = pack(cfi);
+   vlan.vid = pack(vid);
+   vlan.etherType = pack(etherType);
+   return vlan;
+endfunction
+
+function Ipv4_t extract_ipv4 (Bit#(160) data);
+   Vector#(160, Bit#(1)) dataVec = unpack(data);
+   Vector#(4, Bit#(1)) version = takeAt(0, dataVec);
+   Vector#(4, Bit#(1)) ihl = takeAt(4, dataVec);
+   Vector#(8, Bit#(1)) diffserv = takeAt(8, dataVec);
+   Vector#(16, Bit#(1)) totalLen = takeAt(16, dataVec);
+   Vector#(16, Bit#(1)) identification = takeAt(32, dataVec);
+   Vector#(3, Bit#(1)) flags = takeAt(48, dataVec);
+   Vector#(13, Bit#(1)) fragOffset = takeAt(51, dataVec);
+   Vector#(8, Bit#(1)) ttl = takeAt(64, dataVec);
+   Vector#(8, Bit#(1)) protocol = takeAt(72, dataVec);
+   Vector#(16, Bit#(1)) hdrChecksum = takeAt(80, dataVec);
+   Vector#(32, Bit#(1)) srcAddr = takeAt(96, dataVec);
+   Vector#(32, Bit#(1)) dstAddr = takeAt(128, dataVec);
+   Ipv4_t ipv4 = defaultValue;
+   ipv4.version = pack(version);
+   ipv4.ihl = pack(ihl);
+   ipv4.diffserv = pack(diffserv);
+   ipv4.totalLen = pack(totalLen);
+   ipv4.identification = pack(identification);
+   ipv4.flags = pack(flags);
+   ipv4.fragOffset = pack(fragOffset);
+   ipv4.ttl = pack(ttl);
+   ipv4.protocol = pack(protocol);
+   ipv4.hdrChecksum = pack(hdrChecksum);
+   ipv4.srcAddr = pack(srcAddr);
+   ipv4.dstAddr = pack(dstAddr);
+   return ipv4;
+endfunction
+
+
+

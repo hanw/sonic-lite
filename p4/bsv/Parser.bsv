@@ -61,7 +61,8 @@ interface ParseVlan;
    interface PipeIn#(Bit#(128)) packetIn;
    interface PipeIn#(Bit#(16)) unparsedIn;
    interface PipeOut#(Vlan_tag_t) parsedOut;
-   interface PipeOut#(Bit#(112)) unparsedOut;
+   interface PipeOut#(Bit#(112)) unparsedOutVlan0;
+   interface PipeOut#(Bit#(80)) unparsedOutVlan1;
    interface PipeOut#(ParserState) nextState;
    method Action init;
    method Action clear;
@@ -70,8 +71,9 @@ endinterface
 interface ParseIpv4;
    interface PipeIn#(Bit#(128)) packetIn;
    interface PipeIn#(Bit#(16)) unparsedIn;
-   interface PipeIn#(Bit#(112)) unparsedInVlan0;
    interface PipeOut#(Ipv4_t) parsedOut;
+   interface PipeIn#(Bit#(112)) unparsedInVlan0;
+   interface PipeIn#(Bit#(80)) unparsedInVlan1;
    interface PipeOut#(Bit#(112)) unparsedOut;
    interface PipeOut#(ParserState) nextState;
    method Action init;
@@ -103,14 +105,8 @@ module mkParseEthernet(ParseEthernet);
    action // parse_ethernet
       let data <- toGet(packet_in_fifo).get;
       Vector#(128, Bit#(1)) dataVec = unpack(data);
-      Vector#(48, Bit#(1)) dstAddr = takeAt(0, dataVec);
-      Vector#(48, Bit#(1)) srcAddr = takeAt(48, dataVec);
-      Vector#(16, Bit#(1)) etherType = takeAt(96, dataVec);
+      let ethernet = extrace_ethernet(pack(takeAt(0, dataVec)));
       Vector#(16, Bit#(1)) unparsed = takeAt(112, dataVec);
-      Ethernet_t ethernet = defaultValue;
-      ethernet.dstAddr = pack(dstAddr);
-      ethernet.srcAddr = pack(srcAddr);
-      ethernet.etherType = pack(etherType);
       if (verbose) $display(fshow(cycle)
                             +fshow(" ether.dstAddr=")+fshow(ethernet.dstAddr)
                             +fshow(" ether.srcAddr=")+fshow(ethernet.srcAddr)
@@ -153,17 +149,31 @@ module mkParseVlan(ParseVlan);
    FIFOF#(Bit#(128)) packet_in_fifo <- mkBypassFIFOF;
    FIFOF#(Bit#(16)) unparsed_in_fifo <- mkBypassFIFOF;
    FIFOF#(Vlan_tag_t) parsed_out_fifo <- mkSizedFIFOF(1);
-   FIFOF#(Bit#(112)) unparsed_out_parse_ipv4_fifo <- mkSizedFIFOF(1);
+   FIFOF#(Bit#(112)) unparsed_out_parse_vlan0_fifo <- mkSizedFIFOF(1);
+   FIFOF#(Bit#(80)) unparsed_out_parse_vlan1_fifo <- mkSizedFIFOF(1);
    FIFOF#(ParserState) next_state_fifo <- mkBypassFIFOF;
-
-   FIFOF#(Bit#(112)) vlanFifo <- mkBypassFIFOF;
-   FIFOF#(void) cfFifo <- mkBypassFIFOF;
 
    let verbose = True;
    Reg#(Cycle_t) cycle <- mkReg(defaultValue);
    rule every if (verbose);
       cycle.cnt <= cycle.cnt + 1;
    endrule
+
+   function ParserState compute_next_state(Bit#(16) etherType);
+      ParserState nextState = S0;
+      case (byteSwap2B(etherType)) matches
+         'h_8100: begin
+            nextState = S2;
+         end
+         'h_9100: begin
+            nextState = S2;
+         end
+         'h_0800: begin
+            nextState = S3;
+         end
+      endcase
+      return nextState;
+   endfunction
 
    Stmt parse_vlan =
    par
@@ -174,54 +184,25 @@ module mkParseVlan(ParseVlan);
          let data_delayed <- toGet(unparsed_in_fifo).get;
          Bit#(144) data = {data_current, data_delayed};
          Vector#(144, Bit#(1)) dataVec = unpack(data);
-         Vector#(3, Bit#(1)) pcp = takeAt(0, dataVec);
-         Vector#(1, Bit#(1)) cfi = takeAt(3, dataVec);
-         Vector#(12, Bit#(1)) vid = takeAt(4, dataVec);
-         Vector#(16, Bit#(1)) etherType = takeAt(16, dataVec);
-         Vector#(112, Bit#(1)) residue = takeAt(32, dataVec);
-         Vlan_tag_t vlan = defaultValue;
-         vlan.pcp = pack(pcp);
-         vlan.cfi = pack(cfi);
-         vlan.vid = pack(vid);
-         vlan.etherType = pack(etherType);
-         if (verbose) $display(fshow(cycle) + fshow("Parse Vlan etherType=") + fshow(vlan.etherType));
-         ParserState nextState = S0;
-         case (byteSwap2B(vlan.etherType)) matches
-            'h_8100: begin
-               cfFifo.enq(?);
-               vlanFifo.enq(pack(residue));
-               nextState = S2;
+         let vlan0 = extract_vlan(pack(takeAt(0, dataVec)));
+         let nextState0 = compute_next_state(vlan0.etherType);
+         let residue0 = takeAt(32, dataVec);
+         let vlan1 = extract_vlan(pack(takeAt(32, dataVec)));
+         let nextState1 = compute_next_state(vlan1.etherType);
+         let residue1 = takeAt(64, dataVec);
+
+         if (verbose) $display(fshow(cycle) + fshow("Vlan etherType=") + fshow(vlan0.etherType));
+         if (verbose) $display(fshow(cycle) + fshow("Vlan etherType=") + fshow(vlan1.etherType));
+         case (nextState0) matches
+            S2: begin
+               unparsed_out_parse_vlan1_fifo.enq(pack(residue1));
+               next_state_fifo.enq(nextState1);
             end
-            'h_9100: begin
-               nextState = S2;
-            end
-            'h_0800: begin
-               unparsed_out_parse_ipv4_fifo.enq(pack(residue));
-               nextState = S3;
-            end
-            default: begin
-               $display("null");
+            S3: begin
+               unparsed_out_parse_vlan0_fifo.enq(pack(residue0));
+               next_state_fifo.enq(nextState0);
             end
          endcase
-         next_state_fifo.enq(nextState);
-      endaction
-      endseq
-      // VLAN|VLAN
-      seq
-      action
-         let _ <- toGet(cfFifo).get;
-         let data <- toGet(vlanFifo).get;
-         Vector#(112, Bit#(1)) dataVec = unpack(data);
-         Vector#(3, Bit#(1)) pcp = takeAt(0, dataVec);
-         Vector#(1, Bit#(1)) cfi = takeAt(3, dataVec);
-         Vector#(12, Bit#(1)) vid = takeAt(4, dataVec);
-         Vector#(16, Bit#(1)) etherType = takeAt(16, dataVec);
-         Vlan_tag_t vlan = defaultValue;
-         vlan.pcp = pack(pcp);
-         vlan.cfi = pack(cfi);
-         vlan.vid = pack(vid);
-         vlan.etherType = pack(etherType);
-         if (verbose) $display(fshow(cycle) + fshow("Parse Vlan etherType=") + fshow(vlan.etherType));
       endaction
       endseq
    endpar;
@@ -233,7 +214,8 @@ module mkParseVlan(ParseVlan);
    method Action clear = once_parse_vlan.clear;
    interface packetIn = toPipeIn(packet_in_fifo);
    interface unparsedIn = toPipeIn(unparsed_in_fifo);
-   interface unparsedOut = toPipeOut(unparsed_out_parse_ipv4_fifo);
+   interface unparsedOutVlan0 = toPipeOut(unparsed_out_parse_vlan0_fifo);
+   interface unparsedOutVlan1 = toPipeOut(unparsed_out_parse_vlan1_fifo);
    interface parsedOut = toPipeOut(parsed_out_fifo);
    interface nextState = toPipeOut(next_state_fifo);
 endmodule
@@ -263,9 +245,7 @@ module mkParseIpv4(ParseIpv4);
       packet_in_wire <= data_current;
    endrule
 
-   // Can we use List#() to simplify design??
    // We need a collection for fields to extract. not all fields are required
-   // Run multiple state machines in parallel.
    Stmt parse_ipv4 =
    par
    // IP
@@ -283,32 +263,8 @@ module mkParseIpv4(ParseIpv4);
       let data_current = packet_in_wire;
       Bit#(272) data = {data_current, data_delayed};
       Vector#(272, Bit#(1)) dataVec = unpack(data);
-      Vector#(4, Bit#(1)) version = takeAt(0, dataVec);
-      Vector#(4, Bit#(1)) ihl = takeAt(4, dataVec);
-      Vector#(8, Bit#(1)) diffserv = takeAt(8, dataVec);
-      Vector#(16, Bit#(1)) totalLen = takeAt(16, dataVec);
-      Vector#(16, Bit#(1)) identification = takeAt(32, dataVec);
-      Vector#(3, Bit#(1)) flags = takeAt(48, dataVec);
-      Vector#(13, Bit#(1)) fragOffset = takeAt(51, dataVec);
-      Vector#(8, Bit#(1)) ttl = takeAt(64, dataVec);
-      Vector#(8, Bit#(1)) protocol = takeAt(72, dataVec);
-      Vector#(16, Bit#(1)) hdrChecksum = takeAt(80, dataVec);
-      Vector#(32, Bit#(1)) srcAddr = takeAt(96, dataVec);
-      Vector#(32, Bit#(1)) dstAddr = takeAt(128, dataVec);
       Vector#(112, Bit#(1)) residue = takeAt(160, dataVec);
-      Ipv4_t ipv4 = defaultValue;
-      ipv4.version = pack(version);
-      ipv4.ihl = pack(ihl);
-      ipv4.diffserv = pack(diffserv);
-      ipv4.totalLen = pack(totalLen);
-      ipv4.identification = pack(identification);
-      ipv4.flags = pack(flags);
-      ipv4.fragOffset = pack(fragOffset);
-      ipv4.ttl = pack(ttl);
-      ipv4.protocol = pack(protocol);
-      ipv4.hdrChecksum = pack(hdrChecksum);
-      ipv4.srcAddr = pack(srcAddr);
-      ipv4.dstAddr = pack(dstAddr);
+      let ipv4 = extract_ipv4(data[159:0]);
       if (verbose) $display(fshow(cycle)+
                             $format(" ipv4.srcAddr=%x", ipv4.srcAddr)+
                             $format(" ipv4.dstAddr=%x", ipv4.dstAddr));
@@ -322,32 +278,23 @@ module mkParseIpv4(ParseIpv4);
       let data_current = packet_in_wire;
       Bit#(240) data = {data_current, residue_last};
       Vector#(240, Bit#(1)) dataVec = unpack(data);
-      Vector#(4, Bit#(1)) version = takeAt(0, dataVec);
-      Vector#(4, Bit#(1)) ihl = takeAt(4, dataVec);
-      Vector#(8, Bit#(1)) diffserv = takeAt(8, dataVec);
-      Vector#(16, Bit#(1)) totalLen = takeAt(16, dataVec);
-      Vector#(16, Bit#(1)) identification = takeAt(32, dataVec);
-      Vector#(3, Bit#(1)) flags = takeAt(48, dataVec);
-      Vector#(13, Bit#(1)) fragOffset = takeAt(51, dataVec);
-      Vector#(8, Bit#(1)) ttl = takeAt(64, dataVec);
-      Vector#(8, Bit#(1)) protocol = takeAt(72, dataVec);
-      Vector#(16, Bit#(1)) hdrChecksum = takeAt(80, dataVec);
-      Vector#(32, Bit#(1)) srcAddr = takeAt(96, dataVec);
-      Vector#(32, Bit#(1)) dstAddr = takeAt(128, dataVec);
       Vector#(80, Bit#(1)) residue = takeAt(160, dataVec);
-      Ipv4_t ipv4 = defaultValue;
-      ipv4.version = pack(version);
-      ipv4.ihl = pack(ihl);
-      ipv4.diffserv = pack(diffserv);
-      ipv4.totalLen = pack(totalLen);
-      ipv4.identification = pack(identification);
-      ipv4.flags = pack(flags);
-      ipv4.fragOffset = pack(fragOffset);
-      ipv4.ttl = pack(ttl);
-      ipv4.protocol = pack(protocol);
-      ipv4.hdrChecksum = pack(hdrChecksum);
-      ipv4.srcAddr = pack(srcAddr);
-      ipv4.dstAddr = pack(dstAddr);
+      let ipv4 = extract_ipv4(data[159:0]);
+      if (verbose) $display(fshow(cycle)+
+                            $format(" ipv4.srcAddr=%x", ipv4.srcAddr)+
+                            $format(" ipv4.dstAddr=%x", ipv4.dstAddr));
+      next_state_fifo.enq(S4);
+   endaction
+   endseq
+   // VLAN|VLAN|IP
+   seq
+   action
+      let residue_last <- toGet(unparsed_in_vlan1_fifo).get; // 112-bit;
+      let data_current = packet_in_wire;
+      Bit#(208) data = {data_current, residue_last};
+      Vector#(208, Bit#(1)) dataVec = unpack(data);
+      Vector#(48, Bit#(1)) residue = takeAt(160, dataVec);
+      let ipv4 = extract_ipv4(data[159:0]);
       if (verbose) $display(fshow(cycle)+
                             $format(" ipv4.srcAddr=%x", ipv4.srcAddr)+
                             $format(" ipv4.dstAddr=%x", ipv4.dstAddr));
@@ -364,6 +311,7 @@ module mkParseIpv4(ParseIpv4);
    interface packetIn = toPipeIn(packet_in_fifo);
    interface unparsedIn = toPipeIn(unparsed_in_fifo);
    interface unparsedInVlan0 = toPipeIn(unparsed_in_vlan0_fifo);
+   interface unparsedInVlan1 = toPipeIn(unparsed_in_vlan1_fifo);
    interface unparsedOut = toPipeOut(unparsed_out_fifo);
    interface parsedOut = toPipeOut(parsed_out_fifo);
    interface nextState = toPipeOut(next_state_fifo);
@@ -382,7 +330,8 @@ module mkParser(Parser);
 
    mkConnection(parse_ethernet.unparsedOutIpv4, parse_ipv4.unparsedIn);
    mkConnection(parse_ethernet.unparsedOutVlan, parse_vlan.unparsedIn);
-   mkConnection(parse_vlan.unparsedOut, parse_ipv4.unparsedInVlan0);
+   mkConnection(parse_vlan.unparsedOutVlan0, parse_ipv4.unparsedInVlan0);
+   mkConnection(parse_vlan.unparsedOutVlan1, parse_ipv4.unparsedInVlan1);
 
    let verbose = True;
    Reg#(Cycle_t) cycle <- mkReg(defaultValue);

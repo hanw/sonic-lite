@@ -18,6 +18,11 @@ args = parser.parse_args()
 all_pkts = collections.OrderedDict()
 
 def gen_udp_pkts():
+    # ETH|VLAN|VLAN|IP|UDP
+    all_pkts['vlan2-udp'] = Ether(src="01:02:03:04:05:06", dst="11:12:13:14:15:16") / \
+                           Dot1Q(vlan=3393) / Dot1Q(vlan=2000) / IP(src="10.0.0.1", dst="10.0.0.2") /   \
+                           UDP(sport=6000, dport=6639)
+
     # ETH|VLAN|IP|UDP
     all_pkts['vlan-udp'] = Ether(src="01:02:03:04:05:06", dst="11:12:13:14:15:16") / \
                            Dot1Q(vlan=3393) / IP(src="10.0.0.1", dst="10.0.0.2") /   \
