@@ -57,10 +57,10 @@ $(addprefix p4.,$(P4_TARGET)): p4fpga
 TEST_PACKET_DIR=$(ROOTDIR)/tests/pcap
 include ${TEST_PACKET_DIR}/packet.mk
 
-pcap.timestamp:
+regenerate-pcap:
 	$(Q)python ${TEST_PACKET_DIR}/generate-pcap.py --out-dir=${TEST_PACKET_DIR}
 
-$(addprefix test.,$(TEST_PACKET)): pcap.timestamp
+$(addprefix test.,$(TEST_PACKET)):
 	RUN_ARGS=${TEST_PACKET_DIR}/$(subst test.,,$@).pcap make run.bluesim
 
 include $(CONNECTALDIR)/Makefile.connectal

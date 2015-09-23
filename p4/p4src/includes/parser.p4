@@ -34,8 +34,6 @@ parser parse_ethernet {
 
 #define VLAN_DEPTH 2
 header vlan_tag_t vlan_tag_[VLAN_DEPTH];
-header vlan_tag_3b_t vlan_tag_3b[VLAN_DEPTH];
-header vlan_tag_5b_t vlan_tag_5b[VLAN_DEPTH];
 
 parser parse_vlan {
     extract(vlan_tag_[next]);

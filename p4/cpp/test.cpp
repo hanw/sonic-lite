@@ -55,6 +55,8 @@
 #define s32     int32_t
 #endif
 
+#define DATA_WIDTH 128
+
 struct pcap_file_header {
     u32 magic;
     u16 version_major;
@@ -89,37 +91,31 @@ public:
     P4TopIndication(unsigned int id) : P4TopIndicationWrapper(id) {}
 };
 
-void mem_copy(const void *buff, int length) {
-    int packet_size;
-    int numBeats;
-    int numPackets;
+void mem_copy(const void *buff, int packet_size) {
 
-    packet_size = length;
-    numBeats = packet_size / 8; // 16 bytes per beat for 128-bit datawidth;
-    numPackets = 2;
-    if (packet_size % 8 != 0) numBeats++;
-    PRINT_INFO("nBeats=%d, packetSize=%d\n", numBeats, packet_size);
-
-    // transfer packet to receive
+    int i, sop, eop;
     uint64_t data[2];
-    int i, j, sop, eop;
-    for (j=0; j<numPackets; j++) {
-        for (i=0; i<numBeats; i++) {
-            data[i%2] = *((uint64_t *)(static_cast<const char *>(buff) + i));
+    int numBeats;
+
+    numBeats = packet_size / 8; // 16 bytes per beat for 128-bit datawidth;
+    if (packet_size % 8) numBeats++;
+    PRINT_INFO("nBeats=%d, packetSize=%d\n", numBeats, packet_size);
+    for (i=0; i<numBeats; i++) {
+        data[i%2] = *(static_cast<const uint64_t *>(buff) + i);
+        sop = (i/2 == 0);
+        eop = (i/2 == (numBeats-1)/2);
+        if (i%2) {
+            device->writePacketData(data, sop, eop);
+            PRINT_INFO("%016lx %016lx %d %d\n", data[1], data[0], sop, eop);
+        }
+
+        // last beat, padding with zero
+        if ((numBeats%2!=0) && (i==numBeats-1)) {
             sop = (i/2 == 0) ? 1 : 0;
-            eop = (i/2 == (numBeats-1)/2) ? 1 : 0;
-            if (i%2) {
-                device->writePacketData(data, sop, eop);
-                PRINT_INFO("%016lx %016lx %d %d\n", data[1], data[0], sop, eop);
-            }
-            // corner case: when last beat is less than 32 bit.
-            if ((numBeats%2!=0) && (i==numBeats-1)) {
-                sop = (i/2 == 0) ? 1 : 0;
-                eop = 1;
-                data[1] = 0;
-                device->writePacketData(data, sop, eop);
-                PRINT_INFO("%016lx %016lx %d %d\n", data[1], data[0], sop, eop);
-            }
+            eop = 1;
+            data[1] = 0;
+            device->writePacketData(data, sop, eop);
+            PRINT_INFO("%016lx %016lx %d %d\n", data[1], data[0], sop, eop);
         }
     }
 }

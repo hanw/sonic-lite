@@ -87,9 +87,9 @@ module mkP4Top#(Clock derivedClock, Reset derivedReset, P4TopIndication indicati
    Reset defaultReset <- exposeCurrentReset();
 
    let verbose = True;
-   Reg#(Cycle_t) cycle <- mkReg(0);
-   rule every1;
-      cycle <= cycle + 1;
+   Reg#(Cycle_t) cycle <- mkReg(defaultValue);
+   rule every1 if (verbose);
+      cycle.cnt <= cycle.cnt + 1;
    endrule
 
    PacketBuffer rxPktBuff <- mkPacketBuffer();

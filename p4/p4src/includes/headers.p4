@@ -48,21 +48,3 @@ header_type vlan_tag_t {
     }
 }
 
-header_type vlan_tag_3b_t {
-    fields {
-        pcp : 3;
-        cfi : 1;
-        vid : 4;
-        etherType : 16;
-    }
-}
-header_type vlan_tag_5b_t {
-    fields {
-        pcp : 3;
-        cfi : 1;
-        vid : 20;
-        etherType : 16;
-    }
-}
-
-
