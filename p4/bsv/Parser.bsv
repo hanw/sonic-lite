@@ -144,20 +144,51 @@ module mkParseEthernet(ParseEthernet);
    interface nextState = toPipeOut(next_state_fifo);
 endmodule
 
+interface ParseVlanArbiter;
+   interface PipeOut#(ParserState) outToFSM;
+   interface Vector#(2, PipeIn#(ParserState)) in;
+endinterface
+
+(* synthesize *)
+module mkParseVlanArbiter(ParseVlanArbiter);
+   FIFOF#(ParserState) state_out_fifo <- mkBypassFIFOF;
+   Vector#(2, FIFOF#(ParserState)) state_in_fifo <- replicateM(mkBypassFIFOF);
+
+   (* fire_when_enabled *)
+   rule arbitrate_outgoing_state;
+      Bool stateSet = False;
+      for (Integer port=0; port<2; port=port+1) begin
+         if (!stateSet && state_in_fifo[port].notEmpty()) begin
+            ParserState state <- toGet(state_in_fifo[port]).get;
+            stateSet = True;
+            state_out_fifo.enq(state);
+         end
+      end
+   endrule
+   interface in = map(toPipeIn, state_in_fifo);
+   interface outToFSM = toPipeOut(state_out_fifo);
+endmodule
+
 // Parse second VLAN
 module mkParseVlan(ParseVlan);
    FIFOF#(Bit#(128)) packet_in_fifo <- mkBypassFIFOF;
    FIFOF#(Bit#(16)) unparsed_in_fifo <- mkBypassFIFOF;
+   FIFOF#(Bit#(16)) unparsed_in_fifo_vlan0 <- mkBypassFIFOF;
+   FIFOF#(Bit#(16)) unparsed_in_fifo_vlan1 <- mkBypassFIFOF;
    FIFOF#(Vlan_tag_t) parsed_out_fifo <- mkSizedFIFOF(1);
    FIFOF#(Bit#(112)) unparsed_out_parse_vlan0_fifo <- mkSizedFIFOF(1);
    FIFOF#(Bit#(80)) unparsed_out_parse_vlan1_fifo <- mkSizedFIFOF(1);
+
    FIFOF#(ParserState) next_state_fifo <- mkBypassFIFOF;
+   Wire#(Bit#(128)) packet_in_wire <- mkDWire(0);
 
    let verbose = True;
    Reg#(Cycle_t) cycle <- mkReg(defaultValue);
    rule every if (verbose);
       cycle.cnt <= cycle.cnt + 1;
    endrule
+
+   ParseVlanArbiter nextStateArbiter <- mkParseVlanArbiter();
 
    function ParserState compute_next_state(Bit#(16) etherType);
       ParserState nextState = S0;
@@ -175,13 +206,47 @@ module mkParseVlan(ParseVlan);
       return nextState;
    endfunction
 
+   rule load_packet_in;
+      let data_current <- toGet(packet_in_fifo).get;
+      packet_in_wire <= data_current;
+      if (verbose) $display(fshow(cycle) + fshow("load packet in"));
+   endrule
+
+   rule load_unparsed_in;
+      let data_delayed <- toGet(unparsed_in_fifo).get;
+      unparsed_in_fifo_vlan0.enq(data_delayed);
+      unparsed_in_fifo_vlan1.enq(data_delayed);
+      if (verbose) $display(fshow(cycle) + fshow("load unparsed in"));
+   endrule
+
+   mkConnection(nextStateArbiter.outToFSM, toPipeIn(next_state_fifo));
+
    Stmt parse_vlan =
    par
       // VLAN
       seq
       action
-         let data_current <- toGet(packet_in_fifo).get;
-         let data_delayed <- toGet(unparsed_in_fifo).get;
+         let data_delayed <- toGet(unparsed_in_fifo_vlan0).get;
+         let data_current = packet_in_wire;
+         $display("VLAN %x", data_current);
+         Bit#(144) data = {data_current, data_delayed};
+         Vector#(144, Bit#(1)) dataVec = unpack(data);
+         let vlan0 = extract_vlan(pack(takeAt(0, dataVec)));
+         let nextState0 = compute_next_state(vlan0.etherType);
+         let residue0 = takeAt(32, dataVec);
+         if (nextState0 == S3) begin
+            if (verbose) $display(fshow(cycle) + fshow("Vlan etherType=") + fshow(vlan0.etherType));
+            unparsed_out_parse_vlan0_fifo.enq(pack(residue0));
+            nextStateArbiter.in[0].enq(nextState0);
+         end
+      endaction
+      endseq
+      // VLAN|VLAN
+      seq
+      action
+         let data_delayed <- toGet(unparsed_in_fifo_vlan1).get;
+         let data_current = packet_in_wire;
+         $display("VLAN|VLAN %x", data_current);
          Bit#(144) data = {data_current, data_delayed};
          Vector#(144, Bit#(1)) dataVec = unpack(data);
          let vlan0 = extract_vlan(pack(takeAt(0, dataVec)));
@@ -190,24 +255,17 @@ module mkParseVlan(ParseVlan);
          let vlan1 = extract_vlan(pack(takeAt(32, dataVec)));
          let nextState1 = compute_next_state(vlan1.etherType);
          let residue1 = takeAt(64, dataVec);
-
-         if (verbose) $display(fshow(cycle) + fshow("Vlan etherType=") + fshow(vlan0.etherType));
-         if (verbose) $display(fshow(cycle) + fshow("Vlan etherType=") + fshow(vlan1.etherType));
-         case (nextState0) matches
-            S2: begin
-               unparsed_out_parse_vlan1_fifo.enq(pack(residue1));
-               next_state_fifo.enq(nextState1);
-            end
-            S3: begin
-               unparsed_out_parse_vlan0_fifo.enq(pack(residue0));
-               next_state_fifo.enq(nextState0);
-            end
-         endcase
+         if (nextState0 == S2 && nextState1 == S3) begin
+            if (verbose) $display(fshow(cycle) + fshow("Vlan etherType=") + fshow(vlan0.etherType));
+            if (verbose) $display(fshow(cycle) + fshow("Vlan etherType=") + fshow(vlan1.etherType));
+            unparsed_out_parse_vlan1_fifo.enq(pack(residue1));
+            nextStateArbiter.in[1].enq(nextState1);
+         end
       endaction
       endseq
    endpar;
 
-   FSM fsm_parse_vlan <- mkFSMWithPred(parse_vlan, packet_in_fifo.notEmpty);
+   FSM fsm_parse_vlan <- mkFSMWithPred(parse_vlan, True);
    Once once_parse_vlan <- mkOnce(fsm_parse_vlan.start);
 
    method Action init = once_parse_vlan.start;
@@ -218,6 +276,31 @@ module mkParseVlan(ParseVlan);
    interface unparsedOutVlan1 = toPipeOut(unparsed_out_parse_vlan1_fifo);
    interface parsedOut = toPipeOut(parsed_out_fifo);
    interface nextState = toPipeOut(next_state_fifo);
+endmodule
+
+interface ParseIpv4Arbiter;
+   interface PipeOut#(ParserState) outToFSM;
+   interface Vector#(3, PipeIn#(ParserState)) in;
+endinterface
+
+(* synthesize *)
+module mkParseIpv4Arbiter(ParseIpv4Arbiter);
+   FIFOF#(ParserState) state_out_fifo <- mkBypassFIFOF;
+   Vector#(3, FIFOF#(ParserState)) state_in_fifo <- replicateM(mkBypassFIFOF);
+
+   (* fire_when_enabled *)
+   rule arbitrate_outgoing_state;
+      Bool stateSet = False;
+      for (Integer port=0; port<3; port=port+1) begin
+         if (!stateSet && state_in_fifo[port].notEmpty()) begin
+            ParserState state <- toGet(state_in_fifo[port]).get;
+            stateSet = True;
+            state_out_fifo.enq(state);
+         end
+      end
+   endrule
+   interface in = map(toPipeIn, state_in_fifo);
+   interface outToFSM = toPipeOut(state_out_fifo);
 endmodule
 
 module mkParseIpv4(ParseIpv4);
@@ -231,7 +314,6 @@ module mkParseIpv4(ParseIpv4);
    FIFOF#(Bit#(144)) internal_fifo <- mkSizedFIFOF(1);
 
    FIFOF#(ParserState) next_state_fifo <- mkBypassFIFOF;
-
    Wire#(Bit#(128)) packet_in_wire <- mkDWire(0);
 
    let verbose = True;
@@ -240,12 +322,17 @@ module mkParseIpv4(ParseIpv4);
       cycle.cnt <= cycle.cnt + 1;
    endrule
 
+   ParseIpv4Arbiter nextStateArbiter <- mkParseIpv4Arbiter();
+
    rule load_packet_in;
       let data_current <- toGet(packet_in_fifo).get;
       packet_in_wire <= data_current;
    endrule
 
+   mkConnection(nextStateArbiter.outToFSM, toPipeIn(next_state_fifo));
+
    // We need a collection for fields to extract. not all fields are required
+   // break multiple possible path into multiple modules..
    Stmt parse_ipv4 =
    par
    // IP
@@ -268,7 +355,7 @@ module mkParseIpv4(ParseIpv4);
       if (verbose) $display(fshow(cycle)+
                             $format(" ipv4.srcAddr=%x", ipv4.srcAddr)+
                             $format(" ipv4.dstAddr=%x", ipv4.dstAddr));
-      next_state_fifo.enq(S4);
+      nextStateArbiter.in[0].enq(S4);
    endaction
    endseq
    // VLAN|IP
@@ -283,7 +370,7 @@ module mkParseIpv4(ParseIpv4);
       if (verbose) $display(fshow(cycle)+
                             $format(" ipv4.srcAddr=%x", ipv4.srcAddr)+
                             $format(" ipv4.dstAddr=%x", ipv4.dstAddr));
-      next_state_fifo.enq(S4);
+      nextStateArbiter.in[1].enq(S4);
    endaction
    endseq
    // VLAN|VLAN|IP
@@ -298,7 +385,7 @@ module mkParseIpv4(ParseIpv4);
       if (verbose) $display(fshow(cycle)+
                             $format(" ipv4.srcAddr=%x", ipv4.srcAddr)+
                             $format(" ipv4.dstAddr=%x", ipv4.dstAddr));
-      next_state_fifo.enq(S4);
+      nextStateArbiter.in[2].enq(S4);
    endaction
    endseq
    endpar;

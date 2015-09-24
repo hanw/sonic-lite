@@ -618,5 +618,3 @@ function Ipv4_t extract_ipv4 (Bit#(160) data);
    return ipv4;
 endfunction
 
-
-
