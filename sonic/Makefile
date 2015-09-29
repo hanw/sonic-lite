@@ -9,7 +9,8 @@ CONNECTALFLAGS += --bscflags="+RTS -K46777216 -RTS -demote-errors G0066:G0045 -s
 
 S2H_INTERFACES=SonicTopRequest:SonicTop.request:host.derivedClock,host.derivedReset
 H2S_INTERFACES=SonicTop:SonicTopIndication:host.derivedClock,host.derivedReset
-MEM_INTERFACES=lSonicTop.dmaReadClient,lSonicTop.dmaWriteClient
+MEM_READ_INTERFACES=lSonicTop.dmaReadClient
+MEM_WRITE_INTERFACES=lSonicTop.dmaWriteClient
 AUTOTOP= --interface pins:SonicTop.pins
 PIN_TYPE = SonicPins
 PIN_TYPE_INCLUDE = SonicTop

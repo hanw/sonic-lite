@@ -35,11 +35,11 @@ import SpecialFIFOs ::*;
 import Vector ::*;
 
 import Ethernet::*;
-import HostInterface::*;
 import MemTypes::*;
-import MemreadEngine::*;
-import MemwriteEngine::*;
+import MemReadEngine::*;
+import MemWriteEngine::*;
 import PacketBuffer::*;
+import HostInterface::*;
 
 interface SonicPins;
    method Action osc_50(Bit#(1) b3d, Bit#(1) b4a, Bit#(1) b4d, Bit#(1) b7a, Bit#(1) b7d, Bit#(1) b8a, Bit#(1) b8d);
@@ -60,7 +60,7 @@ typedef 100000 RxCredTimeout;
 typedef TDiv#(DataBusWidth,32) DataBusWords;
 typedef struct {
    SGLId sglId;
-   Bit#(MemOffsetSize) offset;
+   Bit#(32) offset;
    Bit#(32) len;
    Bit#(BurstLenSize) burstLen;
    Bit#(32) nDesc;
@@ -68,7 +68,7 @@ typedef struct {
 
 typedef struct {
    SGLId sglId;
-   Bit#(MemOffsetSize) offset;
+   Bit#(32) offset;
    Bit#(32) len;
    Bit#(BurstLenSize) burstLen;
    Bit#(32) nDesc;
@@ -122,7 +122,7 @@ module mkSonicTop#(Clock derivedClock, Reset derivedReset, SonicTopIndication in
    FIFOF#(void) xmitInProgress <- mkSizedFIFOF(1);
    Gearbox#(2, 1, PacketData#(64)) fifoTxData <- mkNto1Gearbox(defaultClock, defaultReset, defaultClock, defaultReset);
 
-   MemreadEngine#(DataBusWidth,NumOutstandingRequests,1) re <- mkMemreadEngineBuff(valueOf(BufferSizeBytes));
+   MemReadEngine#(DataBusWidth,DataBusWidth,NumOutstandingRequests,1) re <- mkMemReadEngineBuff(valueOf(BufferSizeBytes));
    PacketBuffer txPktBuff <- mkPacketBuffer();
 
    rule everyCycle;
@@ -157,8 +157,8 @@ module mkSonicTop#(Clock derivedClock, Reset derivedReset, SonicTopIndication in
    endrule
 
    rule readData;
-      if (re.readServers[0].memDataPipe.notEmpty()) begin
-         let v <- toGet(re.readServers[0].memDataPipe).get;
+      if (re.readServers[0].data.notEmpty()) begin
+         let v <- toGet(re.readServers[0].data).get;
          txPktBuff.writeServer.writeData.put(EtherData{sop: v.first, eop: v.last, data:v.data});
       end
    endrule
@@ -226,7 +226,7 @@ module mkSonicTop#(Clock derivedClock, Reset derivedReset, SonicTopIndication in
    Reg#(Bit#(32))                totalRx <- mkReg(0);
    Reg#(Bit#(EtherLen))     currDmaWrLen <- mkReg(0);
    PacketBuffer                rxPktBuff <- mkPacketBuffer();
-   MemwriteEngine#(DataBusWidth,2,1) we <- mkMemwriteEngine;
+   MemWriteEngine#(DataBusWidth,DataBusWidth,2,1) we <- mkMemWriteEngine;
    Gearbox#(1, 2, PacketData#(64)) fifoRxData <- mk1toNGearbox(defaultClock, defaultReset, defaultClock, defaultReset);
 
    rule enqRxDesc(rxDescQueue.notFull && newRxDesc.nDesc>0);
@@ -238,7 +238,7 @@ module mkSonicTop#(Clock derivedClock, Reset derivedReset, SonicTopIndication in
       let rxDesc <- toGet(rxDescQueue).get;
       let pktLen <- rxPktBuff.readServer.readLen.get;
       // write packet metadata
-      we.writeServers[0].cmdServer.request.put(MemengineCmd{tag:0, sglId:rxDesc.sglId,
+      we.writeServers[0].request.put(MemengineCmd{tag:0, sglId:rxDesc.sglId,
                                                 base:extend(rxDesc.offset - fromInteger(valueOf(RxMetadataLen))),
                                                 len:extend(pktLen + fromInteger(valueOf(RxMetadataLen))),
                                                 burstLen:truncate(pktLen + fromInteger(valueOf(RxMetadataLen)))});
@@ -248,20 +248,20 @@ module mkSonicTop#(Clock derivedClock, Reset derivedReset, SonicTopIndication in
    rule dmaWriteMeta;
       let meta <- toGet(currRxMetadata).get;
       $display("SonicTop::dmaWriteMeta %d: filled=%x, len=%x", cycle, meta.filled, meta.len);
-      we.writeServers[0].dataPipe.enq(pack(meta));
+      we.writeServers[0].data.enq(pack(meta));
       rxPktBuff.readServer.readReq.put(EtherReq{len: truncate(meta.len)});
       recvInProgress.enq(truncate(meta.len));
    endrule
    rule dmaWriteInProgress if (recvInProgress.notEmpty);
       let v <- rxPktBuff.readServer.readData.get;
       $display("SonicTop::dmaWriteInProgress %d: data=%x sop=%x eop=%x", cycle, v.data, v.sop, v.eop);
-      we.writeServers[0].dataPipe.enq(extend(v.data));
+      we.writeServers[0].data.enq(extend(v.data));
       if (v.eop) begin
          recvInProgress.deq;
       end
    endrule
    rule dmaWriteFinish;
-      let rv <- we.writeServers[0].cmdServer.response.get;
+      let rv <- we.writeServers[0].done.get;
       $display("SonicTop::dmaWriteFinish");
    endrule
    // rule to clock crossing from 156.25MHz to 250MHz with 64bit
