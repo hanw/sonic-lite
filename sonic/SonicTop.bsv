@@ -40,14 +40,7 @@ import MemReadEngine::*;
 import MemWriteEngine::*;
 import PacketBuffer::*;
 import HostInterface::*;
-
-interface SonicPins;
-   method Action osc_50(Bit#(1) b3d, Bit#(1) b4a, Bit#(1) b4d, Bit#(1) b7a, Bit#(1) b7d, Bit#(1) b8a, Bit#(1) b8d);
-   (* prefix="" *)
-   method Action user_reset_n(Bit#(1) user_reset_n);
-   interface Clock deleteme_unused_clock;
-   interface Reset deleteme_unused_reset;
-endinterface
+import `PinTypeInclude::*;
 
 typedef 512    TxCredTotal;
 typedef 32     TxCredThres;
@@ -101,7 +94,7 @@ interface SonicTop;
    interface SonicTopRequest request;
    interface Vector#(1, MemWriteClient#(DataBusWidth)) dmaWriteClient;
    interface Vector#(1, MemReadClient#(DataBusWidth)) dmaReadClient;
-   interface SonicPins pins;
+   interface `PinType pins;
 endinterface
 
 typedef 12 NumOutstandingRequests;
@@ -321,7 +314,7 @@ module mkSonicTop#(Clock derivedClock, Reset derivedReset, SonicTopIndication in
          finishFifo.clear();
       endmethod
    endinterface
-   interface SonicPins pins;
+   interface `PinType pins;
       // Clocks
       interface deleteme_unused_clock = defaultClock;
       interface deleteme_unused_reset = defaultReset;
