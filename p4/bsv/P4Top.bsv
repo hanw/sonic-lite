@@ -21,6 +21,7 @@
 // SOFTWARE.
 
 import BRAMFIFO::*;
+import BuildVector::*;
 import Clocks::*;
 import DefaultValue::*;
 import FIFO::*;
@@ -30,18 +31,22 @@ import Vector::*;
 import Connectable::*;
 import StmtFSM::*;
 import Pipe::*;
+import HostInterface::*;
+import MemTypes::*;
+import MemReadEngine::*;
+import MemWriteEngine::*;
+import MemServerIndication::*;
+import MMUIndication::*;
 
 import Ethernet::*;
 import IngressPipeline::*;
 import PacketBuffer::*;
 import Parser::*;
 import Types::*;
+import SharedBuff::*;
+import `PinTypeInclude::*;
 
-interface P4Pins;
-   method Action osc_50(Bit#(1) b3d, Bit#(1) b4a, Bit#(1) b4d, Bit#(1) b7a, Bit#(1) b7d, Bit#(1) b8a, Bit#(1) b8d);
-   (* prefix="" *)
-   method Action user_reset_n(Bit#(1) user_reset_n);
-endinterface
+typedef TDiv#(DataBusWidth, 32) WordsPerBeat;
 
 interface P4TopIndication;
    method Action sonic_read_version_resp(Bit#(32) version);
@@ -50,6 +55,8 @@ endinterface
 interface P4TopRequest;
    method Action sonic_read_version();
    method Action writePacketData(Vector#(2, Bit#(64)) data, Bit#(1) sop, Bit#(1) eop);
+   method Action readPacketBuffer(Bit#(16) addr);
+   method Action writePacketBuffer(Bit#(16) addr, Bit#(64) data);
 
    method Action port_mapping_add_entry(Bit#(32) table_name, MatchInput_port_mapping match_key);
    method Action port_mapping_set_default_action(Bit#(32) table_name);
@@ -79,7 +86,7 @@ endinterface
 
 interface P4Top;
    interface P4TopRequest request;
-   interface P4Pins pins;
+   interface `PinType pins;
 endinterface
 
 module mkP4Top#(Clock derivedClock, Reset derivedReset, P4TopIndication indication)(P4Top);
@@ -92,9 +99,32 @@ module mkP4Top#(Clock derivedClock, Reset derivedReset, P4TopIndication indicati
       cycle.cnt <= cycle.cnt + 1;
    endrule
 
+   Reg#(Standard_metadata_t) standard_metadata <- mkReg(defaultValue);
+   Reg#(Ingress_metadata_t) ingress_metadata <- mkReg(defaultValue);
+
    PacketBuffer rxPktBuff <- mkPacketBuffer();
    Parser parser <- mkParser();
    Pipeline_port_mapping ingress_port_mapping <- mkIngressPipeline_port_mapping();
+
+   FIFO#(MemRequest) reqFifo <-mkSizedFIFO(4);
+   FIFO#(MemData#(DataBusWidth)) dataFifo <- mkSizedFIFO(32);
+   MemReadClient#(DataBusWidth) dmaClient = (interface MemReadClient;
+      interface Get readReq = toGet(reqFifo);
+      interface Put readData = toPut(dataFifo);
+   endinterface);
+
+   FIFO#(MemRequest) writeReqFifo <- mkSizedFIFO(4);
+   FIFO#(MemData#(DataBusWidth)) writeDataFifo <- mkSizedFIFO(32);
+   FIFO#(Bit#(MemTagSize)) writeDoneFifo <- mkSizedFIFO(4);
+   MemWriteClient#(DataBusWidth) dmaWriteClient = (interface MemWriteClient;
+      interface Get writeReq = toGet(writeReqFifo);
+      interface Get writeData = toGet(writeDataFifo);
+      interface Put writeDone = toPut(writeDoneFifo);
+   endinterface);
+
+   MemServerIndicationOutput memServerIndication <- mkMemServerIndicationOutput;
+   MMUIndicationOutput mmuIndication <- mkMMUIndicationOutput;
+   SharedBuffer#(16, 128, 1) buff <- mkSharedBuffer(vec(dmaClient), vec(dmaWriteClient), memServerIndication.ifc, mmuIndication.ifc);
 
    Reg#(Bit#(EtherLen)) pktLen <- mkReg(0);
    Reg#(Bit#(9)) rAddr_wires <- mkReg(0);
@@ -124,6 +154,15 @@ module mkP4Top#(Clock derivedClock, Reset derivedReset, P4TopIndication indicati
       let v <- toGet(parser.payloadOut).get;
    endrule
 
+   rule readData;
+      let v <- toGet(dataFifo).get;
+      $display("%d: Received data %x", cycle, v.data);
+   endrule
+
+   rule writeDone;
+      let v <- toGet(writeDoneFifo).get;
+      $display("%d: Write done", cycle);
+   endrule
    //mkConnection(parser.phvOut, ingress_port_mapping.phvIn);
 
    interface P4TopRequest request;
@@ -137,6 +176,22 @@ module mkP4Top#(Clock derivedClock, Reset derivedReset, P4TopIndication indicati
          beat.sop = unpack(sop);
          beat.eop = unpack(eop);
          rxPktBuff.writeServer.writeData.put(beat);
+      endmethod
+
+      method Action readPacketBuffer(Bit#(16) addr);
+         Bit#(TDiv#(DataBusWidth, 8)) firstbe = 16'hfff1;
+         Bit#(TDiv#(DataBusWidth, 8)) lastbe = 16'h1fff;
+         reqFifo.enq(MemRequest {sglId: 0, offset: 0, burstLen: 16, tag:0, firstbe: firstbe, lastbe: lastbe});
+      endmethod
+
+      method Action writePacketBuffer(Bit#(16) addr, Bit#(64) data);
+         Bit#(TDiv#(DataBusWidth, 8)) firstbe = 16'hffff;
+         Bit#(TDiv#(DataBusWidth, 8)) lastbe = 16'hffff;
+         writeReqFifo.enq(MemRequest {sglId:0, offset:0, burstLen:16, tag:0, firstbe: firstbe, lastbe: lastbe});
+
+         function Bit#(32) plusi(Integer i); return fromInteger(i); endfunction
+         Vector#(WordsPerBeat, Bit#(32)) v = genWith(plusi);
+         writeDataFifo.enq(MemData {data: pack(v), tag:0, last:True});
       endmethod
       // Generate fixed standard set of API function
       // In software, we should hide the details of match table different behind api
@@ -249,6 +304,9 @@ module mkP4Top#(Clock derivedClock, Reset derivedReset, P4TopIndication indicati
       // -- Use dispatcher to send table info to corresponding table.
       // -- Invalid table tag will result in error.
    endinterface
-   interface P4Pins pins;
+   interface `PinType pins;
+      // Clocks
+      interface deleteme_unused_clock = defaultClock;
+      interface deleteme_unused_reset = defaultReset;
    endinterface
 endmodule

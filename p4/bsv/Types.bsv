@@ -151,44 +151,30 @@ instance DefaultValue#(Ingress_metadata_t);
 endinstance
 
 typedef struct {
-   Bit#(12) ingress_metadata_vrf;
    Bit#(9) standard_metadata_ingress_port;
-   Bit#(16) ingress_metadata_bd;
-   Bit#(32) ipv4_dstAddr;
-   Bit#(16) ingress_metadata_nexthop_index;
    Bit#(32) header_addr;
    Bit#(32) payload_addr;
    Bit#(16) payload_len;
-} PHV_port_mapping deriving (Bits, Eq);
-instance DefaultValue#(PHV_port_mapping);
+} MatchKey_port_mapping deriving (Bits, Eq);
+instance DefaultValue#(MatchKey_port_mapping);
    defaultValue =
-   PHV_port_mapping {
-     ingress_metadata_vrf : 0,
+   MatchKey_port_mapping {
      standard_metadata_ingress_port : 0,
-     ingress_metadata_bd : 0,
-     ipv4_dstAddr : 0,
-     ingress_metadata_nexthop_index : 0,
      header_addr : 0,
      payload_addr : 0,
      payload_len : 0
    };
 endinstance
 typedef struct {
-   Bit#(12) ingress_metadata_vrf;
    Bit#(16) ingress_metadata_bd;
-   Bit#(32) ipv4_dstAddr;
-   Bit#(16) ingress_metadata_nexthop_index;
    Bit#(32) header_addr;
    Bit#(32) payload_addr;
    Bit#(16) payload_len;
-} PHV_bd deriving (Bits, Eq);
-instance DefaultValue#(PHV_bd);
+} MatchKey_bd deriving (Bits, Eq);
+instance DefaultValue#(MatchKey_bd);
    defaultValue =
-   PHV_bd {
-     ingress_metadata_vrf : 0,
+   MatchKey_bd {
      ingress_metadata_bd : 0,
-     ipv4_dstAddr : 0,
-     ingress_metadata_nexthop_index : 0,
      header_addr : 0,
      payload_addr : 0,
      payload_len : 0
@@ -196,18 +182,14 @@ instance DefaultValue#(PHV_bd);
 endinstance
 typedef struct {
    Bit#(12) ingress_metadata_vrf;
-   Bit#(32) ipv4_dstAddr;
-   Bit#(16) ingress_metadata_nexthop_index;
    Bit#(32) header_addr;
    Bit#(32) payload_addr;
    Bit#(16) payload_len;
-} PHV_ipv4_fib deriving (Bits, Eq);
-instance DefaultValue#(PHV_ipv4_fib);
+} MatchKey_ipv4_fib deriving (Bits, Eq);
+instance DefaultValue#(MatchKey_ipv4_fib);
    defaultValue =
-   PHV_ipv4_fib {
+   MatchKey_ipv4_fib {
      ingress_metadata_vrf : 0,
-     ipv4_dstAddr : 0,
-     ingress_metadata_nexthop_index : 0,
      header_addr : 0,
      payload_addr : 0,
      payload_len : 0
@@ -215,17 +197,28 @@ instance DefaultValue#(PHV_ipv4_fib);
 endinstance
 typedef struct {
    Bit#(12) ingress_metadata_vrf;
-   Bit#(32) ipv4_dstAddr;
-   Bit#(16) ingress_metadata_nexthop_index;
    Bit#(32) header_addr;
    Bit#(32) payload_addr;
    Bit#(16) payload_len;
-} PHV_ipv4_fib_lpm deriving (Bits, Eq);
-instance DefaultValue#(PHV_ipv4_fib_lpm);
+} MatchKey_ipv4_fib_lpm deriving (Bits, Eq);
+instance DefaultValue#(MatchKey_ipv4_fib_lpm);
    defaultValue =
-   PHV_ipv4_fib_lpm {
+   MatchKey_ipv4_fib_lpm {
      ingress_metadata_vrf : 0,
-     ipv4_dstAddr : 0,
+     header_addr : 0,
+     payload_addr : 0,
+     payload_len : 0
+   };
+endinstance
+typedef struct {
+   Bit#(16) ingress_metadata_nexthop_index;
+   Bit#(32) header_addr;
+   Bit#(32) payload_addr;
+   Bit#(16) payload_len;
+} MatchKey_nexthop deriving (Bits, Eq);
+instance DefaultValue#(MatchKey_nexthop);
+   defaultValue =
+   MatchKey_nexthop {
      ingress_metadata_nexthop_index : 0,
      header_addr : 0,
      payload_addr : 0,
@@ -237,25 +230,10 @@ typedef struct {
    Bit#(32) header_addr;
    Bit#(32) payload_addr;
    Bit#(16) payload_len;
-} PHV_nexthop deriving (Bits, Eq);
-instance DefaultValue#(PHV_nexthop);
+} MatchKey_rewrite_mac deriving (Bits, Eq);
+instance DefaultValue#(MatchKey_rewrite_mac);
    defaultValue =
-   PHV_nexthop {
-     ingress_metadata_nexthop_index : 0,
-     header_addr : 0,
-     payload_addr : 0,
-     payload_len : 0
-   };
-endinstance
-typedef struct {
-   Bit#(16) ingress_metadata_nexthop_index;
-   Bit#(32) header_addr;
-   Bit#(32) payload_addr;
-   Bit#(16) payload_len;
-} PHV_rewrite_mac deriving (Bits, Eq);
-instance DefaultValue#(PHV_rewrite_mac);
-   defaultValue =
-   PHV_rewrite_mac {
+   MatchKey_rewrite_mac {
      ingress_metadata_nexthop_index : 0,
      header_addr : 0,
      payload_addr : 0,

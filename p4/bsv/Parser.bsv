@@ -43,7 +43,12 @@ interface Parser;
    method Action parserReset();
    interface PipeIn#(EtherData) frameIn;
    interface PipeOut#(void) parseDone;
-   interface PipeOut#(PHV_port_mapping) phvOut;
+   interface PipeOut#(MatchKey_port_mapping) match_key_port_mapping;
+   interface PipeOut#(MatchKey_bd) match_key_bd;
+   interface PipeOut#(MatchKey_ipv4_fib) match_key_ipv4_fib;
+   interface PipeOut#(MatchKey_ipv4_fib_lpm) match_key_ipv4_fib_lpm;
+   interface PipeOut#(MatchKey_nexthop) match_key_nexthop;
+   interface PipeOut#(MatchKey_rewrite_mac) match_rewrite_mac;
    interface PipeOut#(Bit#(128)) payloadOut;
 endinterface
 
@@ -111,6 +116,7 @@ module mkParseEthernet(ParseEthernet);
                             +fshow(" ether.dstAddr=")+fshow(ethernet.dstAddr)
                             +fshow(" ether.srcAddr=")+fshow(ethernet.srcAddr)
                             +fshow(" ether.etherType=")+fshow(ethernet.etherType));
+
       ParserState nextState = S0;
       case (byteSwap2B(ethernet.etherType)) matches
          'h_8100: begin
@@ -468,6 +474,7 @@ module mkParser(Parser);
          curr_state <= S0;
          parse_ethernet.clear;
          parse_ipv4.clear;
+         parse_vlan.clear;
          if (verbose) $display(fshow(cycle) + fshow("Done with") + fshow(curr_state));
       end
    endrule

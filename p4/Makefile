@@ -5,7 +5,7 @@ IPDIR?=$(ROOTDIR)/../../fpgamake-cache/$(shell basename `/bin/pwd`)/
 PROJTOP?=$(ROOTDIR)
 PROJLIB=$(PROJTOP)/../hw/lib/bsv:$(PROJTOP)/../hw/bsv
 
-ALTERAPINOUT=$(PROJTOP)/boards/de5.json
+ALTERAPINOUT=$(PROJTOP)/../boards/de5.json
 
 ifndef P4FACTORY
 P4FACTORY=$(ROOTDIR)/../../p4/p4factory/
@@ -24,8 +24,8 @@ endif
 S2H_INTERFACES=P4TopRequest:P4Top.request:host.derivedClock,host.derivedReset
 H2S_INTERFACES=P4Top:P4TopIndication:host.derivedClock,host.derivedReset
 AUTOTOP= --interface pins:P4Top.pins
-PIN_TYPE = P4Pins
-PIN_TYPE_INCLUDE = P4Top
+PIN_TYPE = DE5Pins
+PIN_TYPE_INCLUDE = DE5Pins
 CPPFILES=$(PROJTOP)/cpp/test.cpp
 PIN_BINDINGS?=PCIE:PCIE LED:LED OSC:OSC SFPA:SFPA SFPB:SFPB SFPC:SFPC SFPD:SFPD SFP:SFP I2C:CLOCK BUTTON:BUTTON
 CONNECTALFLAGS += --tcl=$(PROJTOP)/../boards/de5_extra.qsf
@@ -34,8 +34,9 @@ CONNECTALFLAGS += --verilog=$(PROJTOP)/hw/verilog/
 CONNECTALFLAGS += -D PcieHostIF
 CONNECTALFLAGS += -D DataBusWidth=128
 CONNECTALFLAGS += -D IMPORT_HOST_CLOCKS
+CONNECTALFLAGS += -D BYTE_ENABLES
 CONNECTALFLAGS += --derivedclockperiod=6.4
-CONNECTALFLAGS += -l="tins"
+#CONNECTALFLAGS += -l="tins"
 CONNECTALFLAGS += -I="../sw/"
 CONNECTALFLAGS += --bscflags="-show-range-conflict +RTS -K46777216 -RTS -demote-errors G0066:G0045 -suppress-warnings G0046:G0020:S0015:S0080:S0039 -steps-max-intervals 20"
 #CONNECTALFLAGS += --chipscope=$(PROJTOP)/../../sonic-debug/stp/memread.stp

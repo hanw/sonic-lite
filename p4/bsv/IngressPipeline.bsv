@@ -34,33 +34,21 @@ import SimpleActionEngine::*;
 import Types::*;
 
 interface Pipeline_port_mapping;
-   interface PipeIn#(PHV_port_mapping) phvIn;
-   interface PipeOut#(PHV_bd) phvOut;
+   interface PipeIn#(MatchKey_port_mapping) phvIn;
 endinterface
 
 interface Pipeline_bd;
-   interface PipeIn#(PHV_bd) phvIn;
-   interface PipeOut#(PHV_ipv4_fib) phvOut;
+   interface PipeIn#(MatchKey_bd) phvIn;
 endinterface
 
 // Data Plane:
-// - Input: PHV for this stage
-// - Output: PHV for next stage
+// - Input: MatchKey for this stage
 // Control Plane:
 // - Input: MatchSpec
 // - Output: ActionSpec
 (* synthesize *)
 module mkIngressPipeline_port_mapping(Pipeline_port_mapping);
-   FIFOF#(PHV_port_mapping) fifo_in_phv <- mkSizedFIFOF(1);
-   FIFOF#(PHV_bd) fifo_out_phv <- mkSizedFIFOF(1);
-
-   FIFOF#(Bit#(12)) ingress_metadata_vrf <- mkSizedFIFOF(1);
-   FIFOF#(Bit#(16)) ingress_metadata_bd <- mkSizedFIFOF(1);
-   FIFOF#(Bit#(9)) standard_metadata_ingress_port <- mkSizedFIFOF(1);
-   FIFOF#(Bit#(32)) ipv4_dstAddr <- mkSizedFIFOF(1);
-   FIFOF#(Bit#(16)) ingress_metadata_nexthop_index <- mkSizedFIFOF(1);
-
-   FIFOF#(Bit#(16)) res_ingress_metadata_bd <- mkSizedFIFOF(1);
+   FIFOF#(MatchKey_port_mapping) fifo_in_phv <- mkSizedFIFOF(1);
 
    // generate table specific interface
    MatchTable_port_mapping matchTable <- mkMatchTable_port_mapping();
@@ -72,40 +60,17 @@ module mkIngressPipeline_port_mapping(Pipeline_port_mapping);
       matchTable.phv_in.enq(MatchInput_port_mapping{standard_metadata_ingress_port:v.standard_metadata_ingress_port});
    endrule
 
-   // Rules to forward bypass signals.
-   // can further optimized
-   rule mk_phv_out;
-      let v_ingress_metadata_vrf <- toGet(ingress_metadata_vrf).get;
-      let v_ingress_metadata_bd <- toGet(ingress_metadata_bd).get;
-      let v_ingress_metadata_nexthop_index <- toGet(ingress_metadata_nexthop_index).get;
-      let v_ipv4_dstAddr <- toGet(ipv4_dstAddr).get;
-      PHV_bd data = defaultValue;
-      data.ingress_metadata_vrf = v_ingress_metadata_vrf;
-      data.ingress_metadata_bd = v_ingress_metadata_bd;
-      data.ingress_metadata_nexthop_index = v_ingress_metadata_nexthop_index;
-      data.ipv4_dstAddr = v_ipv4_dstAddr;
-      fifo_out_phv.enq(data);
-   endrule
-
    // Control logic is associated with next_tables pointer
    // Control specifies connection between ouput of one table to input of another.
    // Use of control is by data flow.
    mkConnection(matchTable.action_data, actionEngine.action_data);
 
    interface PipeIn phvIn = toPipeIn(fifo_in_phv);
-   interface PipeOut phvOut = toPipeOut(fifo_out_phv);
 endmodule
 
 (* synthesize *)
 module mkIngressPipeline_bd(Pipeline_bd);
-   FIFOF#(PHV_bd) fifo_in_phv <- mkSizedFIFOF(1);
-   FIFOF#(PHV_ipv4_fib) fifo_out_phv <- mkSizedFIFOF(1);
-
-   FIFOF#(Bit#(12)) ingress_metadata_vrf <- mkSizedFIFOF(1);
-   FIFOF#(Bit#(32)) ipv4_dstAddr <- mkSizedFIFOF(1);
-   FIFOF#(Bit#(16)) ingress_metadata_nexthop_index <- mkSizedFIFOF(1);
-
-   FIFOF#(Bit#(16)) res_ingress_metadata_bd <- mkSizedFIFOF(1);
+   FIFOF#(MatchKey_bd) fifo_in_phv <- mkSizedFIFOF(1);
 
    // generate table specific interface
    MatchTable_bd matchTable <- mkMatchTable_bd();
@@ -116,25 +81,11 @@ module mkIngressPipeline_bd(Pipeline_bd);
       // match field -> match table
    endrule
 
-   // Rules to forward bypass signals.
-   // can further optimized
-   rule mk_phv_out;
-      let v_ingress_metadata_vrf <- toGet(ingress_metadata_vrf).get;
-      let v_ingress_metadata_nexthop_index <- toGet(ingress_metadata_nexthop_index).get;
-      let v_ipv4_dstAddr <- toGet(ipv4_dstAddr).get;
-      PHV_ipv4_fib data = defaultValue;
-      data.ingress_metadata_vrf = v_ingress_metadata_vrf;
-      data.ingress_metadata_nexthop_index = v_ingress_metadata_nexthop_index;
-      data.ipv4_dstAddr = v_ipv4_dstAddr;
-      fifo_out_phv.enq(data);
-   endrule
-
    // Control logic is associated with next_tables pointer
    // Control specifies connection between ouput of one table to input of another.
    // Use of control is by data flow.
    mkConnection(matchTable.action_data, actionEngine.action_data);
 
    interface PipeIn phvIn = toPipeIn(fifo_in_phv);
-   interface PipeOut phvOut = toPipeOut(fifo_out_phv);
 endmodule
 
