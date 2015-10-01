@@ -89,7 +89,8 @@ interface P4Top;
    interface `PinType pins;
 endinterface
 
-module mkP4Top#(Clock derivedClock, Reset derivedReset, P4TopIndication indication)(P4Top);
+//module mkP4Top#(Clock derivedClock, Reset derivedReset, P4TopIndication indication)(P4Top);
+module mkP4Top#(P4TopIndication indication)(P4Top);
    Clock defaultClock <- exposeCurrentClock();
    Reset defaultReset <- exposeCurrentReset();
 
@@ -106,6 +107,7 @@ module mkP4Top#(Clock derivedClock, Reset derivedReset, P4TopIndication indicati
    Parser parser <- mkParser();
    Pipeline_port_mapping ingress_port_mapping <- mkIngressPipeline_port_mapping();
 
+   // read client interface
    FIFO#(MemRequest) reqFifo <-mkSizedFIFO(4);
    FIFO#(MemData#(DataBusWidth)) dataFifo <- mkSizedFIFO(32);
    MemReadClient#(DataBusWidth) dmaClient = (interface MemReadClient;
@@ -113,6 +115,7 @@ module mkP4Top#(Clock derivedClock, Reset derivedReset, P4TopIndication indicati
       interface Put readData = toPut(dataFifo);
    endinterface);
 
+   // write client interface
    FIFO#(MemRequest) writeReqFifo <- mkSizedFIFO(4);
    FIFO#(MemData#(DataBusWidth)) writeDataFifo <- mkSizedFIFO(32);
    FIFO#(Bit#(MemTagSize)) writeDoneFifo <- mkSizedFIFO(4);
@@ -179,14 +182,14 @@ module mkP4Top#(Clock derivedClock, Reset derivedReset, P4TopIndication indicati
       endmethod
 
       method Action readPacketBuffer(Bit#(16) addr);
-         Bit#(TDiv#(DataBusWidth, 8)) firstbe = 16'hfff1;
-         Bit#(TDiv#(DataBusWidth, 8)) lastbe = 16'h1fff;
+         Bit#(ByteEnableSize) firstbe = 'hff;
+         Bit#(ByteEnableSize) lastbe = 'hff;
          reqFifo.enq(MemRequest {sglId: 0, offset: 0, burstLen: 16, tag:0, firstbe: firstbe, lastbe: lastbe});
       endmethod
 
       method Action writePacketBuffer(Bit#(16) addr, Bit#(64) data);
-         Bit#(TDiv#(DataBusWidth, 8)) firstbe = 16'hffff;
-         Bit#(TDiv#(DataBusWidth, 8)) lastbe = 16'hffff;
+         Bit#(ByteEnableSize) firstbe = 'hff;
+         Bit#(ByteEnableSize) lastbe = 'hff;
          writeReqFifo.enq(MemRequest {sglId:0, offset:0, burstLen:16, tag:0, firstbe: firstbe, lastbe: lastbe});
 
          function Bit#(32) plusi(Integer i); return fromInteger(i); endfunction
@@ -308,5 +311,6 @@ module mkP4Top#(Clock derivedClock, Reset derivedReset, P4TopIndication indicati
       // Clocks
       interface deleteme_unused_clock = defaultClock;
       interface deleteme_unused_reset = defaultReset;
+
    endinterface
 endmodule

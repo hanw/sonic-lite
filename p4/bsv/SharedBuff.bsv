@@ -54,6 +54,9 @@ module mkSharedBuffer#(Vector#(numReadClients, MemReadClient#(busWidth)) readCli
 	    ,Add#(d__, addrWidth, MemOffsetSize)
 	    ,Add#(numWriteClients, a__, TMul#(TDiv#(numWriteClients, nMasters),nMasters))
 	    ,Add#(numReadClients, b__, TMul#(TDiv#(numReadClients, nMasters),nMasters))
+            ,Mul#(TDiv#(busWidth, TDiv#(busWidth, 8)), TDiv#(busWidth, 8), busWidth)
+            ,Mul#(TDiv#(busWidth, ByteEnableSize), ByteEnableSize, busWidth)
+            ,Add#(`DataBusWidth, 0, busWidth)
 	    );
 
    MMU#(addrWidth) simpleMMU <- mkSimpleMMU();
@@ -61,8 +64,8 @@ module mkSharedBuffer#(Vector#(numReadClients, MemReadClient#(busWidth)) readCli
 
    BRAM_Configure bramConfig = defaultValue;
    bramConfig.latency = 2;
-   BRAM1Port#(Bit#(addrWidth), Bit#(busWidth)) memBuff <- ConnectalBram::mkBRAM1Server(bramConfig);
-   Vector#(nMasters, PhysMemSlave#(addrWidth, busWidth)) memSlaves <- replicateM(mkPhysMemToBram(memBuff.portA));
+   BRAM1PortBE#(Bit#(addrWidth), Bit#(busWidth), ByteEnableSize) memBuff <- mkBRAM1ServerBE(bramConfig);
+   Vector#(nMasters, PhysMemSlave#(addrWidth, busWidth)) memSlaves <- replicateM(mkPhysMemToBramBE(memBuff.portA));
 
    mkConnection(dma.masters, memSlaves);
 
