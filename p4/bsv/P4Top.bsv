@@ -38,6 +38,13 @@ import MemWriteEngine::*;
 import MemServerIndication::*;
 import MMUIndication::*;
 
+import AlteraExtra::*;
+import AlteraEthPhy::*;
+import EthMac::*;
+import ALTERA_SI570_WRAPPER          ::*;
+import ALTERA_EDGE_DETECTOR_WRAPPER  ::*;
+import ConnectalClocks::*;
+
 import Ethernet::*;
 import IngressPipeline::*;
 import PacketBuffer::*;
@@ -94,6 +101,38 @@ module mkP4Top#(P4TopIndication indication)(P4Top);
    Clock defaultClock <- exposeCurrentClock();
    Reset defaultReset <- exposeCurrentReset();
 
+`ifndef BSIM
+   B2C iclock_50 <- mkB2C();
+   B2C1 iclock_644 <- mkB2C1();
+   AltClkCtrl clk_50_b4a_buf <- mkAltClkCtrl(iclock_50.c);
+   Reset rst_644   <- mkResetInverter(iclock_50.r, clocked_by iclock_644.c);
+   Reset rst_644_n <- mkAsyncReset(2, iclock_50.r, iclock_644.c);
+   // ===================================
+   // PLL:
+   // Input:   SFP REFCLK from SI570
+   // Output:  156.25MHz
+   // Reset: Active High, must invert default Reset
+   PLL156 pll156 <- mkPLL156(iclock_644.c, rst_644, clocked_by iclock_644.c, reset_by rst_644);
+   Clock clk_156_25 = pll156.outclk_0;
+   Reset rst_156   <- mkResetInverter(iclock_50.r, clocked_by clk_156_25);
+   Reset rst_156_n <- mkAsyncReset(1, rst_156, clk_156_25);
+   Si570Wrap            si570 <- mkSi570Wrap(clk_50_b4a_buf.outclk, iclock_50.r, clocked_by clk_50_b4a_buf.outclk, reset_by iclock_50.r);
+   EdgeDetectorWrap     edgedetect <- mkEdgeDetectorWrap(clk_50_b4a_buf.outclk, iclock_50.r, clocked_by clk_50_b4a_buf.outclk, reset_by iclock_50.r);
+
+   rule si570_connections;
+      let ifreq_mode = 3'b110;  //644.53125 MHZ
+      si570.ifreq.mode(ifreq_mode);
+      si570.istart.go(edgedetect.odebounce.out);
+   endrule
+
+   EthPhyIfc phy <- mkAlteraEthPhy(clk_50_b4a_buf.outclk, iclock_644.c, clk_156_25, iclock_50.r, clocked_by clk_156_25, reset_by rst_156_n);
+   Clock xgmii_rx_clk = phy.rx_clkout;
+   EthMacIfc mac <- mkEthMac(clk_50_b4a_buf.outclk, clk_156_25, replicate(xgmii_rx_clk), rst_156_n, clocked_by clk_156_25, reset_by rst_156_n);
+
+   mapM(uncurry(mkConnection), zip(mac.tx, phy.tx));
+   mapM(uncurry(mkConnection), zip(phy.rx, mac.rx));
+`endif
+
    let verbose = True;
    Reg#(Cycle_t) cycle <- mkReg(defaultValue);
    rule every1 if (verbose);
@@ -127,7 +166,7 @@ module mkP4Top#(P4TopIndication indication)(P4Top);
 
    MemServerIndicationOutput memServerIndication <- mkMemServerIndicationOutput;
    MMUIndicationOutput mmuIndication <- mkMMUIndicationOutput;
-   SharedBuffer#(16, 128, 1) buff <- mkSharedBuffer(vec(dmaClient), vec(dmaWriteClient), memServerIndication.ifc, mmuIndication.ifc);
+   SharedBuffer#(12, 128, 1) buff <- mkSharedBuffer(vec(dmaClient), vec(dmaWriteClient), memServerIndication.ifc, mmuIndication.ifc);
 
    Reg#(Bit#(EtherLen)) pktLen <- mkReg(0);
    Reg#(Bit#(9)) rAddr_wires <- mkReg(0);
@@ -309,8 +348,24 @@ module mkP4Top#(P4TopIndication indication)(P4Top);
    endinterface
    interface `PinType pins;
       // Clocks
-      interface deleteme_unused_clock = defaultClock;
-      interface deleteme_unused_reset = defaultReset;
-
+`ifndef BSIM
+      method Action osc_50(Bit#(1) b3d, Bit#(1) b4a, Bit#(1) b4d, Bit#(1) b7a, Bit#(1) b7d, Bit#(1) b8a, Bit#(1) b8d);
+         iclock_50.inputclock(b4a);
+      endmethod
+      method Action user(Bit#(1) reset_n);
+         iclock_50.inputreset(reset_n);
+      endmethod
+      method Action sfp(Bit#(1) refclk);
+         iclock_644.inputclock(refclk);
+      endmethod
+      method Action serial_rx(Bit#(NumPorts) data);
+         phy.serial.rx(data);
+      endmethod
+      method serial_tx_data = phy.serial.tx;
+      interface deleteme_unused_clock = iclock_50.c;
+      interface deleteme_unused_reset = iclock_50.r;
+      interface deleteme_unused_clock2 = defaultClock;
+      interface deleteme_unused_clock3 = clk_156_25;
+`endif
    endinterface
 endmodule

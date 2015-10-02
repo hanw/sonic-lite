@@ -83,7 +83,7 @@ module mkEthPorts#(Clock clk_50, Clock clk_156_25, Clock clk_644)(EthPortIfc);
    EthPhyIfc#(NumPorts) phys <- mkEthPhy(clk_50, clk_156_25, clk_644, rst_156_25_n, clocked_by clk_156_25, reset_by rst_156_25_n);
 
    if (use_mac) begin
-      EthMacIfc#(NumPorts) macs <- mkEthMac(clk_50, clk_156_25, phys.rx_clkout, rst_156_25_n, clocked_by clk_156_25, reset_by rst_156_25_n);
+      EthMacIfc macs <- mkEthMac(clk_50, clk_156_25, phys.rx_clkout, rst_156_25_n, clocked_by clk_156_25, reset_by rst_156_25_n);
       for (Integer i=0; i<valueOf(NumPorts); i=i+1) begin
          mkConnection(macs.tx[i], phys.tx[i]);
          mkConnection(phys.rx[i], macs.rx[i]);

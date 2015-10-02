@@ -42,13 +42,14 @@ typedef `NUMBER_OF_10G_PORTS NumPorts;
 typedef 4 NumPorts;
 `endif
 
-(* always_ready, always_enabled *)
-interface EthMacIfc#(numeric type numPorts);
-   interface Vector#(numPorts, PipeOut#(Bit#(72))) tx;
-   interface Vector#(numPorts, PipeIn#(Bit#(72))) rx;
+//(* always_ready, always_enabled *)
+interface EthMacIfc;
+   interface Vector#(NumPorts, PipeOut#(Bit#(72))) tx;
+   interface Vector#(NumPorts, PipeIn#(Bit#(72))) rx;
 endinterface
 
-module mkEthMac#(Clock clk_50, Clock clk_156_25, Vector#(4, Clock) rx_clk, Reset rst_156_25_n)(EthMacIfc#(4));
+(* synthesize *)
+module mkEthMac#(Clock clk_50, Clock clk_156_25, Vector#(4, Clock) rx_clk, Reset rst_156_25_n)(EthMacIfc);
     Vector#(NumPorts, FIFOF#(Bit#(72))) txFifo = newVector;
     Vector#(NumPorts, FIFOF#(Bit#(72))) rxFifo = newVector;
     Vector#(NumPorts, Reset) rx_rst = newVector;
@@ -58,10 +59,11 @@ module mkEthMac#(Clock clk_50, Clock clk_156_25, Vector#(4, Clock) rx_clk, Reset
     for (Integer i=0; i<valueOf(NumPorts); i=i+1) begin
        rx_rst[i] <- mkAsyncReset(2, rst_156_25_n, rx_clk[i]);
     end
-    MacWrap mac <- mkMacWrap(clk_50, clk_156_25, rx_clk, rx_rst, defaultReset, defaultReset);
+    Reset rst_50_n <- mkAsyncReset(2, defaultReset, clk_50);
+    MacWrap mac <- mkMacWrap(clk_50, clk_156_25, rx_clk, rx_rst, rst_50_n, rst_156_25_n, clocked_by clk_156_25, reset_by rst_156_25_n);
 
     for (Integer i=0; i<valueOf(NumPorts); i=i+1) begin
-       txFifo[i] <- mkFIFOF(clocked_by clk_156_25);
+       txFifo[i] <- mkFIFOF(clocked_by clk_156_25, reset_by rst_156_25_n);
        rxFifo[i] <- mkFIFOF(clocked_by rx_clk[i], reset_by rx_rst[i]);
 
        rule receive;
