@@ -362,6 +362,23 @@ module mkP4Top#(P4TopIndication indication)(P4Top);
          phy.serial.rx(data);
       endmethod
       method serial_tx_data = phy.serial.tx;
+      interface sfpctrl = (interface SFPCtrl;
+         method Action los (Bit#(NumPorts) v);
+         endmethod
+         method Action mod0_presnt_n(Bit#(NumPorts) v);
+         endmethod
+         method Bit#(NumPorts) ratesel0();
+            return 4'hf;
+         endmethod
+         method Bit#(NumPorts) ratesel1();
+            return 4'hf;
+         endmethod
+         method Bit#(NumPorts) txdisable();
+            return 4'h0;
+         endmethod
+         method Action txfault(Bit#(NumPorts) v);
+         endmethod
+      endinterface);
       interface deleteme_unused_clock = iclock_50.c;
       interface deleteme_unused_reset = iclock_50.r;
       interface deleteme_unused_clock2 = defaultClock;

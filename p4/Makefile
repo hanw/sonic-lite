@@ -88,4 +88,10 @@ ifneq (, $(QUARTUS_SH))
 	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) $(QUARTUS_SH) -t $(PROJTOP)/../hw/scripts/connectal-synth-pma.tcl)
 endif
 
+run:
+	RUNPARAM=${RUNPARAM} NOFPGAJTAG=1 make run.de5
+
+program:
+	SERIALNO=${SERIALNO} make run.de5
+
 include $(CONNECTALDIR)/Makefile.connectal

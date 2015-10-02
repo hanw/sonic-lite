@@ -41,21 +41,11 @@ typedef `NUMBER_OF_10G_PORTS NumPorts;
 typedef 4 NumPorts;
 `endif
 
-interface SfpCtrlIfc#(numeric type numPorts);
-   method Action los(Bit#(numPorts) v);
-   method Action mod0_presnt_n(Bit#(numPorts) v);
-   // SCL/SDA not implemented
-   method Bit#(numPorts) ratesel0();
-   method Bit#(numPorts) ratesel1();
-   method Bit#(numPorts) txdisable();
-   method Action txfault(Bit#(numPorts) v);
-endinterface
-
 interface EthPortIfc;
    (* always_ready, always_enabled *)
    interface Vector#(NumPorts, SerialIfc) serial;
    (* always_ready, always_enabled *)
-   interface SfpCtrlIfc#(NumPorts) sfpctrl;
+   interface SFPCtrl#(NumPorts) sfpctrl;
    (* always_ready, always_enabled *)
    interface Vector#(NumPorts, Clock) tx_clkout;
    (* always_ready, always_enabled *)
@@ -120,7 +110,7 @@ module mkEthPorts#(Clock clk_50, Clock clk_156_25, Clock clk_644)(EthPortIfc);
    interface tx_clkout = phys.tx_clkout;
    interface serial = phys.serial;
    interface led_rx_ready = phys.led_rx_ready;
-   interface sfpctrl = (interface SfpCtrlIfc;
+   interface sfpctrl = (interface SFPCtrl;
       method Action los (Bit#(NumPorts) v);
       endmethod
       method Action mod0_presnt_n(Bit#(NumPorts) v);

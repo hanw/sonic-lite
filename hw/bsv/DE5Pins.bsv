@@ -1,3 +1,4 @@
+import Ethernet::*;
 
 (* always_ready, always_enabled *)
 interface DE5Pins;
@@ -6,6 +7,7 @@ interface DE5Pins;
    method Action sfp(Bit#(1) refclk);
    method Bit#(4) serial_tx_data;
    method Action serial_rx(Bit#(4) data);
+   interface SFPCtrl#(4) sfpctrl;
    interface Clock deleteme_unused_clock;
    interface Clock deleteme_unused_clock2;
    interface Clock deleteme_unused_clock3;
