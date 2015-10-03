@@ -180,6 +180,8 @@ int main(int argc, char **argv)
     P4TopIndication echoIndication(IfcNames_P4TopIndicationH2S);
     device = new P4TopRequestProxy(IfcNames_P4TopRequestS2H);
 
+    device->sonic_read_version();
+
     fprintf(stderr, "Attempts to read pcap file %s\n", argv[1]);
     if (!read_pcap_file(argv[1], &buffer, &length)) {
         perror("Failed to read file!");

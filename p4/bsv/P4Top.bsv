@@ -44,6 +44,9 @@ import EthMac::*;
 import ALTERA_SI570_WRAPPER          ::*;
 import ALTERA_EDGE_DETECTOR_WRAPPER  ::*;
 import ConnectalClocks::*;
+import LedController::*;
+import Leds::*;
+import PushButtonController::*;
 
 import Ethernet::*;
 import IngressPipeline::*;
@@ -104,20 +107,21 @@ module mkP4Top#(P4TopIndication indication)(P4Top);
 `ifndef BSIM
    B2C iclock_50 <- mkB2C();
    B2C1 iclock_644 <- mkB2C1();
-   AltClkCtrl clk_50_b4a_buf <- mkAltClkCtrl(iclock_50.c);
+//   B2C iclock_pcie <- mkB2C();
+
+   Vector#(4, PushButtonController) buttons <- replicateM(mkPushButtonController(iclock_50.c, clocked_by iclock_50.c, reset_by iclock_50.r));
+
    Reset rst_644   <- mkResetInverter(iclock_50.r, clocked_by iclock_644.c);
    Reset rst_644_n <- mkAsyncReset(2, iclock_50.r, iclock_644.c);
-   // ===================================
-   // PLL:
-   // Input:   SFP REFCLK from SI570
-   // Output:  156.25MHz
-   // Reset: Active High, must invert default Reset
+   // PLL Input:   SFP REFCLK from SI570
+   // PLL Output:  156.25MHz
+   // PLL Reset:   Active High, must invert default Reset
    PLL156 pll156 <- mkPLL156(iclock_644.c, rst_644, clocked_by iclock_644.c, reset_by rst_644);
    Clock clk_156_25 = pll156.outclk_0;
    Reset rst_156   <- mkResetInverter(iclock_50.r, clocked_by clk_156_25);
    Reset rst_156_n <- mkAsyncReset(1, rst_156, clk_156_25);
-   Si570Wrap            si570 <- mkSi570Wrap(clk_50_b4a_buf.outclk, iclock_50.r, clocked_by clk_50_b4a_buf.outclk, reset_by iclock_50.r);
-   EdgeDetectorWrap     edgedetect <- mkEdgeDetectorWrap(clk_50_b4a_buf.outclk, iclock_50.r, clocked_by clk_50_b4a_buf.outclk, reset_by iclock_50.r);
+   Si570Wrap si570 <- mkSi570Wrap(iclock_50.c, iclock_50.r, clocked_by iclock_50.c, reset_by iclock_50.r);
+   EdgeDetectorWrap edgedetect <- mkEdgeDetectorWrap(iclock_50.c, iclock_50.r, clocked_by iclock_50.c, reset_by iclock_50.r);
 
    rule si570_connections;
       let ifreq_mode = 3'b110;  //644.53125 MHZ
@@ -125,12 +129,49 @@ module mkP4Top#(P4TopIndication indication)(P4Top);
       si570.istart.go(edgedetect.odebounce.out);
    endrule
 
-   EthPhyIfc phy <- mkAlteraEthPhy(clk_50_b4a_buf.outclk, iclock_644.c, clk_156_25, iclock_50.r, clocked_by clk_156_25, reset_by rst_156_n);
-   Clock xgmii_rx_clk = phy.rx_clkout;
-   EthMacIfc mac <- mkEthMac(clk_50_b4a_buf.outclk, clk_156_25, replicate(xgmii_rx_clk), rst_156_n, clocked_by clk_156_25, reset_by rst_156_n);
+   rule button_to_iclock50_r;
+      iclock_50.inputreset(pack(buttons[0]));
+   endrule
 
-   mapM(uncurry(mkConnection), zip(mac.tx, phy.tx));
-   mapM(uncurry(mkConnection), zip(phy.rx, mac.rx));
+   rule button_to_si570;
+      edgedetect.itrigger.in(pack(buttons[1]));
+   endrule
+
+//   Reset xcvr_reset_n <- mkAsyncReset(2, iclock_50.r, eth.ifcs.clk_xcvr[0]);
+
+//   LedController pci_led <- mkLedController(False, clocked_by iclock_pcie.c, reset_by iclock_pcie.r);
+//   LedController eth_tx_led <- mkLedController(False, clocked_by clk_156_25, reset_by rst_156_n);
+//   LedController eth_rx_led <- mkLedController(False, clocked_by eth.ifcs.clk_xcvr[0], reset_by xcvr_reset_n);
+   LedController sfp_led <- mkLedController(False, clocked_by iclock_644.c, reset_by rst_644_n);
+
+//   rule led_pcie;
+//      pci_led.setPeriod(led_off, 500, led_on_max, 500);
+//   endrule
+//   rule led_eth_tx;
+//      eth_tx_led.setPeriod(led_off, 500, led_on_max, 500);
+//   endrule
+//   rule led_eth_rx;
+//      eth_rx_led.setPeriod(led_off, 500, led_on_max, 500);
+//   endrule
+   rule led_sfp;
+      sfp_led.setPeriod(led_off, 500, led_on_max, 500);
+   endrule
+
+   Vector#(4, LedController) led_xcvr_ <- replicateM(mkLedController(False, clocked_by iclock_50.c, reset_by iclock_50.r));
+   Led#(4) led_xcvr = combineLeds(led_xcvr_);
+
+   rule led_xcvr_ready;
+      for (Integer i = 0; i<4; i=i+1) begin
+         led_xcvr_[i].setPeriod(led_off, 500, led_on_max, 500);
+      end
+   endrule
+
+//   EthPhyIfc phy <- mkAlteraEthPhy(clk_50_b4a_buf.outclk, iclock_644.c, clk_156_25, iclock_50.r, clocked_by clk_156_25, reset_by rst_156_n);
+//   Clock xgmii_rx_clk = phy.rx_clkout;
+//   EthMacIfc mac <- mkEthMac(clk_50_b4a_buf.outclk, clk_156_25, replicate(xgmii_rx_clk), rst_156_n, clocked_by clk_156_25, reset_by rst_156_n);
+//   mapM(uncurry(mkConnection), zip(mac.tx, phy.tx));
+//   mapM(uncurry(mkConnection), zip(phy.rx, mac.rx));
+
 `endif
 
    let verbose = True;
@@ -166,7 +207,7 @@ module mkP4Top#(P4TopIndication indication)(P4Top);
 
    MemServerIndicationOutput memServerIndication <- mkMemServerIndicationOutput;
    MMUIndicationOutput mmuIndication <- mkMMUIndicationOutput;
-   SharedBuffer#(12, 128, 1) buff <- mkSharedBuffer(vec(dmaClient), vec(dmaWriteClient), memServerIndication.ifc, mmuIndication.ifc);
+//   SharedBuffer#(12, 128, 1) buff <- mkSharedBuffer(vec(dmaClient), vec(dmaWriteClient), memServerIndication.ifc, mmuIndication.ifc);
 
    Reg#(Bit#(EtherLen)) pktLen <- mkReg(0);
    Reg#(Bit#(9)) rAddr_wires <- mkReg(0);
@@ -352,32 +393,30 @@ module mkP4Top#(P4TopIndication indication)(P4Top);
       method Action osc_50(Bit#(1) b3d, Bit#(1) b4a, Bit#(1) b4d, Bit#(1) b7a, Bit#(1) b7d, Bit#(1) b8a, Bit#(1) b8d);
          iclock_50.inputclock(b4a);
       endmethod
-      method Action user(Bit#(1) reset_n);
-         iclock_50.inputreset(reset_n);
-      endmethod
       method Action sfp(Bit#(1) refclk);
          iclock_644.inputclock(refclk);
       endmethod
-      method Action serial_rx(Bit#(NumPorts) data);
-         phy.serial.rx(data);
+      method Action buttons(Bit#(4) v);
+         for (Integer i=0; i<valueOf(NumPorts); i=i+1) begin
+            buttons[i].ifc.button(v[i]);
+         end
       endmethod
-      method serial_tx_data = phy.serial.tx;
+//      method Action serial_rx(Bit#(NumPorts) data);
+//         phy.serial.rx(data);
+//      endmethod
+//      method serial_tx_data = phy.serial.tx;
+//      method led0 = pci_led.ifc.out;
+//      method led1 = eth_tx_led.ifc.out;
+//      method led2 = eth_rx_led.ifc.out;
+      method led3 = sfp_led.ifc.out;
+      method led_bracket = led_xcvr.out;
       interface sfpctrl = (interface SFPCtrl;
-         method Action los (Bit#(NumPorts) v);
-         endmethod
-         method Action mod0_presnt_n(Bit#(NumPorts) v);
-         endmethod
-         method Bit#(NumPorts) ratesel0();
-            return 4'hf;
-         endmethod
-         method Bit#(NumPorts) ratesel1();
-            return 4'hf;
-         endmethod
-         method Bit#(NumPorts) txdisable();
-            return 4'h0;
-         endmethod
-         method Action txfault(Bit#(NumPorts) v);
-         endmethod
+         method Action los (Bit#(NumPorts) v); endmethod
+         method Action mod0_presnt_n(Bit#(NumPorts) v); endmethod
+         method ratesel0 = pack(replicate(1'b1));
+         method ratesel1 = pack(replicate(1'b1));
+         method txdisable = pack(replicate(1'b0));
+         method Action txfault(Bit#(NumPorts) v); endmethod
       endinterface);
       interface deleteme_unused_clock = iclock_50.c;
       interface deleteme_unused_reset = iclock_50.r;

@@ -279,15 +279,15 @@
 		"PIO_DIRECTION": "INPUT",
 		"BUTTON": "BUTTON[0]"
 	},
-	"button1_v": {
+	"buttons_v[1]": {
 		"PIO_DIRECTION": "INPUT",
 		"BUTTON": "BUTTON[1]"
 	},
-	"button2_v": {
+	"buttons_v[2]": {
 		"PIO_DIRECTION": "INPUT",
 		"BUTTON": "BUTTON[2]"
 	},
-	"button3_v": {
+	"buttons_v[3]": {
 		"PIO_DIRECTION": "INPUT",
 		"BUTTON": "BUTTON[3]"
 	},

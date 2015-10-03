@@ -49,7 +49,7 @@ typedef 4 NumPorts;
 
 interface NetExportIfc;
    interface Vector#(NumPorts, SerialIfc) serial;
-   interface SfpCtrlIfc#(NumPorts) sfpctrl;
+   interface SFPCtrl#(NumPorts) sfpctrl;
    interface Clock clk_net;
    interface Vector#(NumPorts, Clock) clk_xcvr;
    interface LoopbackIfc loopback;
