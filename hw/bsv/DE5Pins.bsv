@@ -8,14 +8,16 @@ interface DE5Pins;
 //   method Bit#(4) serial_tx_data;
 //   method Action serial_rx(Bit#(4) data);
    interface SFPCtrl#(4) sfpctrl;
-//   method Bit#(1) led0;
+   method Bit#(1) led0;
 //   method Bit#(1) led1;
 //   method Bit#(1) led2;
    method Bit#(1) led3;
    method Bit#(4) led_bracket;
+`ifndef BSIM
    interface Clock deleteme_unused_clock;
    interface Clock deleteme_unused_clock2;
    interface Clock deleteme_unused_clock3;
    interface Reset deleteme_unused_reset;
+   `endif
 endinterface
 
