@@ -16,7 +16,6 @@ module mkMatchTable (Server#(RequestType, ResponseType));
 
     Vector#(TABLE_LEN,Reg#(Bit#(MATCH_TABLE_ASSOCIATIVITY)))
                         nextFree <- replicateM(mkReg(255));
-    Reg#(Bit#(MATCH_TABLE_ASSOCIATIVITY)) temp <- mkReg(0);
 
     function Bit#(3) priority_encoder(Reg#(Bit#(8)) inp);
         case (inp) matches
@@ -48,6 +47,10 @@ module mkMatchTable (Server#(RequestType, ResponseType));
     FIFOF#(ResponseType) responseFIFO <- mkBypassFIFOF;
 
     Vector#(3, Reg#(RequestType)) currReq <- replicateM(mkReg(defaultValue));
+    //Reg#(Bit#(8)) tempReg <- mkReg(0);
+    FIFOF#(Bit#(8)) putFIFO <- mkFIFOF;
+    FIFOF#(Bit#(8)) remFIFO <- mkFIFOF;
+    Reg#(AddrIndex) temp <- mkReg(0);
 
     for (Integer i = 0; i < fromInteger(valueof(MATCH_TABLE_ASSOCIATIVITY)); i = i + 1)
     begin
@@ -56,7 +59,10 @@ module mkMatchTable (Server#(RequestType, ResponseType));
             if (res.tag == VALID && res.op == GET)    
                 responseFIFO.enq(res);
             else if (res.tag == VALID && res.op == REMOVE)
-                nextFree[res.addrIdx] <= flip_bit_at_pos(fromInteger(i), res.addrIdx);
+            begin
+                remFIFO.enq(flip_bit_at_pos(fromInteger(i), res.addrIdx));
+                temp <= res.addrIdx;
+            end
         endrule
     end
 
@@ -69,7 +75,8 @@ module mkMatchTable (Server#(RequestType, ResponseType));
                     if (nextFree[addrIdx] != 0)
                     begin
                         Bit#(3) index = priority_encoder(nextFree[addrIdx]);
-                        nextFree[addrIdx] <= flip_bit_at_pos(index, addrIdx);
+                        putFIFO.enq(flip_bit_at_pos(index, addrIdx));
+                        temp <= addrIdx;
                         hTable[index].request.put(currReq);
                     end
                     else
@@ -80,6 +87,16 @@ module mkMatchTable (Server#(RequestType, ResponseType));
                             hTable[i].request.put(currReq);
                       end
          endcase             
+    endrule
+
+    rule update_nextFree_for_PUT;
+        let x <- toGet(putFIFO).get;
+        nextFree[temp] <= x;
+    endrule
+    
+    rule update_nextFree_for_REM;
+        let x <- toGet(remFIFO).get;
+        nextFree[temp] <= x;
     endrule
 
     interface Put request = toPut(requestFIFO);
