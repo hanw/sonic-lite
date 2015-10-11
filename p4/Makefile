@@ -34,9 +34,9 @@ PIN_TYPE = DE5Pins
 PIN_TYPE_INCLUDE = DE5Pins
 CPPFILES=$(PROJTOP)/cpp/test.cpp
 PIN_BINDINGS?=PCIE:PCIE LED:LED OSC:OSC SFPA:SFPA SFPB:SFPB SFPC:SFPC SFPD:SFPD SFP:SFP I2C:CLOCK BUTTON:BUTTON
-CONNECTALFLAGS += --tcl=$(PROJTOP)/../boards/de5_extra.qsf
 CONNECTALFLAGS += -D NicVersion=$(shell date +"%y%m%d%H%M")
-CONNECTALFLAGS += --verilog=$(PROJTOP)/hw/verilog/
+#CONNECTALFLAGS += --verilog=$(PROJTOP)/hw/verilog/
+#CONNECTALFLAGS += --verilog=$(PROJTOP)/../hw/ip/ii2dcam/
 CONNECTALFLAGS += -D PcieHostIF
 CONNECTALFLAGS += -D DataBusWidth=128
 CONNECTALFLAGS += -D BYTE_ENABLES
@@ -50,11 +50,12 @@ CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/altera_mac/altera_mac.qip
 CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/pll_156/altera_pll_156.qip
 CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/altera_clkctrl/altera_clkctrl.qip
 CONNECTALFLAGS += --verilog=$(PROJTOP)/../hw/verilog/si570/
-#
+CONNECTALFLAGS += --tcl=$(PROJTOP)/../boards/de5_extra.qsf
+#CONNECTALFLAGS += --tcl=$(PROJTOP)/../boards/quartus_advanced_settings.qsf
+
 CONNECTALFLAGS += -I="../sw/"
 CONNECTALFLAGS += --bscflags="-show-range-conflict +RTS -K46777216 -RTS -demote-errors G0066:G0045 -suppress-warnings G0046:G0020:S0015:S0080:S0039 -steps-max-intervals 20"
-#CONNECTALFLAGS += --chipscope=$(PROJTOP)/../../sonic-debug/stp/memread.stp
-
+#CONNECTALFLAGS += --chipscope=$(PROJTOP)/test.stp
 
 # P4 support
 export TARGET_ROOT :=$(abspath $(dir $(lastword $(MAKEFILE_LIST))))
@@ -80,6 +81,7 @@ $(addprefix test.,$(TEST_PACKET)):
 
 prebuild::
 ifneq (, $(QUARTUS_SH))
+ifeq ("de5", $(BOARD))
 	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) $(QUARTUS_SH) -t $(PROJTOP)/../hw/scripts/connectal-synth-mac.tcl)
 	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) $(QUARTUS_SH) -t $(PROJTOP)/../hw/scripts/connectal-synth-misc.tcl)
 	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) $(QUARTUS_SH) -t $(PROJTOP)/../hw/scripts/connectal-synth-pciedma.tcl)
@@ -87,6 +89,10 @@ ifneq (, $(QUARTUS_SH))
 	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) $(QUARTUS_SH) -t $(PROJTOP)/../hw/scripts/connectal-synth-pll.tcl)
 	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) $(QUARTUS_SH) -t $(PROJTOP)/../hw/scripts/connectal-synth-pma.tcl)
 endif
+endif
+
+gentarget::
+	make -C $(PROJTOP)/../hw/ip/ii2dcam
 
 run:
 	RUNPARAM=${RUNPARAM} NOFPGAJTAG=1 make run.de5
