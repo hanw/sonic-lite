@@ -91,8 +91,8 @@ ifeq ("de5", $(BOARD))
 endif
 endif
 
-gentarget::
-	make -C $(PROJTOP)/../hw/ip/ii2dcam
+#gentarget::
+#	make -C $(PROJTOP)/../hw/ip/ii2dcam
 
 run:
 	RUNPARAM=${RUNPARAM} NOFPGAJTAG=1 make run.de5
