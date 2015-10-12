@@ -1,9 +1,9 @@
 import DefaultValue::*;
 
-typedef 256 KEY_LEN;
-typedef 16 VALUE_LEN;
+typedef 32 KEY_LEN;
+typedef 32 VALUE_LEN;
 typedef 1021 TABLE_LEN;
-typedef 20 ADDR_LEN; //log(TABLE_LEN * (KEY_LEN+VALUE_LEN))
+typedef 16 ADDR_LEN; //log(TABLE_LEN * (KEY_LEN+VALUE_LEN))
 
 /* if you change this value, also make sure to change 
  * priority_encoder() and flip_bit_at_pos() functions
