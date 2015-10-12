@@ -27,6 +27,7 @@ import DefaultValue::*;
 import FIFO::*;
 import FIFOF::*;
 import GetPut::*;
+import ClientServer::*;
 import Vector::*;
 import Connectable::*;
 import StmtFSM::*;
@@ -37,6 +38,8 @@ import MemReadEngine::*;
 import MemWriteEngine::*;
 import MemServerIndication::*;
 import MMUIndication::*;
+import MatchTable::*;
+import MatchTableTypes::*;
 
 import AlteraExtra::*;
 import AlteraEthPhy::*;
@@ -60,6 +63,7 @@ typedef TDiv#(DataBusWidth, 32) WordsPerBeat;
 
 interface P4TopIndication;
    method Action sonic_read_version_resp(Bit#(32) version);
+   method Action matchTableResponse(Bit#(32) key, Bit#(32) value);
 endinterface
 
 interface P4TopRequest;
@@ -67,6 +71,8 @@ interface P4TopRequest;
    method Action writePacketData(Vector#(2, Bit#(64)) data, Bit#(1) sop, Bit#(1) eop);
    method Action readPacketBuffer(Bit#(16) addr);
    method Action writePacketBuffer(Bit#(16) addr, Bit#(64) data);
+
+   method Action matchTableRequest(Bit#(32) key, Bit#(32) value, Bit#(32) op);
 
    method Action port_mapping_add_entry(Bit#(32) table_name, MatchInput_port_mapping match_key);
    method Action port_mapping_set_default_action(Bit#(32) table_name);
@@ -186,6 +192,18 @@ module mkP4Top#(P4TopIndication indication)(P4Top);
    PacketBuffer rxPktBuff <- mkPacketBuffer();
    Parser parser <- mkParser();
    Pipeline_port_mapping ingress_port_mapping <- mkIngressPipeline_port_mapping();
+  
+   /* Match Table Functionalities */
+   function RequestType makeRequest(Bit#(32) key, Bit#(32) value, Operation op);
+       return RequestType {
+           key : key,
+           value : value,
+           addrIdx : 0,
+           op : op
+       };
+   endfunction
+
+   Server#(RequestType, ResponseType) matchTable <- mkMatchTable();
 
    // read client interface
    FIFO#(MemRequest) reqFifo <-mkSizedFIFO(4);
@@ -248,6 +266,11 @@ module mkP4Top#(P4TopIndication indication)(P4Top);
    endrule
    //mkConnection(parser.phvOut, ingress_port_mapping.phvIn);
 
+   rule matchTableRes;
+       let res <- matchTable.response.get;
+       indication.matchTableResponse(res.key, res.value);
+   endrule
+
    interface P4TopRequest request;
       method Action sonic_read_version();
          let v= `NicVersion;
@@ -276,6 +299,18 @@ module mkP4Top#(P4TopIndication indication)(P4Top);
          Vector#(WordsPerBeat, Bit#(32)) v = genWith(plusi);
          writeDataFifo.enq(MemData {data: pack(v), tag:0, last:True});
       endmethod
+
+      method Action matchTableRequest(Bit#(32) key, Bit#(32) value, Bit#(32) op);
+        if (op == 0)
+            matchTable.request.put(makeRequest(key, value, GET));
+        else if (op == 1)
+            matchTable.request.put(makeRequest(key, value, PUT));
+        else if (op == 2)
+            matchTable.request.put(makeRequest(key, value, UPDATE));
+        else if (op == 3)
+            matchTable.request.put(makeRequest(key, value, REMOVE));
+      endmethod
+
       // Generate fixed standard set of API function
       // In software, we should hide the details of match table different behind api
       // expose thrift-server to software to take advantage of existing thrift infra.
