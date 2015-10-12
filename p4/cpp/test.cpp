@@ -187,7 +187,7 @@ int main(int argc, char **argv)
 
     device->matchTableRequest(10, 15, 1);
     device->matchTableRequest(10, 0, 0);
-
+    while(1);
     fprintf(stderr, "Attempts to read pcap file %s\n", argv[1]);
     if (!read_pcap_file(argv[1], &buffer, &length)) {
         perror("Failed to read file!");
