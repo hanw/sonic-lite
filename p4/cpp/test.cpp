@@ -86,7 +86,13 @@ class P4TopIndication : public P4TopIndicationWrapper
 {
 public:
     virtual void sonic_read_version_resp(uint32_t a) {
-        fprintf(stderr, "version %08x\n", a);
+        fprintf(stderr, "version %d\n", a);
+    }
+    virtual void cam_search_result(uint32_t a) {
+        fprintf(stderr, "cam search %d\n", a);
+    }
+    virtual void match_table_resp(uint32_t a) {
+    	fprintf(stderr, "match table");
     }
     virtual void matchTableResponse(uint32_t key, uint32_t value) {
         fprintf(stderr, "\nkey = %u  value = %u\n", key, value);
@@ -184,10 +190,22 @@ int main(int argc, char **argv)
     device = new P4TopRequestProxy(IfcNames_P4TopRequestS2H);
 
     device->sonic_read_version();
+    device->camInsert(0x14, 0xab);
+    device->camInsert(0x15, 0xac);
+    device->camInsert(0x16, 0xad);
+    device->camInsert(0x17, 0xae);
+    device->camInsert(0x18, 0xaf);
+    device->camSearch(0xab);
+    device->camSearch(0xac);
+    device->camSearch(0xad);
+    device->camSearch(0xae);
+    device->camSearch(0xaf);
 
     device->matchTableRequest(10, 15, 1);
     device->matchTableRequest(10, 0, 0);
-    while(1);
+
+    while(1) sleep(1);
+
     fprintf(stderr, "Attempts to read pcap file %s\n", argv[1]);
     if (!read_pcap_file(argv[1], &buffer, &length)) {
         perror("Failed to read file!");
@@ -210,7 +228,6 @@ int main(int argc, char **argv)
         }
     }
 
-    while(1) sleep(1);
 
     return 0;
 }

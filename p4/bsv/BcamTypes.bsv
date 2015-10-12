@@ -20,9 +20,4 @@
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-typedef struct {
-   Bool wEnb;
-   Bit#(TAdd#(TLog#(cdep), 10)) wAddr;
-   Bit#(TMul#(pwid, 9)) wPatt;
-} CamRequest#(numeric type cdep, numeric type pwid) deriving (Bits, Eq);
 

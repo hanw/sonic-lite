@@ -23,6 +23,7 @@
 import BRAMFIFO::*;
 import BuildVector::*;
 import Clocks::*;
+import ClientServer::*;
 import DefaultValue::*;
 import FIFO::*;
 import FIFOF::*;
@@ -44,8 +45,7 @@ import MatchTableTypes::*;
 import AlteraExtra::*;
 import AlteraEthPhy::*;
 import EthMac::*;
-import ALTERA_SI570_WRAPPER          ::*;
-import ALTERA_EDGE_DETECTOR_WRAPPER  ::*;
+import ALTERA_SI570_WRAPPER::*;
 import ConnectalClocks::*;
 import LedController::*;
 import Leds::*;
@@ -58,12 +58,15 @@ import Parser::*;
 import Types::*;
 import SharedBuff::*;
 import `PinTypeInclude::*;
+import BcamImpl::*;
+//import Bcam::*;
 
 typedef TDiv#(DataBusWidth, 32) WordsPerBeat;
 
 interface P4TopIndication;
    method Action sonic_read_version_resp(Bit#(32) version);
    method Action matchTableResponse(Bit#(32) key, Bit#(32) value);
+   method Action cam_search_result(Bit#(32) data);
 endinterface
 
 interface P4TopRequest;
@@ -71,6 +74,9 @@ interface P4TopRequest;
    method Action writePacketData(Vector#(2, Bit#(64)) data, Bit#(1) sop, Bit#(1) eop);
    method Action readPacketBuffer(Bit#(16) addr);
    method Action writePacketBuffer(Bit#(16) addr, Bit#(64) data);
+   method Action camInsert(Bit#(32) addr, Bit#(32) data);
+   method Action camSearch(Bit#(32) data);
+   method Action matchTableInsert(Bit#(32) key, Bit#(32) ops);
 
    method Action matchTableRequest(Bit#(32) key, Bit#(32) value, Bit#(32) op);
 
@@ -115,7 +121,12 @@ module mkP4Top#(P4TopIndication indication)(P4Top);
    B2C1 iclock_644 <- mkB2C1();
 //   B2C iclock_pcie <- mkB2C();
 
-   Vector#(4, PushButtonController) buttons <- replicateM(mkPushButtonController(iclock_50.c, clocked_by iclock_50.c, reset_by iclock_50.r));
+   Vector#(4, PushButtonController) buttons <- replicateM(mkPushButtonController(iclock_50.c, clocked_by iclock_50.c, reset_by noReset));
+   for (Integer i=0; i<4; i=i+1) begin
+      rule setPushButton;
+         buttons[i].setRepeatParams(10, 10);
+      endrule
+   end
 
    Reset rst_644   <- mkResetInverter(iclock_50.r, clocked_by iclock_644.c);
    Reset rst_644_n <- mkAsyncReset(2, iclock_50.r, iclock_644.c);
@@ -127,32 +138,23 @@ module mkP4Top#(P4TopIndication indication)(P4Top);
    Reset rst_156   <- mkResetInverter(iclock_50.r, clocked_by clk_156_25);
    Reset rst_156_n <- mkAsyncReset(1, rst_156, clk_156_25);
    Si570Wrap si570 <- mkSi570Wrap(iclock_50.c, iclock_50.r, clocked_by iclock_50.c, reset_by iclock_50.r);
-   EdgeDetectorWrap edgedetect <- mkEdgeDetectorWrap(iclock_50.c, iclock_50.r, clocked_by iclock_50.c, reset_by iclock_50.r);
 
    rule si570_connections;
       let ifreq_mode = 3'b110;  //644.53125 MHZ
       si570.ifreq.mode(ifreq_mode);
-      si570.istart.go(edgedetect.odebounce.out);
-   endrule
-
-   rule button_to_iclock50_r;
-      iclock_50.inputreset(pack(buttons[0]));
-   endrule
-
-   rule button_to_si570;
-      edgedetect.itrigger.in(pack(buttons[1]));
+      si570.istart.go(pack(buttons[1].pressed));
    endrule
 
 //   Reset xcvr_reset_n <- mkAsyncReset(2, iclock_50.r, eth.ifcs.clk_xcvr[0]);
 
-//   LedController pci_led <- mkLedController(False, clocked_by iclock_pcie.c, reset_by iclock_pcie.r);
+   LedController mgmt_led <- mkLedController(False, clocked_by iclock_50.c, reset_by iclock_50.r);
 //   LedController eth_tx_led <- mkLedController(False, clocked_by clk_156_25, reset_by rst_156_n);
 //   LedController eth_rx_led <- mkLedController(False, clocked_by eth.ifcs.clk_xcvr[0], reset_by xcvr_reset_n);
    LedController sfp_led <- mkLedController(False, clocked_by iclock_644.c, reset_by rst_644_n);
 
-//   rule led_pcie;
-//      pci_led.setPeriod(led_off, 500, led_on_max, 500);
-//   endrule
+   rule led_pcie;
+      mgmt_led.setPeriod(led_off, 500, led_on_max, 500);
+   endrule
 //   rule led_eth_tx;
 //      eth_tx_led.setPeriod(led_off, 500, led_on_max, 500);
 //   endrule
@@ -178,7 +180,9 @@ module mkP4Top#(P4TopIndication indication)(P4Top);
 //   mapM(uncurry(mkConnection), zip(mac.tx, phy.tx));
 //   mapM(uncurry(mkConnection), zip(phy.rx, mac.rx));
 
+   Bcam#(Bit#(10), Bit#(9)) bcam <- mkBcamVerilog();
 `endif
+   //BcamBSV#(1024, 9) bcam <- mkBcamBSV();
 
    let verbose = True;
    Reg#(Cycle_t) cycle <- mkReg(defaultValue);
@@ -264,6 +268,18 @@ module mkP4Top#(P4TopIndication indication)(P4Top);
       let v <- toGet(writeDoneFifo).get;
       $display("%d: Write done", cycle);
    endrule
+
+   rule readCam;
+      let v <- bcam.readServer.response.get;
+      if (isValid(v)) begin
+         indication.cam_search_result(zeroExtend(fromMaybe(0, v)));
+      end
+   endrule
+
+   rule readMatchTable;
+      let v <- matchTable.response.get;
+      indication.match_table_resp(v);
+   endrule
    //mkConnection(parser.phvOut, ingress_port_mapping.phvIn);
 
    rule matchTableRes;
@@ -309,6 +325,14 @@ module mkP4Top#(P4TopIndication indication)(P4Top);
             matchTable.request.put(makeRequest(key, value, UPDATE));
         else if (op == 3)
             matchTable.request.put(makeRequest(key, value, REMOVE));
+      endmethod
+
+      method Action camInsert(Bit#(32) addr, Bit#(32) data);
+         bcam.writeServer.put(tuple2(truncate(addr), truncate(data)));
+      endmethod
+
+      method Action camSearch(Bit#(32) data);
+         bcam.readServer.request.put(truncate(data));
       endmethod
 
       // Generate fixed standard set of API function
@@ -435,12 +459,13 @@ module mkP4Top#(P4TopIndication indication)(P4Top);
          for (Integer i=0; i<valueOf(NumPorts); i=i+1) begin
             buttons[i].ifc.button(v[i]);
          end
+         iclock_50.inputreset(v[0]);
       endmethod
 //      method Action serial_rx(Bit#(NumPorts) data);
 //         phy.serial.rx(data);
 //      endmethod
 //      method serial_tx_data = phy.serial.tx;
-//      method led0 = pci_led.ifc.out;
+      method led0 = mgmt_led.ifc.out;
 //      method led1 = eth_tx_led.ifc.out;
 //      method led2 = eth_rx_led.ifc.out;
       method led3 = sfp_led.ifc.out;

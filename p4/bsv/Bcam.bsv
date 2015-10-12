@@ -336,10 +336,11 @@ interface Setram#(numeric type cdep);
    interface PipeOut#(Bit#(32)) newPattIndc;
 endinterface
 module mkSetram(Setram#(cdep))
-   provisos(Add#(TLog#(cdep), 10, TAdd#(TLog#(cdep), 10)),
-            Add#(TAdd#(TLog#(cdep), 10), 0, camDepth),
-            Add#(TAdd#(TLog#(cdep), 5), 0, wAddrHWidth),
-            Log#(cdep, 0));
+   provisos(Add#(TLog#(cdep), 10, TAdd#(TLog#(cdep), 10))
+            ,Add#(TAdd#(TLog#(cdep), 10), 0, camDepth)
+            ,Add#(TAdd#(TLog#(cdep), 5), 0, wAddrHWidth)
+            ,Add#(TAdd#(TLog#(cdep), 5), 2, TLog#(TMul#(128, cdep)))
+         );
 
    let verbose = True;
    FIFOF#(Bool) wEnb_fifo <- mkBypassFIFOF();
@@ -358,7 +359,7 @@ module mkSetram(Setram#(cdep))
    FIFOF#(OInt#(32)) wAddrLOH_fifo <- mkFIFOF();
    FIFOF#(Bit#(9)) wPatt2_fifo <- mkFIFOF();
 
-   Vector#(8, M20k#(10, 40, 128)) ram <- replicateM(mkM20k());
+   Vector#(8, M20k#(10, 40, TMul#(128, cdep))) ram <- replicateM(mkM20k());
 
    Reg#(Bit#(32)) cycle <- mkReg(0);
    rule every1;
@@ -445,6 +446,7 @@ module mkSetram(Setram#(cdep))
    interface PipeOut newPattIndc = toPipeOut(newPattIndc_fifo);
 endmodule
 
+/*
 interface Idxram#(numeric type cdep);
    interface PipeIn#(Bool) wEnb;
    interface PipeIn#(Bit#(TAdd#(TLog#(cdep), 10))) wAddr;
@@ -456,8 +458,8 @@ endinterface
 module mkIdxram(Idxram#(cdep))
    provisos(Add#(TLog#(cdep), 10, TAdd#(TLog#(cdep), 10)),
             Add#(TAdd#(TLog#(cdep), 10), 0, camDepth),
-            Add#(TAdd#(TLog#(cdep), 5), 0, wAddrHWidth),
-            Log#(cdep, 0));
+            Add#(TAdd#(TLog#(cdep), 5), 0, wAddrHWidth)
+         );
 
    FIFOF#(Bool) wEnb_fifo <- mkBypassFIFOF();
    FIFOF#(Bit#(camDepth)) wAddr_fifo <- mkBypassFIFOF();
@@ -536,9 +538,8 @@ endinterface
 module mkVacram(Vacram#(cdep))
    provisos(Add#(TLog#(cdep), 10, TAdd#(TLog#(cdep), 10)),
             Add#(TAdd#(TLog#(cdep), 10), 0, camDepth),
-            Add#(TAdd#(TLog#(cdep), 5), 0, wAddrHWidth),
-            Bits#(Vector::Vector#(TAdd#(TLog#(cdep), 5), Bit#(1)), 5),
-            Log#(cdep, 0));
+            Add#(TAdd#(TLog#(cdep), 5), 0, wAddrHWidth)
+         );
 
    FIFOF#(Bool) wEnb_fifo <- mkBypassFIFOF();
    FIFOF#(Bit#(camDepth)) wAddr_fifo <- mkBypassFIFOF();
@@ -602,6 +603,7 @@ module mkVacram(Vacram#(cdep))
    interface PipeIn oldIdx = toPipeIn(oldIdx_fifo);
    interface PipeOut vacFLoc = toPipeOut(vacFLoc_fifo);
 endmodule
+*/
 
 interface Bcam9b#(numeric type cdep);
    interface PipeIn#(Bool) wEnb;
@@ -614,8 +616,8 @@ module mkBcam9b(Bcam9b#(cdep))
    provisos(Add#(TLog#(cdep), 10, TAdd#(10, TLog#(cdep))),
             Add#(TAdd#(10, TLog#(cdep)), 0, camDepth),
             Add#(TAdd#(TLog#(cdep), 5), 0, indxWidth),
-            Mul#(cdep, 1024, indcWidth),
-            Log#(cdep, 0));
+            Mul#(cdep, 1024, indcWidth)
+         );
 
    let verbose = True;
    FIFOF#(Bool) wEnb_fifo <- mkBypassFIFOF();
@@ -645,21 +647,20 @@ module mkBcam9b(Bcam9b#(cdep))
       cycle <= cycle + 1;
    endrule
 
-   Bcam_ram9b#(cdep) ram9b <- mkBcam_ram9b();
+//   Bcam_ram9b#(cdep) ram9b <- mkBcam_ram9b();
    Setram#(cdep) setram <- mkSetram();
-   Idxram#(cdep) idxram <- mkIdxram();
-   Vacram#(cdep) vacram <- mkVacram();
+//   Idxram#(cdep) idxram <- mkIdxram();
+//   Vacram#(cdep) vacram <- mkVacram();
 
    // Cam Ctrl
    Stmt camctrl =
    seq
-   noAction;
    action
-   $display("stmt %x", cycle);
+   $display("%d: stmt", cycle);
    endaction
    action
    setram.wEnb.enq(True);
-   $display("stmt %x", cycle);
+   $display("%d: stmt", cycle);
    endaction
    endseq;
 
@@ -686,12 +687,12 @@ module mkBcam9b(Bcam9b#(cdep))
 //   mkConnection(setram.newPattOccFLoc, idxram.newPattOccFLoc);
 //
 //
-   rule cam_wPatt;
-      let wPatt <- toGet(wPatt_fifo).get;
-      if(verbose) $display("cam9b::wPatt ", fshow(wPatt));
-      setram.wPatt.enq(wPatt);
-      t_wPatt_fifo.enq(wPatt);
-   endrule
+//   rule cam_wPatt;
+//      let wPatt <- toGet(wPatt_fifo).get;
+//      if(verbose) $display("cam9b::wPatt ", fshow(wPatt));
+//      setram.wPatt.enq(wPatt);
+//      t_wPatt_fifo.enq(wPatt);
+//   endrule
 //
 //   rule cam_oldEqNewPatt;
 //      let wPatt <- toGet(t_wPatt_fifo).get;
@@ -705,15 +706,15 @@ module mkBcam9b(Bcam9b#(cdep))
 //      if(verbose) $display("cam9b::wPatt ", fshow(wPatt));
 //   endrule
 //
-   rule wAddr_to_all;
-      let v <- toGet(wAddr_fifo).get;
-      setram.wAddr.enq(v);
+//   rule wAddr_to_all;
+//      let v <- toGet(wAddr_fifo).get;
+//      setram.wAddr.enq(v);
 //      idxram.wAddr.enq(v);
 //      vacram.wAddr.enq(v);
 //      Vector#(indxWidth, Bit#(1)) indx_addr = takeAt(5, unpack(v));
 //      ram9b.wAddr_indx.enq(pack(indx_addr));
-      if(verbose) $display("cam9b::wAddr ", fshow(v));
-   endrule
+//      if(verbose) $display("cam9b::wAddr ", fshow(v));
+//   endrule
 //
 //   rule setram_oldPatt;
 //      let v <- toGet(setram.oldPattV).get;
@@ -804,20 +805,19 @@ module mkBcam9b(Bcam9b#(cdep))
    interface PipeOut mIndc = toPipeOut(mIndc_fifo);
 endmodule
 
-interface Bcam#(numeric type cdep, numeric type pwid);
+interface BcamInternal#(numeric type cdep, numeric type pwid);
    interface PipeIn#(Bool) wEnb;
    interface PipeIn#(Bit#(TAdd#(TLog#(cdep), 10))) wAddr;
    interface PipeIn#(Bit#(TMul#(pwid, 9))) mPatt;
    interface PipeIn#(Bit#(TMul#(pwid, 9))) wPatt;
    interface PipeOut#(Bit#(TAdd#(TLog#(cdep), 10))) mAddr;
-   interface PipeOut#(Bool) pMatch;
+   interface PipeOut#(Bool) isMatch;
 endinterface
-module mkBcam_internal(Bcam#(cdep, pwid))
+module mkBcam_internal(BcamInternal#(cdep, pwid))
    provisos(Add#(TLog#(cdep), 10, TAdd#(TLog#(cdep), 10)),
             Add#(TAdd#(10, TLog#(cdep)), 0, camDepth),
             Mul#(pwid, 9, pattWidth),
-            Mul#(cdep, 1024, indcWidth),
-            Add#(indcWidth, 0, 1024)
+            Mul#(cdep, 1024, indcWidth)
             );
    let verbose = True;
 
@@ -873,25 +873,85 @@ module mkBcam_internal(Bcam#(cdep, pwid))
       mIndc_fifo.enq(mIndc);
    endrule
 
-   PrioEnc#(1024) pe1024 <- mkPE1024();
-
-   rule pe1024_out;
-      let v <- toGet(pe1024.pe).get;
-      mAddr_fifo.enq(v.bin);
-      match_fifo.enq(unpack(v.vld));
-   endrule
+//   PrioEnc#(indcWidth) pe1024 <- mkPE1024();
+//
+//   rule pe1024_out;
+//      let v <- toGet(pe1024.pe).get;
+//      mAddr_fifo.enq(v.bin);
+//      match_fifo.enq(unpack(v.vld));
+//   endrule
 
    interface PipeIn wEnb = toPipeIn(wEnb_fifo);
    interface PipeIn wPatt = toPipeIn(wPatt_fifo);
    interface PipeIn wAddr = toPipeIn(wAddr_fifo);
    interface PipeIn mPatt = toPipeIn(mPatt_fifo);
    interface PipeOut mAddr = toPipeOut(mAddr_fifo);
-   interface PipeOut pMatch = toPipeOut(match_fifo);
+   interface PipeOut isMatch = toPipeOut(match_fifo);
 endmodule
 
-// CDEP = 1*1024, PWID = 1 = 9bits
-(* synthesize *)
-module mkBcam(Bcam#(1, 1));
-   Bcam#(1, 1) _a <- mkBcam_internal(); return _a;
+interface BcamBSV#(numeric type camDepth, numeric type pattWidth);
+   interface Put#(Tuple2#(Bit#(TLog#(camDepth)), Bit#(pattWidth))) writeServer;
+   interface Server#(Bit#(pattWidth), Maybe#(Bit#(TLog#(camDepth)))) readServer;
+endinterface
+
+module mkBcamBSV(BcamBSV#(camDepth, pattWidth))
+   provisos(Add#(cdep, 9, camSz)
+            ,Log#(camDepth, camSz)
+            ,Mul#(pwid, 9, pattWidth)
+            ,Add#(TLog#(TSub#(camSz, 9)), 10, camSz)
+         );
+   Clock defaultClock <- exposeCurrentClock();
+   Reset defaultReset <- exposeCurrentReset();
+
+   BcamInternal#(TSub#(camSz, 9), pwid) bcamWrap <- mkBcam_internal(clocked_by defaultClock, reset_by defaultReset);
+
+   FIFO#(Maybe#(Bit#(camSz))) readFifo <- mkFIFO;
+   FIFO#(Bit#(pattWidth)) readReqFifo <- mkFIFO;
+   FIFO#(Tuple2#(Bit#(camSz), Bit#(pattWidth))) writeReqFifo <- mkFIFO;
+
+   Wire#(Bool) writeEnable <- mkDWire(False);
+   Wire#(Bit#(camSz)) writeAddr <- mkDWire(0);
+   Wire#(Bit#(pattWidth)) writeData <- mkDWire(0);
+   Wire#(Bit#(pattWidth)) readData <- mkDWire(0);
+
+   rule writeBcam;
+      let v <- toGet(writeReqFifo).get;
+      Bit#(camSz) writeAddr = tpl_1(v);
+      Bit#(pattWidth) writeData = tpl_2(v);
+      bcamWrap.wAddr.enq(writeAddr);
+      bcamWrap.wPatt.enq(writeData);
+      bcamWrap.wEnb.enq(True);
+   endrule
+
+   rule readBcam;
+      let v <- toGet(readReqFifo).get;
+      bcamWrap.mPatt.enq(v);
+   endrule
+
+   rule doReadResp;
+      let v <- toGet(bcamWrap.isMatch).get;
+      let addr <- toGet(bcamWrap.mAddr).get;
+      if (v) begin
+         readFifo.enq(tagged Valid addr);
+      end
+   endrule
+
+   interface Server readServer;
+      interface Put request;
+         method Action put(Bit#(pattWidth) data);
+            readReqFifo.enq(data);
+         endmethod
+      endinterface
+      interface Get response = toGet(readFifo);
+   endinterface
+
+   interface Put writeServer = toPut(writeReqFifo);
 endmodule
+
+
+// CDEP = 1*1024, PWID = 1 = 9bits
+//(* synthesize *)
+//module mkBcam(BcamInternal#(1, 1));
+//   BcamInternal#(1, 1) _a <- mkBcam_internal(); return _a;
+//endmodule
 

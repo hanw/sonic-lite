@@ -275,7 +275,7 @@
 		"PIO_DIRECTION": "BIDIR",
 		"I2C": "CLOCK_SDA"
 	},
-	"user_reset_n": {
+	"buttons_v[0]": {
 		"PIO_DIRECTION": "INPUT",
 		"BUTTON": "BUTTON[0]"
 	},
