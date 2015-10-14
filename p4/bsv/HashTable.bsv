@@ -53,10 +53,12 @@ module mkHashTable (Server#(RequestType, ResponseType));
     FIFOF#(RequestType) hTable_put_req_fifo <- mkFIFOF;
     FIFOF#(RequestType) hTable_update_req_fifo <- mkFIFOF;
     FIFOF#(RequestType) hTable_remove_req_fifo <- mkFIFOF;
+    FIFOF#(RequestType) hTable_non_empty_slots_req_fifo <- mkFIFOF;
     
     FIFOF#(RequestType) hTable_get_res_fifo <- mkFIFOF;
     FIFOF#(RequestType) hTable_update_res_fifo <- mkFIFOF;
     FIFOF#(RequestType) hTable_remove_res_fifo <- mkFIFOF;
+    FIFOF#(RequestType) hTable_non_empty_slots_res_fifo <- mkFIFOF;
 
     rule hTable_get_req;
         RequestType req <- toGet(hTable_get_req_fifo).get;
@@ -139,7 +141,7 @@ module mkHashTable (Server#(RequestType, ResponseType));
             GET    : hTable_get_req_fifo.enq(currReq);
             PUT    : hTable_put_req_fifo.enq(currReq);
             UPDATE : hTable_update_req_fifo.enq(currReq);
-            REMOVE : hTable_remove_req_fifo.enq(currReq);    
+            REMOVE : hTable_remove_req_fifo.enq(currReq);
         endcase
     endrule
     
