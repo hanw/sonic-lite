@@ -38,8 +38,10 @@ import MemReadEngine::*;
 import MemWriteEngine::*;
 import MemServerIndication::*;
 import MMUIndication::*;
+`ifdef MTABLE
 import MatchTable::*;
 import MatchTableTypes::*;
+`endif
 
 import AlteraExtra::*;
 import AlteraEthPhy::*;
@@ -63,7 +65,9 @@ typedef TDiv#(DataBusWidth, 32) WordsPerBeat;
 
 interface P4TopIndication;
    method Action sonic_read_version_resp(Bit#(32) version);
+`ifdef MTABLE
    method Action matchTableResponse(Bit#(32) key, Bit#(32) value);
+`endif
 endinterface
 
 interface P4TopRequest;
@@ -71,9 +75,9 @@ interface P4TopRequest;
    method Action writePacketData(Vector#(2, Bit#(64)) data, Bit#(1) sop, Bit#(1) eop);
    method Action readPacketBuffer(Bit#(16) addr);
    method Action writePacketBuffer(Bit#(16) addr, Bit#(64) data);
-
+`ifdef MTABLE
    method Action matchTableRequest(Bit#(32) key, Bit#(32) value, Bit#(32) op);
-
+`endif
    method Action port_mapping_add_entry(Bit#(32) table_name, MatchInput_port_mapping match_key);
    method Action port_mapping_set_default_action(Bit#(32) table_name);
    method Action port_mapping_delete_entry(Bit#(32) table_name, Bit#(32) id);
@@ -192,7 +196,8 @@ module mkP4Top#(P4TopIndication indication)(P4Top);
    PacketBuffer rxPktBuff <- mkPacketBuffer();
    Parser parser <- mkParser();
    Pipeline_port_mapping ingress_port_mapping <- mkIngressPipeline_port_mapping();
-  
+
+`ifdef MTABLE
    /* Match Table Functionalities */
    function RequestType makeRequest(Bit#(32) key, Bit#(32) value, Operation op);
        return RequestType {
@@ -204,6 +209,7 @@ module mkP4Top#(P4TopIndication indication)(P4Top);
    endfunction
 
    Server#(RequestType, ResponseType) matchTable <- mkMatchTable();
+`endif
 
    // read client interface
    FIFO#(MemRequest) reqFifo <-mkSizedFIFO(4);
@@ -266,10 +272,12 @@ module mkP4Top#(P4TopIndication indication)(P4Top);
    endrule
    //mkConnection(parser.phvOut, ingress_port_mapping.phvIn);
 
+`ifdef MTABLE
    rule matchTableRes;
        let res <- matchTable.response.get;
        indication.matchTableResponse(res.key, res.value);
    endrule
+`endif
 
    interface P4TopRequest request;
       method Action sonic_read_version();
@@ -300,6 +308,7 @@ module mkP4Top#(P4TopIndication indication)(P4Top);
          writeDataFifo.enq(MemData {data: pack(v), tag:0, last:True});
       endmethod
 
+`ifdef MTABLE
       method Action matchTableRequest(Bit#(32) key, Bit#(32) value, Bit#(32) op);
         if (op == 0)
             matchTable.request.put(makeRequest(key, value, GET));
@@ -310,6 +319,7 @@ module mkP4Top#(P4TopIndication indication)(P4Top);
         else if (op == 3)
             matchTable.request.put(makeRequest(key, value, REMOVE));
       endmethod
+`endif
 
       // Generate fixed standard set of API function
       // In software, we should hide the details of match table different behind api
