@@ -25,23 +25,25 @@
 # @BERI_LICENSE_HEADER_END@
 #
 
+CONNECTALDIR=/home/hwang/dev/connectal/bsv
 QUARTUS_SIM_LIB=/usr/groups/ecad/altera/13.0sp1/quartus/eda/sim_lib/
 
-TEST_BENCHs=Tb1 Tb2 Tb3
+TEST_BENCHs=Tb2
 
-tests: tests_bluesim tests_verilog
+tests: tests_bluesim #tests_verilog
 
 tests_bluesim: $(addprefix test_bluesim, $(TEST_BENCHs))
 
 tests_verilog: $(addprefix test_verilog, $(TEST_BENCHs))
 
 test_bluesim%: bluesim%
-	simdir/$< > $@.out
+	simdir/$< > $@.out 2>&1
 
 bluesim%: %.bsv mem_model.o
 	mkdir -p bdir
 	rm -f bdir/AsymmetricBRAM.bo
-	bsc -D BLUESIM -bdir bdir AsymmetricBRAM.bsv
+	bsc -D BSIM -bdir bdir $(CONNECTALDIR)/Pipe.bsv
+	bsc -D BSIM -bdir bdir -I $(CONNECTALDIR) AsymmetricBRAM.bsv
 	bsc -sim -bdir bdir -u $<
 	mkdir -p simdir
 	bsc -o simdir/$@ -sim -p bdir:simdir -simdir simdir -e mk$(basename $<) mem_model.o

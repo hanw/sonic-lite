@@ -39,8 +39,11 @@ import MemReadEngine::*;
 import MemWriteEngine::*;
 import MemServerIndication::*;
 import MMUIndication::*;
+
+`ifdef DEBUG_MATCH_TABLE
 import MatchTable::*;
 import MatchTableTypes::*;
+`endif
 
 import AlteraExtra::*;
 import AlteraEthPhy::*;
@@ -58,15 +61,19 @@ import Parser::*;
 import Types::*;
 import SharedBuff::*;
 import `PinTypeInclude::*;
-import BcamImpl::*;
-//import Bcam::*;
+//import BcamImpl::*;
+import Bcam::*;
+import AsymmetricBRAM::*;
 
 typedef TDiv#(DataBusWidth, 32) WordsPerBeat;
 
 interface P4TopIndication;
    method Action sonic_read_version_resp(Bit#(32) version);
+`ifdef DEBUG_MATCH_TABLE
    method Action matchTableResponse(Bit#(32) key, Bit#(32) value);
+`endif
    method Action cam_search_result(Bit#(32) data);
+   method Action read_setram_result(Bit#(64) data);
 endinterface
 
 interface P4TopRequest;
@@ -76,9 +83,12 @@ interface P4TopRequest;
    method Action writePacketBuffer(Bit#(16) addr, Bit#(64) data);
    method Action camInsert(Bit#(32) addr, Bit#(32) data);
    method Action camSearch(Bit#(32) data);
+   method Action writeSetRam(Bit#(32) addr, Bit#(64) data);
+   method Action readSetRam(Bit#(32) addr);
+`ifdef DEBUG_MATCH_TABLE
    method Action matchTableInsert(Bit#(32) key, Bit#(32) ops);
-
    method Action matchTableRequest(Bit#(32) key, Bit#(32) value, Bit#(32) op);
+`endif
 
    method Action port_mapping_add_entry(Bit#(32) table_name, MatchInput_port_mapping match_key);
    method Action port_mapping_set_default_action(Bit#(32) table_name);
@@ -180,9 +190,8 @@ module mkP4Top#(P4TopIndication indication)(P4Top);
 //   mapM(uncurry(mkConnection), zip(mac.tx, phy.tx));
 //   mapM(uncurry(mkConnection), zip(phy.rx, mac.rx));
 
-   Bcam#(Bit#(10), Bit#(9)) bcam <- mkBcamVerilog();
+   //Bcam#(Bit#(10), Bit#(9)) bcam <- mkBcamVerilog();
 `endif
-   //BcamBSV#(1024, 9) bcam <- mkBcamBSV();
 
    let verbose = True;
    Reg#(Cycle_t) cycle <- mkReg(defaultValue);
@@ -196,7 +205,8 @@ module mkP4Top#(P4TopIndication indication)(P4Top);
    PacketBuffer rxPktBuff <- mkPacketBuffer();
    Parser parser <- mkParser();
    Pipeline_port_mapping ingress_port_mapping <- mkIngressPipeline_port_mapping();
-  
+
+`ifdef DEBUG_MATCH_TABLE
    /* Match Table Functionalities */
    function RequestType makeRequest(Bit#(32) key, Bit#(32) value, Operation op);
        return RequestType {
@@ -206,8 +216,8 @@ module mkP4Top#(P4TopIndication indication)(P4Top);
            op : op
        };
    endfunction
-
    Server#(RequestType, ResponseType) matchTable <- mkMatchTable();
+`endif
 
    // read client interface
    FIFO#(MemRequest) reqFifo <-mkSizedFIFO(4);
@@ -230,6 +240,8 @@ module mkP4Top#(P4TopIndication indication)(P4Top);
    MemServerIndicationOutput memServerIndication <- mkMemServerIndicationOutput;
    MMUIndicationOutput mmuIndication <- mkMMUIndicationOutput;
 //   SharedBuffer#(12, 128, 1) buff <- mkSharedBuffer(vec(dmaClient), vec(dmaWriteClient), memServerIndication.ifc, mmuIndication.ifc);
+
+   BinaryCam#(1024, 9) bcam <- mkBinaryCam();
 
    Reg#(Bit#(EtherLen)) pktLen <- mkReg(0);
    Reg#(Bit#(9)) rAddr_wires <- mkReg(0);
@@ -276,16 +288,21 @@ module mkP4Top#(P4TopIndication indication)(P4Top);
       end
    endrule
 
-   rule readMatchTable;
-      let v <- matchTable.response.get;
-      indication.match_table_resp(v);
+`ifdef DEBUG_SETRAM
+   rule readSetram;
+      let v <- toGet(setRam.getRead).get;
+      indication.read_setram_result(zeroExtend(v));
    endrule
+`endif
+
    //mkConnection(parser.phvOut, ingress_port_mapping.phvIn);
 
+`ifdef DEBUG_MATCH_TABLE
    rule matchTableRes;
        let res <- matchTable.response.get;
        indication.matchTableResponse(res.key, res.value);
    endrule
+`endif
 
    interface P4TopRequest request;
       method Action sonic_read_version();
@@ -316,6 +333,7 @@ module mkP4Top#(P4TopIndication indication)(P4Top);
          writeDataFifo.enq(MemData {data: pack(v), tag:0, last:True});
       endmethod
 
+`ifdef DEBUG_MATCH_TABLE
       method Action matchTableRequest(Bit#(32) key, Bit#(32) value, Bit#(32) op);
         if (op == 0)
             matchTable.request.put(makeRequest(key, value, GET));
@@ -326,6 +344,7 @@ module mkP4Top#(P4TopIndication indication)(P4Top);
         else if (op == 3)
             matchTable.request.put(makeRequest(key, value, REMOVE));
       endmethod
+`endif
 
       method Action camInsert(Bit#(32) addr, Bit#(32) data);
          bcam.writeServer.put(tuple2(truncate(addr), truncate(data)));
@@ -334,6 +353,17 @@ module mkP4Top#(P4TopIndication indication)(P4Top);
       method Action camSearch(Bit#(32) data);
          bcam.readServer.request.put(truncate(data));
       endmethod
+
+`ifdef DEBUG_SETRAM
+      method Action writeSetRam(Bit#(32) addr, Bit#(64) data);
+         setRam.write(truncate(addr), truncate(data));
+      endmethod
+
+      method Action readSetRam(Bit#(32) addr);
+         $display("%d: read set ram %x", fshow(cycle), addr);
+         setRam.read(truncate(addr));
+      endmethod
+`endif
 
       // Generate fixed standard set of API function
       // In software, we should hide the details of match table different behind api

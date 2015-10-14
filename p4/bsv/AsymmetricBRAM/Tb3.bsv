@@ -29,30 +29,32 @@ import StmtFSM::*;
 import AsymmetricBRAM::*;
 import BRAMCore::*;
 
-function Stmt testSeq(AsymmetricBRAM#(Bit#(4),Bit#(32),Bit#(1),Bit#(256)) dut,
+function Stmt testSeq(AsymmetricBRAM#(Bit#(4),Bit#(256),Bit#(16),Bit#(32)) dut,
                       String dut_name);
     return seq
         noAction;
         action
             $display("%t === %s write addr=0x0 data=0x0badf00d",$time, dut_name);
-            dut.write(0,256'h0badf00d);
+            dut.write(0x10,32'h0badf00d);
             $display("%t === %s getRead(0) = 0x%0x",$time, dut_name, dut.getRead());
         endaction
-        repeat (2) $display("%t === %s getRead(0) = 0x%0x",$time, dut_name, dut.getRead());
+        //repeat (2) $display("%t === %s getRead(0) = 0x%0x",$time, dut_name, dut.getRead());
         action
             $display("%t === %s read addr=0x0",$time, dut_name);
-            dut.read(0);
+            dut.read(0x10);
             $display("%t === %s getRead(0) = 0x%0x",$time, dut_name, dut.getRead());
         endaction
-        repeat (2) $display("%t === %s getRead(0) = 0x%0x",$time, dut_name, dut.getRead());
+        //repeat (2) $display("%t === %s getRead(0) = 0x%0x",$time, dut_name, dut.getRead());
         action
             $display("%t === %s write addr=0x0 data=0xbabebabe",$time, dut_name);
-            dut.write(0,256'hbabebabe);
+            dut.write(0x10,32'hbabebabe);
             $display("%t === %s read addr=0x0",$time, dut_name);
-            dut.read(0);
+         endaction
+         action
+            dut.read(0x10);
             $display("%t === %s getRead(0) = 0x%0x",$time, dut_name, dut.getRead());
         endaction
-        repeat (2) $display("%t === %s getRead(0) = 0x%0x",$time, dut_name, dut.getRead());
+        //repeat (2) $display("%t === %s getRead(0) = 0x%0x",$time, dut_name, dut.getRead());
         $display("%t === TEST %s finished",$time, dut_name);
     endseq;
 endfunction
@@ -87,19 +89,19 @@ endfunction
 (* synthesize *)
 module mkTb3();
 
-    AsymmetricBRAM#(Bit#(4),Bit#(32),Bit#(1),Bit#(256))  bram_ff <- mkAsymmetricBRAM(False, False);
-    AsymmetricBRAM#(Bit#(4),Bit#(32),Bit#(1),Bit#(256))  bram_ft <- mkAsymmetricBRAM(False, True);
-    AsymmetricBRAM#(Bit#(4),Bit#(32),Bit#(1),Bit#(256))  bram_tf <- mkAsymmetricBRAM(True, False);
-    AsymmetricBRAM#(Bit#(4),Bit#(32),Bit#(1),Bit#(256))  bram_tt <- mkAsymmetricBRAM(True, True);
+//    AsymmetricBRAM#(Bit#(1),Bit#(256),Bit#(4),Bit#(32))  bram_ff <- mkAsymmetricBRAM(False, False);
+    AsymmetricBRAM#(Bit#(1),Bit#(256),Bit#(4),Bit#(32))  bram_ft <- mkAsymmetricBRAM(False, True);
+//    AsymmetricBRAM#(Bit#(4),Bit#(32),Bit#(1),Bit#(256))  bram_tf <- mkAsymmetricBRAM(True, False);
+//    AsymmetricBRAM#(Bit#(4),Bit#(32),Bit#(1),Bit#(256))  bram_tt <- mkAsymmetricBRAM(True, True);
 
-    BRAM_DUAL_PORT#(Bit#(4), Bit#(32)) bram_core_std_fx <- mkBRAMCore2(16, False);
-    BRAM_DUAL_PORT#(Bit#(4), Bit#(32)) bram_core_std_tx <- mkBRAMCore2(16, True);
+//    BRAM_DUAL_PORT#(Bit#(4), Bit#(32)) bram_core_std_fx <- mkBRAMCore2(16, False);
+//    BRAM_DUAL_PORT#(Bit#(4), Bit#(32)) bram_core_std_tx <- mkBRAMCore2(16, True);
 
-    mkAutoFSM(testSeq(bram_ff, "bram_ff"));
+//    mkAutoFSM(testSeq(bram_ff, "bram_ff"));
     mkAutoFSM(testSeq(bram_ft, "bram_ft"));
-    mkAutoFSM(testSeq(bram_tf, "bram_tf"));
-    mkAutoFSM(testSeq(bram_tt, "bram_tt"));
-    mkAutoFSM(testSeqCore(bram_core_std_fx, "std_bram_core_f"));
-    mkAutoFSM(testSeqCore(bram_core_std_tx, "std_bram_core_t"));
+//    mkAutoFSM(testSeq(bram_tf, "bram_tf"));
+//    mkAutoFSM(testSeq(bram_tt, "bram_tt"));
+//    mkAutoFSM(testSeqCore(bram_core_std_fx, "std_bram_core_f"));
+//    mkAutoFSM(testSeqCore(bram_core_std_tx, "std_bram_core_t"));
 
 endmodule

@@ -3,7 +3,7 @@ ROOTDIR=$(realpath .)
 CONNECTALDIR?=$(ROOTDIR)/../../connectal/
 IPDIR?=$(ROOTDIR)/../../fpgamake-cache/$(shell basename `/bin/pwd`)/
 PROJTOP?=$(ROOTDIR)
-PROJLIB=$(PROJTOP)/../hw/lib/bsv:$(PROJTOP)/../hw/bsv:$(PROJTOP)/../hw/generated
+PROJLIB=$(PROJTOP)/../hw/lib/bsv:$(PROJTOP)/../hw/bsv:$(PROJTOP)/bsv/AsymmetricBRAM:$(PROJTOP)/bsv/Bcam:$(PROJTOP)/../hw/generated
 
 ALTERAPINOUT=$(PROJTOP)/../boards/de5.json
 
@@ -57,6 +57,9 @@ CONNECTALFLAGS += -I="../sw/"
 CONNECTALFLAGS += --bscflags="-show-range-conflict +RTS -K46777216 -RTS -demote-errors G0066:G0045 -suppress-warnings G0046:G0020:S0015:S0080:S0039 -steps-max-intervals 20"
 #CONNECTALFLAGS += --chipscope=$(PROJTOP)/test.stp
 
+#CONNECTALFLAGS += -D DEBUG_MATCH_TABLE
+CONNECTALFLAGS += -m $(PROJTOP)/bsv/AsymmetricBRAM/mem_model.c
+
 # P4 support
 export TARGET_ROOT :=$(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 export P4_INPUT := p4src/sonic.p4
@@ -81,7 +84,7 @@ $(addprefix test.,$(TEST_PACKET)):
 
 prebuild::
 ifneq (, $(QUARTUS_SH))
-ifeq ("de5", $(BOARD))
+ifeq (de5, $(BOARD))
 	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) $(QUARTUS_SH) -t $(PROJTOP)/../hw/scripts/connectal-synth-mac.tcl)
 	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) $(QUARTUS_SH) -t $(PROJTOP)/../hw/scripts/connectal-synth-misc.tcl)
 	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) $(QUARTUS_SH) -t $(PROJTOP)/../hw/scripts/connectal-synth-pciedma.tcl)
