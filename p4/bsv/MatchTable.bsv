@@ -5,98 +5,108 @@ import ClientServer::*;
 import StmtFSM::*;
 import Vector::*;
 import DefaultValue::*;
+import BRAM::*;
 
 import MatchTableTypes::*;
 import HashFunction::*;
 import HashTable::*;
 
 module mkMatchTable (Server#(RequestType, ResponseType));
-    Vector#(8, Server#(RequestType, ResponseType)) hTable <-
+    function BRAMRequest#(Address, Bit#(TABLE_ASSOCIATIVITY))
+        makeRequest(Bool write, Address addr, Bit#(TABLE_ASSOCIATIVITY) data);
+        return BRAMRequest {
+            write : write,
+            responseOnWrite : False,
+            address : addr,
+            datain : data
+        };
+    endfunction
+    
+    BRAM_Configure cfg = defaultValue;
+    cfg.memorySize = fromInteger(valueof(TABLE_LEN))
+                   * fromInteger(valueof(TABLE_ASSOCIATIVITY));
+    cfg.loadFormat = tagged Binary "load.txt";
+
+    BRAM2Port#(Address, Bit#(TABLE_ASSOCIATIVITY)) validBitMem  <- mkBRAM2Server(cfg);
+
+    Vector#(TABLE_ASSOCIATIVITY, Server#(RequestType, ResponseType)) hTable <-
                 replicateM(mkHashTable);
 
-    Vector#(TABLE_LEN,Reg#(Bit#(MATCH_TABLE_ASSOCIATIVITY)))
-                        nextFree <- replicateM(mkReg(255));
-
-    function Bit#(3) priority_encoder(Reg#(Bit#(8)) inp);
-        case (inp) matches
-            8'b10000000 : return 7;
-            8'b?1000000 : return 6;
-            8'b??100000 : return 5;
-            8'b???10000 : return 4;
-            8'b????1000 : return 3;
-            8'b?????100 : return 2;
-            8'b??????10 : return 1;
-            8'b???????1 : return 0;
-        endcase
-    endfunction
-
-    function Bit#(8) flip_bit_at_pos(Bit#(3) pos, AddrIndex addrIdx);
-        case (pos)
-            0 : return (nextFree[addrIdx] ^ 8'b00000001);
-            1 : return (nextFree[addrIdx] ^ 8'b00000010);
-            2 : return (nextFree[addrIdx] ^ 8'b00000100);
-            3 : return (nextFree[addrIdx] ^ 8'b00001000);
-            4 : return (nextFree[addrIdx] ^ 8'b00010000);
-            5 : return (nextFree[addrIdx] ^ 8'b00100000);
-            6 : return (nextFree[addrIdx] ^ 8'b01000000);
-            7 : return (nextFree[addrIdx] ^ 8'b10000000);
-        endcase
-    endfunction
-
-    FIFOF#(RequestType) requestFIFO <- mkBypassFIFOF;
+    FIFOF#(RequestType) requestFIFO <- mkSizedBypassFIFOF(10);
     FIFOF#(ResponseType) responseFIFO <- mkBypassFIFOF;
 
-    Vector#(3, Reg#(RequestType)) currReq <- replicateM(mkReg(defaultValue));
-    //Reg#(Bit#(8)) tempReg <- mkReg(0);
-    FIFOF#(Bit#(8)) putFIFO <- mkFIFOF;
-    FIFOF#(Bit#(8)) remFIFO <- mkFIFOF;
-    Reg#(AddrIndex) temp <- mkReg(0);
+    Reg#(RequestType) currRequest <- mkReg(defaultValue);
+    Reg#(Bit#(1)) opInProgress <- mkReg(0);
+    Reg#(Address) address <- mkReg(0);
+    Reg#(Bit#(3)) index <- mkReg(0); // change bit size if u change ASSOCIATIVITY
 
-    for (Integer i = 0; i < fromInteger(valueof(MATCH_TABLE_ASSOCIATIVITY)); i = i + 1)
+    for (Integer i=0; i<fromInteger(valueof(TABLE_ASSOCIATIVITY)); i=i+1)
     begin
         rule response_from_hTable;
             ResponseType res <- hTable[i].response.get; 
             if (res.tag == VALID && res.op == GET)    
                 responseFIFO.enq(res);
-            else if (res.tag == VALID && res.op == REMOVE)
+            else if (res.op == REMOVE)
             begin
-                remFIFO.enq(flip_bit_at_pos(fromInteger(i), res.addrIdx));
-                temp <= res.addrIdx;
+                if (res.tag == VALID)
+                begin
+                    Address addr = zeroExtend(res.addrIdx)
+                                 * fromInteger(valueof(TABLE_ASSOCIATIVITY));
+                    validBitMem.portB.request.put(makeRequest(False, addr, 0));
+                    index <= fromInteger(i);
+                    address <= addr;
+                end
+                else
+                    opInProgress <= 0;
             end
         endrule
     end
 
-    rule start;
+    rule rem_request;
+        let d <- validBitMem.portB.response.get;
+        d[index] = 0;
+        validBitMem.portB.request.put(makeRequest(True, address, d));
+        opInProgress <= 0;
+    endrule
+
+    rule put_request;
+        Bit#(8) d <- validBitMem.portA.response.get;
+        Integer found = 0;
+        for (Integer i=0; i<fromInteger(valueof(TABLE_ASSOCIATIVITY)); i=i+1)
+        begin
+            if (found == 0 && d[i] == 0)
+            begin
+                d[i] = 1;
+                hTable[i].request.put(currRequest);
+                validBitMem.portA.request.put(makeRequest(True, address, d));
+                found = 1;
+            end
+        end
+        if (found == 0)
+            $display("PUT Failed : No Empty slots");
+        opInProgress <= 0;
+    endrule
+
+    rule start (opInProgress == 0);
         let currReq <- toGet(requestFIFO).get;
         AddrIndex addrIdx = hash_function(currReq.key);
         currReq.addrIdx = addrIdx;
-        case (currReq.op)
-            PUT : begin
-                    if (nextFree[addrIdx] != 0)
-                    begin
-                        Bit#(3) index = priority_encoder(nextFree[addrIdx]);
-                        putFIFO.enq(flip_bit_at_pos(index, addrIdx));
-                        temp <= addrIdx;
-                        hTable[index].request.put(currReq);
-                    end
-                    else
-                        $display("PUT Failed : No empty slot");
-                  end
-            default : begin
-                        for (Integer i = 0; i < fromInteger(valueof(MATCH_TABLE_ASSOCIATIVITY)); i = i + 1)
-                            hTable[i].request.put(currReq);
-                      end
-         endcase             
-    endrule
-
-    rule update_nextFree_for_PUT;
-        let x <- toGet(putFIFO).get;
-        nextFree[temp] <= x;
-    endrule
-    
-    rule update_nextFree_for_REM;
-        let x <- toGet(remFIFO).get;
-        nextFree[temp] <= x;
+        if (currReq.op == REMOVE)
+            opInProgress <= 1;
+        if (currReq.op == PUT)
+        begin
+            opInProgress <= 1;
+            Address addr = zeroExtend(addrIdx)
+                         * fromInteger(valueof(TABLE_ASSOCIATIVITY));
+            validBitMem.portA.request.put(makeRequest(False, addr, 0));
+            address <= addr;
+        end
+        else
+        begin
+            for (Integer i=0; i<fromInteger(valueof(TABLE_ASSOCIATIVITY)); i=i+1)
+                hTable[i].request.put(currReq);
+        end
+        currRequest <= currReq;
     endrule
 
     interface Put request = toPut(requestFIFO);
