@@ -32,6 +32,7 @@ import StmtFSM::*;
 import Vector::*;
 import Pipe::*;
 import AsymmetricBRAM::*;
+import PriorityEncoder::*;
 
 typedef struct {
    Vector#(4, Maybe#(Bit#(9))) rpatt;
@@ -73,8 +74,13 @@ module mkSetram(Setram#(camDepth))
             ,Add#(readDepthSz, ratioSz, writeDepthSz)
             ,Add#(readDepthSz, 0, wAddrHWidth)
          );
-
    let verbose = True;
+
+   Reg#(Bit#(32)) cycle <- mkReg(0);
+   rule every1;
+      cycle <= cycle + 1;
+   endrule
+
    FIFO#(Tuple2#(Bit#(camSz), Bit#(9))) writeReqFifo <- mkFIFO;
    FIFOF#(Bit#(9)) oldPatt_fifo <- mkBypassFIFOF();
    FIFOF#(Bool) oldPattV_fifo<- mkBypassFIFOF();
@@ -83,7 +89,7 @@ module mkSetram(Setram#(camDepth))
    FIFOF#(Bit#(5)) newPattOccFLoc_fifo <- mkBypassFIFOF();
    FIFOF#(Bit#(32)) oldPattIndc_fifo <- mkBypassFIFOF();
    FIFOF#(Bit#(32)) newPattIndc_fifo <- mkBypassFIFOF();
-
+   FIFOF#(Bit#(32)) newPattIndc_prv_fifo <- mkBypassFIFOF();
    FIFOF#(Vector#(8, RPatt)) rpatt_fifo <- mkBypassFIFOF();
    FIFOF#(Bit#(5)) wAddrL_fifo <- mkFIFOF();
    FIFOF#(OInt#(32)) wAddrLOH_fifo <- mkFIFOF();
@@ -93,10 +99,7 @@ module mkSetram(Setram#(camDepth))
 
    Vector#(8, `SETRAM) setRam <- replicateM(mkAsymmetricBRAM(False, False));
 
-   Reg#(Bit#(32)) cycle <- mkReg(0);
-   rule every1;
-      cycle <= cycle + 1;
-   endrule
+   PEnc#(32) pe_multiOcc <- mkPriorityEncoder(toPipeOut(newPattIndc_prv_fifo));
 
    rule setram_input;
       let v <- toGet(writeReqFifo).get;
@@ -108,11 +111,6 @@ module mkSetram(Setram#(camDepth))
       Vector#(wAddrHWidth, Bit#(1)) wAddrH = takeAt(5, unpack(wAddr));
       Vector#(5, Bit#(1)) wAddrL = take(unpack(wAddr));
       OInt#(32) wAddrLOH = toOInt(pack(wAddrL));
-      //$display("%d: wAddrLH %x", cycle, pack(wAddrLH));
-      //$display("%d: wAddrLOH %x", cycle, pack(wAddrLOH));
-      //$display("%d: wAddrLL %x", cycle, pack(wAddrLL));
-      //$display("%d: wAddrH %x", cycle, pack(wAddrH));
-      //$display("%d: wAddrL %x", cycle, pack(wAddrL));
 
       Bit#(writeDepthSz) writeAddr = {pack(wAddrH), pack(wAddrLL)};
       Maybe#(Bit#(dataSz)) writeData = tagged Valid wPatt;
@@ -166,9 +164,12 @@ module mkSetram(Setram#(camDepth))
             Bit#(9) rPatt = fromMaybe(?, data[i].rpatt[j]);
             Bool rPattV = isValid(data[i].rpatt[j]);
             newPattIndc_prv[i*4+j] = (rPatt == wPatt) && rPattV;
-            //$display("%d: rPatt=%x, rPattV=%d newPattIndc_prv=%d", cycle, fromMaybe(?, data[i].rpatt[j]), isValid(data[i].rpatt[j]), newPattIndc_prv[i*4+j]);
+            $display("%d: rPatt=%x, rPattV=%d newPattIndc_prv=%d", cycle, fromMaybe(?, data[i].rpatt[j]), isValid(data[i].rpatt[j]), newPattIndc_prv[i*4+j]);
          end
       end
+
+      newPattIndc_prv_fifo.enq(pack(newPattIndc_prv));
+      $display("%d: netPattIndc_prv=%x", cycle, pack(newPattIndc_prv));
 
       Bit#(32) newPattIndc = pack(newPattIndc_prv) | pack(wAddrLOH);
       newPattIndc_fifo.enq(newPattIndc);
@@ -176,9 +177,18 @@ module mkSetram(Setram#(camDepth))
       // detect if old pattern has multi-occurence in segment
       Bool oldPattMultiOcc = (pack(oldPattIndc) != 0);
       oldPattMultiOcc_fifo.enq(oldPattMultiOcc);
+
+      oldPatt_fifo.enq(oldPatt);
+      oldPattV_fifo.enq(oldPattV);
    endrule
 
-   //PrioEnc#(32) pe_multiOcc <- mkPE32();
+   rule setram_encoder;
+      let bin <- toGet(pe_multiOcc.bin).get;
+      let vld <- toGet(pe_multiOcc.vld).get;
+      newPattOccFLoc_fifo.enq(bin);
+      newPattMultiOcc_fifo.enq(vld);
+      $display("%d: bin=%x, vld=%x", cycle, bin, vld);
+   endrule
 
    interface Put writeServer = toPut(writeReqFifo);
    interface PipeOut oldPatt = toPipeOut(oldPatt_fifo);

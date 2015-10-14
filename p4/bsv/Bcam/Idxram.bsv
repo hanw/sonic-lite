@@ -33,48 +33,68 @@ import Vector::*;
 import Pipe::*;
 import AsymmetricBRAM::*;
 
-interface Idxram#(numeric type cdep);
-   interface PipeIn#(Bool) wEnb;
-   interface PipeIn#(Bit#(TAdd#(TLog#(cdep), 10))) wAddr;
+interface Idxram#(numeric type camDepth);
+   interface Put#(Bit#(TLog#(camDepth))) wAddr;
    interface PipeIn#(Bit#(5)) vacFLoc;
    interface PipeIn#(Bit#(5)) newPattOccFLoc;
    interface PipeOut#(Bit#(5)) oldIdx;
    interface PipeOut#(Bit#(5)) newIdx;
 endinterface
-module mkIdxram(Idxram#(cdep))
-   provisos(Add#(TLog#(cdep), 10, TAdd#(TLog#(cdep), 10)),
-            Add#(TAdd#(TLog#(cdep), 10), 0, camDepth),
-            Add#(TAdd#(TLog#(cdep), 5), 0, wAddrHWidth)
+module mkIdxram(Idxram#(camDepth))
+   provisos(Add#(cdep, 9, camSz)
+            ,Log#(camDepth, camSz)
+            ,Add#(TLog#(cdep), 5, wAddrHWidth)
+            ,Add#(writeSz, 0, 5)
+            ,Add#(readSz, 0, 40)
+            ,Div#(camDepth, 4, writeDepth)
+            ,Div#(readSz, writeSz, ratio)
+            ,Log#(ratio, ratioSz)
+            ,Log#(writeDepth, writeDepthSz)
+            ,Add#(readDepthSz, ratioSz, writeDepthSz)
+            ,Add#(wAddrHWidth, a__, camSz)
+            ,Add#(readDepthSz, 0, wAddrHWidth)
+            ,Add#(5, b__, camSz)
+            ,Add#(3, c__, camSz)
+            ,Add#(2, d__, camSz)
+            ,Add#(e__, 3, TLog#(TDiv#(camDepth, 4)))
          );
+   let verbose = True;
+   Reg#(Bit#(32)) cycle <- mkReg(0);
+   rule every1;
+      cycle <= cycle + 1;
+   endrule
 
-   FIFOF#(Bool) wEnb_fifo <- mkBypassFIFOF();
-   FIFOF#(Bit#(camDepth)) wAddr_fifo <- mkBypassFIFOF();
+   FIFO#(Bit#(camSz)) writeReqFifo <- mkFIFO;
    FIFOF#(Bit#(5)) vacFLoc_fifo <- mkBypassFIFOF();
    FIFOF#(Bit#(5)) newPattOccFLoc_fifo <- mkBypassFIFOF();
    FIFOF#(Bit#(5)) oldIdx_fifo <- mkBypassFIFOF();
    FIFOF#(Bit#(5)) newIdx_fifo <- mkBypassFIFOF();
-
-   // WWID=5, RWID=40, WDEP=CDEP*1024/4, OREG=0, INIT=1
-   Vector#(4, M20k#(5, 40, 256)) ram <- replicateM(mkM20k());
-
    FIFOF#(Bit#(5)) wAddrL_fifo <- mkFIFOF();
    FIFOF#(Bit#(160)) data_oldPatt_fifo <- mkBypassFIFOF();
    FIFOF#(Bit#(160)) data_newPatt_fifo <- mkBypassFIFOF();
 
+`define IDXRAM AsymmetricBRAM#(Bit#(readDepthSz), Bit#(readSz), Bit#(writeDepthSz), Bit#(writeSz))
+   Vector#(4, `IDXRAM) idxRam <- replicateM(mkAsymmetricBRAM(False, False));
+
    rule idxram_input;
-      let v <- toGet(wEnb_fifo).get;
-      let wAddr <- toGet(wAddr_fifo).get;
+      let wAddr <- toGet(writeReqFifo).get;
       let wData <- toGet(vacFLoc_fifo).get;
       Vector#(2, Bit#(1)) wAddrLH = takeAt(3, unpack(wAddr));
       Vector#(3, Bit#(1)) wAddrLL = take(unpack(wAddr));
       Vector#(5, Bit#(1)) wAddrL = take(unpack(wAddr));
       Vector#(wAddrHWidth, Bit#(1)) wAddrH = takeAt(5, unpack(wAddr));
-
+      Bit#(writeDepthSz) writeAddr = {pack(wAddrH), pack(wAddrLL)};
+      if (verbose) $display("%d: wAddrLH %x", cycle, pack(wAddrLH));
+      if (verbose) $display("%d: wAddrLL %x", cycle, pack(wAddrLL));
+      if (verbose) $display("%d: wAddrH %x", cycle, pack(wAddrH));
+      if (verbose) $display("%d: wAddrL %x", cycle, pack(wAddrL));
       for (Integer i=0; i<4; i=i+1) begin
-         ram[i].wEnb.enq(v && (fromInteger(i) == pack(wAddrLH)));
-         ram[i].wAddr.enq({pack(wAddrH), pack(wAddrLL)});
-         ram[i].wData.enq(wData);
-         ram[i].rAddr.enq(pack(wAddrH));
+         if (fromInteger(i) == pack(wAddrLH)) begin
+            idxRam[i].writeServer.put(tuple2(writeAddr, pack(wData)));
+         end
+      end
+      for (Integer i=0; i<4; i=i+1) begin
+         idxRam[i].readServer.request.put(pack(wAddrH));
       end
       wAddrL_fifo.enq(pack(wAddrL));
    endrule
@@ -82,7 +102,7 @@ module mkIdxram(Idxram#(cdep))
    rule idxram_readdata;
       Vector#(4, Bit#(40)) data = newVector;
       for (Integer i=0; i<4; i=i+1) begin
-         let v <- toGet(ram[i].rData).get;
+         let v <- idxRam[i].readServer.response.get;
          data[i] = v;
       end
       Bit#(160) data_pack = pack(data);
@@ -104,90 +124,9 @@ module mkIdxram(Idxram#(cdep))
       newIdx_fifo.enq(newIdx);
    endrule
 
-   interface PipeIn wEnb = toPipeIn(wEnb_fifo);
-   interface PipeIn wAddr = toPipeIn(wAddr_fifo);
+   interface Put wAddr = toPut(writeReqFifo);
    interface PipeIn vacFLoc = toPipeIn(vacFLoc_fifo);
    interface PipeIn newPattOccFLoc = toPipeIn(newPattOccFLoc_fifo);
    interface PipeOut oldIdx = toPipeOut(oldIdx_fifo);
    interface PipeOut newIdx = toPipeOut(newIdx_fifo);
 endmodule
-
-interface Vacram#(numeric type cdep);
-   interface PipeIn#(Bool) wEnb;
-   interface PipeIn#(Bit#(TAdd#(TLog#(cdep), 10))) wAddr;
-   interface PipeIn#(Bool) oldPattV;
-   interface PipeIn#(Bool) oldPattMultiOcc;
-   interface PipeIn#(Bool) newPattMultiOcc;
-   interface PipeIn#(Bit#(5)) oldIdx;
-   interface PipeOut#(Bit#(5)) vacFLoc;
-endinterface
-module mkVacram(Vacram#(cdep))
-   provisos(Add#(TLog#(cdep), 10, TAdd#(TLog#(cdep), 10)),
-            Add#(TAdd#(TLog#(cdep), 10), 0, camDepth),
-            Add#(TAdd#(TLog#(cdep), 5), 0, wAddrHWidth)
-         );
-
-   FIFOF#(Bool) wEnb_fifo <- mkBypassFIFOF();
-   FIFOF#(Bit#(camDepth)) wAddr_fifo <- mkBypassFIFOF();
-   FIFOF#(Bool) oldPattV_fifo <- mkBypassFIFOF();
-   FIFOF#(Bool) oldPattMultiOcc_fifo <- mkBypassFIFOF();
-   FIFOF#(Bool) newPattMultiOcc_fifo <- mkBypassFIFOF();
-   FIFOF#(Bit#(5)) oldIdx_fifo <- mkBypassFIFOF();
-   FIFOF#(Bit#(5)) vacFLoc_fifo <- mkBypassFIFOF();
-   FIFOF#(Bit#(5)) t_vacFLoc_fifo <- mkBypassFIFOF();
-
-   FIFOF#(Bit#(32)) wVac_fifo <- mkBypassFIFOF();
-   FIFOF#(Bit#(32)) cVac_fifo <- mkBypassFIFOF();
-
-   // WWID=32, RWID=32, WDEP=CDEP*1024/32, OREG=0, INIT=1
-   M20k#(32, 32, 32) ram <- mkM20k();
-   mkConnection(toPipeOut(wEnb_fifo), ram.wEnb);
-   mkConnection(toPipeOut(wVac_fifo), ram.wData);
-
-   rule ram_input;
-      let v <- toGet(wAddr_fifo).get;
-      Vector#(wAddrHWidth, Bit#(1)) wAddrH = takeAt(5, unpack(v));
-      ram.wAddr.enq(pack(wAddrH));
-      ram.rAddr.enq(pack(wAddrH));
-   endrule
-
-   PrioEnc#(32) pe_vac <- mkPE32();
-   mkConnection(toPipeOut(cVac_fifo), pe_vac.oht);
-
-   rule pe_vac_out;
-      let v <- toGet(pe_vac.pe).get;
-      vacFLoc_fifo.enq(v.bin);
-      t_vacFLoc_fifo.enq(v.bin);
-   endrule
-
-   rule mask_logic_cvac;
-      let rVac <- toGet(ram.rData).get;
-      let oldPattMultiOcc <- toGet(oldPattMultiOcc_fifo).get;
-      let oldPattV <- toGet(oldPattV_fifo).get;
-      let oldIdx <- toGet(oldIdx_fifo).get;
-      let newPattMultiOcc <- toGet(newPattMultiOcc_fifo).get;
-      let vacFLoc <- toGet(t_vacFLoc_fifo).get;
-
-      OInt#(32) oldIdxOH = toOInt(oldIdx);
-      Bool oldVac = !oldPattMultiOcc && oldPattV;
-      Vector#(32, Bit#(1)) maskOldVac = replicate(pack(oldVac));
-      Bit#(32) cVac = (~rVac) | (pack(oldIdxOH) & pack(maskOldVac));
-
-      OInt#(32) vacFLocOH = toOInt(vacFLoc);
-      Vector#(32, Bit#(1)) maskNewVac = replicate(pack(newPattMultiOcc));
-      Bit#(32) wVac = ~(cVac & ((~pack(vacFLocOH)) | pack(maskNewVac)));
-
-      cVac_fifo.enq(cVac);
-      wVac_fifo.enq(wVac);
-   endrule
-
-   interface PipeIn wEnb = toPipeIn(wEnb_fifo);
-   interface PipeIn wAddr = toPipeIn(wAddr_fifo);
-   interface PipeIn oldPattV = toPipeIn(oldPattV_fifo);
-   interface PipeIn oldPattMultiOcc = toPipeIn(oldPattMultiOcc_fifo);
-   interface PipeIn newPattMultiOcc = toPipeIn(newPattMultiOcc_fifo);
-   interface PipeIn oldIdx = toPipeIn(oldIdx_fifo);
-   interface PipeOut vacFLoc = toPipeOut(vacFLoc_fifo);
-endmodule
-
-

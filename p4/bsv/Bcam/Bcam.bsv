@@ -33,6 +33,8 @@ import Pipe::*;
 import AsymmetricBRAM::*;
 
 import Setram::*;
+import Idxram::*;
+import Vacram::*;
 import PriorityEncoder::*;
 
 typedef 1 CDEP;
@@ -144,9 +146,6 @@ endmodule
 
 interface Bcam9b#(numeric type camDepth);
    interface Put#(Tuple2#(Bit#(TLog#(camDepth)), Bit#(9))) writeServer;
-//   interface PipeIn#(Bool) wEnb;
-//   interface PipeIn#(Bit#(TAdd#(TLog#(cdep), 10))) wAddr;
-//   interface PipeIn#(Bit#(9)) wPatt;
    interface PipeIn#(Bit#(9)) mPatt;
    interface PipeOut#(Bit#(TMul#(TLog#(camDepth), 1024))) mIndc;
 endinterface
@@ -155,6 +154,8 @@ module mkBcam9b(Bcam9b#(camDepth))
             ,Log#(camDepth, camSz)
             ,Mul#(camSz, 1024, indcWidth)
             ,Add#(a__, 2, TLog#(TDiv#(camDepth, 8)))
+            ,Add#(h__, 3, TLog#(TDiv#(camDepth, 4)))
+            ,Log#(TDiv#(camDepth, 4), TAdd#(a__, 3))
             ,Add#(TAdd#(cdep, 5), b__, camSz)
             ,Add#(5, c__, camSz)
             ,Add#(2, d__, camSz)
@@ -165,77 +166,62 @@ module mkBcam9b(Bcam9b#(camDepth))
          );
 
    let verbose = True;
-   FIFO#(Tuple2#(Bit#(camSz), Bit#(9))) writeReqFifo <- mkFIFO;
-
-   FIFOF#(Bit#(9)) mPatt_fifo <- mkBypassFIFOF();
-   FIFOF#(Bit#(indcWidth)) mIndc_fifo <- mkBypassFIFOF();
-
-   FIFOF#(Bool) oldPattMultiOcc_fifo <- mkFIFOF();
-   FIFOF#(Bool) newPattMultiOcc_fifo <- mkFIFOF();
-   FIFOF#(Bit#(5)) oldIdx_fifo <- mkFIFOF();
-   FIFOF#(Bit#(5)) newIdx_fifo <- mkFIFOF();
-   FIFOF#(Bit#(5)) vacFLoc_fifo <- mkFIFOF();
-   FIFOF#(Bit#(5)) t_oldIdx_fifo <- mkFIFOF();
-   FIFOF#(Bit#(5)) t_newIdx_fifo <- mkFIFOF();
-   FIFOF#(Bool) oldNewbPattWr_fifo <- mkFIFOF();
-   FIFOF#(Bit#(5)) wIndx_fifo <- mkFIFOF();
-   FIFOF#(Bit#(32)) oldPattIndc_fifo <- mkFIFOF();
-   FIFOF#(Bit#(32)) newPattIndc_fifo <- mkFIFOF();
-   FIFOF#(Bool) oldPattV_fifo <- mkFIFOF();
-
-   FIFOF#(Bit#(9)) t_wPatt_fifo <- mkBypassFIFOF();
-   Reg#(Bool) running <- mkReg(False);
-
    Reg#(Bit#(32)) cycle <- mkReg(0);
    rule every1;
       cycle <= cycle + 1;
    endrule
 
+   FIFO#(Tuple2#(Bit#(camSz), Bit#(9))) writeReqFifo <- mkFIFO;
+
+   FIFOF#(Bit#(9)) mPatt_fifo <- mkBypassFIFOF();
+   FIFOF#(Bit#(9)) wPatt_fifo <- mkBypassFIFOF();
+   FIFOF#(Bit#(indcWidth)) mIndc_fifo <- mkBypassFIFOF();
+
 //   Bcam_ram9b#(cdep) ram9b <- mkBcam_ram9b();
    Setram#(camDepth) setram <- mkSetram();
-//   Idxram#(cdep) idxram <- mkIdxram();
+   Idxram#(camDepth) idxram <- mkIdxram();
 //   Vacram#(cdep) vacram <- mkVacram();
 
-//   // Cam Ctrl
-//   Stmt camctrl =
-//   seq
-//   action
-//   $display("%d: stmt", cycle);
-//   endaction
-//   action
-//   //setram.wEnb.enq(True);
-//   $display("%d: stmt", cycle);
-//   endaction
-//   endseq;
-//
-//   FSM fsm <- mkFSM(camctrl);
-//
-//   rule start (!running);
-//      let v <- toGet(wEnb_fifo).get;
-//      running <= True;
-//      fsm.start;
-//      $display("cam9b::fsm %x start", cycle);
-//   endrule
+   Vector#(2, PipeOut#(Bool)) oldPattVPipes <- mkForkVector(setram.oldPattV);
+   Vector#(2, PipeOut#(Bit#(9))) oldPattPipes <- mkForkVector(setram.oldPatt);
+   Vector#(2, PipeOut#(Bool)) oldPattMultiOccPipes <- mkForkVector(setram.oldPattMultiOcc);
+   Vector#(2, PipeOut#(Bool)) newPattMultiOccPipes <- mkForkVector(setram.newPattMultiOcc);
+   Vector#(2, PipeOut#(Bit#(9))) wPattPipes <- mkForkVector(toPipeOut(wPatt_fifo));
 
-//   mkConnection(toPipeOut(wEnb_fifo), cc.wEnb);
-//   mkConnection(cc.wEnb_iVld, ram9b.wEnb_iVld);
-//   mkConnection(cc.wEnb_indx, ram9b.wEnb_indx);
-//   mkConnection(cc.wEnb_indc, ram9b.wEnb_indc);
-//   mkConnection(cc.wEnb_setram, setram.wEnb);
-//   mkConnection(cc.wEnb_idxram, idxram.wEnb);
-//   mkConnection(cc.wEnb_vacram, vacram.wEnb);
-//   mkConnection(cc.wIVld, ram9b.wIVld);
-//
-//   mkConnection(toPipeOut(mPatt_fifo), ram9b.mPatt);
-//
-//   mkConnection(setram.newPattOccFLoc, idxram.newPattOccFLoc);
-//
-//
    rule write_request;
       let v <- toGet(writeReqFifo).get;
+      Bit#(camSz) wAddr = tpl_1(v);
+      Bit#(9) wData = tpl_2(v);
       setram.writeServer.put(v);
+      idxram.wAddr.put(wAddr);
+      wPatt_fifo.enq(wData);
+      $display("cam9b %d: write_request");
    endrule
-//
+
+   // cam ctrl state machine
+   Reg#(StateType) curr_state <- mkReg(S0);
+   (* fire_when_enabled *)
+   rule state_S0 (curr_state == S0);
+      let oldPattV <- toGet(oldPattVPipes[0]).get;
+      let oldPatt <- toGet(oldPattPipes[0]).get;
+      let oldPattMultiOcc <- toGet(oldPattMultiOccPipes[0]).get;
+      let newPattMultiOcc <- toGet(newPattMultiOccPipes[0]).get;
+      let wPatt <- toGet(wPattPipes[0]).get;
+      if (verbose) $display("%d: Genereate wEnb_indc and wEnb_iVld", cycle);
+      curr_state <= S1;
+   endrule
+
+   (* fire_when_enabled *)
+   rule state_S1 (curr_state == S1);
+      let oldPattV <- toGet(oldPattVPipes[1]).get;
+      let oldPatt <- toGet(oldPattPipes[1]).get;
+      let oldPattMultiOcc <- toGet(oldPattMultiOccPipes[1]).get;
+      let newPattMultiOcc <- toGet(newPattMultiOccPipes[1]).get;
+      let wPatt <- toGet(wPattPipes[1]).get;
+      if (verbose) $display("%d: Genereate wEnb_indc and wEnb_iVld and others", cycle);
+      curr_state <= S0;
+   endrule
+
 //   rule cam_oldEqNewPatt;
 //      let wPatt <- toGet(t_wPatt_fifo).get;
 //      let oldPatt <- toGet(setram.oldPatt).get;
@@ -258,29 +244,6 @@ module mkBcam9b(Bcam9b#(camDepth))
 //      if(verbose) $display("cam9b::wAddr ", fshow(v));
 //   endrule
 //
-//   rule setram_oldPatt;
-//      let v <- toGet(setram.oldPattV).get;
-//      cc.oldPattV.enq(v);
-//      vacram.oldPattV.enq(v);
-//      if(verbose) $display("cam9b::setram_oldPatt ", fshow(v));
-//   endrule
-//
-//   rule setram_oldPattMultiOcc;
-//      let v <- toGet(setram.oldPattMultiOcc).get;
-//      vacram.oldPattMultiOcc.enq(v);
-//      cc.oldPattMultiOcc.enq(v);
-//      oldPattMultiOcc_fifo.enq(v);
-//      if(verbose) $display("cam9b::setram_oldPattMultiOcc ", fshow(v));
-//   endrule
-//
-//   rule setram_newPattMultiOcc;
-//      let v <- toGet(setram.newPattMultiOcc).get;
-//      vacram.newPattMultiOcc.enq(v);
-//      cc.newPattMultiOcc.enq(v);
-//      newPattMultiOcc_fifo.enq(v);
-//      if(verbose) $display("cam9b::setram_newPattMultiOcc ", fshow(v));
-//   endrule
-//
 //   rule setram_wIndx;
 //      let oldPatt <- toGet(oldPattMultiOcc_fifo).get;
 //      let newPatt <- toGet(newPattMultiOcc_fifo).get;
@@ -292,37 +255,6 @@ module mkBcam9b(Bcam9b#(camDepth))
 //      t_newIdx_fifo.enq(newIdx_);
 //      t_oldIdx_fifo.enq(oldIdx_);
 //      if(verbose) $display("cam9b::setram_wIndx ", fshow(oldIdx_), fshow(newIdx_));
-//   endrule
-//
-//   rule setram_oldPattIndc;
-//      let v <- toGet(setram.oldPattIndc).get;
-//      oldPattIndc_fifo.enq(v);
-//      if(verbose) $display("cam9b::setram_oldPattIndc ", fshow(v));
-//   endrule
-//
-//   rule setram_newPattIndc;
-//      let v <- toGet(setram.newPattIndc).get;
-//      newPattIndc_fifo.enq(v);
-//      if(verbose) $display("cam9b::setram_newPattIndc ", fshow(v));
-//   endrule
-//
-//   rule idxram_oldIdx;
-//      let v <- toGet(idxram.oldIdx).get;
-//      vacram.oldIdx.enq(v);
-//      oldIdx_fifo.enq(v);
-//      if(verbose) $display("cam9b::idxram_oldIdx ", fshow(v));
-//   endrule
-//
-//   rule idxram_newIdx;
-//      let v <- toGet(idxram.newIdx).get;
-//      newIdx_fifo.enq(v);
-//      if(verbose) $display("cam9b::idxram_newIdx ", fshow(v));
-//   endrule
-//
-//   rule vacram_vacFLoc;
-//      let v <- toGet(vacram.vacFLoc).get;
-//      vacFLoc_fifo.enq(v);
-//      if(verbose) $display("cam9b::vacram_vacFLoc ", fshow(v));
 //   endrule
 //
 //   rule wInd_to_all;
@@ -448,15 +380,16 @@ module mkBinaryCam(BinaryCam#(camDepth, pattWidth))
             ,Log#(camDepth, camSz)
             ,Mul#(pwid, 9, pattWidth)
             ,Add#(TLog#(TSub#(camSz, 9)), 10, camSz)
-            ,Add#(TAdd#(cdep, 5), e__, camSz)
-            ,Add#(a__, 2, TLog#(TDiv#(camDepth, 8)))
+            ,Add#(TAdd#(TLog#(cdep), 5), a__, camSz)
             ,Add#(5, b__, camSz)
             ,Add#(2, c__, camSz)
             ,Add#(3, d__, camSz)
+            ,Add#(TAdd#(cdep, 5), e__, camSz)
             ,Add#(TAdd#(TLog#(TSub#(camSz, 9)), 5), f__, camSz)
-            ,Add#(TLog#(cdep), 5, a__)
-            ,Add#(a__, g__, camSz)
+            ,Add#(g__, 3, TLog#(TDiv#(camDepth, 4)))
             ,Add#(9, h__, pattWidth)
+            ,Add#(TAdd#(TLog#(cdep), 5), 2, TLog#(TDiv#(camDepth, 8)))
+            ,Log#(TDiv#(camDepth, 4), TAdd#(TAdd#(TLog#(cdep), 5), 3))
          );
    Clock defaultClock <- exposeCurrentClock();
    Reset defaultReset <- exposeCurrentReset();
