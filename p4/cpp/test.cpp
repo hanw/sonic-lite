@@ -89,7 +89,7 @@ public:
         fprintf(stderr, "version %08x\n", a);
     }
     virtual void matchTableResponse(uint32_t key, uint32_t value) {
-        fprintf(stderr, "\nkey = %u  value = %u\n", key, value);
+        fprintf(stderr, "GET : key = %u  value = %u\n", key, value);
     }
     P4TopIndication(unsigned int id) : P4TopIndicationWrapper(id) {}
 };
@@ -185,9 +185,19 @@ int main(int argc, char **argv)
 
     device->sonic_read_version();
 
-    device->matchTableRequest(10, 15, 1);
-    device->matchTableRequest(10, 0, 0);
+    device->matchTableRequest(10, 15, 1); //PUT(10,15)
+    device->matchTableRequest(10, 0, 0);  //GET(10) should print k=10 v=15
+    device->matchTableRequest(10, 20, 2); //UPDATE(10,20)
+    device->matchTableRequest(10, 0, 0);  //GET(10) should print k=10 v=20
+    device->matchTableRequest(10, 0, 3);  //REMOVE(10)
+    device->matchTableRequest(10, 0, 0);  //GET(10) should not print anything
+    device->matchTableRequest(10, 30, 2); //UPDATE(10,30) should not update
+    device->matchTableRequest(10, 0, 0);  //GET(10) should not print anything
+    device->matchTableRequest(10, 45, 1); //PUT(10,45)
+    device->matchTableRequest(10, 0, 0);  //GET(10) should print k=10 v=45
+    
     while(1);
+    
     fprintf(stderr, "Attempts to read pcap file %s\n", argv[1]);
     if (!read_pcap_file(argv[1], &buffer, &length)) {
         perror("Failed to read file!");
