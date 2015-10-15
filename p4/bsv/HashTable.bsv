@@ -136,6 +136,8 @@ module mkHashTable (Server#(RequestType, ResponseType));
                         (makeRequest(True, addr, req.key, req.value, INVALID));
             responseFIFO.enq(makeResponse(0, 0, req.addrIdx, REMOVE, VALID));
         end
+        else
+            responseFIFO.enq(makeResponse(0, 0, req.addrIdx, REMOVE, INVALID));
     endrule
 
     rule run;

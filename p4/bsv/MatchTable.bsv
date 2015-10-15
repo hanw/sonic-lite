@@ -36,9 +36,15 @@ module mkMatchTable (Server#(RequestType, ResponseType));
     FIFOF#(ResponseType) responseFIFO <- mkBypassFIFOF;
 
     Reg#(RequestType) currRequest <- mkReg(defaultValue);
+    
+    /* Flag to make sure PUT and REM ops are atomic */
     Reg#(Bit#(1)) opInProgress <- mkReg(0);
+    
+    /* Pipeline Registers*/
     Reg#(Address) address <- mkReg(0);
     Reg#(Bit#(3)) index <- mkReg(0); // change bit size if u change ASSOCIATIVITY
+
+    Vector#(TABLE_ASSOCIATIVITY, FIFOF#(Bit#(1))) remResFIFO <- replicateM(mkFIFOF);
 
     for (Integer i=0; i<fromInteger(valueof(TABLE_ASSOCIATIVITY)); i=i+1)
     begin
@@ -58,15 +64,27 @@ module mkMatchTable (Server#(RequestType, ResponseType));
                     validBitMem.portB.request.put(makeRequest(False, addr, 0));
                     index <= fromInteger(i);
                     address <= addr;
+                    remResFIFO[i].enq(1);
                 end
+                else
+                    remResFIFO[i].enq(0);
             end
         endrule
     end
 
     rule rem_request;
-        let d <- validBitMem.portB.response.get;
-        d[index] = 0;
-        validBitMem.portB.request.put(makeRequest(True, address, d));
+        Integer found = 0;
+        for (Integer i=0; i<fromInteger(valueof(TABLE_ASSOCIATIVITY)); i=i+1)
+        begin
+            let flag <- toGet(remResFIFO[i]).get;
+            if (found == 0 && flag == 1)
+            begin
+                found = 1;
+                let d <- validBitMem.portB.response.get;
+                d[index] = 0;
+                validBitMem.portB.request.put(makeRequest(True, address, d));
+            end
+        end
         opInProgress <= 0;
     endrule
 
