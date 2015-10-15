@@ -39,10 +39,8 @@ import MemReadEngine::*;
 import MemWriteEngine::*;
 import MemServerIndication::*;
 import MMUIndication::*;
-`ifdef MTABLE
 import MatchTable::*;
 import MatchTableTypes::*;
-`endif
 
 import AlteraExtra::*;
 import AlteraEthPhy::*;
@@ -63,6 +61,8 @@ import `PinTypeInclude::*;
 //import BcamImpl::*;
 import Bcam::*;
 import AsymmetricBRAM::*;
+
+`define MTABLE 1;
 
 typedef TDiv#(DataBusWidth, 32) WordsPerBeat;
 

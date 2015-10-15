@@ -44,8 +44,11 @@ module mkMatchTable (Server#(RequestType, ResponseType));
     begin
         rule response_from_hTable;
             ResponseType res <- hTable[i].response.get; 
-            if (res.tag == VALID && res.op == GET)    
-                responseFIFO.enq(res);
+            if (res.op == GET) 
+            begin
+                if (res.tag == VALID)
+                    responseFIFO.enq(res);
+            end
             else if (res.op == REMOVE)
             begin
                 if (res.tag == VALID)
@@ -56,8 +59,6 @@ module mkMatchTable (Server#(RequestType, ResponseType));
                     index <= fromInteger(i);
                     address <= addr;
                 end
-                else
-                    opInProgress <= 0;
             end
         endrule
     end
@@ -70,7 +71,7 @@ module mkMatchTable (Server#(RequestType, ResponseType));
     endrule
 
     rule put_request;
-        Bit#(8) d <- validBitMem.portA.response.get;
+        Bit#(TABLE_ASSOCIATIVITY) d <- validBitMem.portA.response.get;
         Integer found = 0;
         for (Integer i=0; i<fromInteger(valueof(TABLE_ASSOCIATIVITY)); i=i+1)
         begin
@@ -84,6 +85,7 @@ module mkMatchTable (Server#(RequestType, ResponseType));
         end
         if (found == 0)
             $display("PUT Failed : No Empty slots");
+        
         opInProgress <= 0;
     endrule
 
