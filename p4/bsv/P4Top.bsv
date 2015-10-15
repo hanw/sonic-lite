@@ -38,10 +38,8 @@ import MemReadEngine::*;
 import MemWriteEngine::*;
 import MemServerIndication::*;
 import MMUIndication::*;
-`ifdef MTABLE
 import MatchTable::*;
 import MatchTableTypes::*;
-`endif
 
 import AlteraExtra::*;
 import AlteraEthPhy::*;
@@ -60,6 +58,8 @@ import Parser::*;
 import Types::*;
 import SharedBuff::*;
 import `PinTypeInclude::*;
+
+`define MTABLE 1;
 
 typedef TDiv#(DataBusWidth, 32) WordsPerBeat;
 

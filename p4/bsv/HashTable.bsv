@@ -15,11 +15,11 @@ module mkHashTable (Server#(RequestType, ResponseType));
     FIFOF#(ResponseType) responseFIFO <- mkBypassFIFOF;
     
     function BRAMRequest#(Address, Data) 
-            makeRequest(Bool write, Address addr, Key key, Value value);
+            makeRequest(Bool write, Address addr, Key key, Value value, Tag t);
         Data data = Data {
                           key : key,
                           value : value,
-                          valid : VALID
+                          valid : t
                           };
         return BRAMRequest {
                             write : write,
@@ -66,7 +66,7 @@ module mkHashTable (Server#(RequestType, ResponseType));
         Address addr = zeroExtend(addrIdx)
                      * (fromInteger(valueof(KEY_LEN))
                      + fromInteger(valueof(VALUE_LEN)));
-        hashTable.portB.request.put(makeRequest(False, addr, 0, 0));
+        hashTable.portB.request.put(makeRequest(False, addr, 0, 0, VALID));
         hTable_get_res_fifo.enq(req);
     endrule
 
@@ -86,7 +86,7 @@ module mkHashTable (Server#(RequestType, ResponseType));
                      * (fromInteger(valueof(KEY_LEN))
                      + fromInteger(valueof(VALUE_LEN)));
         hashTable.portA.request.put
-                (makeRequest(True, addr, req.key, req.value));
+                (makeRequest(True, addr, req.key, req.value, VALID));
     endrule
 
     rule hTable_update_req; 
@@ -95,7 +95,7 @@ module mkHashTable (Server#(RequestType, ResponseType));
         Address addr = zeroExtend(addrIdx)
                      * (fromInteger(valueof(KEY_LEN))
                      + fromInteger(valueof(VALUE_LEN)));
-        hashTable.portB.request.put(makeRequest(False, addr, 0, 0));
+        hashTable.portB.request.put(makeRequest(False, addr, 0, 0, VALID));
         hTable_update_res_fifo.enq(req);
     endrule
 
@@ -109,7 +109,7 @@ module mkHashTable (Server#(RequestType, ResponseType));
                          * (fromInteger(valueof(KEY_LEN))
                          + fromInteger(valueof(VALUE_LEN)));
             hashTable.portB.request.put
-                        (makeRequest(True, addr, req.key, req.value));
+                        (makeRequest(True, addr, req.key, req.value, VALID));
         end
     endrule
     
@@ -119,7 +119,7 @@ module mkHashTable (Server#(RequestType, ResponseType));
         Address addr = zeroExtend(addrIdx)
                      * (fromInteger(valueof(KEY_LEN))
                      + fromInteger(valueof(VALUE_LEN)));
-        hashTable.portB.request.put(makeRequest(False, addr, 0, 0));
+        hashTable.portB.request.put(makeRequest(False, addr, 0, 0, VALID));
         hTable_remove_res_fifo.enq(req);
     endrule
     
@@ -128,11 +128,14 @@ module mkHashTable (Server#(RequestType, ResponseType));
         Data d <- hashTable.portB.response.get;
         if (d.key == req.key)
         begin
-            d.valid = INVALID;
+            AddrIndex addrIdx = req.addrIdx;
+            Address addr = zeroExtend(addrIdx)
+                         * (fromInteger(valueof(KEY_LEN))
+                         + fromInteger(valueof(VALUE_LEN)));
+            hashTable.portB.request.put
+                        (makeRequest(True, addr, req.key, req.value, INVALID));
             responseFIFO.enq(makeResponse(0, 0, req.addrIdx, REMOVE, VALID));
         end
-        else
-            responseFIFO.enq(makeResponse(0, 0, req.addrIdx, REMOVE, INVALID));
     endrule
 
     rule run;
