@@ -32,6 +32,7 @@ import StmtFSM::*;
 import Vector::*;
 import Pipe::*;
 import AsymmetricBRAM::*;
+import PriorityEncoder::*;
 
 interface Vacram#(numeric type camDepth);
    interface Put#(Bit#(TLog#(camDepth))) wAddr;
@@ -53,6 +54,7 @@ module mkVacram(Vacram#(camDepth))
             ,Log#(writeDepth, writeDepthSz)
             ,Add#(readDepthSz, ratioSz, writeDepthSz)
             ,Add#(wAddrHWidth, a__, camSz)
+            ,Add#(writeDepthSz, 0, wAddrHWidth)
          );
    let verbose = True;
    Reg#(Bit#(32)) cycle <- mkReg(0);
@@ -60,57 +62,75 @@ module mkVacram(Vacram#(camDepth))
       cycle <= cycle + 1;
    endrule
 
-   FIFO#(Bit#(camSz)) writeReqFifo <- mkFIFO;
+   FIFOF#(Bit#(camSz)) writeReqFifo <- mkFIFOF;
    FIFOF#(Bool) oldPattV_fifo <- mkBypassFIFOF();
    FIFOF#(Bool) oldPattMultiOcc_fifo <- mkBypassFIFOF();
    FIFOF#(Bool) newPattMultiOcc_fifo <- mkBypassFIFOF();
    FIFOF#(Bit#(5)) oldIdx_fifo <- mkBypassFIFOF();
    FIFOF#(Bit#(5)) vacFLoc_fifo <- mkBypassFIFOF();
-   FIFOF#(Bit#(5)) t_vacFLoc_fifo <- mkBypassFIFOF();
 
    FIFOF#(Bit#(32)) wVac_fifo <- mkBypassFIFOF();
    FIFOF#(Bit#(32)) cVac_fifo <- mkBypassFIFOF();
 
-   // WWID=32, RWID=32, WDEP=CDEP*1024/32, OREG=0, INIT=1
-`define VACRAM AsymmetricBRAM#(Bit#(readDepthSz), Bit#(readSz), Bit#(writeDepthSz), Bit#(writeSz))
-   `VACRAM vacRam <- mkAsymmetricBRAM(False, False);
+   Reg#(Bit#(32)) cVacR <- mkReg(maxBound);
+   Reg#(Bool) newPattMultiOccR <- mkReg(False);
+   Reg#(Bit#(5)) vacFLocR <- mkReg(0);
 
-   rule ram_input;
+`define VACRAM AsymmetricBRAM#(Bit#(readDepthSz), Bit#(readSz), Bit#(writeDepthSz), Bit#(writeSz))
+   `VACRAM vacram <- mkAsymmetricBRAM(False, False);
+
+   function Bit#(32) compute_cVac(Bit#(32) rVac, Bool oldPattMultiOcc, Bool oldPattV, Bit#(5) oldIdx);
+      OInt#(32) oldIdxOH = toOInt(oldIdx);
+      Bool oldVac = !oldPattMultiOcc && oldPattV;
+      Vector#(32, Bit#(1)) maskOldVac = replicate(pack(oldVac));
+      Bit#(32) cVac = (~rVac) | (pack(oldIdxOH) & pack(maskOldVac));
+      return cVac;
+   endfunction
+
+   function Bit#(32) compute_wVac(Bit#(5) vacFLoc, Bool newPattMultiOcc, Bit#(32) cVac);
+      OInt#(32) vacFLocOH = toOInt(vacFLoc);
+      Vector#(32, Bit#(1)) maskNewVac = replicate(pack(newPattMultiOcc));
+      Bit#(32) wVac = ~(cVac & ((~pack(vacFLocOH)) | pack(maskNewVac)));
+      return wVac;
+   endfunction
+
+   rule vacram_write;
       let v <- toGet(writeReqFifo).get;
       Vector#(wAddrHWidth, Bit#(1)) wAddrH = takeAt(5, unpack(v));
-//      ram.wAddr.enq(pack(wAddrH));
-//      ram.rAddr.enq(pack(wAddrH));
+      Bit#(32) wVac = compute_wVac(vacFLocR, newPattMultiOccR, cVacR);
+      $display("vacram %d: vacFLoc=%x, newPattMultiOcc=%x, cVac=%x", cycle, vacFLocR, newPattMultiOccR, cVacR);
+      vacram.writeServer.put(tuple2(pack(wAddrH), wVac));
+      $display("vacram %d: vacram write wAddrH=%x, data=%x", cycle, pack(wAddrH), wVac);
+      vacram.readServer.request.put(pack(wAddrH));
+      $display("vacram %d: vacram read wAddrH=%x", cycle, pack(wAddrH));
    endrule
 
-//   PrioEnc#(32) pe_vac <- mkPE32();
-//   mkConnection(toPipeOut(cVac_fifo), pe_vac.oht);
+   rule newPatt;
+      let newPattMultiOcc <- toGet(newPattMultiOcc_fifo).get;
+      newPattMultiOccR <= newPattMultiOcc;
+   endrule
 
-//   rule pe_vac_out;
-//      let v <- toGet(pe_vac.pe).get;
-//      vacFLoc_fifo.enq(v.bin);
-//      t_vacFLoc_fifo.enq(v.bin);
-//   endrule
+   rule update_cVac;
+      let rVac <- vacram.readServer.response.get;
+      let oldPattMultiOcc <- toGet(oldPattMultiOcc_fifo).get;
+      let oldPattV <- toGet(oldPattV_fifo).get;
+      let oldIdx <- toGet(oldIdx_fifo).get;
+      Bit#(32) cVac = compute_cVac(rVac, oldPattMultiOcc, oldPattV, oldIdx);
+      cVacR <= cVac;
+      cVac_fifo.enq(cVac);
+      $display("vacram %d: rVac = %x, oldPattMultiOcc = %x, oldPattV = %x, oldIdx = %x", cycle, rVac, oldPattMultiOcc, oldPattV, oldIdx);
+   endrule
 
-//   rule mask_logic_cvac;
-//      let rVac <- toGet(ram.rData).get;
-//      let oldPattMultiOcc <- toGet(oldPattMultiOcc_fifo).get;
-//      let oldPattV <- toGet(oldPattV_fifo).get;
-//      let oldIdx <- toGet(oldIdx_fifo).get;
-//      let newPattMultiOcc <- toGet(newPattMultiOcc_fifo).get;
-//      let vacFLoc <- toGet(t_vacFLoc_fifo).get;
-//
-//      OInt#(32) oldIdxOH = toOInt(oldIdx);
-//      Bool oldVac = !oldPattMultiOcc && oldPattV;
-//      Vector#(32, Bit#(1)) maskOldVac = replicate(pack(oldVac));
-//      Bit#(32) cVac = (~rVac) | (pack(oldIdxOH) & pack(maskOldVac));
-//
-//      OInt#(32) vacFLocOH = toOInt(vacFLoc);
-//      Vector#(32, Bit#(1)) maskNewVac = replicate(pack(newPattMultiOcc));
-//      Bit#(32) wVac = ~(cVac & ((~pack(vacFLocOH)) | pack(maskNewVac)));
-//
-//      cVac_fifo.enq(cVac);
-//      wVac_fifo.enq(wVac);
-//   endrule
+   // Encode cVac and wVac
+   PEnc#(32) pe_vac <- mkPriorityEncoder(toPipeOut(cVac_fifo));
+
+   rule pe_vac_out;
+      let bin <- toGet(pe_vac.bin).get;
+      let vld <- toGet(pe_vac.vld).get;
+      vacFLoc_fifo.enq(bin);
+      vacFLocR <= bin;
+      $display("vacram %d: bin=%x vld=%x", cycle, bin, vld);
+   endrule
 
    interface Put wAddr = toPut(writeReqFifo);
    interface PipeIn oldPattV = toPipeIn(oldPattV_fifo);

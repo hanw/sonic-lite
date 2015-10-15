@@ -164,7 +164,7 @@ module mkSetram(Setram#(camDepth))
             Bit#(9) rPatt = fromMaybe(?, data[i].rpatt[j]);
             Bool rPattV = isValid(data[i].rpatt[j]);
             newPattIndc_prv[i*4+j] = (rPatt == wPatt) && rPattV;
-            $display("%d: rPatt=%x, rPattV=%d newPattIndc_prv=%d", cycle, fromMaybe(?, data[i].rpatt[j]), isValid(data[i].rpatt[j]), newPattIndc_prv[i*4+j]);
+            //$display("%d: rPatt=%x, rPattV=%d newPattIndc_prv=%d", cycle, fromMaybe(?, data[i].rpatt[j]), isValid(data[i].rpatt[j]), newPattIndc_prv[i*4+j]);
          end
       end
 
@@ -199,5 +199,4 @@ module mkSetram(Setram#(camDepth))
    interface PipeOut oldPattIndc = toPipeOut(oldPattIndc_fifo);
    interface PipeOut newPattIndc = toPipeOut(newPattIndc_fifo);
 endmodule
-
 
