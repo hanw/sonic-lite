@@ -58,9 +58,11 @@ import Parser::*;
 import Types::*;
 import SharedBuff::*;
 import `PinTypeInclude::*;
-//import BcamImpl::*;
+
+`ifdef DEBUG_BCAM
 import Bcam::*;
 import AsymmetricBRAM::*;
+`endif
 
 `define MTABLE 1;
 
@@ -73,7 +75,9 @@ interface P4TopIndication;
 `ifdef MTABLE
    method Action matchTableResponse(Bit#(32) key, Bit#(32) value);
 `endif
+`ifdef DEBUG_BCAM
    method Action cam_search_result(Bit#(32) data);
+`endif
    method Action read_setram_result(Bit#(64) data);
 endinterface
 
@@ -82,8 +86,10 @@ interface P4TopRequest;
    method Action writePacketData(Vector#(2, Bit#(64)) data, Bit#(1) sop, Bit#(1) eop);
    method Action readPacketBuffer(Bit#(16) addr);
    method Action writePacketBuffer(Bit#(16) addr, Bit#(64) data);
+`ifdef DEBUG_BCAM
    method Action camInsert(Bit#(32) addr, Bit#(32) data);
    method Action camSearch(Bit#(32) data);
+`endif
    method Action writeSetRam(Bit#(32) addr, Bit#(64) data);
    method Action readSetRam(Bit#(32) addr);
 `ifdef MTABLE
@@ -190,7 +196,6 @@ module mkP4Top#(P4TopIndication indication)(P4Top);
 //   mapM(uncurry(mkConnection), zip(mac.tx, phy.tx));
 //   mapM(uncurry(mkConnection), zip(phy.rx, mac.rx));
 
-   //Bcam#(Bit#(10), Bit#(9)) bcam <- mkBcamVerilog();
 `endif
 
    let verbose = True;
@@ -241,7 +246,9 @@ module mkP4Top#(P4TopIndication indication)(P4Top);
    MMUIndicationOutput mmuIndication <- mkMMUIndicationOutput;
 //   SharedBuffer#(12, 128, 1) buff <- mkSharedBuffer(vec(dmaClient), vec(dmaWriteClient), memServerIndication.ifc, mmuIndication.ifc);
 
+`ifdef DEBUG_BCAM
    BinaryCam#(1024, 9) bcam <- mkBinaryCam();
+`endif
 
    Reg#(Bit#(EtherLen)) pktLen <- mkReg(0);
    Reg#(Bit#(9)) rAddr_wires <- mkReg(0);
@@ -281,12 +288,14 @@ module mkP4Top#(P4TopIndication indication)(P4Top);
       $display("%d: Write done", cycle);
    endrule
 
+`ifdef DEBUG_BCAM
    rule readCam;
       let v <- bcam.readServer.response.get;
       if (isValid(v)) begin
          indication.cam_search_result(zeroExtend(fromMaybe(0, v)));
       end
    endrule
+`endif
 
 `ifdef DEBUG_SETRAM
    rule readSetram;
@@ -346,6 +355,7 @@ module mkP4Top#(P4TopIndication indication)(P4Top);
       endmethod
 `endif
 
+`ifdef DEBUG_BCAM
       method Action camInsert(Bit#(32) addr, Bit#(32) data);
          //FIXME: BcamWriteRequest
          bcam.writeServer.put(tuple2(truncate(addr), truncate(data)));
@@ -355,6 +365,7 @@ module mkP4Top#(P4TopIndication indication)(P4Top);
          //FIXME: BcamReadRequest
          bcam.readServer.request.put(truncate(data));
       endmethod
+`endif
 
 `ifdef DEBUG_SETRAM
       method Action writeSetRam(Bit#(32) addr, Bit#(64) data);
