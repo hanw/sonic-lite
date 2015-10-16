@@ -86,7 +86,7 @@ endinterface
 //
 //endmodule
 
-module mkAsymmetricBRAM#(Bool hasOutputRegister, Bool hasForwarding)
+module mkAsymmetricBRAM#(Bool hasOutputRegister, Bool hasForwarding, String name)
                                (AsymmetricBRAM#(raddr_t, rdata_t, waddr_t, wdata_t))
     provisos(
         Bits#(raddr_t, raddr_sz),
@@ -102,7 +102,7 @@ module mkAsymmetricBRAM#(Bool hasOutputRegister, Bool hasForwarding)
     `ifndef BSIM
         ret_ifc <- mkAsymmetricBRAMVerilog(hasOutputRegister, hasForwarding);
     `else
-        ret_ifc <- mkAsymmetricBRAMBluesim(hasOutputRegister, hasForwarding);
+        ret_ifc <- mkAsymmetricBRAMBluesim(hasOutputRegister, hasForwarding, name);
     `endif
     return ret_ifc;
 endmodule
@@ -160,7 +160,7 @@ import "BDPI" mem_write     = function Action mem_write(Bit#(64) mem_ptr, waddr_
                               provisos (Bits#(waddr_t, waddr_sz),
                                         Bits#(wdata_t, wdata_sz));
 
-module mkAsymmetricBRAMBluesim#(Bool hasOutputRegister, Bool hasForwarding)
+module mkAsymmetricBRAMBluesim#(Bool hasOutputRegister, Bool hasForwarding, String name)
                                (AsymmetricBRAM#(raddr_t, rdata_t, waddr_t, wdata_t))
     provisos(
         Bits#(raddr_t, raddr_sz),
@@ -189,7 +189,7 @@ module mkAsymmetricBRAMBluesim#(Bool hasOutputRegister, Bool hasForwarding)
        let v <- toGet(readReqFifo).get;
        rdata_t rdata  <- mem_read(mem_ptr, v);
        readDataFifo.enq(rdata);
-       $display("%d: read data from %x with index %x = %x", cntr, mem_ptr, v, rdata);
+       $display("%s %d: read data from %x with index %x = %x", name, cntr, mem_ptr, v, rdata);
     endrule
 
     rule do_write (isInitialized);
@@ -197,7 +197,7 @@ module mkAsymmetricBRAMBluesim#(Bool hasOutputRegister, Bool hasForwarding)
        let writeAddr = tpl_1(v);
        let writeData = tpl_2(v);
        mem_write(mem_ptr, writeAddr, writeData);
-       $display("%d: write data to %x with index %x = %x", cntr, mem_ptr, writeAddr, writeData);
+       $display("%s %d: write data to %x with index %x = %x", name, cntr, mem_ptr, writeAddr, writeData);
     endrule
 
     rule do_init (!isInitialized);
@@ -206,6 +206,7 @@ module mkAsymmetricBRAMBluesim#(Bool hasOutputRegister, Bool hasForwarding)
                              fromInteger(valueOf(wdata_sz)));
        mem_ptr <= tmp;
        isInitialized <= True;
+
        if (valueOf(raddr_sz) > 64) begin
          $display("raddr_sz larger than 64 is not supported");
        end

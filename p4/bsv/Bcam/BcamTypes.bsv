@@ -20,4 +20,11 @@
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-
+typedef struct {
+   Bit#(9) wPatt;
+   Bit#(TAdd#(TSub#(TLog#(camDepth), 9), 5)) wAddr_indx;
+   Bit#(5) wAddr_indc;
+   Bit#(5) wIndx;
+   Bit#(32) wIndc;
+   Bool wIVld;
+} RamWriteRequest#(numeric type camDepth) deriving (Bits);

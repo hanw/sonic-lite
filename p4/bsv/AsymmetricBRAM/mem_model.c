@@ -27,6 +27,8 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <stdint.h>
 
 typedef struct {
     unsigned char ** data;
@@ -57,17 +59,21 @@ unsigned long long mem_create(unsigned int * memSize,
     m->writeElementSize = *writeElementSize;
 
     m->data = (unsigned char **) malloc (*memSize * sizeof(unsigned char *));
-    memset(m->data, 0, *memSize * sizeof(unsigned char *));
 
     unsigned int i;
     for (i = 0; i < *memSize; i++)
     {
         m->data[i] = (unsigned char *) malloc (m->elementByteSize * sizeof(unsigned char));
-        memset(m->data[i], 0, m->elementByteSize * sizeof(unsigned char));
     }
+    unsigned int j, k;
+    for (j=0; j<*memSize; j++) {
+        for (k=0; k<m->elementByteSize; k++) {
+            m->data[j][k] = 0;
+        }
+    }
+    fprintf(stderr, "memSize=%d, elemByteSize=%d\n", *memSize, m->elementByteSize);
 
     return (unsigned long long) m;
-
 }
 
 void mem_read(unsigned int * rdata_return, unsigned long long mem_ptr, unsigned int * rindex)
@@ -77,24 +83,29 @@ void mem_read(unsigned int * rdata_return, unsigned long long mem_ptr, unsigned 
     unsigned int return_size = ((m->readElementSize)%8) ?
                                ((m->readElementSize)/8) + 1:
                                ((m->readElementSize)/8);
-    unsigned long long output = 0;
+    uint64_t output = 0;
 
-    unsigned int base = (*rindex) * (m->elementByteSize) * (m->ratio);
+    unsigned int base = (*rindex) * (m->ratio); //* (m->elementByteSize) 
     unsigned int i, j;
+    //fprintf(stderr, "rindex=%x, ratio=%d, elementByteSize=%d\n", *rindex, m->ratio, m->elementByteSize);
     for (i = 0; i < (m->ratio); i++)
     {
         for (j = 0; j < m->elementByteSize; j++)
         {
-            unsigned char bits = m->data[base+i*(m->elementByteSize)+j];
-            if (j==(m->elementByteSize-1)) {
-                unsigned char mask = ((1 << (m->writeElementSize % 8)) - 1); 
-                output |= (bits & mask) << ((m->elementByteSize-1)*8 + (i*(m->writeElementSize)));
+            unsigned char bits = m->data[base+i][j];
+            //fprintf(stderr, "%p: base=%x, offset=%x, bits=%x\n", m->data, base+i, j, bits);
+            if (j!=(m->elementByteSize-1)) {
+                int shift_a = i * (m->writeElementSize);
+                output |= ((uint64_t)bits) << shift_a;
             } else {
-                output |= (bits << (i*(m->writeElementSize)));
+                unsigned char mask = ((1 << (m->writeElementSize % 8)) - 1); 
+                int shift_a = i * (m->writeElementSize);
+                output |= ((uint64_t)(bits & mask) << ((m->elementByteSize-1)*8 + shift_a));
             }
         }
     }
 
+    //fprintf(stderr, "read data=%llx\n", output);
     for (i=0; i<return_size; i++) {
         ((unsigned char*)(rdata_return))[i] = (output >> (i * 8)) & 0xFF;
     }
@@ -104,31 +115,13 @@ void mem_write(unsigned long long mem_ptr, unsigned int * windex, unsigned int *
 {
     mem_t * m = (mem_t*) mem_ptr;
 
-    unsigned int base = (*windex) * (m->elementByteSize);
+    unsigned int base = (*windex);// * (m->elementByteSize);
     unsigned int i;
-    //fprintf(stderr, "write base= %x\n", base);
+    //fprintf(stderr, "write windex=%x, m->elementByteSize=%x\n", *windex, m->elementByteSize);
     for (i = 0; i < m->elementByteSize; i++)
     {
-        //fprintf(stderr, "write addr=%x, data=%x\n", base+i, ((unsigned char *)(wdata))[i]);
-        m->data[base+i] = ((unsigned char *)(wdata))[i];
-    }
-}
-
-// TODO need testing
-void mem_write_be(unsigned long long mem_ptr, unsigned int * wbe, unsigned int * windex, unsigned int * wdata)
-{
-    mem_t * m = (mem_t*) mem_ptr;
-
-    unsigned int base = (m->ratio)*(*windex);
-
-    unsigned int i, j;
-    for (i = 0; i < m->ratio; i++)
-    {
-        for (j = 0; j < m->elementByteSize; j++)
-        {
-            if((*wbe)&(1<<((m->elementByteSize)*i+j)))
-                m->data[base+i][j] = ((unsigned char *)(wdata))[(m->elementByteSize)*i+j];
-        }
+        //fprintf(stderr, "%p: write addr=%x, offset=%x, data=%x\n", m->data, base, i, ((unsigned char *)(wdata))[i]);
+        m->data[base][i] = ((unsigned char *)(wdata))[i];
     }
 }
 

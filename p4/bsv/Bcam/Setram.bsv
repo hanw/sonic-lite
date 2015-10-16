@@ -47,6 +47,7 @@ endinstance
 
 interface Setram#(numeric type camDepth);
    interface Put#(Tuple2#(Bit#(TLog#(camDepth)), Bit#(9))) writeServer;
+   interface PipeIn#(Bool) wEnb_setram;
    interface PipeOut#(Bit#(9)) oldPatt;
    interface PipeOut#(Bool) oldPattV;
    interface PipeOut#(Bool) oldPattMultiOcc;
@@ -81,7 +82,8 @@ module mkSetram(Setram#(camDepth))
       cycle <= cycle + 1;
    endrule
 
-   FIFO#(Tuple2#(Bit#(camSz), Bit#(9))) writeReqFifo <- mkFIFO;
+   FIFOF#(Tuple2#(Bit#(camSz), Bit#(9))) writeReqFifo <- mkFIFOF;
+   FIFOF#(Bool) wEnb_setram_fifo <- mkFIFOF;
    FIFOF#(Bit#(9)) oldPatt_fifo <- mkBypassFIFOF();
    FIFOF#(Bool) oldPattV_fifo<- mkBypassFIFOF();
    FIFOF#(Bool) oldPattMultiOcc_fifo <- mkBypassFIFOF();
@@ -91,21 +93,20 @@ module mkSetram(Setram#(camDepth))
    FIFOF#(Bit#(32)) newPattIndc_fifo <- mkBypassFIFOF();
    FIFOF#(Bit#(32)) newPattIndc_prv_fifo <- mkBypassFIFOF();
    FIFOF#(Vector#(8, RPatt)) rpatt_fifo <- mkBypassFIFOF();
-   FIFOF#(Bit#(5)) wAddrL_fifo <- mkFIFOF();
-   FIFOF#(OInt#(32)) wAddrLOH_fifo <- mkFIFOF();
-   FIFOF#(Bit#(9)) wPatt_fifo <- mkFIFOF();
 
 `define SETRAM AsymmetricBRAM#(Bit#(readDepthSz), Bit#(readSz), Bit#(writeDepthSz), Bit#(writeSz))
 
-   Vector#(8, `SETRAM) setRam <- replicateM(mkAsymmetricBRAM(False, False));
+   Vector#(8, `SETRAM) setRam <- replicateM(mkAsymmetricBRAM(False, False, "Setram"));
 
+   Vector#(3, PipeOut#(Tuple2#(Bit#(camSz), Bit#(9)))) writeRequestPipes <- mkForkVector(toPipeOut(writeReqFifo));
    PEnc#(32) pe_multiOcc <- mkPriorityEncoder(toPipeOut(newPattIndc_prv_fifo));
 
    rule setram_input;
-      let v <- toGet(writeReqFifo).get;
+      let v <- toGet(writeRequestPipes[0]).get;
+      let wEnb <- toGet(wEnb_setram_fifo).get;
       let wAddr = tpl_1(v);
       let wPatt = tpl_2(v);
-      if (verbose) $display("%d: setram writeReq %x", cycle, v);
+      if (verbose) $display("setram %d: writeReq wAddr=%x, wPatt=%x", cycle, wAddr, wPatt);
       Vector#(3, Bit#(1)) wAddrLH = takeAt(2, unpack(wAddr));
       Vector#(2, Bit#(1)) wAddrLL = take(unpack(wAddr));
       Vector#(wAddrHWidth, Bit#(1)) wAddrH = takeAt(5, unpack(wAddr));
@@ -114,38 +115,42 @@ module mkSetram(Setram#(camDepth))
 
       Bit#(writeDepthSz) writeAddr = {pack(wAddrH), pack(wAddrLL)};
       Maybe#(Bit#(dataSz)) writeData = tagged Valid wPatt;
-      if (verbose) $display("%d: writeAddr=%x, writeData=%x", cycle, writeAddr, writeData);
+      if (verbose) $display("setram %d: toRam writeAddr=%x, writeData=%x", cycle, writeAddr, writeData);
       for (Integer i=0; i<8; i=i+1) begin
          if (fromInteger(i) == pack(wAddrLH)) begin
             setRam[i].writeServer.put(tuple2(writeAddr, pack(writeData)));
          end
       end
-      if (verbose) $display("%d: readAddr=%x", cycle, pack(wAddrH));
+   endrule
+
+   rule setram_read_request;
+      let v <- toGet(writeRequestPipes[1]).get;
+      let wAddr = tpl_1(v);
+      Vector#(wAddrHWidth, Bit#(1)) wAddrH = takeAt(5, unpack(wAddr));
+      if (verbose) $display("setram %d: setram read Addr=%x", cycle, pack(wAddrH));
       for (Integer i=0; i<8; i=i+1) begin
          setRam[i].readServer.request.put(pack(wAddrH));
       end
-      wAddrL_fifo.enq(pack(wAddrL));
-      wAddrLOH_fifo.enq(wAddrLOH);
-      wPatt_fifo.enq(wPatt);
    endrule
 
-   rule setram_readdata;
-      let wAddrL <- toGet(wAddrL_fifo).get;
-      let wAddrLOH <- toGet(wAddrLOH_fifo).get;
-      let wPatt <- toGet(wPatt_fifo).get;
+   rule setram_read_response;
+      let v <- toGet(writeRequestPipes[2]).get;
+      let wAddr = tpl_1(v);
+      let wPatt = tpl_2(v);
+      Vector#(5, Bit#(1)) wAddrL = take(unpack(wAddr));
+      OInt#(32) wAddrLOH = toOInt(pack(wAddrL));
       Vector#(8, RPatt) data = newVector;
       for (Integer i=0; i<8; i=i+1) begin
-         let v <- setRam[i].readServer.response.get;
-         Vector#(4, Maybe#(Bit#(9))) m = unpack(v);
-         data[i] = unpack(v);
+         let setram_data <- setRam[i].readServer.response.get;
+         Vector#(4, Maybe#(Bit#(9))) m = unpack(setram_data);
+         data[i] = unpack(setram_data);
       end
-      Bit#(3) wAddrL_ram = wAddrL[4:2];
-      Bit#(2) wAddrL_word = wAddrL[1:0];
+      Bit#(3) wAddrL_ram = pack(wAddrL)[4:2];
+      Bit#(2) wAddrL_word = pack(wAddrL)[1:0];
       Bool oldPattV = isValid(data[wAddrL_ram].rpatt[wAddrL_word]);
       Bit#(9) oldPatt = fromMaybe(?, data[wAddrL_ram].rpatt[wAddrL_word]);
-      if(verbose) $display("%d: oldPatt=%x oldPattV=%d", cycle, oldPatt, oldPattV);
+      if(verbose) $display("setram %d: lastWritten oldPatt=%x oldPattV=%d", cycle, oldPatt, oldPattV);
 
-      if (verbose) $display("%d setram::readdata wAddrLOH %x", cycle, wAddrLOH);
       Vector#(32, Bool) oldPattIndc;
       for (Integer i=0; i<8; i=i+1) begin
          for (Integer j=0; j<4; j=j+1) begin
@@ -157,6 +162,7 @@ module mkSetram(Setram#(camDepth))
          end
       end
       oldPattIndc_fifo.enq(pack(oldPattIndc));
+      if (verbose) $display("setram %d: oldPattIndc=%x", cycle, pack(oldPattIndc));
 
       Vector#(32, Bool) newPattIndc_prv;
       for (Integer i=0; i<8; i=i+1) begin
@@ -169,14 +175,15 @@ module mkSetram(Setram#(camDepth))
       end
 
       newPattIndc_prv_fifo.enq(pack(newPattIndc_prv));
-      $display("%d: netPattIndc_prv=%x", cycle, pack(newPattIndc_prv));
 
       Bit#(32) newPattIndc = pack(newPattIndc_prv) | pack(wAddrLOH);
       newPattIndc_fifo.enq(newPattIndc);
+      if (verbose) $display("setram %d: newPattIndc=%x", cycle, newPattIndc);
 
       // detect if old pattern has multi-occurence in segment
       Bool oldPattMultiOcc = (pack(oldPattIndc) != 0);
       oldPattMultiOcc_fifo.enq(oldPattMultiOcc);
+      if (verbose) $display("setram %d: oldPattMultiOcc=%x", cycle, oldPattMultiOcc);
 
       oldPatt_fifo.enq(oldPatt);
       oldPattV_fifo.enq(oldPattV);
@@ -187,10 +194,12 @@ module mkSetram(Setram#(camDepth))
       let vld <- toGet(pe_multiOcc.vld).get;
       newPattOccFLoc_fifo.enq(bin);
       newPattMultiOcc_fifo.enq(vld);
-      $display("%d: bin=%x, vld=%x", cycle, bin, vld);
+      if (verbose) $display("setram %d: bin=%x, vld=%x", cycle, bin, vld);
+      if (verbose) $display("setram %d: newPattMultiOcc=%x, newPattOccFLoc=%x", cycle, vld, bin);
    endrule
 
    interface Put writeServer = toPut(writeReqFifo);
+   interface PipeIn wEnb_setram = toPipeIn(wEnb_setram_fifo);
    interface PipeOut oldPatt = toPipeOut(oldPatt_fifo);
    interface PipeOut oldPattV = toPipeOut(oldPattV_fifo);
    interface PipeOut oldPattMultiOcc = toPipeOut(oldPattMultiOcc_fifo);

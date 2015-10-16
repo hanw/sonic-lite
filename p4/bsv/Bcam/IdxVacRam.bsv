@@ -42,6 +42,8 @@ interface IdxVacram#(numeric type camDepth);
    interface PipeIn#(Bool) oldNewbPattWr;
    interface PipeIn#(Bit#(5)) newPattOccFLoc;
 
+   interface PipeIn#(Bool) wEnb_vacram;
+   interface PipeIn#(Bool) wEnb_idxram;
    interface PipeOut#(Bit#(5)) wIndx;
 endinterface
 
@@ -76,7 +78,7 @@ module mkIdxVacram(IdxVacram#(camDepth))
    // Vacancy Ram
    let verbose = True;
    Reg#(Bit#(32)) cycle <- mkReg(0);
-   rule every1;
+   rule every1 if (verbose);
       cycle <= cycle + 1;
    endrule
 
@@ -90,7 +92,10 @@ module mkIdxVacram(IdxVacram#(camDepth))
    FIFOF#(Bit#(32)) wVac_fifo <- mkBypassFIFOF();
    FIFOF#(Bit#(32)) cVac_fifo <- mkBypassFIFOF();
 
-   Vector#(2, PipeOut#(Bit#(camSz))) wAddrPipes <- mkForkVector(toPipeOut(writeReqFifo));
+   FIFOF#(Bool) wEnb_vacram_fifo <- mkBypassFIFOF;
+   FIFOF#(Bool) wEnb_idxram_fifo <- mkBypassFIFOF;
+
+   Vector#(4, PipeOut#(Bit#(camSz))) wAddrPipes <- mkForkVector(toPipeOut(writeReqFifo));
 
    Reg#(Bit#(32)) cVacR <- mkReg(maxBound);
    Reg#(Bool) oldPattMultiOccR <- mkReg(False);
@@ -107,7 +112,7 @@ module mkIdxVacram(IdxVacram#(camDepth))
    FIFOF#(Bit#(160)) data_newPatt_fifo <- mkBypassFIFOF();
 
 `define VACRAM AsymmetricBRAM#(Bit#(vacReadDepthSz), Bit#(vacReadSz), Bit#(vacWriteDepthSz), Bit#(vacWriteSz))
-   `VACRAM vacram <- mkAsymmetricBRAM(False, False);
+   `VACRAM vacram <- mkAsymmetricBRAM(False, False, "Vacram");
 
    function Bit#(32) compute_cVac(Bit#(32) rVac, Bool oldPattMultiOcc, Bool oldPattV, Bit#(5) oldIdx);
       OInt#(32) oldIdxOH = toOInt(oldIdx);
@@ -124,15 +129,32 @@ module mkIdxVacram(IdxVacram#(camDepth))
       return wVac;
    endfunction
 
+   rule vacram_read_request;
+      let wAddr <- toGet(wAddrPipes[1]).get;
+      Vector#(wAddrHWidth, Bit#(1)) wAddrH = takeAt(5, unpack(wAddr));
+      vacram.readServer.request.put(pack(wAddrH));
+      $display("vacram %d: vacram read wAddrH=%x", cycle, pack(wAddrH));
+   endrule
+
+   rule vacram_read_response;
+      let rVac <- vacram.readServer.response.get;
+      let oldPattMultiOcc <- toGet(oldPattMultiOcc_fifo).get;
+      let oldPattV <- toGet(oldPattV_fifo).get;
+      oldPattMultiOccR <= oldPattMultiOcc;
+      Bit#(32) cVac = compute_cVac(rVac, oldPattMultiOcc, oldPattV, oldIdxR);
+      cVacR <= cVac;
+      cVac_fifo.enq(cVac);
+      $display("vacram %d: response rVac = %x, oldPattMultiOcc = %x, oldPattV = %x, oldIdx = %x", cycle, rVac, oldPattMultiOcc, oldPattV, oldIdxR);
+   endrule
+
    rule vacram_write;
       let wAddr <- toGet(wAddrPipes[0]).get;
+      let wEnb <- toGet(wEnb_vacram_fifo).get;
       Vector#(wAddrHWidth, Bit#(1)) wAddrH = takeAt(5, unpack(wAddr));
       Bit#(32) wVac = compute_wVac(vacFLocR, newPattMultiOccR, cVacR);
       $display("vacram %d: vacFLoc=%x, newPattMultiOcc=%x, cVac=%x", cycle, vacFLocR, newPattMultiOccR, cVacR);
       vacram.writeServer.put(tuple2(pack(wAddrH), wVac));
       $display("vacram %d: vacram write wAddrH=%x, data=%x", cycle, pack(wAddrH), wVac);
-      vacram.readServer.request.put(pack(wAddrH));
-      $display("vacram %d: vacram read wAddrH=%x", cycle, pack(wAddrH));
    endrule
 
    rule newPatt;
@@ -142,19 +164,8 @@ module mkIdxVacram(IdxVacram#(camDepth))
       Bit#(5) oldIdx_ = oldPattMultiOccR ? oldIdxR : 0;
       Bit#(5) newIdx_ = newPattMultiOcc ? newIdxR : vacFLocR;
       Bit#(5) wIndx = oldNewbPattWr ? oldIdx_ : newIdx_;
-      $display("vacram %d: compute oldIdx_=%x, newIdx_=%x", cycle, oldIdx_, newIdx_);
+      $display("vacram %d: compute oldIdx_=%x, newIdx_=%x wIndx=%x", cycle, oldIdx_, newIdx_, wIndx);
       wIndx_fifo.enq(wIndx);
-   endrule
-
-   rule update_cVac;
-      let rVac <- vacram.readServer.response.get;
-      let oldPattMultiOcc <- toGet(oldPattMultiOcc_fifo).get;
-      let oldPattV <- toGet(oldPattV_fifo).get;
-      oldPattMultiOccR <= oldPattMultiOcc;
-      Bit#(32) cVac = compute_cVac(rVac, oldPattMultiOcc, oldPattV, oldIdxR);
-      cVacR <= cVac;
-      cVac_fifo.enq(cVac);
-      $display("vacram %d: rVac = %x, oldPattMultiOcc = %x, oldPattV = %x, oldIdx = %x", cycle, rVac, oldPattMultiOcc, oldPattV, oldIdxR);
    endrule
 
    // Encode cVac and wVac
@@ -168,29 +179,37 @@ module mkIdxVacram(IdxVacram#(camDepth))
    endrule
 
 `define IDXRAM AsymmetricBRAM#(Bit#(readDepthSz), Bit#(readSz), Bit#(writeDepthSz), Bit#(writeSz))
-   Vector#(4, `IDXRAM) idxRam <- replicateM(mkAsymmetricBRAM(False, False));
+   Vector#(4, `IDXRAM) idxRam <- replicateM(mkAsymmetricBRAM(False, False, "Idxram"));
 
    rule idxram_write;
-      let wAddr <- toGet(wAddrPipes[1]).get;
+      let wAddr <- toGet(wAddrPipes[2]).get;
+      let wEnb <- toGet(wEnb_idxram_fifo).get;
       Vector#(2, Bit#(1)) wAddrLH = takeAt(3, unpack(wAddr));
       Vector#(3, Bit#(1)) wAddrLL = take(unpack(wAddr));
       Vector#(5, Bit#(1)) wAddrL = take(unpack(wAddr));
       Vector#(wAddrHWidth, Bit#(1)) wAddrH = takeAt(5, unpack(wAddr));
       Bit#(writeDepthSz) writeAddr = {pack(wAddrH), pack(wAddrLL)};
-      if (verbose) $display("%d: wAddrLH %x", cycle, pack(wAddrLH));
-      if (verbose) $display("%d: wAddrLL %x", cycle, pack(wAddrLL));
-      if (verbose) $display("%d: wAddrH %x", cycle, pack(wAddrH));
+      if (verbose) $display("idxram %d: wAddrLH %x", cycle, pack(wAddrLH));
+      if (verbose) $display("idxram %d: wAddrLL %x", cycle, pack(wAddrLL));
+      if (verbose) $display("idxram %d: wAddrH %x", cycle, pack(wAddrH));
       for (Integer i=0; i<4; i=i+1) begin
          if (fromInteger(i) == pack(wAddrLH)) begin
             if (verbose) $display("idxram %d: write memory %x, addr=%x data=%x", cycle, i, writeAddr, vacFLocR);
             idxRam[i].writeServer.put(tuple2(writeAddr, vacFLocR));
          end
       end
+      if (verbose) $display("idxram %d: wAddrL %x", cycle, pack(wAddrL));
+      wAddrL_fifo.enq(pack(wAddrL));
+   endrule
+
+   rule idxram_read;
+      let wAddr <- toGet(wAddrPipes[3]).get;
+      Vector#(wAddrHWidth, Bit#(1)) wAddrH = takeAt(5, unpack(wAddr));
+      Vector#(5, Bit#(1)) wAddrL = take(unpack(wAddr));
       for (Integer i=0; i<4; i=i+1) begin
          idxRam[i].readServer.request.put(pack(wAddrH));
       end
-      if (verbose) $display("idxram %d: wAddrL %x", cycle, pack(wAddrL));
-      wAddrL_fifo.enq(pack(wAddrL));
+      if (verbose) $display("idxram %d: idxram read addr=%x", cycle, pack(wAddrH));
    endrule
 
    rule idxram_readdata;
@@ -202,7 +221,7 @@ module mkIdxVacram(IdxVacram#(camDepth))
       Bit#(160) data_pack = pack(data);
       data_oldPatt_fifo.enq(data_pack);
       data_newPatt_fifo.enq(data_pack);
-      $display("idxram %d: readRam", cycle);
+      $display("idxram %d: response %x", cycle, data_pack);
    endrule
 
    rule oldPatt_indx;
@@ -227,5 +246,7 @@ module mkIdxVacram(IdxVacram#(camDepth))
    interface PipeIn newPattMultiOcc = toPipeIn(newPattMultiOcc_fifo);
    interface PipeIn newPattOccFLoc = toPipeIn(newPattOccFLoc_fifo);
    interface PipeIn oldNewbPattWr = toPipeIn(oldNewbPattWr_fifo);
+   interface PipeIn wEnb_vacram = toPipeIn(wEnb_vacram_fifo);
+   interface PipeIn wEnb_idxram = toPipeIn(wEnb_idxram_fifo);
    interface PipeOut wIndx = toPipeOut(wIndx_fifo);
 endmodule

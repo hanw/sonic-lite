@@ -347,10 +347,12 @@ module mkP4Top#(P4TopIndication indication)(P4Top);
 `endif
 
       method Action camInsert(Bit#(32) addr, Bit#(32) data);
+         //FIXME: BcamWriteRequest
          bcam.writeServer.put(tuple2(truncate(addr), truncate(data)));
       endmethod
 
       method Action camSearch(Bit#(32) data);
+         //FIXME: BcamReadRequest
          bcam.readServer.request.put(truncate(data));
       endmethod
 

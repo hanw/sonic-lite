@@ -100,7 +100,7 @@ module mkVacram(Vacram#(camDepth))
       Bit#(32) wVac = compute_wVac(vacFLocR, newPattMultiOccR, cVacR);
       $display("vacram %d: vacFLoc=%x, newPattMultiOcc=%x, cVac=%x", cycle, vacFLocR, newPattMultiOccR, cVacR);
       vacram.writeServer.put(tuple2(pack(wAddrH), wVac));
-      $display("vacram %d: vacram write wAddrH=%x, data=%x", cycle, pack(wAddrH), wVac);
+      $display("vacram %d: vacram write wAddrH=%x, wVac=%x", cycle, pack(wAddrH), wVac);
       vacram.readServer.request.put(pack(wAddrH));
       $display("vacram %d: vacram read wAddrH=%x", cycle, pack(wAddrH));
    endrule
@@ -118,7 +118,7 @@ module mkVacram(Vacram#(camDepth))
       Bit#(32) cVac = compute_cVac(rVac, oldPattMultiOcc, oldPattV, oldIdx);
       cVacR <= cVac;
       cVac_fifo.enq(cVac);
-      $display("vacram %d: rVac = %x, oldPattMultiOcc = %x, oldPattV = %x, oldIdx = %x", cycle, rVac, oldPattMultiOcc, oldPattV, oldIdx);
+      $display("vacram %d: rVac = %x, cVac=%x, oldPattMultiOcc = %x, oldPattV = %x, oldIdx = %x", cycle, rVac, cVac, oldPattMultiOcc, oldPattV, oldIdx);
    endrule
 
    // Encode cVac and wVac

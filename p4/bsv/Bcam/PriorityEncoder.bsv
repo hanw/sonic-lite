@@ -67,8 +67,8 @@ instance PriorityEncoder#(n)
                             (PEnc#(n));
       FIFOF#(Bit#(TLog#(n))) binpipe <- mkFIFOF;
       FIFOF#(Bool) vldpipe <- mkFIFOF;
-      FIFOF#(Bit#(nhalf)) p0_infifo <- mkBypassFIFOF;
-      FIFOF#(Bit#(nhalf)) p1_infifo <- mkBypassFIFOF;
+      FIFOF#(Bit#(nhalf)) p0_infifo <- mkFIFOF;
+      FIFOF#(Bit#(nhalf)) p1_infifo <- mkFIFOF;
 
       PEnc#(TDiv#(n, 2)) p0 <- mkPriorityEncoder(toPipeOut(p0_infifo));
       PEnc#(TDiv#(n, 2)) p1 <- mkPriorityEncoder(toPipeOut(p1_infifo));

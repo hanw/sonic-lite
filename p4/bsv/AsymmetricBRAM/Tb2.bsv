@@ -34,8 +34,8 @@ import ClientServer::*;
 
 (* synthesize *)
 module mkTb2();
-    AsymmetricBRAM#(Bit#(16),Bit#(40),Bit#(18),Bit#(10))   bram1 <- mkAsymmetricBRAM(False, False);
-    AsymmetricBRAM#(Bit#(2),Bit#(256),Bit#(5),Bit#(32))    bram2 <- mkAsymmetricBRAM(False, False);
+    AsymmetricBRAM#(Bit#(10),Bit#(32),Bit#(10),Bit#(32))   bram1 <- mkAsymmetricBRAM(False, False, "Test");
+//    AsymmetricBRAM#(Bit#(2),Bit#(256),Bit#(5),Bit#(32))    bram2 <- mkAsymmetricBRAM(False, False);
 //    AsymmetricBRAM#(Bit#(1),Bit#(32),Bit#(3),Bit#(8))    bram3 <- mkAsymmetricBRAM(False, False);
 //    AsymmetricBRAM#(Bit#(2),Bit#(8),Bit#(2),Bit#(8))     bram4 <- mkAsymmetricBRAM(False, False);
 
@@ -47,16 +47,16 @@ module mkTb2();
     Stmt test_bram1 = seq
         noAction;
         action
-        $display("bram1.writeServer.put(0x62,10'h224)");
-        bram1.writeServer.put(tuple2('h62,10'h224));
+        $display("bram1.writeServer.put(0x0,'h4)");
+        bram1.writeServer.put(tuple2('h0,'h4));
         endaction
-//        action
-//        $display("bram1.writeServer.put(0x63,10'h224)");
-//        bram1.writeServer.put(tuple2('h63,10'h224));
-//        endaction
         action
-        $display("bram1.readServer.request.put('h18)");
-        bram1.readServer.request.put('h18);
+        $display("bram1.writeServer.put(0x0,'h4)");
+        bram1.writeServer.put(tuple2('h0,'h4));
+        endaction
+        action
+        $display("bram1.readServer.request.put('h0)");
+        bram1.readServer.request.put('h0);
         endaction
         action
         $display("bram1.readServer.response.get(), should be ");
@@ -81,42 +81,42 @@ module mkTb2();
         $display("TEST bram1 FINISHED");
     endseq;
 
-    Stmt test_bram2 = seq
-        noAction;
-        action
-        $display("bram2.write(0,32'h01234567)");
-        bram2.writeServer.put(tuple2(0,32'h01234567));
-        endaction
-        action
-        $display("bram2.read(0)");
-        bram2.readServer.request.put(0);
-        endaction
-        action
-        $display("bram2.getRead(), should be 0xdeadbabe");
-        $display("addr 0 = 0x%0x", bram2.readServer.response.get());
-        endaction
-        action
-        $display("bram2.read(2)");
-        bram2.readServer.request.put(2);
-        endaction
-        action
-        $display("bram2.getRead(), should be 0x89abcdef");
-        $display("addr 2 = 0x%0x", bram2.readServer.response.get());
-        endaction
-        action
-        $display("bram2.write(1,256'hfeedbabedeadbabe0123456789abcdef)");
-        bram2.writeServer.put(tuple2(1,32'hfeedbabe));
-        endaction
-        action
-        $display("bram2.read(1)");
-        bram2.readServer.request.put(0);
-        endaction
-        action
-        $display("bram2.getRead(), should be 0xfeedbabe");
-        $display("addr 1 = 0x%0x", bram2.readServer.response.get());
-        endaction
-        $display("TEST bram2 FINISHED");
-    endseq;
+//    Stmt test_bram2 = seq
+//        noAction;
+//        action
+//        $display("bram2.write(0,32'h01234567)");
+//        bram2.writeServer.put(tuple2(0,32'h01234567));
+//        endaction
+//        action
+//        $display("bram2.read(0)");
+//        bram2.readServer.request.put(0);
+//        endaction
+//        action
+//        $display("bram2.getRead(), should be 0xdeadbabe");
+//        $display("addr 0 = 0x%0x", bram2.readServer.response.get());
+//        endaction
+//        action
+//        $display("bram2.read(2)");
+//        bram2.readServer.request.put(2);
+//        endaction
+//        action
+//        $display("bram2.getRead(), should be 0x89abcdef");
+//        $display("addr 2 = 0x%0x", bram2.readServer.response.get());
+//        endaction
+//        action
+//        $display("bram2.write(1,256'hfeedbabedeadbabe0123456789abcdef)");
+//        bram2.writeServer.put(tuple2(1,32'hfeedbabe));
+//        endaction
+//        action
+//        $display("bram2.read(1)");
+//        bram2.readServer.request.put(0);
+//        endaction
+//        action
+//        $display("bram2.getRead(), should be 0xfeedbabe");
+//        $display("addr 1 = 0x%0x", bram2.readServer.response.get());
+//        endaction
+//        $display("TEST bram2 FINISHED");
+//    endseq;
 
 //    Stmt test_bram3 = seq
 //        noAction;
