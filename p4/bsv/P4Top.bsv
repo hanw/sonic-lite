@@ -39,11 +39,8 @@ import MemReadEngine::*;
 import MemWriteEngine::*;
 import MemServerIndication::*;
 import MMUIndication::*;
-
-`ifdef DEBUG_MATCH_TABLE
 import MatchTable::*;
 import MatchTableTypes::*;
-`endif
 
 import AlteraExtra::*;
 import AlteraEthPhy::*;
@@ -65,11 +62,15 @@ import `PinTypeInclude::*;
 import Bcam::*;
 import AsymmetricBRAM::*;
 
+`define MTABLE 1;
+
+`define MTABLE 1;
+
 typedef TDiv#(DataBusWidth, 32) WordsPerBeat;
 
 interface P4TopIndication;
    method Action sonic_read_version_resp(Bit#(32) version);
-`ifdef DEBUG_MATCH_TABLE
+`ifdef MTABLE
    method Action matchTableResponse(Bit#(32) key, Bit#(32) value);
 `endif
    method Action cam_search_result(Bit#(32) data);
@@ -85,11 +86,10 @@ interface P4TopRequest;
    method Action camSearch(Bit#(32) data);
    method Action writeSetRam(Bit#(32) addr, Bit#(64) data);
    method Action readSetRam(Bit#(32) addr);
-`ifdef DEBUG_MATCH_TABLE
+`ifdef MTABLE
    method Action matchTableInsert(Bit#(32) key, Bit#(32) ops);
    method Action matchTableRequest(Bit#(32) key, Bit#(32) value, Bit#(32) op);
 `endif
-
    method Action port_mapping_add_entry(Bit#(32) table_name, MatchInput_port_mapping match_key);
    method Action port_mapping_set_default_action(Bit#(32) table_name);
    method Action port_mapping_delete_entry(Bit#(32) table_name, Bit#(32) id);
@@ -206,7 +206,7 @@ module mkP4Top#(P4TopIndication indication)(P4Top);
    Parser parser <- mkParser();
    Pipeline_port_mapping ingress_port_mapping <- mkIngressPipeline_port_mapping();
 
-`ifdef DEBUG_MATCH_TABLE
+`ifdef MTABLE
    /* Match Table Functionalities */
    function RequestType makeRequest(Bit#(32) key, Bit#(32) value, Operation op);
        return RequestType {
@@ -297,7 +297,7 @@ module mkP4Top#(P4TopIndication indication)(P4Top);
 
    //mkConnection(parser.phvOut, ingress_port_mapping.phvIn);
 
-`ifdef DEBUG_MATCH_TABLE
+`ifdef MTABLE
    rule matchTableRes;
        let res <- matchTable.response.get;
        indication.matchTableResponse(res.key, res.value);
@@ -333,7 +333,7 @@ module mkP4Top#(P4TopIndication indication)(P4Top);
          writeDataFifo.enq(MemData {data: pack(v), tag:0, last:True});
       endmethod
 
-`ifdef DEBUG_MATCH_TABLE
+`ifdef MTABLE
       method Action matchTableRequest(Bit#(32) key, Bit#(32) value, Bit#(32) op);
         if (op == 0)
             matchTable.request.put(makeRequest(key, value, GET));
