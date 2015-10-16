@@ -64,6 +64,8 @@ import AsymmetricBRAM::*;
 
 `define MTABLE 1;
 
+`define MTABLE 1;
+
 typedef TDiv#(DataBusWidth, 32) WordsPerBeat;
 
 interface P4TopIndication;
@@ -343,7 +345,6 @@ module mkP4Top#(P4TopIndication indication)(P4Top);
             matchTable.request.put(makeRequest(key, value, REMOVE));
       endmethod
 `endif
-<<<<<<< HEAD
 
       method Action camInsert(Bit#(32) addr, Bit#(32) data);
          //FIXME: BcamWriteRequest
