@@ -56,6 +56,19 @@ instance PriorityEncoder#(2);
    endmodule
 endinstance
 
+instance PriorityEncoder#(1024);
+   module mkPriorityEncoder(PEnc#(1024));
+      PEnc1024 pe <- mkPriorityEncoder1024();
+      interface Put oht;
+         method Action put(Bit#(1024) v);
+            pe.oht.put(v);
+         endmethod
+      endinterface
+      interface bin = pe.bin;
+      interface vld = pe.vld;
+   endmodule
+endinstance
+
 instance PriorityEncoder#(n)
    provisos (Add#(TDiv#(n, 2), a__, n)
             ,Div#(n, 2, nhalf)

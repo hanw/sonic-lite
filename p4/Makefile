@@ -35,7 +35,7 @@ PIN_TYPE_INCLUDE = DE5Pins
 CPPFILES=$(PROJTOP)/cpp/test.cpp
 PIN_BINDINGS?=PCIE:PCIE LED:LED OSC:OSC SFPA:SFPA SFPB:SFPB SFPC:SFPC SFPD:SFPD SFP:SFP I2C:CLOCK BUTTON:BUTTON
 CONNECTALFLAGS += -D NicVersion=$(shell date +"%y%m%d%H%M")
-#CONNECTALFLAGS += --verilog=$(PROJTOP)/hw/verilog/
+CONNECTALFLAGS += --verilog=$(PROJTOP)/bsv/AsymmetricBRAM/
 #CONNECTALFLAGS += --verilog=$(PROJTOP)/../hw/ip/ii2dcam/
 CONNECTALFLAGS += -D PcieHostIF
 CONNECTALFLAGS += -D DataBusWidth=128
@@ -58,6 +58,7 @@ CONNECTALFLAGS += --bscflags="-show-range-conflict +RTS -K46777216 -RTS -demote-
 #CONNECTALFLAGS += --chipscope=$(PROJTOP)/test.stp
 
 #CONNECTALFLAGS += -D DEBUG_MATCH_TABLE
+CONNECTALFLAGS += -D DEBUG_BCAM
 CONNECTALFLAGS += -m $(PROJTOP)/bsv/AsymmetricBRAM/mem_model.c
 
 # P4 support

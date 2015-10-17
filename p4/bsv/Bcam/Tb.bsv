@@ -3,6 +3,8 @@ package Tb;
 import GetPut::*;
 import ClientServer::*;
 import StmtFSM::*;
+import FIFO::*;
+import Pipe::*;
 
 // ----------------
 // Imports for the design

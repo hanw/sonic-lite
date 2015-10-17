@@ -54,37 +54,37 @@ interface VAsymBRAMIfc#(    type rAddrT,type rDataT,
 endinterface
 
 // Wrapper for the verilog
-//import "BVI" AsymmetricBRAM =
-//module vAsymBRAM#(Bool hasOutputRegister)
-//                 (VAsymBRAMIfc#(raddr_t, rdata_t, waddr_t, wdata_t))
-//    provisos(
-//        Bits#(raddr_t, raddr_sz),
-//        Bits#(rdata_t, rdata_sz),
-//        Bits#(waddr_t, waddr_sz),
-//        Bits#(wdata_t, wdata_sz)
-//    );
-//
-//    default_clock (CLK);
-//    default_reset no_reset;
-//
-//    parameter   PIPELINED   = Bit#(1)'(pack(hasOutputRegister));
-//    parameter   WADDR_WIDTH = valueOf(waddr_sz);
-//    parameter   WDATA_WIDTH = valueOf(wdata_sz);
-//    parameter   RADDR_WIDTH = valueOf(raddr_sz);
-//    parameter   RDATA_WIDTH = valueOf(rdata_sz);
-//    parameter   MEMSIZE     = valueOf(TExp#(raddr_sz));
-//
-//    method read(RADDR) enable(REN);
-//    method RDATA getRead();
-//    method write(WADDR,WDATA) enable(WEN);
-//
-//    schedule (getRead) SBR (read, write);
-//    schedule (read)  C (read);
-//    schedule (write) C (write);
-//    schedule (getRead) CF (getRead);
-//    schedule (write) CF (read);
-//
-//endmodule
+import "BVI" AsymmetricBRAM =
+module vAsymBRAM#(Bool hasOutputRegister)
+                 (VAsymBRAMIfc#(raddr_t, rdata_t, waddr_t, wdata_t))
+    provisos(
+        Bits#(raddr_t, raddr_sz),
+        Bits#(rdata_t, rdata_sz),
+        Bits#(waddr_t, waddr_sz),
+        Bits#(wdata_t, wdata_sz)
+    );
+
+    default_clock (CLK);
+    default_reset no_reset;
+
+    parameter   PIPELINED   = Bit#(1)'(pack(hasOutputRegister));
+    parameter   WADDR_WIDTH = valueOf(waddr_sz);
+    parameter   WDATA_WIDTH = valueOf(wdata_sz);
+    parameter   RADDR_WIDTH = valueOf(raddr_sz);
+    parameter   RDATA_WIDTH = valueOf(rdata_sz);
+    parameter   MEMSIZE     = valueOf(TExp#(raddr_sz));
+
+    method read(RADDR) enable(REN);
+    method RDATA getRead();
+    method write(WADDR,WDATA) enable(WEN);
+
+    schedule (getRead) SBR (read, write);
+    schedule (read)  C (read);
+    schedule (write) C (write);
+    schedule (getRead) CF (getRead);
+    schedule (write) CF (read);
+
+endmodule
 
 module mkAsymmetricBRAM#(Bool hasOutputRegister, Bool hasForwarding, String name)
                                (AsymmetricBRAM#(raddr_t, rdata_t, waddr_t, wdata_t))
@@ -107,46 +107,55 @@ module mkAsymmetricBRAM#(Bool hasOutputRegister, Bool hasForwarding, String name
     return ret_ifc;
 endmodule
 
-//module mkAsymmetricBRAMVerilog#(Bool hasOutputRegister, Bool hasForwarding)
-//                               (AsymmetricBRAM#(raddr_t, rdata_t, waddr_t, wdata_t))
-//    provisos(
-//        Bits#(raddr_t, raddr_sz),
-//        Bits#(rdata_t, rdata_sz),
-//        Bits#(waddr_t, waddr_sz),
-//        Bits#(wdata_t, wdata_sz),
-//        Div#(rdata_sz,wdata_sz,ratio),
-//        Log#(ratio,offset_sz),
-//        Add#(waddr_sz,offset_sz,raddr_sz),
-//        Bits#(Vector#(ratio, wdata_t), rdata_sz)
-//    );
-//
-//    VAsymBRAMIfc#(raddr_t, rdata_t, waddr_t, wdata_t) bram <- vAsymBRAM(hasOutputRegister);
-//    Reg#(wdata_t)                  lastWriteData <- mkConfigReg(?);
-//    Reg#(raddr_t)                  lastReadAddr  <- mkConfigReg(?);
-//    Reg#(waddr_t)                  lastWriteAddr <- mkConfigReg(?);
-//    Vector#(ratio,rdata_t) wdata_vector = unpack(pack(lastWriteData));
-//
-//    method Action read(addr);
-//        bram.read(addr);
-//        lastReadAddr <= addr;
-//    endmethod
-//
-//    method ActionValue#(rdata_t) getRead;
-//        if ((hasForwarding) &&
-//            (pack(lastReadAddr)[valueOf(TSub#(raddr_sz,1)):valueOf(offset_sz)] == pack(lastWriteAddr))) begin
-//            Bit#(offset_sz) offset = truncate(pack(lastReadAddr));
-//            return wdata_vector[offset];
-//        end
-//        else
-//            return bram.getRead;
-//    endmethod
-//
-//    method Action write(addr, data);
-//       bram.write(addr, data);
-//       lastWriteAddr <= addr;
-//       lastWriteData <= data;
-//    endmethod
-//endmodule
+module mkAsymmetricBRAMVerilog#(Bool hasOutputRegister, Bool hasForwarding)
+                               (AsymmetricBRAM#(raddr_t, rdata_t, waddr_t, wdata_t))
+    provisos(
+        Bits#(raddr_t, raddr_sz),
+        Bits#(rdata_t, rdata_sz),
+        Bits#(waddr_t, waddr_sz),
+        Bits#(wdata_t, wdata_sz),
+        Div#(rdata_sz,wdata_sz,ratio),
+        Log#(ratio,offset_sz),
+        Add#(raddr_sz,offset_sz,waddr_sz),
+        Bits#(Vector#(ratio, wdata_t), rdata_sz)
+    );
+    FIFO#(Tuple2#(waddr_t, wdata_t)) writeReqFifo <- mkFIFO;
+    FIFO#(raddr_t) readReqFifo <- mkFIFO;
+    FIFO#(rdata_t) readDataFifo <- mkFIFO;
+    FIFO#(void) readCtrlFifo <- mkFIFO;
+
+    VAsymBRAMIfc#(raddr_t, rdata_t, waddr_t, wdata_t) bram <- vAsymBRAM(hasOutputRegister);
+
+    rule do_read;
+       let v <- toGet(readReqFifo).get;
+       bram.read(v);
+       readCtrlFifo.enq(?);
+    endrule
+
+    rule do_reponse;
+       let v <- toGet(readCtrlFifo).get;
+       let addr = bram.getRead;
+       readDataFifo.enq(addr);
+    endrule
+
+    rule do_write;
+       let v <- toGet(writeReqFifo).get;
+       let addr = tpl_1(v);
+       let data = tpl_2(v);
+       bram.write(addr, data);
+    endrule
+
+    interface Put writeServer = toPut(writeReqFifo);
+    interface readServer = (interface Server;
+      interface Put request;
+         method Action put(raddr_t addr);
+            readReqFifo.enq(addr);
+         endmethod
+      endinterface
+      interface Get response = toGet(readDataFifo);
+   endinterface);
+
+endmodule
 
 import "BDPI" mem_create    = function ActionValue#(Bit#(64)) mem_create(msize_t size, rsize_t rsize, wsize_t wsize)
                               provisos (Bits#(msize_t, msize_sz),

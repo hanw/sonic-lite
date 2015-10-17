@@ -62,6 +62,7 @@ module mkBcam9b(Bcam9b#(camDepth))
             ,Log#(TDiv#(camDepth, 32), g__)
             ,Log#(TDiv#(camDepth, 32), a__)
             ,Add#(TAdd#(TLog#(TSub#(TLog#(camDepth), 9)), 5), h__, camSz)
+            ,Add#(TLog#(cdep), 5, wAddrHWidth)
          );
 
    let verbose = True;
@@ -82,55 +83,55 @@ module mkBcam9b(Bcam9b#(camDepth))
    Reg#(Bool) oldPattMultiOccR <- mkReg(False);
    Reg#(Bool) newPattMultiOccR <- mkReg(False);
 
-   Ram9b#(camDepth) ram9b <- mkRam9b();
+   Ram9b#(cdep) ram9b <- mkRam9b();
    Setram#(camDepth) setram <- mkSetram();
    IdxVacram#(camDepth) ivram <- mkIdxVacram();
 
-   Vector#(3, PipeOut#(Bool)) oldPattVPipes <- mkForkVector(setram.oldPattV);
-   Vector#(2, PipeOut#(Bit#(9))) oldPattPipes <- mkForkVector(setram.oldPatt);
-   Vector#(3, PipeOut#(Bool)) oldPattMultiOccPipes <- mkForkVector(setram.oldPattMultiOcc);
-   Vector#(3, PipeOut#(Bool)) newPattMultiOccPipes <- mkForkVector(setram.newPattMultiOcc);
-   Vector#(2, PipeOut#(Bit#(9))) wPattPipes <- mkForkVector(toPipeOut(wPatt_fifo));
-
-   FIFOF#(Bool) oldEqNewPatt_fifo <- mkFIFOF;
+   FIFOF#(Bool) oldEqNewPatt_fifo <- mkBypassFIFOF;
    Vector#(2, PipeOut#(Bool)) oldEqNewPattPipes <- mkForkVector(toPipeOut(oldEqNewPatt_fifo));
 
    rule write_request;
       let v <- toGet(writeReqFifo).get;
       Bit#(camSz) wAddr = tpl_1(v);
       Bit#(9) wData = tpl_2(v);
-      Vector#(TAdd#(TLog#(TSub#(TLog#(camDepth), 9)), 5), Bit#(1)) wAddrH = takeAt(5, unpack(wAddr));
+      Vector#(wAddrHWidth, Bit#(1)) wAddrH = takeAt(5, unpack(wAddr));
       setram.writeServer.put(v);
       ivram.wAddr.put(wAddr);
       wPatt_fifo.enq(wData);
       ram9b.wAddr_indx.enq(pack(wAddrH));
+      ram9b.wPatt.enq(wData);
       $display("cam9b %d: write_request wAddr=%x wAddrH=%x", cycle, wAddr, pack(wAddrH));
    endrule
 
    rule generate_oldEqNewPatt;
-      let wPatt <- toGet(wPattPipes[0]).get;
-      let oldPatt <- toGet(oldPattPipes[1]).get;
+      let wPatt <- toGet(wPatt_fifo).get;
+      let oldPatt <- toGet(setram.oldPatt).get;
       Bool oldEqNewPatt = (wPatt == oldPatt);
       $display("bcam %d: oldEqNewPatt=%x", cycle, oldEqNewPatt);
-      oldEqNewPatt_fifo.enq(oldEqNewPatt);
-   endrule
-
-   rule write_to_ram;
-      let wPatt <- toGet(wPattPipes[1]).get;
-      ram9b.wPatt.enq(wPatt);
-      $display("bcam %d: write wPatt=%x to ram9b", cycle, wPatt);
-   endrule
-
-   rule update_camctl_regs;
-      let oldPattV <- toGet(oldPattVPipes[0]).get;
-      let oldPatt <- toGet(oldPattPipes[0]).get;
-      let oldPattMultiOcc <- toGet(oldPattMultiOccPipes[0]).get;
-      let newPattMultiOcc <- toGet(newPattMultiOccPipes[0]).get;
-      oldPattVR <= oldPattV;
       oldPattR <= oldPatt;
+      oldEqNewPatt_fifo.enq(oldEqNewPatt);
+      if (verbose) $display("bcam %d: oldPatt=%x", cycle, oldPatt);
+   endrule
+
+   rule update_oldPattV;
+      let oldPattV <- toGet(setram.oldPattV).get;
+      oldPattVR <= oldPattV;
+      ivram.oldPattV.enq(oldPattV);
+      if (verbose) $display("bcam %d: oldPattV=%x", cycle, oldPattV);
+   endrule
+
+   rule update_oldMultiOcc;
+      let oldPattMultiOcc <- toGet(setram.oldPattMultiOcc).get;
+      ivram.oldPattMultiOcc.enq(oldPattMultiOcc);
       oldPattMultiOccR <= oldPattMultiOcc;
+      if (verbose) $display("bcam %d: oldMultiOcc=%x", cycle, oldPattMultiOcc);
+   endrule
+
+   rule update_newMultiOcc;
+      let newPattMultiOcc <- toGet(setram.newPattMultiOcc).get;
+      ivram.newPattMultiOcc.enq(newPattMultiOcc);
       newPattMultiOccR <= newPattMultiOcc;
-      if (verbose) $display("bcam %d: oldPatt=%x, oldPattV=%x, oldMultiOcc=%x, newMultiOcc=%x", cycle, oldPatt, oldPattV, oldPattMultiOcc, newPattMultiOcc);
+      if (verbose) $display("bcam %d: newMultiOcc=%x", cycle, newPattMultiOcc);
    endrule
 
    // Cam Control
@@ -170,18 +171,6 @@ module mkBcam9b(Bcam9b#(camDepth))
    endrule
 
    // Index and Vacancy RAM Rules
-   rule ivram_oldPattV;
-      let oldPattV <- toGet(oldPattVPipes[2]).get;
-      ivram.oldPattV.enq(oldPattV);
-   endrule
-   rule ivram_oldPattMultiOcc;
-      let oldPattMultiOcc <- toGet(oldPattMultiOccPipes[2]).get;
-      ivram.oldPattMultiOcc.enq(oldPattMultiOcc);
-   endrule
-   rule ivram_newPattMultiOcc;
-      let newPattMultiOcc <- toGet(newPattMultiOccPipes[2]).get;
-      ivram.newPattMultiOcc.enq(newPattMultiOcc);
-   endrule
    rule ivram_newPattOcc;
       let newPattOccFLoc <- toGet(setram.newPattOccFLoc).get;
       ivram.newPattOccFLoc.enq(newPattOccFLoc);
@@ -261,6 +250,7 @@ module mkBinaryCam(BinaryCam#(camDepth, pattWidth))
    FIFOF#(Bit#(indcWidth)) mIndc_fifo <- mkBypassFIFOF();
 
    Vector#(pwid, Bcam9b#(camDepth)) cam9b <- replicateM(mkBcam9b());
+   PEnc#(indcWidth) pe_bcam <- mkPriorityEncoder();
 
    rule writeBcam;
       let v <- toGet(writeReqFifo).get;
@@ -294,14 +284,13 @@ module mkBinaryCam(BinaryCam#(camDepth, pattWidth))
          let v <- toGet(mIndc_i_fifo[i]).get;
          mIndc = mIndc & v;
       end
-      mIndc_fifo.enq(mIndc);
+      pe_bcam.oht.put(mIndc);
       $display("bcam: cascading mindc=%x", mIndc);
    endrule
 
-   PEnc#(indcWidth) pe_bcam <- mkPriorityEncoder(toPipeOut(mIndc_fifo));
    rule pe_bcam_out;
-      let bin <- toGet(pe_bcam.bin).get;
-      let vld <- toGet(pe_bcam.vld).get;
+      let bin <- pe_bcam.bin.get;
+      let vld <- pe_bcam.vld.get;
       $display("pe_bcam: bin=%x, vld=%x", bin, vld);
       if (vld) begin
          readFifo.enq(tagged Valid bin);

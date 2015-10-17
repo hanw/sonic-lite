@@ -82,8 +82,8 @@ module mkSetram(Setram#(camDepth))
       cycle <= cycle + 1;
    endrule
 
-   FIFOF#(Tuple2#(Bit#(camSz), Bit#(9))) writeReqFifo <- mkFIFOF;
-   FIFOF#(Bool) wEnb_setram_fifo <- mkFIFOF;
+   FIFOF#(Tuple2#(Bit#(camSz), Bit#(9))) writeReqFifo <- mkBypassFIFOF;
+   FIFOF#(Bool) wEnb_setram_fifo <- mkBypassFIFOF;
    FIFOF#(Bit#(9)) oldPatt_fifo <- mkBypassFIFOF();
    FIFOF#(Bool) oldPattV_fifo<- mkBypassFIFOF();
    FIFOF#(Bool) oldPattMultiOcc_fifo <- mkBypassFIFOF();
@@ -91,7 +91,6 @@ module mkSetram(Setram#(camDepth))
    FIFOF#(Bit#(5)) newPattOccFLoc_fifo <- mkBypassFIFOF();
    FIFOF#(Bit#(32)) oldPattIndc_fifo <- mkBypassFIFOF();
    FIFOF#(Bit#(32)) newPattIndc_fifo <- mkBypassFIFOF();
-   FIFOF#(Bit#(32)) newPattIndc_prv_fifo <- mkBypassFIFOF();
    FIFOF#(Vector#(8, RPatt)) rpatt_fifo <- mkBypassFIFOF();
 
 `define SETRAM AsymmetricBRAM#(Bit#(readDepthSz), Bit#(readSz), Bit#(writeDepthSz), Bit#(writeSz))
@@ -99,7 +98,8 @@ module mkSetram(Setram#(camDepth))
    Vector#(8, `SETRAM) setRam <- replicateM(mkAsymmetricBRAM(False, False, "Setram"));
 
    Vector#(3, PipeOut#(Tuple2#(Bit#(camSz), Bit#(9)))) writeRequestPipes <- mkForkVector(toPipeOut(writeReqFifo));
-   PEnc#(32) pe_multiOcc <- mkPriorityEncoder(toPipeOut(newPattIndc_prv_fifo));
+
+   PEnc32 pe_multiOcc <- mkPriorityEncoder32();
 
    rule setram_input;
       let v <- toGet(writeRequestPipes[0]).get;
@@ -174,7 +174,7 @@ module mkSetram(Setram#(camDepth))
          end
       end
 
-      newPattIndc_prv_fifo.enq(pack(newPattIndc_prv));
+      pe_multiOcc.oht.put(pack(newPattIndc_prv));
 
       Bit#(32) newPattIndc = pack(newPattIndc_prv) | pack(wAddrLOH);
       newPattIndc_fifo.enq(newPattIndc);

@@ -42,6 +42,8 @@ BUILDCACHE_CACHEDIR?=$(CONNECTALDIR)/../fpgamake-cache/$(shell basename `/bin/pw
 CONNECTALFLAGS += --cache=$(BUILDCACHE_CACHEDIR)
 endif
 
+#CONNECTALFLAGS += -v
+
 RUN_BSC = BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) bsc -p +:$(BSVPATH)
 CONNECTALFLAGS += -show-range-conflict +RTS -K46777216 -RTS -demote-errors G0066:G0045 -suppress-warnings G0046:G0020:S0015:S0080:S0039 -steps-max-intervals 20
 
@@ -50,8 +52,8 @@ ifeq ($(SIMULATOR),bluesim)
 CMD1 =	$(RUN_BSC) $(BSCFLAGS) $(CONNECTALFLAGS) -D BSIM -sim -g $(TOPMOD) -bdir bdir -simdir simdir -u $(TOPFILE)
 CMD2 =	$(RUN_BSC) $(BSCFLAGS) $(CONNECTALFLAGS) -D BSIM -sim -o $@ -bdir bdir -simdir simdir -e $(TOPMOD) bdir/$(TOPMOD).ba mem_model.o
 else
-CMD1 =	$(BSC) $(BSCFLAGS) -u -verilog -g $(TOPMOD) $(TOPFILE)
-CMD2 =	$(BSC) $(BSCFLAGS) -verilog -vsim $(SIMULATOR) -e $(TOPMOD) -o $@ $(TOPMOD).v
+CMD1 =	$(RUN_BSC) $(BSCFLAGS) $(CONNECTALFLAGS) -u -verilog -g $(TOPMOD) $(TOPFILE)
+CMD2 =	$(RUN_BSC) $(BSCFLAGS) $(CONNECTALFLAGS) -verilog -vsim $(SIMULATOR) -e $(TOPMOD) -o $@ $(TOPMOD).v
 endif
 
 .PHONY: help

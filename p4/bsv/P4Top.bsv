@@ -64,20 +64,16 @@ import Bcam::*;
 import AsymmetricBRAM::*;
 `endif
 
-`define MTABLE 1;
+import PriorityEncoder::*;
 
-`define MTABLE 1;
+//`define MTABLE 1;
 
 typedef TDiv#(DataBusWidth, 32) WordsPerBeat;
 
 interface P4TopIndication;
    method Action sonic_read_version_resp(Bit#(32) version);
-`ifdef MTABLE
    method Action matchTableResponse(Bit#(32) key, Bit#(32) value);
-`endif
-`ifdef DEBUG_BCAM
    method Action cam_search_result(Bit#(32) data);
-`endif
    method Action read_setram_result(Bit#(64) data);
 endinterface
 
@@ -86,16 +82,12 @@ interface P4TopRequest;
    method Action writePacketData(Vector#(2, Bit#(64)) data, Bit#(1) sop, Bit#(1) eop);
    method Action readPacketBuffer(Bit#(16) addr);
    method Action writePacketBuffer(Bit#(16) addr, Bit#(64) data);
-`ifdef DEBUG_BCAM
    method Action camInsert(Bit#(32) addr, Bit#(32) data);
    method Action camSearch(Bit#(32) data);
-`endif
    method Action writeSetRam(Bit#(32) addr, Bit#(64) data);
    method Action readSetRam(Bit#(32) addr);
-`ifdef MTABLE
    method Action matchTableInsert(Bit#(32) key, Bit#(32) ops);
    method Action matchTableRequest(Bit#(32) key, Bit#(32) value, Bit#(32) op);
-`endif
    method Action port_mapping_add_entry(Bit#(32) table_name, MatchInput_port_mapping match_key);
    method Action port_mapping_set_default_action(Bit#(32) table_name);
    method Action port_mapping_delete_entry(Bit#(32) table_name, Bit#(32) id);
