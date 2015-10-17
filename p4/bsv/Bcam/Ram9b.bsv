@@ -71,11 +71,11 @@ module mkRam9bx1k(Ram9bx1k);
 
    // WWID = 1, RWID = 32, WDEP = 16384, OREG = 1, INIT = 1
 `define VLDRAM AsymmetricBRAM#(Bit#(9), Bit#(32), Bit#(14), Bit#(1))
-   `VLDRAM vldram <- mkAsymmetricBRAM(False, False, "VLDram");
+   `VLDRAM vldram <- mkAsymmetricBRAM(True, False, "VLDram");
 
    // WWID = 5, RWID = 40, WDEP = 4096, OREG = 0, INIT = 1
 `define INDXRAM AsymmetricBRAM#(Bit#(9), Bit#(40), Bit#(12), Bit#(5))
-   Vector#(4, `INDXRAM) indxram <- replicateM(mkAsymmetricBRAM(False, False, "indxRam"));
+   Vector#(4, `INDXRAM) indxram <- replicateM(mkAsymmetricBRAM(True, False, "indxRam"));
 
    // DWID = 32, DDEP = 32, MRDW = "DONT_CARE", RREG=ALL, INIT=1
    BRAM_Configure bramCfg = defaultValue;

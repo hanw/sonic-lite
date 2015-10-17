@@ -112,7 +112,7 @@ module mkIdxVacram(IdxVacram#(camDepth))
    FIFOF#(Bit#(160)) data_newPatt_fifo <- mkBypassFIFOF();
 
 `define VACRAM AsymmetricBRAM#(Bit#(vacReadDepthSz), Bit#(vacReadSz), Bit#(vacWriteDepthSz), Bit#(vacWriteSz))
-   `VACRAM vacram <- mkAsymmetricBRAM(False, False, "Vacram");
+   `VACRAM vacram <- mkAsymmetricBRAM(True, False, "Vacram");
 
    PEnc32 pe_vac <- mkPriorityEncoder32();
 
@@ -178,7 +178,7 @@ module mkIdxVacram(IdxVacram#(camDepth))
    endrule
 
 `define IDXRAM AsymmetricBRAM#(Bit#(readDepthSz), Bit#(readSz), Bit#(writeDepthSz), Bit#(writeSz))
-   Vector#(4, `IDXRAM) idxRam <- replicateM(mkAsymmetricBRAM(False, False, "Idxram"));
+   Vector#(4, `IDXRAM) idxRam <- replicateM(mkAsymmetricBRAM(True, False, "Idxram"));
 
    rule idxram_write;
       let wAddr <- toGet(wAddrPipes[2]).get;

@@ -95,7 +95,7 @@ module mkSetram(Setram#(camDepth))
 
 `define SETRAM AsymmetricBRAM#(Bit#(readDepthSz), Bit#(readSz), Bit#(writeDepthSz), Bit#(writeSz))
 
-   Vector#(8, `SETRAM) setRam <- replicateM(mkAsymmetricBRAM(False, False, "Setram"));
+   Vector#(8, `SETRAM) setRam <- replicateM(mkAsymmetricBRAM(True, False, "Setram"));
 
    Vector#(3, PipeOut#(Tuple2#(Bit#(camSz), Bit#(9)))) writeRequestPipes <- mkForkVector(toPipeOut(writeReqFifo));
 
