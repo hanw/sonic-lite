@@ -188,8 +188,15 @@ void test_setram(P4TopRequestProxy *device) {
 }
 
 void test_bcam(P4TopRequestProxy *device) {
-    device->camInsert(0x302, 0x24);
-    device->camSearch(0x24);
+    fprintf(stderr, "Insert CAM\n");
+    device->camInsert(0x0, 0x0);
+    device->camInsert(0x1, 0x1);
+    device->camInsert(0x2, 0x2);
+    device->camInsert(0x3, 0x3);
+    device->camSearch(0x0);
+    device->camSearch(0x1);
+    device->camSearch(0x2);
+    device->camSearch(0x3);
     //device->camInsert(0x303, 0x24);
 }
 
