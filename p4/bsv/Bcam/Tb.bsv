@@ -20,16 +20,76 @@ function Stmt testSeq(BinaryCam#(1024, 9) dut,
     return seq
         noAction;
         action
-            Bit#(10) wAddr = 'h302;
-            Bit#(9) wData = 'h24;
-            $display("%t === %s write addr=%x data=%x",$time, dut_name, wAddr, wData);
-            dut.writeServer.put(tuple2(wAddr, wData));
+            dut.writeServer.put(tuple2('h0, 'h0));
         endaction
         delay(100);
         action
-            Bit#(9) rData = 'h24;
-            $display("%t === %s read data=%x",$time, dut_name, rData);
-            dut.readServer.request.put(rData);
+            dut.writeServer.put(tuple2('h1, 'h1));
+        endaction
+        delay(100);
+        action
+            dut.writeServer.put(tuple2('h2, 'h2));
+        endaction
+        delay(100);
+        action
+            dut.writeServer.put(tuple2('h3, 'h3));
+        endaction
+        delay(100);
+        action
+            dut.writeServer.put(tuple2('h4, 'h4));
+        endaction
+        delay(100);
+        action
+            dut.writeServer.put(tuple2('h5, 'h5));
+        endaction
+        delay(10);
+        action
+            dut.readServer.request.put('h0);
+        endaction
+        delay(10);
+        action
+            let v <- dut.readServer.response.get;
+            $display("read result=%x", fromMaybe(?,v));
+        endaction
+        delay(10);
+        action
+            dut.readServer.request.put('h1);
+        endaction
+        delay(10);
+        action
+            let v <- dut.readServer.response.get;
+            $display("read result=%x", fromMaybe(?,v));
+        endaction
+        delay(10);
+        action
+            dut.readServer.request.put('h2);
+        endaction
+        delay(10);
+        action
+            let v <- dut.readServer.response.get;
+            $display("read result=%x", fromMaybe(?,v));
+        endaction
+        delay(10);
+        action
+            dut.readServer.request.put('h3);
+        endaction
+        delay(10);
+        action
+            let v <- dut.readServer.response.get;
+            $display("read result=%x", fromMaybe(?,v));
+        endaction
+        delay(10);
+        action
+            dut.readServer.request.put('h4);
+        endaction
+        delay(10);
+        action
+            let v <- dut.readServer.response.get;
+            $display("read result=%x", fromMaybe(?,v));
+        endaction
+        delay(10);
+        action
+            dut.readServer.request.put('h5);
         endaction
         delay(10);
         action
@@ -42,7 +102,7 @@ endfunction
 (* synthesize *)
 module mkTb (Empty);
 
-   BinaryCam#(1024, 9) bcam <- mkBinaryCam();
+   BinaryCam#(1024, 9) bcam <- mkBinaryCamBSV();
 
    mkAutoFSM(testSeq(bcam, "bcam"));
 
