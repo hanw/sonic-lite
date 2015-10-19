@@ -93,10 +93,10 @@ module AsymmetricBRAM(
                 .intended_device_family             ("Stratix V"        ),
                 .lpm_type                           ("altsyncram"       ),
                 .numwords_a                         (MEMSIZE            ),
-                .numwords_b                         (MEMSIZE / (RDATA_WIDTH/WDATA_WIDTH)),
+                .numwords_b                         (MEMSIZE/(RDATA_WIDTH/WDATA_WIDTH)),
                 .operation_mode                     ("DUAL_PORT"        ),
-                .outdata_aclr_b                     ("CLEAR0"           ),
-                .outdata_reg_b                      (REGISTERED         ),
+                .outdata_aclr_b                     ("NONE"             ),
+                .outdata_reg_b                      ("UNREGISTERED"     ),
                 .power_up_uninitialized             ("FALSE"            ),
                 .ram_block_type                     ("M20K"             ),
                 .read_during_write_mode_mixed_ports ("OLD_DATA"         ),
@@ -126,7 +126,7 @@ module AsymmetricBRAM(
                 .eccstatus                          (                   ),
                 .q_a                                (                   ),
                 .rden_a                             (1'b1               ),
-                .rden_b                             (1'b1               ),
+                .rden_b                             (REN                ),
                 .wren_b                             (1'b0               ));
 
 endmodule
