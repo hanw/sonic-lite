@@ -126,7 +126,7 @@ module AsymmetricBRAM(
                 .eccstatus                          (                   ),
                 .q_a                                (                   ),
                 .rden_a                             (1'b1               ),
-                .rden_b                             (REN                ),
+                .rden_b                             (1'b1               ),
                 .wren_b                             (1'b0               ));
 
 endmodule

@@ -131,7 +131,6 @@ module mkP4Top#(P4TopIndication indication)(P4Top);
 `ifndef BSIM
    B2C iclock_50 <- mkB2C();
    B2C1 iclock_644 <- mkB2C1();
-//   B2C iclock_pcie <- mkB2C();
 
    Vector#(4, PushButtonController) buttons <- replicateM(mkPushButtonController(iclock_50.c, clocked_by iclock_50.c, reset_by noReset));
    for (Integer i=0; i<4; i=i+1) begin
@@ -157,22 +156,24 @@ module mkP4Top#(P4TopIndication indication)(P4Top);
       si570.istart.go(pack(buttons[1].pressed));
    endrule
 
-//   Reset xcvr_reset_n <- mkAsyncReset(2, iclock_50.r, eth.ifcs.clk_xcvr[0]);
+`ifdef DEBUG_ETH
+   //Reset xcvr_reset_n <- mkAsyncReset(2, iclock_50.r, eth.ifcs.clk_xcvr[0]);
+   LedController eth_tx_led <- mkLedController(False, clocked_by clk_156_25, reset_by rst_156_n);
+   LedController eth_rx_led <- mkLedController(False, clocked_by clk_156_25, reset_by rst_156_n);
+   //LedController eth_rx_led <- mkLedController(False, clocked_by eth.ifcs.clk_xcvr[0], reset_by xcvr_reset_n);
+   rule led_eth_tx;
+      eth_tx_led.setPeriod(led_off, 500, led_on_max, 500);
+   endrule
+   rule led_eth_rx;
+      eth_rx_led.setPeriod(led_off, 500, led_on_max, 500);
+   endrule
+`endif
 
    LedController mgmt_led <- mkLedController(False, clocked_by iclock_50.c, reset_by iclock_50.r);
-//   LedController eth_tx_led <- mkLedController(False, clocked_by clk_156_25, reset_by rst_156_n);
-//   LedController eth_rx_led <- mkLedController(False, clocked_by eth.ifcs.clk_xcvr[0], reset_by xcvr_reset_n);
    LedController sfp_led <- mkLedController(False, clocked_by iclock_644.c, reset_by rst_644_n);
-
    rule led_pcie;
       mgmt_led.setPeriod(led_off, 500, led_on_max, 500);
    endrule
-//   rule led_eth_tx;
-//      eth_tx_led.setPeriod(led_off, 500, led_on_max, 500);
-//   endrule
-//   rule led_eth_rx;
-//      eth_rx_led.setPeriod(led_off, 500, led_on_max, 500);
-//   endrule
    rule led_sfp;
       sfp_led.setPeriod(led_off, 500, led_on_max, 500);
    endrule
@@ -186,11 +187,13 @@ module mkP4Top#(P4TopIndication indication)(P4Top);
       end
    endrule
 
-//   EthPhyIfc phy <- mkAlteraEthPhy(clk_50_b4a_buf.outclk, iclock_644.c, clk_156_25, iclock_50.r, clocked_by clk_156_25, reset_by rst_156_n);
-//   Clock xgmii_rx_clk = phy.rx_clkout;
-//   EthMacIfc mac <- mkEthMac(clk_50_b4a_buf.outclk, clk_156_25, replicate(xgmii_rx_clk), rst_156_n, clocked_by clk_156_25, reset_by rst_156_n);
-//   mapM(uncurry(mkConnection), zip(mac.tx, phy.tx));
-//   mapM(uncurry(mkConnection), zip(phy.rx, mac.rx));
+`ifdef DEBUG_ETH
+   EthPhyIfc phy <- mkAlteraEthPhy(iclock_50.c, iclock_644.c, clk_156_25, iclock_50.r, clocked_by clk_156_25, reset_by rst_156_n);
+   Clock xgmii_rx_clk = phy.rx_clkout;
+   EthMacIfc mac <- mkEthMac(iclock_50.c, clk_156_25, replicate(xgmii_rx_clk), rst_156_n, clocked_by clk_156_25, reset_by rst_156_n);
+   mapM(uncurry(mkConnection), zip(mac.tx, phy.tx));
+   mapM(uncurry(mkConnection), zip(phy.rx, mac.rx));
+`endif
 
 `endif
 
@@ -238,7 +241,7 @@ module mkP4Top#(P4TopIndication indication)(P4Top);
 //   SharedBuffer#(12, 128, 1) buff <- mkSharedBuffer(vec(dmaClient), vec(dmaWriteClient), memServerIndication.ifc, mmuIndication.ifc);
 
 `ifdef DEBUG_BCAM
-   BinaryCam#(1024, 9) bcam <- mkBinaryCam();
+   BinaryCam#(1024, 27) bcam <- mkBinaryCam();
 `endif
 
    Reg#(Bit#(EtherLen)) pktLen <- mkReg(0);
@@ -282,9 +285,9 @@ module mkP4Top#(P4TopIndication indication)(P4Top);
 `ifdef DEBUG_BCAM
    rule readCam;
       let v <- bcam.readServer.response.get;
-      if (isValid(v)) begin
-         indication.cam_search_result(zeroExtend(fromMaybe(0, v)));
-      end
+      //if (isValid(v)) begin
+      indication.cam_search_result(zeroExtend(fromMaybe(0, v)));
+      //end
    endrule
 `endif
 
@@ -495,13 +498,15 @@ module mkP4Top#(P4TopIndication indication)(P4Top);
          end
          iclock_50.inputreset(v[0]);
       endmethod
-//      method Action serial_rx(Bit#(NumPorts) data);
-//         phy.serial.rx(data);
-//      endmethod
-//      method serial_tx_data = phy.serial.tx;
-      method led0 = mgmt_led.ifc.out;
-//      method led1 = eth_tx_led.ifc.out;
-//      method led2 = eth_rx_led.ifc.out;
+`ifdef DEBUG_ETH
+      method Action serial_rx(Bit#(NumPorts) data);
+         phy.serial.rx(data);
+      endmethod
+      method serial_tx_data = phy.serial.tx;
+      method led0 = eth_tx_led.ifc.out;
+      method led1 = eth_rx_led.ifc.out;
+`endif
+      method led2 = mgmt_led.ifc.out;
       method led3 = sfp_led.ifc.out;
       method led_bracket = led_xcvr.out;
       interface sfpctrl = (interface SFPCtrl;
