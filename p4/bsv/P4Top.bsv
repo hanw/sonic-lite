@@ -39,7 +39,9 @@ import MemReadEngine::*;
 import MemWriteEngine::*;
 import MemServerIndication::*;
 import MMUIndication::*;
-import MatchTable::*;
+
+import MatchTable_Bcam::*;
+import MatchTable_Hash::*;
 import MatchTableTypes::*;
 
 import AlteraExtra::*;
@@ -65,8 +67,7 @@ import AsymmetricBRAM::*;
 `endif
 
 `define MTABLE 1;
-
-`define MTABLE 1;
+//`define MTABLE_HASH 1;
 
 typedef TDiv#(DataBusWidth, 32) WordsPerBeat;
 
@@ -211,17 +212,12 @@ module mkP4Top#(P4TopIndication indication)(P4Top);
    Parser parser <- mkParser();
    Pipeline_port_mapping ingress_port_mapping <- mkIngressPipeline_port_mapping();
 
-`ifdef MTABLE
-   /* Match Table Functionalities */
-   function RequestType makeRequest(Bit#(32) key, Bit#(32) value, Operation op);
-       return RequestType {
-           key : key,
-           value : value,
-           addrIdx : 0,
-           op : op
-       };
-   endfunction
-   Server#(RequestType, ResponseType) matchTable <- mkMatchTable();
+`ifdef MTABLE_HASH
+   Server#(RequestType, ResponseType) matchTable <- mkMatchTable_Hash();
+`endif
+
+`ifndef MTABLE_HASH
+    Server#(RequestType, ResponseType) matchTable <- mkMatchTable_Bcam();
 `endif
 
    // read client interface

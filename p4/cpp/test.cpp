@@ -186,13 +186,13 @@ void test_setram(P4TopRequestProxy *device) {
     device->writeSetRam(0x11, 0xff);
     device->readSetRam(0x11);
 }
-
+/*
 void test_bcam(P4TopRequestProxy *device) {
     device->camInsert(0x302, 0x24);
     //device->camSearch(0x24);
     device->camInsert(0x303, 0x24);
 }
-
+*/
 int main(int argc, char **argv)
 {
     void *buffer;
@@ -207,14 +207,11 @@ int main(int argc, char **argv)
     device->sonic_read_version();
 
 //    test_setram(device);
-    test_bcam(device);
-
-//    device->matchTableRequest(10, 15, 1);
-//    device->matchTableRequest(10, 0, 0);
+  //  test_bcam(device);
 
     device->matchTableRequest(10, 15, 1); //PUT(10,15)
     device->matchTableRequest(10, 0, 0);  //GET(10) should print k=10 v=15
-    device->matchTableRequest(10, 20, 2); //UPDATE(10,20)
+/*    device->matchTableRequest(10, 20, 2); //UPDATE(10,20)
     device->matchTableRequest(29, 0, 3);  //REMOVE(29)
     device->matchTableRequest(10, 0, 0);  //GET(10) should print k=10 v=20
     device->matchTableRequest(10, 0, 3);  //REMOVE(10)
@@ -232,7 +229,7 @@ int main(int argc, char **argv)
     device->matchTableRequest(20, 0, 3);  //REMOVE(20)
     device->matchTableRequest(20, 60, 1); //PUT(20,15)
     device->matchTableRequest(20, 0, 0);  //GET(20) should print k=20 v=60
-    
+  */  
     while(1) sleep(1);
     
     fprintf(stderr, "Attempts to read pcap file %s\n", argv[1]);
