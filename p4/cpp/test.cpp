@@ -186,7 +186,7 @@ void test_setram(P4TopRequestProxy *device) {
     device->writeSetRam(0x11, 0xff);
     device->readSetRam(0x11);
 }
-
+/*
 void test_bcam(P4TopRequestProxy *device) {
     fprintf(stderr, "Insert CAM\n");
     device->camInsert(0x0, 0x0);
@@ -199,11 +199,30 @@ void test_bcam(P4TopRequestProxy *device) {
     device->camSearch(0x3);
     //device->camInsert(0x303, 0x24);
 }
+<<<<<<< HEAD
 
 void test_matchtable(P4TopRequestProxy *device) {
+=======
+*/
+int main(int argc, char **argv)
+{
+    void *buffer;
+    long length;
+    struct pcap_pkthdr* pcap_hdr;
+    int i;
+    int loops = 1;
+
+    P4TopIndication echoIndication(IfcNames_P4TopIndicationH2S);
+    device = new P4TopRequestProxy(IfcNames_P4TopRequestS2H);
+
+    device->sonic_read_version();
+
+//    test_setram(device);
+  //  test_bcam(device);
+
     device->matchTableRequest(10, 15, 1); //PUT(10,15)
     device->matchTableRequest(10, 0, 0);  //GET(10) should print k=10 v=15
-    device->matchTableRequest(10, 20, 2); //UPDATE(10,20)
+/*    device->matchTableRequest(10, 20, 2); //UPDATE(10,20)
     device->matchTableRequest(29, 0, 3);  //REMOVE(29)
     device->matchTableRequest(10, 0, 0);  //GET(10) should print k=10 v=20
     device->matchTableRequest(10, 0, 3);  //REMOVE(10)
@@ -221,24 +240,8 @@ void test_matchtable(P4TopRequestProxy *device) {
     device->matchTableRequest(20, 0, 3);  //REMOVE(20)
     device->matchTableRequest(20, 60, 1); //PUT(20,15)
     device->matchTableRequest(20, 0, 0);  //GET(20) should print k=20 v=60
-}
 
-int main(int argc, char **argv)
-{
-    void *buffer;
-    long length;
-    struct pcap_pkthdr* pcap_hdr;
-    int i;
-    int loops = 1;
-
-    P4TopIndication echoIndication(IfcNames_P4TopIndicationH2S);
-    device = new P4TopRequestProxy(IfcNames_P4TopRequestS2H);
-
-    device->sonic_read_version();
-
-//    test_setram(device);
-//  test_matchtable(device);
-    test_bcam(device);
+    */
 
     while(1) sleep(1);
 

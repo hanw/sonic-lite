@@ -1,8 +1,9 @@
 import DefaultValue::*;
 
 typedef 32 KEY_LEN;
+typedef 9 BCAM_KEY_LEN;
 typedef 32 VALUE_LEN;
-typedef 1021 TABLE_LEN;
+typedef 1024 TABLE_LEN;
 typedef 20 ADDR_LEN; //log(TABLE_LEN * (KEY_LEN+VALUE_LEN))
 
 /* if you change this value, also make sure to change 
@@ -13,7 +14,7 @@ typedef 8 TABLE_ASSOCIATIVITY; // a match table consists of 8 hash tables
 
 typedef Bit#(KEY_LEN) Key;
 typedef Bit#(VALUE_LEN) Value;
-typedef Bit#(10) AddrIndex; //XXX log(TABLE_LEN)
+typedef Bit#(11) AddrIndex; //XXX log(TABLE_LEN)
 typedef Bit#(ADDR_LEN) Address;
 
 typedef enum {GET, PUT, UPDATE, REMOVE, NONE} Operation deriving(Bits, Eq);
@@ -41,12 +42,21 @@ instance DefaultValue#(RequestType);
                                };
 endinstance
 
+function RequestType makeRequest(Key key, Value value, Operation op);
+    return RequestType {
+                        key : key,
+                        value : value,
+                        op : op,
+                        addrIdx : 0
+                       };
+endfunction
+
 typedef struct {
     Key key;
     Value value;
-    AddrIndex addrIdx;
     Operation op;
-    Tag tag; //INVALID if operation failedt
+    AddrIndex addrIdx;
+    Tag tag; //INVALID if operation failed
 } ResponseType deriving(Bits, Eq);
 
 instance DefaultValue#(ResponseType);
@@ -58,3 +68,15 @@ instance DefaultValue#(ResponseType);
                                 tag : INVALID
                                };
 endinstance
+
+function ResponseType 
+    makeResponse(Key key, Value value, AddrIndex addrIdx, Operation op, Tag tag);
+    return ResponseType {
+                         key : key,
+                         value : value,
+                         addrIdx : addrIdx,
+                         op : op,
+                         tag : tag
+                        };
+endfunction
+
