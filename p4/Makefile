@@ -55,10 +55,11 @@ CONNECTALFLAGS += --tcl=$(PROJTOP)/../boards/de5_extra.qsf
 
 CONNECTALFLAGS += -I="../sw/"
 CONNECTALFLAGS += --bscflags="-show-range-conflict +RTS -K46777216 -RTS -demote-errors G0066:G0045 -suppress-warnings G0046:G0020:S0015:S0080:S0039 -steps-max-intervals 20"
-#CONNECTALFLAGS += --chipscope=$(PROJTOP)/test.stp
+CONNECTALFLAGS += --chipscope=$(PROJTOP)/test.stp
 
 #CONNECTALFLAGS += -D DEBUG_MATCH_TABLE
 CONNECTALFLAGS += -D DEBUG_BCAM
+CONNECTALFLAGS += -D DEBUG_ETH
 CONNECTALFLAGS += -m $(PROJTOP)/bsv/AsymmetricBRAM/mem_model.c
 
 # P4 support

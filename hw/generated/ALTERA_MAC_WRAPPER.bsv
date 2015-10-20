@@ -9,7 +9,6 @@ interface MacwrapJtag;
     method Reset     reset_reset();
 endinterface
 (* always_ready, always_enabled *)
-(* always_ready, always_enabled *)
 interface MacwrapP0_link_fault;
     method Bit#(2)     status_data();
 endinterface
