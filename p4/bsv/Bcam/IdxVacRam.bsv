@@ -83,36 +83,40 @@ module mkIdxVacram(IdxVacram#(camDepth))
    endrule
 
    FIFOF#(Bit#(camSz)) writeReqFifo <- mkFIFOF;
-   FIFOF#(Bool) oldPattV_fifo <- mkBypassFIFOF();
-   FIFOF#(Bool) oldPattMultiOcc_fifo <- mkBypassFIFOF();
-   FIFOF#(Bool) newPattMultiOcc_fifo <- mkBypassFIFOF();
-   FIFOF#(Bool) oldNewbPattWr_fifo <- mkBypassFIFOF();
-   FIFOF#(Bit#(5)) vacFLoc_fifo <- mkBypassFIFOF();
+   FIFOF#(Bool) oldPattV_fifo <- mkFIFOF();
+   FIFOF#(Bool) oldPattMultiOcc_fifo <- mkFIFOF();
+   FIFOF#(Bool) newPattMultiOcc_fifo <- mkFIFOF();
+   FIFOF#(Bool) oldNewbPattWr_fifo <- mkFIFOF();
+   FIFOF#(Bit#(5)) vacFLoc_fifo0 <- mkFIFOF();
+   FIFOF#(Bit#(5)) vacFLoc_fifo1 <- mkFIFOF();
+   FIFOF#(Bit#(5)) vacFLoc_fifo2 <- mkFIFOF();
 
-   FIFOF#(Bit#(32)) wVac_fifo <- mkBypassFIFOF();
-   FIFOF#(Bit#(32)) cVac_fifo <- mkBypassFIFOF();
+   FIFOF#(Bit#(32)) wVac_fifo <- mkFIFOF();
+   FIFOF#(Bit#(32)) cVac_fifo <- mkFIFOF();
 
-   FIFOF#(Bool) wEnb_vacram_fifo <- mkBypassFIFOF;
-   FIFOF#(Bool) wEnb_idxram_fifo <- mkBypassFIFOF;
+   FIFOF#(Bool) wEnb_vacram_fifo <- mkFIFOF;
+   FIFOF#(Bool) wEnb_idxram_fifo <- mkFIFOF;
 
    Vector#(4, PipeOut#(Bit#(camSz))) wAddrPipes <- mkForkVector(toPipeOut(writeReqFifo));
+   //Reg#(Bit#(5)) vacFLocR <- mkReg(0);
 
    Reg#(Bit#(32)) cVacR <- mkReg(maxBound);
    Reg#(Bool) oldPattMultiOccR <- mkReg(False);
    Reg#(Bool) newPattMultiOccR <- mkReg(False);
-   Reg#(Bit#(5)) vacFLocR <- mkReg(0);
    Reg#(Bit#(5)) oldIdxR <- mkReg(0);
    Reg#(Bit#(5)) newIdxR <- mkReg(0);
 
    // Indx Ram
-   FIFOF#(Bit#(5)) newPattOccFLoc_fifo <- mkBypassFIFOF();
-   FIFOF#(Bit#(5)) wIndx_fifo <- mkBypassFIFOF();
+   FIFOF#(Bit#(5)) newPattOccFLoc_fifo <- mkFIFOF();
+   FIFOF#(Bit#(5)) wIndx_fifo <- mkFIFOF();
    FIFOF#(Bit#(5)) wAddrL_fifo <- mkFIFOF();
-   FIFOF#(Bit#(160)) data_oldPatt_fifo <- mkBypassFIFOF();
-   FIFOF#(Bit#(160)) data_newPatt_fifo <- mkBypassFIFOF();
+   FIFOF#(Bit#(160)) data_oldPatt_fifo <- mkFIFOF();
+   FIFOF#(Bit#(160)) data_newPatt_fifo <- mkFIFOF();
 
 `define VACRAM AsymmetricBRAM#(Bit#(vacReadDepthSz), Bit#(vacReadSz), Bit#(vacWriteDepthSz), Bit#(vacWriteSz))
-   `VACRAM vacram <- mkAsymmetricBRAM(False, False, "Vacram");
+   `VACRAM vacram <- mkAsymmetricBRAM(True, False, "Vacram");
+
+   PEnc32 pe_vac <- mkPriorityEncoder32();
 
    function Bit#(32) compute_cVac(Bit#(32) rVac, Bool oldPattMultiOcc, Bool oldPattV, Bit#(5) oldIdx);
       OInt#(32) oldIdxOH = toOInt(oldIdx);
@@ -143,13 +147,14 @@ module mkIdxVacram(IdxVacram#(camDepth))
       oldPattMultiOccR <= oldPattMultiOcc;
       Bit#(32) cVac = compute_cVac(rVac, oldPattMultiOcc, oldPattV, oldIdxR);
       cVacR <= cVac;
-      cVac_fifo.enq(cVac);
-      $display("vacram %d: response rVac = %x, oldPattMultiOcc = %x, oldPattV = %x, oldIdx = %x", cycle, rVac, oldPattMultiOcc, oldPattV, oldIdxR);
+      pe_vac.oht.put(cVac);
+      $display("vacram %d: response cVac=%x, rVac = %x, oldPattMultiOcc = %x, oldPattV = %x, oldIdx = %x", cycle, cVac, rVac, oldPattMultiOcc, oldPattV, oldIdxR);
    endrule
 
    rule vacram_write;
       let wAddr <- toGet(wAddrPipes[0]).get;
       let wEnb <- toGet(wEnb_vacram_fifo).get;
+      let vacFLocR <- toGet(vacFLoc_fifo0).get;
       Vector#(wAddrHWidth, Bit#(1)) wAddrH = takeAt(5, unpack(wAddr));
       Bit#(32) wVac = compute_wVac(vacFLocR, newPattMultiOccR, cVacR);
       $display("vacram %d: vacFLoc=%x, newPattMultiOcc=%x, cVac=%x", cycle, vacFLocR, newPattMultiOccR, cVacR);
@@ -160,6 +165,7 @@ module mkIdxVacram(IdxVacram#(camDepth))
    rule newPatt;
       let newPattMultiOcc <- toGet(newPattMultiOcc_fifo).get;
       let oldNewbPattWr <- toGet(oldNewbPattWr_fifo).get;
+      let vacFLocR <- toGet(vacFLoc_fifo1).get;
       newPattMultiOccR <= newPattMultiOcc;
       Bit#(5) oldIdx_ = oldPattMultiOccR ? oldIdxR : 0;
       Bit#(5) newIdx_ = newPattMultiOcc ? newIdxR : vacFLocR;
@@ -168,22 +174,23 @@ module mkIdxVacram(IdxVacram#(camDepth))
       wIndx_fifo.enq(wIndx);
    endrule
 
-   // Encode cVac and wVac
-   PEnc#(32) pe_vac <- mkPriorityEncoder(toPipeOut(cVac_fifo));
-
    rule pe_vac_out;
       let bin <- toGet(pe_vac.bin).get;
       let vld <- toGet(pe_vac.vld).get;
-      vacFLocR <= bin;
+      //vacFLocR <= bin;
+      vacFLoc_fifo0.enq(bin);
+      vacFLoc_fifo1.enq(bin);
+      vacFLoc_fifo2.enq(bin);
       $display("vacram %d: bin=%x vld=%x", cycle, bin, vld);
    endrule
 
 `define IDXRAM AsymmetricBRAM#(Bit#(readDepthSz), Bit#(readSz), Bit#(writeDepthSz), Bit#(writeSz))
-   Vector#(4, `IDXRAM) idxRam <- replicateM(mkAsymmetricBRAM(False, False, "Idxram"));
+   Vector#(4, `IDXRAM) idxRam <- replicateM(mkAsymmetricBRAM(True, False, "Idxram"));
 
    rule idxram_write;
       let wAddr <- toGet(wAddrPipes[2]).get;
       let wEnb <- toGet(wEnb_idxram_fifo).get;
+      let vacFLocR <- toGet(vacFLoc_fifo2).get;
       Vector#(2, Bit#(1)) wAddrLH = takeAt(3, unpack(wAddr));
       Vector#(3, Bit#(1)) wAddrLL = take(unpack(wAddr));
       Vector#(5, Bit#(1)) wAddrL = take(unpack(wAddr));

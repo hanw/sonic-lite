@@ -89,7 +89,7 @@ public:
         fprintf(stderr, "version %d\n", a);
     }
     virtual void cam_search_result(uint32_t a) {
-        fprintf(stderr, "cam search %d\n", a);
+        fprintf(stderr, "cam search %x\n", a);
     }
     virtual void read_setram_result(uint64_t a) {
         fprintf(stderr, "setram %lx\n", a);
@@ -188,10 +188,18 @@ void test_setram(P4TopRequestProxy *device) {
 }
 /*
 void test_bcam(P4TopRequestProxy *device) {
-    device->camInsert(0x302, 0x24);
-    //device->camSearch(0x24);
-    device->camInsert(0x303, 0x24);
+    fprintf(stderr, "Insert CAM\n");
+    device->camInsert(0x0, 0x0);
+    device->camInsert(0x1, 0x1);
+    device->camInsert(0x2, 0x2);
+    device->camInsert(0x3, 0x3);
+    device->camSearch(0x0);
+    device->camSearch(0x1);
+    device->camSearch(0x2);
+    device->camSearch(0x3);
+    //device->camInsert(0x303, 0x24);
 }
+<<<<<<< HEAD
 */
 int main(int argc, char **argv)
 {
@@ -209,6 +217,10 @@ int main(int argc, char **argv)
 //    test_setram(device);
   //  test_bcam(device);
 
+=======
+
+void test_matchtable(P4TopRequestProxy *device) {
+>>>>>>> ebbfae9ed12ba9d37a9420bb9bfb3e2462a11f31
     device->matchTableRequest(10, 15, 1); //PUT(10,15)
     device->matchTableRequest(10, 0, 0);  //GET(10) should print k=10 v=15
 /*    device->matchTableRequest(10, 20, 2); //UPDATE(10,20)
@@ -229,9 +241,31 @@ int main(int argc, char **argv)
     device->matchTableRequest(20, 0, 3);  //REMOVE(20)
     device->matchTableRequest(20, 60, 1); //PUT(20,15)
     device->matchTableRequest(20, 0, 0);  //GET(20) should print k=20 v=60
+<<<<<<< HEAD
   */  
+=======
+}
+
+int main(int argc, char **argv)
+{
+    void *buffer;
+    long length;
+    struct pcap_pkthdr* pcap_hdr;
+    int i;
+    int loops = 1;
+
+    P4TopIndication echoIndication(IfcNames_P4TopIndicationH2S);
+    device = new P4TopRequestProxy(IfcNames_P4TopRequestS2H);
+
+    device->sonic_read_version();
+
+//    test_setram(device);
+//  test_matchtable(device);
+    test_bcam(device);
+
+>>>>>>> ebbfae9ed12ba9d37a9420bb9bfb3e2462a11f31
     while(1) sleep(1);
-    
+
     fprintf(stderr, "Attempts to read pcap file %s\n", argv[1]);
     if (!read_pcap_file(argv[1], &buffer, &length)) {
         perror("Failed to read file!");

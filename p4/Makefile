@@ -35,7 +35,7 @@ PIN_TYPE_INCLUDE = DE5Pins
 CPPFILES=$(PROJTOP)/cpp/test.cpp
 PIN_BINDINGS?=PCIE:PCIE LED:LED OSC:OSC SFPA:SFPA SFPB:SFPB SFPC:SFPC SFPD:SFPD SFP:SFP I2C:CLOCK BUTTON:BUTTON
 CONNECTALFLAGS += -D NicVersion=$(shell date +"%y%m%d%H%M")
-#CONNECTALFLAGS += --verilog=$(PROJTOP)/hw/verilog/
+CONNECTALFLAGS += --verilog=$(PROJTOP)/bsv/AsymmetricBRAM/
 #CONNECTALFLAGS += --verilog=$(PROJTOP)/../hw/ip/ii2dcam/
 CONNECTALFLAGS += -D PcieHostIF
 CONNECTALFLAGS += -D DataBusWidth=128
@@ -55,9 +55,11 @@ CONNECTALFLAGS += --tcl=$(PROJTOP)/../boards/de5_extra.qsf
 
 CONNECTALFLAGS += -I="../sw/"
 CONNECTALFLAGS += --bscflags="-show-range-conflict +RTS -K46777216 -RTS -demote-errors G0066:G0045 -suppress-warnings G0046:G0020:S0015:S0080:S0039 -steps-max-intervals 20"
-#CONNECTALFLAGS += --chipscope=$(PROJTOP)/test.stp
+CONNECTALFLAGS += --chipscope=$(PROJTOP)/test.stp
 
 #CONNECTALFLAGS += -D DEBUG_MATCH_TABLE
+CONNECTALFLAGS += -D DEBUG_BCAM
+CONNECTALFLAGS += -D DEBUG_ETH
 CONNECTALFLAGS += -m $(PROJTOP)/bsv/AsymmetricBRAM/mem_model.c
 
 # P4 support
@@ -89,7 +91,7 @@ ifeq (de5, $(BOARD))
 	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) $(QUARTUS_SH) -t $(PROJTOP)/../hw/scripts/connectal-synth-misc.tcl)
 	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) $(QUARTUS_SH) -t $(PROJTOP)/../hw/scripts/connectal-synth-pciedma.tcl)
 	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) $(QUARTUS_SH) -t $(PROJTOP)/../hw/scripts/connectal-synth-phy.tcl)
-	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) $(QUARTUS_SH) -t $(PROJTOP)/../hw/scripts/connectal-synth-pll.tcl)
+	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) $(QUARTUS_SH) -t $(CONNECTALDIR)/scripts/connectal-synth-pll.tcl)
 	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) $(QUARTUS_SH) -t $(PROJTOP)/../hw/scripts/connectal-synth-pma.tcl)
 endif
 endif

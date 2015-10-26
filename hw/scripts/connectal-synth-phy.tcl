@@ -1,3 +1,6 @@
+source "board.tcl"
+source "$connectaldir/scripts/connectal-synth-ip.tcl"
+
 proc create_altera_10gber_phy {channels} {
 	set core_name {altera_xcvr_10gbaser}
 	set core_version {14.0}

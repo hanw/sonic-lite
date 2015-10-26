@@ -1,0 +1,52 @@
+import sys
+import numpy as np
+import math
+
+order=[3, 4, 5, 6, 7, 8, 9, 10]
+
+for pe in order:
+    width=np.power(2, pe)
+    out = sys.stdout
+    out.write("interface PEnc%s;\n" % width)
+    out.write("   interface Put#(Bit#(%s)) oht;\n" % width)
+    out.write("   interface Get#(Bit#(%s)) bin;\n" % int(math.log(width, 2)))
+    out.write("   interface Get#(Bool) vld;\n")
+    out.write("endinterface\n")
+    out.write("(* synthesize *)\n")
+    out.write("module mkPriorityEncoder(PEnc#(%s));\n" % width)
+    out.write("  FIFO#(Bit#(TLog#(%s))) binpipe <- mkFIFO;\n" % width)
+    out.write("  FIFO#(Bool) vldpipe <- mkFIFO;\n")
+    out.write("  FIFO#(Bit#(%s)) p0_infifo <- mkFIFO;\n" % (width/2))
+    out.write("  FIFO#(Bit#(%s)) p1_infifo <- mkFIFO;\n" % (width/2))
+    out.write("  FIFOF#(Bit#(%s)) oht_fifo <- mkBypassFIFOF;\n" % width)
+    out.write("\n")
+    out.write("  PEnc%s p0 <- mkPriorityEncoder%s();\n" % (width/2, width/2))
+    out.write("  PEnc%s p1 <- mkPriorityEncoder%s();\n" % (width/2, width/2))
+    out.write("\n")
+    out.write("  rule set_input;\n")
+    out.write("     let bin <- toGet(oht_fifo).get;\n")
+    out.write("     p0.oht.put(bin[%s:0]);\n" % (width/2-1))
+    out.write("     p1.oht.put(bin[%s:%s]);\n" % (width-1, width/2))
+    out.write("  endrule\n")
+    out.write("\n")
+    out.write("  rule set_output;\n")
+    out.write("     let valid0 <- p0.vld.get;\n")
+    out.write("     let valid1 <- p1.vld.get;\n")
+    out.write("     let bin0 <- p0.bin.get;\n")
+    out.write("     let bin1 <- p1.bin.get;\n")
+    out.write("     Bit#(TLog#(%s)) output_bin = valid0 ? {1'b0, bin0} : {1'b1, bin1};\n" % width)
+    out.write("     Bool output_vld = boolor(valid0, valid1);\n")
+    out.write("     binpipe.enq(output_bin);\n")
+    out.write("     vldpipe.enq(output_vld);\n")
+    out.write("  endrule\n")
+    out.write("\n")
+    out.write("  interface Put oht;\n")
+    out.write("     method Action put(Bit#(%s) v);\n" % width)
+    out.write("        oht_fifo.enq(v);\n")
+    out.write("     endmethod\n")
+    out.write("  endinterface\n")
+    out.write("  interface bin = fifoToGet(binpipe);\n")
+    out.write("  interface vld = fifoToGet(vldpipe);\n")
+    out.write("endmodule\n")
+    out.write("\n")
+

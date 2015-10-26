@@ -71,7 +71,7 @@ unsigned long long mem_create(unsigned int * memSize,
             m->data[j][k] = 0;
         }
     }
-    fprintf(stderr, "memSize=%d, elemByteSize=%d\n", *memSize, m->elementByteSize);
+    //fprintf(stderr, "memSize=%d, elemByteSize=%d\n", *memSize, m->elementByteSize);
 
     return (unsigned long long) m;
 }

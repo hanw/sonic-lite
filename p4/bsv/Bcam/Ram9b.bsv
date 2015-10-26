@@ -31,6 +31,7 @@ import StmtFSM::*;
 import Vector::*;
 import Pipe::*;
 import AsymmetricBRAM::*;
+import ConnectalBram::*;
 
 import BcamTypes::*;
 
@@ -48,17 +49,17 @@ interface Ram9bx1k;
    interface PipeOut#(Bit#(1024)) mIndc;
 endinterface
 module mkRam9bx1k(Ram9bx1k);
-   FIFOF#(Bool) wEnb_iVld_fifo <- mkBypassFIFOF();
-   FIFOF#(Bool) wEnb_indx_fifo <- mkBypassFIFOF();
-   FIFOF#(Bool) wEnb_indc_fifo <- mkBypassFIFOF();
-   FIFOF#(Bit#(9)) mPatt_fifo <- mkBypassFIFOF();
-   FIFOF#(Bit#(9)) wPatt_fifo <- mkBypassFIFOF();
-   FIFOF#(Bit#(5)) wAddr_indx_fifo <- mkBypassFIFOF();
-   FIFOF#(Bit#(5)) wAddr_indc_fifo <- mkBypassFIFOF();
-   FIFOF#(Bit#(5)) wIndx_fifo <- mkBypassFIFOF();
-   FIFOF#(Bit#(32)) wIndc_fifo <- mkBypassFIFOF();
-   FIFOF#(Bool) wIVld_fifo <- mkBypassFIFOF();
-   FIFOF#(Bit#(1024)) mIndc_fifo <- mkBypassFIFOF();
+   FIFOF#(Bool) wEnb_iVld_fifo <- mkFIFOF();
+   FIFOF#(Bool) wEnb_indx_fifo <- mkFIFOF();
+   FIFOF#(Bool) wEnb_indc_fifo <- mkFIFOF();
+   FIFOF#(Bit#(9)) mPatt_fifo <- mkFIFOF();
+   FIFOF#(Bit#(9)) wPatt_fifo <- mkFIFOF();
+   FIFOF#(Bit#(5)) wAddr_indx_fifo <- mkFIFOF();
+   FIFOF#(Bit#(5)) wAddr_indc_fifo <- mkFIFOF();
+   FIFOF#(Bit#(5)) wIndx_fifo <- mkFIFOF();
+   FIFOF#(Bit#(32)) wIndc_fifo <- mkFIFOF();
+   FIFOF#(Bool) wIVld_fifo <- mkFIFOF();
+   FIFOF#(Bit#(1024)) mIndc_fifo <- mkFIFOF();
 
    FIFOF#(Bit#(32)) iVld_fifo <- mkFIFOF;
 
@@ -70,15 +71,19 @@ module mkRam9bx1k(Ram9bx1k);
 
    // WWID = 1, RWID = 32, WDEP = 16384, OREG = 1, INIT = 1
 `define VLDRAM AsymmetricBRAM#(Bit#(9), Bit#(32), Bit#(14), Bit#(1))
-   `VLDRAM vldram <- mkAsymmetricBRAM(False, False, "VLDram");
+   `VLDRAM vldram <- mkAsymmetricBRAM(True, False, "VLDram");
 
    // WWID = 5, RWID = 40, WDEP = 4096, OREG = 0, INIT = 1
 `define INDXRAM AsymmetricBRAM#(Bit#(9), Bit#(40), Bit#(12), Bit#(5))
-   Vector#(4, `INDXRAM) indxram <- replicateM(mkAsymmetricBRAM(False, False, "indxRam"));
+   Vector#(4, `INDXRAM) indxram <- replicateM(mkAsymmetricBRAM(True, False, "indxRam"));
 
    // DWID = 32, DDEP = 32, MRDW = "DONT_CARE", RREG=ALL, INIT=1
-`define DPMLAB AsymmetricBRAM#(Bit#(5), Bit#(32), Bit#(5), Bit#(32))
-   Vector#(32, `DPMLAB) dpmlab <- replicateM(mkAsymmetricBRAM(False, False, "dpmlab"));
+   BRAM_Configure bramCfg = defaultValue;
+   bramCfg.memorySize = 32;
+   bramCfg.latency=1;
+   Vector#(32, BRAM2Port#(Bit#(5), Bit#(32))) dpmlab <- replicateM(ConnectalBram::mkBRAM2Server(bramCfg));
+//`define DPMLAB AsymmetricBRAM#(Bit#(5), Bit#(32), Bit#(5), Bit#(32))
+//   Vector#(32, `DPMLAB) dpmlab <- replicateM(mkAsymmetricBRAM(False, False, "dpmlab"));
 
    Vector#(4, Wire#(Bit#(40))) indx <- replicateM(mkDWire(0));
 
@@ -126,7 +131,8 @@ module mkRam9bx1k(Ram9bx1k);
          for (Integer j=0; j<8; j=j+1) begin
             if ((wAddr_indx[4:3] == fromInteger(i)) && wAddr_indx[2:0] == fromInteger(j)) begin
                $display("dpmlab %d: write i=%d, j=%d index=%d", cycle, i, j, i*8+j);
-               dpmlab[i*8+j].writeServer.put(tuple2(wAddr_indc, wIndc));
+               //dpmlab[i*8+j].writeServer.put(tuple2(wAddr_indc, wIndc));
+               dpmlab[i*8+j].portA.request.put(BRAMRequest{write:True, responseOnWrite:False, address: wAddr_indc, datain: wIndc});
             end
          end
       end
@@ -142,7 +148,8 @@ module mkRam9bx1k(Ram9bx1k);
          let v <- indxram[i].readServer.response.get;
          for (Integer j=0; j<8; j=j+1) begin
             Bit#(5) addr = v[(j+1)*5-1 : j*5];
-            dpmlab[i*8+j].readServer.request.put(addr);
+            //dpmlab[i*8+j].readServer.request.put(addr);
+            dpmlab[i*8+j].portB.request.put(BRAMRequest{write: False, responseOnWrite: False, address: addr, datain: ?});
          end
       endrule
    end
@@ -152,7 +159,8 @@ module mkRam9bx1k(Ram9bx1k);
       Bit#(1024) mIndc = 0;
       for (Integer i=0; i<4; i=i+1) begin
          for (Integer j=0; j<8; j=j+1) begin
-            let v <- dpmlab[i*8+j].readServer.response.get;
+            //let v <- dpmlab[i*8+j].readServer.response.get;
+            let v <- dpmlab[i*8+j].portB.response.get;
             Vector#(32, Bit#(1)) ivld_vec = replicate(ivld[8*i+j]);
             Bit#(32) mIndcV = v & pack(ivld_vec);
             mIndc[(i*8+j+1)*32-1 : (i*8+j)*32] = mIndcV;
@@ -174,23 +182,21 @@ module mkRam9bx1k(Ram9bx1k);
    interface PipeOut mIndc = toPipeOut(mIndc_fifo);
 endmodule
 
-interface Ram9b#(numeric type camDepth);
+interface Ram9b#(numeric type cdep);//camDepth);
    interface PipeIn#(Bool) wEnb_iVld;
    interface PipeIn#(Bool) wEnb_indx;
    interface PipeIn#(Bool) wEnb_indc;
    interface PipeIn#(Bit#(9)) mPatt;
    interface PipeIn#(Bit#(9)) wPatt;
-   interface PipeIn#(Bit#(TAdd#(TLog#(TSub#(TLog#(camDepth), 9)), 5))) wAddr_indx;
+   interface PipeIn#(Bit#(TAdd#(TLog#(cdep), 5))) wAddr_indx;
    interface PipeIn#(Bit#(5)) wAddr_indc;
    interface PipeIn#(Bit#(5)) wIndx;
    interface PipeIn#(Bit#(32)) wIndc;
    interface PipeIn#(Bool) wIVld;
-   interface PipeOut#(Bit#(TMul#(TSub#(TLog#(camDepth), 9), 1024))) mIndc;
+   interface PipeOut#(Bit#(TMul#(cdep, 1024))) mIndc;
 endinterface
-module mkRam9b(Ram9b#(camDepth))
-   provisos(Add#(cdep, 9, camSz)
-            ,Log#(camDepth, camSz)
-            ,Mul#(cdep, 1024, indcWidth)
+module mkRam9b(Ram9b#(cdep))
+   provisos(Mul#(cdep, 1024, indcWidth)
             ,Add#(TLog#(cdep), 5, wAddrHWidth));
 
    let verbose = True;
@@ -199,17 +205,17 @@ module mkRam9b(Ram9b#(camDepth))
       cycle <= cycle + 1;
    endrule
 
-   FIFOF#(Bool) wEnb_iVld_fifo <- mkBypassFIFOF();
-   FIFOF#(Bool) wEnb_indx_fifo <- mkBypassFIFOF();
-   FIFOF#(Bool) wEnb_indc_fifo <- mkBypassFIFOF();
-   FIFOF#(Bit#(9)) mPatt_fifo <- mkBypassFIFOF();
-   FIFOF#(Bit#(9)) wPatt_fifo <- mkBypassFIFOF();
-   FIFOF#(Bit#(wAddrHWidth)) wAddr_indx_fifo <- mkBypassFIFOF();
-   FIFOF#(Bit#(5)) wAddr_indc_fifo <- mkBypassFIFOF();
-   FIFOF#(Bit#(5)) wIndx_fifo <- mkBypassFIFOF();
-   FIFOF#(Bit#(32)) wIndc_fifo <- mkBypassFIFOF();
-   FIFOF#(Bool) wIVld_fifo <- mkBypassFIFOF();
-   FIFOF#(Bit#(indcWidth)) mIndc_fifo <- mkBypassFIFOF();
+   FIFOF#(Bool) wEnb_iVld_fifo <- mkFIFOF();
+   FIFOF#(Bool) wEnb_indx_fifo <- mkFIFOF();
+   FIFOF#(Bool) wEnb_indc_fifo <- mkFIFOF();
+   FIFOF#(Bit#(9)) mPatt_fifo <- mkFIFOF();
+   FIFOF#(Bit#(9)) wPatt_fifo <- mkFIFOF();
+   FIFOF#(Bit#(wAddrHWidth)) wAddr_indx_fifo <- mkFIFOF();
+   FIFOF#(Bit#(5)) wAddr_indc_fifo <- mkFIFOF();
+   FIFOF#(Bit#(5)) wIndx_fifo <- mkFIFOF();
+   FIFOF#(Bit#(32)) wIndc_fifo <- mkFIFOF();
+   FIFOF#(Bool) wIVld_fifo <- mkFIFOF();
+   FIFOF#(Bit#(indcWidth)) mIndc_fifo <- mkFIFOF();
 
    Vector#(cdep, Ram9bx1k) ram <- replicateM(mkRam9bx1k());
 
