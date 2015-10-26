@@ -200,6 +200,7 @@ void test_bcam(P4TopRequestProxy *device) {
     //device->camInsert(0x303, 0x24);
 }
 <<<<<<< HEAD
+<<<<<<< HEAD
 */
 int main(int argc, char **argv)
 {
@@ -217,10 +218,6 @@ int main(int argc, char **argv)
 //    test_setram(device);
   //  test_bcam(device);
 
-=======
-
-void test_matchtable(P4TopRequestProxy *device) {
->>>>>>> ebbfae9ed12ba9d37a9420bb9bfb3e2462a11f31
     device->matchTableRequest(10, 15, 1); //PUT(10,15)
     device->matchTableRequest(10, 0, 0);  //GET(10) should print k=10 v=15
 /*    device->matchTableRequest(10, 20, 2); //UPDATE(10,20)
@@ -242,28 +239,8 @@ void test_matchtable(P4TopRequestProxy *device) {
     device->matchTableRequest(20, 60, 1); //PUT(20,15)
     device->matchTableRequest(20, 0, 0);  //GET(20) should print k=20 v=60
 <<<<<<< HEAD
+<<<<<<< HEAD
   */  
-=======
-}
-
-int main(int argc, char **argv)
-{
-    void *buffer;
-    long length;
-    struct pcap_pkthdr* pcap_hdr;
-    int i;
-    int loops = 1;
-
-    P4TopIndication echoIndication(IfcNames_P4TopIndicationH2S);
-    device = new P4TopRequestProxy(IfcNames_P4TopRequestS2H);
-
-    device->sonic_read_version();
-
-//    test_setram(device);
-//  test_matchtable(device);
-    test_bcam(device);
-
->>>>>>> ebbfae9ed12ba9d37a9420bb9bfb3e2462a11f31
     while(1) sleep(1);
 
     fprintf(stderr, "Attempts to read pcap file %s\n", argv[1]);

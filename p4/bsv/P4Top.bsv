@@ -71,6 +71,8 @@ import AsymmetricBRAM::*;
 import PriorityEncoder::*;
 
 //`define MTABLE 1;
+`define MTABLE 1;
+//`define MTABLE_HASH 1;
 
 typedef TDiv#(DataBusWidth, 32) WordsPerBeat;
 
