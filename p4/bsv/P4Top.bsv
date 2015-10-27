@@ -40,9 +40,14 @@ import MemWriteEngine::*;
 import MemServerIndication::*;
 import MMUIndication::*;
 
+`ifdef MTABLE_CAM
 import MatchTable_Bcam::*;
+`endif
+
+`ifdef MTABLE_HASH::*;
 import MatchTable_Hash::*;
 import MatchTableTypes::*;
+`endif
 
 import AlteraExtra::*;
 import AlteraEthPhy::*;
@@ -66,15 +71,9 @@ import Bcam::*;
 import AsymmetricBRAM::*;
 `endif
 
-`define MTABLE 1;
-//`define MTABLE_HASH 1;
-import PriorityEncoder::*;
+import PriorityEncoderEfficient::*;
 
-//`define MTABLE 1;
-`define MTABLE 1;
-//`define MTABLE_HASH 1;
-
-typedef TDiv#(DataBusWidth, 32) WordsPerBeat;
+typedef TDiv#(`DataBusWidth, 32) WordsPerBeat;
 
 interface P4TopIndication;
    method Action sonic_read_version_resp(Bit#(32) version);
@@ -131,6 +130,7 @@ module mkP4Top#(P4TopIndication indication)(P4Top);
    Reset defaultReset <- exposeCurrentReset();
 
 `ifndef BSIM
+`ifndef SIMULATION
    B2C iclock_50 <- mkB2C();
    B2C1 iclock_644 <- mkB2C1();
 
@@ -197,7 +197,8 @@ module mkP4Top#(P4TopIndication indication)(P4Top);
    mapM(uncurry(mkConnection), zip(phy.rx, mac.rx));
 `endif
 
-`endif
+`endif //BSIM
+`endif //SIMULATION
 
    let verbose = True;
    Reg#(Cycle_t) cycle <- mkReg(defaultValue);
@@ -216,23 +217,23 @@ module mkP4Top#(P4TopIndication indication)(P4Top);
    Server#(RequestType, ResponseType) matchTable <- mkMatchTable_Hash();
 `endif
 
-`ifndef MTABLE_HASH
+`ifdef MTABLE_CAM
     Server#(RequestType, ResponseType) matchTable <- mkMatchTable_Bcam();
 `endif
 
    // read client interface
    FIFO#(MemRequest) reqFifo <-mkSizedFIFO(4);
-   FIFO#(MemData#(DataBusWidth)) dataFifo <- mkSizedFIFO(32);
-   MemReadClient#(DataBusWidth) dmaClient = (interface MemReadClient;
+   FIFO#(MemData#(`DataBusWidth)) dataFifo <- mkSizedFIFO(32);
+   MemReadClient#(`DataBusWidth) dmaClient = (interface MemReadClient;
       interface Get readReq = toGet(reqFifo);
       interface Put readData = toPut(dataFifo);
    endinterface);
 
    // write client interface
    FIFO#(MemRequest) writeReqFifo <- mkSizedFIFO(4);
-   FIFO#(MemData#(DataBusWidth)) writeDataFifo <- mkSizedFIFO(32);
+   FIFO#(MemData#(`DataBusWidth)) writeDataFifo <- mkSizedFIFO(32);
    FIFO#(Bit#(MemTagSize)) writeDoneFifo <- mkSizedFIFO(4);
-   MemWriteClient#(DataBusWidth) dmaWriteClient = (interface MemWriteClient;
+   MemWriteClient#(`DataBusWidth) dmaWriteClient = (interface MemWriteClient;
       interface Get writeReq = toGet(writeReqFifo);
       interface Get writeData = toGet(writeDataFifo);
       interface Put writeDone = toPut(writeDoneFifo);
@@ -243,7 +244,7 @@ module mkP4Top#(P4TopIndication indication)(P4Top);
 //   SharedBuffer#(12, 128, 1) buff <- mkSharedBuffer(vec(dmaClient), vec(dmaWriteClient), memServerIndication.ifc, mmuIndication.ifc);
 
 `ifdef DEBUG_BCAM
-   BinaryCam#(1024, 27) bcam <- mkBinaryCam();
+   BinaryCam#(1024, 9) bcam <- mkBinaryCamBSV();
 `endif
 
    Reg#(Bit#(EtherLen)) pktLen <- mkReg(0);
@@ -488,6 +489,7 @@ module mkP4Top#(P4TopIndication indication)(P4Top);
    interface `PinType pins;
       // Clocks
 `ifndef BSIM
+`ifndef SIMULATION
       method Action osc_50(Bit#(1) b3d, Bit#(1) b4a, Bit#(1) b4d, Bit#(1) b7a, Bit#(1) b7d, Bit#(1) b8a, Bit#(1) b8d);
          iclock_50.inputclock(b4a);
       endmethod
@@ -523,6 +525,7 @@ module mkP4Top#(P4TopIndication indication)(P4Top);
       interface deleteme_unused_reset = iclock_50.r;
       interface deleteme_unused_clock2 = defaultClock;
       interface deleteme_unused_clock3 = clk_156_25;
+`endif
 `endif
    endinterface
 endmodule

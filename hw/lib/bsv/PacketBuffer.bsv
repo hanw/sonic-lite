@@ -76,7 +76,7 @@ module mkPacketBuffer(PacketBuffer);
 
    FIFO#(EtherData) fifoWriteData <- mkFIFO;
    FIFOF#(Bit#(EtherLen)) fifoEop <- mkFIFOF;
-   FIFO#(ReqTup) incomingReqs     <- mkFIFO;
+   FIFO#(AddrTransRequest) incomingReqs     <- mkFIFO;
 
    // Client
    Reg#(Bit#(PktAddrWidth))     rdCurrPtr   <- mkReg(0);
@@ -92,7 +92,7 @@ module mkPacketBuffer(PacketBuffer);
 
    rule enq_stage1;
       EtherData d <- toGet(fifoWriteData).get;
-      incomingReqs.enq(ReqTup{addr: wrCurrPtr, data:d});
+      incomingReqs.enq(AddrTransRequest{addr: wrCurrPtr, data:d});
       wrCurrPtr <= wrCurrPtr + 1;
       Bit#(EtherLen) newPacketLen = packetLen + 1;
       if (d.eop) begin
@@ -105,7 +105,7 @@ module mkPacketBuffer(PacketBuffer);
    endrule
 
    rule enqueue_first_beat(!inPacket);
-      ReqTup req <- toGet(incomingReqs).get;
+      AddrTransRequest req <- toGet(incomingReqs).get;
       if (verbose) $display("PacketBuffer::enqueue_first_beat %d", cycle, fshow(req));
       memBuffer.portA.request.put(BRAMRequest{write:True, responseOnWrite:False,
          address:req.addr, datain:req.data});
@@ -113,14 +113,14 @@ module mkPacketBuffer(PacketBuffer);
    endrule
 
    rule enqueue_next_beat(!fifoEop.notEmpty && inPacket);
-      ReqTup req <- toGet(incomingReqs).get;
+      AddrTransRequest req <- toGet(incomingReqs).get;
       if (verbose) $display("PacketBuffer::enqueue_next_beat %d", cycle, fshow(req));
       memBuffer.portA.request.put(BRAMRequest{write:True, responseOnWrite:False,
          address:req.addr, datain:req.data});
    endrule
 
    rule commit_packet(fifoEop.notEmpty && inPacket);
-      ReqTup req <- toGet(incomingReqs).get;
+      AddrTransRequest req <- toGet(incomingReqs).get;
       if (verbose) $display("PacketBuffer::commit_packet %d", cycle, fshow(req));
       memBuffer.portA.request.put(BRAMRequest{write:True, responseOnWrite:False,
          address:req.addr, datain:req.data});

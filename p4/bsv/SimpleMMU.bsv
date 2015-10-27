@@ -25,6 +25,7 @@ import MMU::*;
 import Vector::*;
 import GetPut::*;
 import ClientServer::*;
+import Ethernet::*;
 
 module mkSimpleMMU(MMU#(addrWidth))
    provisos(Add#(a__, addrWidth, 44));
@@ -35,14 +36,14 @@ module mkSimpleMMU(MMU#(addrWidth))
       cycle <= cycle + 1;
    endrule
 
-   Vector#(2, FIFO#(ReqTup)) incomingReqs <- replicateM(mkFIFO);
+   Vector#(2, FIFO#(AddrTransRequest)) incomingReqs <- replicateM(mkFIFO);
 
-   Vector#(2, Server#(ReqTup, Bit#(addrWidth))) addrServers;
+   Vector#(2, Server#(AddrTransRequest, Bit#(addrWidth))) addrServers;
    for (Integer i=0; i < 2; i=i+1) begin
       addrServers[i] =
-      (interface Server#(ReqTup, Bit#(addrWidth));
+      (interface Server#(AddrTransRequest, Bit#(addrWidth));
           interface Put request;
-             method Action put(ReqTup req);
+             method Action put(AddrTransRequest req);
                 $display("%d: Put MMU request %x %x", cycle, req.id, req.off);
                 incomingReqs[i].enq(req);
              endmethod

@@ -16,10 +16,12 @@ interface DE5Pins;
    method Bit#(1) led3;
    method Bit#(4) led_bracket;
 `ifndef BSIM
+`ifndef SIMULATION
    interface Clock deleteme_unused_clock;
    interface Clock deleteme_unused_clock2;
    interface Clock deleteme_unused_clock3;
    interface Reset deleteme_unused_reset;
+`endif
 `endif
 endinterface
 

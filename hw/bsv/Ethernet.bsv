@@ -197,9 +197,9 @@ typedef struct {
 typedef struct {
    Bit#(PktAddrWidth) addr;
    EtherData          data;
-} ReqTup deriving (Eq, Bits);
-instance FShow#(ReqTup);
-   function Fmt fshow (ReqTup req);
+} AddrTransRequest deriving (Eq, Bits);
+instance FShow#(AddrTransRequest);
+   function Fmt fshow (AddrTransRequest req);
       return ($format(" addr=0x%x ", req.addr)
               + $format(" data=0x%x ", req.data.data)
               + $format(" sop= %d ", req.data.sop)
