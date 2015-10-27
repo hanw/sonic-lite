@@ -40,8 +40,8 @@ endtypeclass
 
 instance PriorityEncoder#(4);
    module mkPriorityEncoder(PEnc#(4));
-      FIFO#(Bit#(2)) binpipe <- mkBypassFIFO;
-      FIFO#(Bool) vldpipe <- mkBypassFIFO;
+      FIFO#(Bit#(2)) binpipe <- mkFIFO1;
+      FIFO#(Bool) vldpipe <- mkFIFO1;
 
       interface Put oht;
          method Action put(Bit#(4) v);
@@ -58,9 +58,9 @@ endinstance
 
 instance PriorityEncoder#(16);
    module mkPriorityEncoder(PEnc#(16));
-      Vector#(4, Reg#(Bit#(2))) binIR <- replicateM(mkReg(0));
-      FIFO#(Bool) vldpipe <- mkFIFO;
-      FIFO#(Bit#(4)) binpipe <- mkFIFO;
+      Vector#(4, Wire#(Bit#(2))) binIR <- replicateM(mkDWire(0));
+      FIFO#(Bool) vldpipe <- mkFIFO1;
+      FIFO#(Bit#(4)) binpipe <- mkFIFO1;
 
       Vector#(4, PEnc#(4)) pe4_cam <- replicateM(mkPriorityEncoder());
       PEnc#(4) pe4_cam_out0 <- mkPriorityEncoder();
@@ -101,9 +101,9 @@ endinstance
 
 instance PriorityEncoder#(64);
    module mkPriorityEncoder(PEnc#(64));
-      Vector#(4, Reg#(Bit#(4))) binIR <- replicateM(mkReg(0));
-      FIFO#(Bool) vldpipe <- mkFIFO;
-      FIFO#(Bit#(6)) binpipe <- mkFIFO;
+      Vector#(4, Wire#(Bit#(4))) binIR <- replicateM(mkDWire(0));
+      FIFO#(Bool) vldpipe <- mkFIFO1;
+      FIFO#(Bit#(6)) binpipe <- mkFIFO1;
 
       Vector#(4, PEnc#(16)) pe4_cam <- replicateM(mkPriorityEncoder());
       PEnc#(4) pe4_cam_out0 <- mkPriorityEncoder();
@@ -144,9 +144,9 @@ endinstance
 
 instance PriorityEncoder#(256);
    module mkPriorityEncoder(PEnc#(256));
-      Vector#(4, Reg#(Bit#(6))) binIR <- replicateM(mkReg(0));
-      FIFO#(Bool) vldpipe <- mkFIFO;
-      FIFO#(Bit#(8)) binpipe <- mkFIFO;
+      Vector#(4, Wire#(Bit#(6))) binIR <- replicateM(mkDWire(0));
+      FIFO#(Bool) vldpipe <- mkFIFO1;
+      FIFO#(Bit#(8)) binpipe <- mkFIFO1;
 
       Vector#(4, PEnc#(64)) pe4_cam <- replicateM(mkPriorityEncoder());
       PEnc#(4) pe4_cam_out0 <- mkPriorityEncoder();
@@ -206,8 +206,8 @@ endinterface
 (* synthesize *)
 module mkPriorityEncoder1024(PEnc1024);
    Vector#(4, Reg#(Bit#(8))) binIR <- replicateM(mkReg(0));
-   FIFO#(Bool) vldpipe <- mkFIFO;
-   FIFO#(Bit#(10)) binpipe <- mkFIFO;
+   FIFO#(Bool) vldpipe <- mkFIFO1;
+   FIFO#(Bit#(10)) binpipe <- mkFIFO1;
 
    Vector#(4, PEnc#(256)) pe4_cam <- replicateM(mkPriorityEncoder());
    PEnc#(4) pe4_cam_out0 <- mkPriorityEncoder();
@@ -248,8 +248,8 @@ endmodule
 // Should never be used.. not efficient
 instance PriorityEncoder#(2);
    module mkPriorityEncoder(PEnc#(2));
-      FIFO#(Bit#(1)) binpipe <- mkFIFO;
-      FIFO#(Bool) vldpipe <- mkFIFO;
+      FIFO#(Bit#(1)) binpipe <- mkFIFO1;
+      FIFO#(Bool) vldpipe <- mkFIFO1;
 
       interface Put oht;
          method Action put(Bit#(2) v);
@@ -271,10 +271,10 @@ endinstance
 //            ,Log#(TDiv#(n, 2), TLog#(nhalf))
 //            ,PriorityEncoder#(TDiv#(n, 2)));
 //   module mkPriorityEncoder(PEnc#(n));
-//      FIFO#(Bit#(TLog#(n))) binpipe <- mkFIFO;
-//      FIFO#(Bool) vldpipe <- mkFIFO;
-//      FIFO#(Bit#(nhalf)) p0_infifo <- mkFIFO;
-//      FIFO#(Bit#(nhalf)) p1_infifo <- mkFIFO;
+//      FIFO#(Bit#(TLog#(n))) binpipe <- mkFIFO1;
+//      FIFO#(Bool) vldpipe <- mkFIFO1;
+//      FIFO#(Bit#(nhalf)) p0_infifo <- mkFIFO1;
+//      FIFO#(Bit#(nhalf)) p1_infifo <- mkFIFO1;
 //      FIFOF#(Bit#(n)) oht_fifo <- mkBypassFIFOF;
 //
 //      PEnc#(TDiv#(n, 2)) p0 <- mkPriorityEncoder();

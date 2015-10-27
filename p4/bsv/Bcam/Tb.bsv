@@ -253,11 +253,11 @@ endfunction
 (* synthesize *)
 module mkTb (Empty);
 
-   BinaryCam#(1024, 9) bcam <- mkBinaryCamBSV();
-   //PEnc#(16) pe <- mkPriorityEncoder();
+   //BinaryCam#(1024, 9) bcam <- mkBinaryCamBSV();
+   PEnc#(1024) pe <- mkPriorityEncoder();
 
-   mkAutoFSM(testSeq(bcam, "bcam"));
-   //mkAutoFSM(testSeq2(pe, "pe"));
+   //mkAutoFSM(testSeq(bcam, "bcam"));
+   mkAutoFSM(testSeq2(pe, "pe"));
 
 endmodule: mkTb
 
