@@ -35,6 +35,7 @@ PIN_TYPE_INCLUDE = DE5Pins
 CPPFILES=$(PROJTOP)/cpp/test.cpp
 PIN_BINDINGS?=PCIE:PCIE LED:LED OSC:OSC SFPA:SFPA SFPB:SFPB SFPC:SFPC SFPD:SFPD SFP:SFP I2C:CLOCK BUTTON:BUTTON
 CONNECTALFLAGS += -D NicVersion=$(shell date +"%y%m%d%H%M")
+CONNECTALFLAGS += --verilog=$(PROJTOP)/../hw/verilog/
 CONNECTALFLAGS += --verilog=$(PROJTOP)/bsv/AsymmetricBRAM/
 #CONNECTALFLAGS += --verilog=$(PROJTOP)/../hw/ip/ii2dcam/
 CONNECTALFLAGS += -D PcieHostIF
@@ -55,17 +56,19 @@ CONNECTALFLAGS += --tcl=$(PROJTOP)/../boards/de5_extra.qsf
 
 CONNECTALFLAGS += -I="../sw/"
 CONNECTALFLAGS += --bscflags="-show-range-conflict +RTS -K46777216 -RTS -demote-errors G0066:G0045 -suppress-warnings G0046:G0020:S0015:S0080:S0039 -steps-max-intervals 20"
-CONNECTALFLAGS += --chipscope=$(PROJTOP)/test.stp
+CONNECTALFLAGS += --chipscope=$(PROJTOP)/xgmii.stp
 
 #CONNECTALFLAGS += -D DEBUG_MATCH_TABLE
 CONNECTALFLAGS += -D DEBUG_BCAM
-CONNECTALFLAGS += -D DEBUG_ETH
+#CONNECTALFLAGS += -D MTABLE_HASH
+#CONNECTALFLAGS += -D MTABLE_CAM
+#CONNECTALFLAGS += -D DEBUG_ETH
 CONNECTALFLAGS += -m $(PROJTOP)/bsv/AsymmetricBRAM/mem_model.c
 
 # P4 support
 export TARGET_ROOT :=$(abspath $(dir $(lastword $(MAKEFILE_LIST))))
-export P4_INPUT := p4src/sonic.p4
-export P4_NAME := sonic
+export P4_INPUT := p4src/source_routing.p4
+export P4_NAME := source_routing
 include ${P4FACTORY}/init.mk
 MAKEFILES_DIR := ${P4FACTORY}/makefiles
 include ${MAKEFILES_DIR}/common.mk

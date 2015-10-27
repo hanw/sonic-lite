@@ -35,7 +35,7 @@ import AsymmetricBRAM::*;
 import Setram::*;
 import IdxVacRam::*;
 import Ram9b::*;
-import PriorityEncoder::*;
+import PriorityEncoderEfficient::*;
 
 typedef enum {S0, S1, S2} StateType
    deriving (Bits, Eq);
@@ -229,7 +229,7 @@ module mkBinaryCam(BinaryCam#(camDepth, pattWidth))
             ,Add#(TAdd#(TLog#(cdep), 5), 2, TLog#(TDiv#(camDepth, 8)))
             ,Log#(TDiv#(camDepth, 4), TAdd#(TAdd#(TLog#(cdep), 5), 3))
             ,Log#(TDiv#(camDepth, 32), TAdd#(TLog#(cdep), 5))
-            ,PriorityEncoder::PriorityEncoder#(indcWidth) //??
+            ,PriorityEncoder#(indcWidth) //??
             ,Add#(TLog#(cdep), 5, a__)
             ,Add#(TAdd#(TLog#(TSub#(TLog#(camDepth), 9)), 5), g__, camSz)
          );

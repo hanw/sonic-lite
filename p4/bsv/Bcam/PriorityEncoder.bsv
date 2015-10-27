@@ -56,18 +56,18 @@ instance PriorityEncoder#(2);
    endmodule
 endinstance
 
-instance PriorityEncoder#(1024);
-   module mkPriorityEncoder(PEnc#(1024));
-      PEnc1024 pe <- mkPriorityEncoder1024();
-      interface Put oht;
-         method Action put(Bit#(1024) v);
-            pe.oht.put(v);
-         endmethod
-      endinterface
-      interface bin = pe.bin;
-      interface vld = pe.vld;
-   endmodule
-endinstance
+//instance PriorityEncoder#(1024);
+//   module mkPriorityEncoder(PEnc#(1024));
+//      PEnc1024 pe <- mkPriorityEncoder1024();
+//      interface Put oht;
+//         method Action put(Bit#(1024) v);
+//            pe.oht.put(v);
+//         endmethod
+//      endinterface
+//      interface bin = pe.bin;
+//      interface vld = pe.vld;
+//   endmodule
+//endinstance
 
 instance PriorityEncoder#(n)
    provisos (Add#(TDiv#(n, 2), a__, n)
@@ -238,213 +238,213 @@ module mkPriorityEncoder32(PEnc32);
   interface vld = fifoToGet(vldpipe);
 endmodule
 
-interface PEnc64;
-   interface Put#(Bit#(64)) oht;
-   interface Get#(Bit#(6)) bin;
-   interface Get#(Bool) vld;
-endinterface
-(* synthesize *)
-module mkPriorityEncoder64(PEnc64);
-  FIFO#(Bit#(TLog#(64))) binpipe <- mkFIFO;
-  FIFO#(Bool) vldpipe <- mkFIFO;
-  FIFO#(Bit#(32)) p0_infifo <- mkFIFO;
-  FIFO#(Bit#(32)) p1_infifo <- mkFIFO;
-  FIFOF#(Bit#(64)) oht_fifo <- mkBypassFIFOF;
-
-  PEnc32 p0 <- mkPriorityEncoder32();
-  PEnc32 p1 <- mkPriorityEncoder32();
-
-  rule set_input;
-     let bin <- toGet(oht_fifo).get;
-     p0.oht.put(bin[31:0]);
-     p1.oht.put(bin[63:32]);
-  endrule
-
-  rule set_output;
-     let valid0 <- p0.vld.get;
-     let valid1 <- p1.vld.get;
-     let bin0 <- p0.bin.get;
-     let bin1 <- p1.bin.get;
-     Bit#(TLog#(64)) output_bin = valid0 ? {1'b0, bin0} : {1'b1, bin1};
-     Bool output_vld = boolor(valid0, valid1);
-     binpipe.enq(output_bin);
-     vldpipe.enq(output_vld);
-  endrule
-
-  interface Put oht;
-     method Action put(Bit#(64) v);
-        oht_fifo.enq(v);
-     endmethod
-  endinterface
-  interface bin = fifoToGet(binpipe);
-  interface vld = fifoToGet(vldpipe);
-endmodule
-
-interface PEnc128;
-   interface Put#(Bit#(128)) oht;
-   interface Get#(Bit#(7)) bin;
-   interface Get#(Bool) vld;
-endinterface
-(* synthesize *)
-module mkPriorityEncoder128(PEnc128);
-  FIFO#(Bit#(TLog#(128))) binpipe <- mkFIFO;
-  FIFO#(Bool) vldpipe <- mkFIFO;
-  FIFO#(Bit#(64)) p0_infifo <- mkFIFO;
-  FIFO#(Bit#(64)) p1_infifo <- mkFIFO;
-  FIFOF#(Bit#(128)) oht_fifo <- mkBypassFIFOF;
-
-  PEnc64 p0 <- mkPriorityEncoder64();
-  PEnc64 p1 <- mkPriorityEncoder64();
-
-  rule set_input;
-     let bin <- toGet(oht_fifo).get;
-     p0.oht.put(bin[63:0]);
-     p1.oht.put(bin[127:64]);
-  endrule
-
-  rule set_output;
-     let valid0 <- p0.vld.get;
-     let valid1 <- p1.vld.get;
-     let bin0 <- p0.bin.get;
-     let bin1 <- p1.bin.get;
-     Bit#(TLog#(128)) output_bin = valid0 ? {1'b0, bin0} : {1'b1, bin1};
-     Bool output_vld = boolor(valid0, valid1);
-     binpipe.enq(output_bin);
-     vldpipe.enq(output_vld);
-  endrule
-
-  interface Put oht;
-     method Action put(Bit#(128) v);
-        oht_fifo.enq(v);
-     endmethod
-  endinterface
-  interface bin = fifoToGet(binpipe);
-  interface vld = fifoToGet(vldpipe);
-endmodule
-
-interface PEnc256;
-   interface Put#(Bit#(256)) oht;
-   interface Get#(Bit#(8)) bin;
-   interface Get#(Bool) vld;
-endinterface
-(* synthesize *)
-module mkPriorityEncoder256(PEnc256);
-  FIFO#(Bit#(TLog#(256))) binpipe <- mkFIFO;
-  FIFO#(Bool) vldpipe <- mkFIFO;
-  FIFO#(Bit#(128)) p0_infifo <- mkFIFO;
-  FIFO#(Bit#(128)) p1_infifo <- mkFIFO;
-  FIFOF#(Bit#(256)) oht_fifo <- mkBypassFIFOF;
-
-  PEnc128 p0 <- mkPriorityEncoder128();
-  PEnc128 p1 <- mkPriorityEncoder128();
-
-  rule set_input;
-     let bin <- toGet(oht_fifo).get;
-     p0.oht.put(bin[127:0]);
-     p1.oht.put(bin[255:128]);
-  endrule
-
-  rule set_output;
-     let valid0 <- p0.vld.get;
-     let valid1 <- p1.vld.get;
-     let bin0 <- p0.bin.get;
-     let bin1 <- p1.bin.get;
-     Bit#(TLog#(256)) output_bin = valid0 ? {1'b0, bin0} : {1'b1, bin1};
-     Bool output_vld = boolor(valid0, valid1);
-     binpipe.enq(output_bin);
-     vldpipe.enq(output_vld);
-  endrule
-
-  interface Put oht;
-     method Action put(Bit#(256) v);
-        oht_fifo.enq(v);
-     endmethod
-  endinterface
-  interface bin = fifoToGet(binpipe);
-  interface vld = fifoToGet(vldpipe);
-endmodule
-
-interface PEnc512;
-   interface Put#(Bit#(512)) oht;
-   interface Get#(Bit#(9)) bin;
-   interface Get#(Bool) vld;
-endinterface
-(* synthesize *)
-module mkPriorityEncoder512(PEnc512);
-  FIFO#(Bit#(TLog#(512))) binpipe <- mkFIFO;
-  FIFO#(Bool) vldpipe <- mkFIFO;
-  FIFO#(Bit#(256)) p0_infifo <- mkFIFO;
-  FIFO#(Bit#(256)) p1_infifo <- mkFIFO;
-  FIFOF#(Bit#(512)) oht_fifo <- mkBypassFIFOF;
-
-  PEnc256 p0 <- mkPriorityEncoder256();
-  PEnc256 p1 <- mkPriorityEncoder256();
-
-  rule set_input;
-     let bin <- toGet(oht_fifo).get;
-     p0.oht.put(bin[255:0]);
-     p1.oht.put(bin[511:256]);
-  endrule
-
-  rule set_output;
-     let valid0 <- p0.vld.get;
-     let valid1 <- p1.vld.get;
-     let bin0 <- p0.bin.get;
-     let bin1 <- p1.bin.get;
-     Bit#(TLog#(512)) output_bin = valid0 ? {1'b0, bin0} : {1'b1, bin1};
-     Bool output_vld = boolor(valid0, valid1);
-     binpipe.enq(output_bin);
-     vldpipe.enq(output_vld);
-  endrule
-
-  interface Put oht;
-     method Action put(Bit#(512) v);
-        oht_fifo.enq(v);
-     endmethod
-  endinterface
-  interface bin = fifoToGet(binpipe);
-  interface vld = fifoToGet(vldpipe);
-endmodule
-
-interface PEnc1024;
-   interface Put#(Bit#(1024)) oht;
-   interface Get#(Bit#(10)) bin;
-   interface Get#(Bool) vld;
-endinterface
-(* synthesize *)
-module mkPriorityEncoder1024(PEnc1024);
-  FIFO#(Bit#(TLog#(1024))) binpipe <- mkFIFO;
-  FIFO#(Bool) vldpipe <- mkFIFO;
-  FIFO#(Bit#(512)) p0_infifo <- mkFIFO;
-  FIFO#(Bit#(512)) p1_infifo <- mkFIFO;
-  FIFOF#(Bit#(1024)) oht_fifo <- mkBypassFIFOF;
-
-  PEnc512 p0 <- mkPriorityEncoder512();
-  PEnc512 p1 <- mkPriorityEncoder512();
-
-  rule set_input;
-     let bin <- toGet(oht_fifo).get;
-     p0.oht.put(bin[511:0]);
-     p1.oht.put(bin[1023:512]);
-  endrule
-
-  rule set_output;
-     let valid0 <- p0.vld.get;
-     let valid1 <- p1.vld.get;
-     let bin0 <- p0.bin.get;
-     let bin1 <- p1.bin.get;
-     Bit#(TLog#(1024)) output_bin = valid0 ? {1'b0, bin0} : {1'b1, bin1};
-     Bool output_vld = boolor(valid0, valid1);
-     binpipe.enq(output_bin);
-     vldpipe.enq(output_vld);
-  endrule
-
-  interface Put oht;
-     method Action put(Bit#(1024) v);
-        oht_fifo.enq(v);
-     endmethod
-  endinterface
-  interface bin = fifoToGet(binpipe);
-  interface vld = fifoToGet(vldpipe);
-endmodule
-
+//interface PEnc64;
+//   interface Put#(Bit#(64)) oht;
+//   interface Get#(Bit#(6)) bin;
+//   interface Get#(Bool) vld;
+//endinterface
+//(* synthesize *)
+//module mkPriorityEncoder64(PEnc64);
+//  FIFO#(Bit#(TLog#(64))) binpipe <- mkFIFO;
+//  FIFO#(Bool) vldpipe <- mkFIFO;
+//  FIFO#(Bit#(32)) p0_infifo <- mkFIFO;
+//  FIFO#(Bit#(32)) p1_infifo <- mkFIFO;
+//  FIFOF#(Bit#(64)) oht_fifo <- mkBypassFIFOF;
+//
+//  PEnc32 p0 <- mkPriorityEncoder32();
+//  PEnc32 p1 <- mkPriorityEncoder32();
+//
+//  rule set_input;
+//     let bin <- toGet(oht_fifo).get;
+//     p0.oht.put(bin[31:0]);
+//     p1.oht.put(bin[63:32]);
+//  endrule
+//
+//  rule set_output;
+//     let valid0 <- p0.vld.get;
+//     let valid1 <- p1.vld.get;
+//     let bin0 <- p0.bin.get;
+//     let bin1 <- p1.bin.get;
+//     Bit#(TLog#(64)) output_bin = valid0 ? {1'b0, bin0} : {1'b1, bin1};
+//     Bool output_vld = boolor(valid0, valid1);
+//     binpipe.enq(output_bin);
+//     vldpipe.enq(output_vld);
+//  endrule
+//
+//  interface Put oht;
+//     method Action put(Bit#(64) v);
+//        oht_fifo.enq(v);
+//     endmethod
+//  endinterface
+//  interface bin = fifoToGet(binpipe);
+//  interface vld = fifoToGet(vldpipe);
+//endmodule
+//
+//interface PEnc128;
+//   interface Put#(Bit#(128)) oht;
+//   interface Get#(Bit#(7)) bin;
+//   interface Get#(Bool) vld;
+//endinterface
+//(* synthesize *)
+//module mkPriorityEncoder128(PEnc128);
+//  FIFO#(Bit#(TLog#(128))) binpipe <- mkFIFO;
+//  FIFO#(Bool) vldpipe <- mkFIFO;
+//  FIFO#(Bit#(64)) p0_infifo <- mkFIFO;
+//  FIFO#(Bit#(64)) p1_infifo <- mkFIFO;
+//  FIFOF#(Bit#(128)) oht_fifo <- mkBypassFIFOF;
+//
+//  PEnc64 p0 <- mkPriorityEncoder64();
+//  PEnc64 p1 <- mkPriorityEncoder64();
+//
+//  rule set_input;
+//     let bin <- toGet(oht_fifo).get;
+//     p0.oht.put(bin[63:0]);
+//     p1.oht.put(bin[127:64]);
+//  endrule
+//
+//  rule set_output;
+//     let valid0 <- p0.vld.get;
+//     let valid1 <- p1.vld.get;
+//     let bin0 <- p0.bin.get;
+//     let bin1 <- p1.bin.get;
+//     Bit#(TLog#(128)) output_bin = valid0 ? {1'b0, bin0} : {1'b1, bin1};
+//     Bool output_vld = boolor(valid0, valid1);
+//     binpipe.enq(output_bin);
+//     vldpipe.enq(output_vld);
+//  endrule
+//
+//  interface Put oht;
+//     method Action put(Bit#(128) v);
+//        oht_fifo.enq(v);
+//     endmethod
+//  endinterface
+//  interface bin = fifoToGet(binpipe);
+//  interface vld = fifoToGet(vldpipe);
+//endmodule
+//
+//interface PEnc256;
+//   interface Put#(Bit#(256)) oht;
+//   interface Get#(Bit#(8)) bin;
+//   interface Get#(Bool) vld;
+//endinterface
+//(* synthesize *)
+//module mkPriorityEncoder256(PEnc256);
+//  FIFO#(Bit#(TLog#(256))) binpipe <- mkFIFO;
+//  FIFO#(Bool) vldpipe <- mkFIFO;
+//  FIFO#(Bit#(128)) p0_infifo <- mkFIFO;
+//  FIFO#(Bit#(128)) p1_infifo <- mkFIFO;
+//  FIFOF#(Bit#(256)) oht_fifo <- mkBypassFIFOF;
+//
+//  PEnc128 p0 <- mkPriorityEncoder128();
+//  PEnc128 p1 <- mkPriorityEncoder128();
+//
+//  rule set_input;
+//     let bin <- toGet(oht_fifo).get;
+//     p0.oht.put(bin[127:0]);
+//     p1.oht.put(bin[255:128]);
+//  endrule
+//
+//  rule set_output;
+//     let valid0 <- p0.vld.get;
+//     let valid1 <- p1.vld.get;
+//     let bin0 <- p0.bin.get;
+//     let bin1 <- p1.bin.get;
+//     Bit#(TLog#(256)) output_bin = valid0 ? {1'b0, bin0} : {1'b1, bin1};
+//     Bool output_vld = boolor(valid0, valid1);
+//     binpipe.enq(output_bin);
+//     vldpipe.enq(output_vld);
+//  endrule
+//
+//  interface Put oht;
+//     method Action put(Bit#(256) v);
+//        oht_fifo.enq(v);
+//     endmethod
+//  endinterface
+//  interface bin = fifoToGet(binpipe);
+//  interface vld = fifoToGet(vldpipe);
+//endmodule
+//
+//interface PEnc512;
+//   interface Put#(Bit#(512)) oht;
+//   interface Get#(Bit#(9)) bin;
+//   interface Get#(Bool) vld;
+//endinterface
+//(* synthesize *)
+//module mkPriorityEncoder512(PEnc512);
+//  FIFO#(Bit#(TLog#(512))) binpipe <- mkFIFO;
+//  FIFO#(Bool) vldpipe <- mkFIFO;
+//  FIFO#(Bit#(256)) p0_infifo <- mkFIFO;
+//  FIFO#(Bit#(256)) p1_infifo <- mkFIFO;
+//  FIFOF#(Bit#(512)) oht_fifo <- mkBypassFIFOF;
+//
+//  PEnc256 p0 <- mkPriorityEncoder256();
+//  PEnc256 p1 <- mkPriorityEncoder256();
+//
+//  rule set_input;
+//     let bin <- toGet(oht_fifo).get;
+//     p0.oht.put(bin[255:0]);
+//     p1.oht.put(bin[511:256]);
+//  endrule
+//
+//  rule set_output;
+//     let valid0 <- p0.vld.get;
+//     let valid1 <- p1.vld.get;
+//     let bin0 <- p0.bin.get;
+//     let bin1 <- p1.bin.get;
+//     Bit#(TLog#(512)) output_bin = valid0 ? {1'b0, bin0} : {1'b1, bin1};
+//     Bool output_vld = boolor(valid0, valid1);
+//     binpipe.enq(output_bin);
+//     vldpipe.enq(output_vld);
+//  endrule
+//
+//  interface Put oht;
+//     method Action put(Bit#(512) v);
+//        oht_fifo.enq(v);
+//     endmethod
+//  endinterface
+//  interface bin = fifoToGet(binpipe);
+//  interface vld = fifoToGet(vldpipe);
+//endmodule
+//
+//interface PEnc1024;
+//   interface Put#(Bit#(1024)) oht;
+//   interface Get#(Bit#(10)) bin;
+//   interface Get#(Bool) vld;
+//endinterface
+//(* synthesize *)
+//module mkPriorityEncoder1024(PEnc1024);
+//  FIFO#(Bit#(TLog#(1024))) binpipe <- mkFIFO;
+//  FIFO#(Bool) vldpipe <- mkFIFO;
+//  FIFO#(Bit#(512)) p0_infifo <- mkFIFO;
+//  FIFO#(Bit#(512)) p1_infifo <- mkFIFO;
+//  FIFOF#(Bit#(1024)) oht_fifo <- mkBypassFIFOF;
+//
+//  PEnc512 p0 <- mkPriorityEncoder512();
+//  PEnc512 p1 <- mkPriorityEncoder512();
+//
+//  rule set_input;
+//     let bin <- toGet(oht_fifo).get;
+//     p0.oht.put(bin[511:0]);
+//     p1.oht.put(bin[1023:512]);
+//  endrule
+//
+//  rule set_output;
+//     let valid0 <- p0.vld.get;
+//     let valid1 <- p1.vld.get;
+//     let bin0 <- p0.bin.get;
+//     let bin1 <- p1.bin.get;
+//     Bit#(TLog#(1024)) output_bin = valid0 ? {1'b0, bin0} : {1'b1, bin1};
+//     Bool output_vld = boolor(valid0, valid1);
+//     binpipe.enq(output_bin);
+//     vldpipe.enq(output_vld);
+//  endrule
+//
+//  interface Put oht;
+//     method Action put(Bit#(1024) v);
+//        oht_fifo.enq(v);
+//     endmethod
+//  endinterface
+//  interface bin = fifoToGet(binpipe);
+//  interface vld = fifoToGet(vldpipe);
+//endmodule
+//
