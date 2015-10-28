@@ -42,6 +42,7 @@ import MMUIndication::*;
 
 `ifdef MTABLE_CAM
 import MatchTable_Bcam::*;
+import MatchTableTypes::*;
 `endif
 
 `ifdef MTABLE_HASH::*;
@@ -308,7 +309,7 @@ module mkP4Top#(P4TopIndication indication)(P4Top);
 `ifdef MTABLE
    rule matchTableRes;
        let res <- matchTable.response.get;
-       indication.matchTableResponse(res.key, res.value);
+       indication.matchTableResponse(zeroExtend(res.key), res.value);
    endrule
 `endif
 

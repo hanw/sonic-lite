@@ -1,6 +1,6 @@
 import DefaultValue::*;
 
-typedef 32 KEY_LEN;
+typedef 9 KEY_LEN;
 typedef 32 VALUE_LEN;
 typedef 128 TABLE_LEN;
 typedef 1024 BCAM_TABLE_LEN;
