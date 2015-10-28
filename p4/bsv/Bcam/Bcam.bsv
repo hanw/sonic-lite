@@ -318,3 +318,40 @@ module mkBinaryCamBSV(BinaryCam#(1024, 9));
    interface writeServer = bcam.writeServer;
    interface readServer = bcam.readServer;
 endmodule
+
+(* synthesize *)
+module mkBinaryCam_1024_18(BinaryCam#(1024, 18));
+   BinaryCam#(1024, 18) bcam <- mkBinaryCam();
+   interface writeServer = bcam.writeServer;
+   interface readServer = bcam.readServer;
+endmodule
+
+(* synthesize *)
+module mkBinaryCam_1024_27(BinaryCam#(1024, 27));
+   BinaryCam#(1024, 27) bcam <- mkBinaryCam();
+   interface writeServer = bcam.writeServer;
+   interface readServer = bcam.readServer;
+endmodule
+
+(* synthesize *)
+module mkBinaryCam_1024_36(BinaryCam#(1024, 36));
+   BinaryCam#(1024, 36) bcam <- mkBinaryCam();
+   interface writeServer = bcam.writeServer;
+   interface readServer = bcam.readServer;
+endmodule
+
+(* synthesize *)
+module mkBinaryCam_1024_45(BinaryCam#(1024, 45));
+   BinaryCam#(1024, 45) bcam <- mkBinaryCam();
+   interface writeServer = bcam.writeServer;
+   interface readServer = bcam.readServer;
+endmodule
+
+(* synthesize *)
+module mkBinaryCam_1024_54(BinaryCam#(1024, 54));
+   BinaryCam#(1024, 54) bcam <- mkBinaryCam();
+   interface writeServer = bcam.writeServer;
+   interface readServer = bcam.readServer;
+endmodule
+
+

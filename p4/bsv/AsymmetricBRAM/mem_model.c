@@ -25,7 +25,10 @@
  * @BERI_LICENSE_HEADER_END@
  */
 
+#ifdef __cplusplus
 extern "C" {
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -136,4 +139,7 @@ void mem_clean(unsigned long long mem_ptr)
     }
     free(m);
 }
-} //extern "C"
+
+#ifdef __cplusplus
+}
+#endif
