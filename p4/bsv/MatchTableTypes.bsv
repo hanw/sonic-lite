@@ -1,9 +1,9 @@
 import DefaultValue::*;
 
 typedef 32 KEY_LEN;
-typedef 9 BCAM_KEY_LEN;
 typedef 32 VALUE_LEN;
-typedef 1024 TABLE_LEN;
+typedef 128 TABLE_LEN;
+typedef 1024 BCAM_TABLE_LEN;
 typedef 20 ADDR_LEN; //log(TABLE_LEN * (KEY_LEN+VALUE_LEN))
 
 /* if you change this value, also make sure to change 

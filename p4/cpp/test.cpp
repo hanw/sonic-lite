@@ -97,8 +97,8 @@ public:
     virtual void match_table_resp(uint32_t a) {
     	fprintf(stderr, "match table");
     }
-    virtual void matchTableResponse(uint32_t key, uint32_t value) {
-        fprintf(stderr, "GET : key = %u  value = %u\n", key, value);
+    virtual void matchTableResponse(uint64_t key, uint32_t value) {
+        fprintf(stderr, "GET : key = %lu  value = %u\n", key, value);
     }
 
     P4TopIndication(unsigned int id) : P4TopIndicationWrapper(id) {}
@@ -186,7 +186,7 @@ void test_setram(P4TopRequestProxy *device) {
     device->writeSetRam(0x11, 0xff);
     device->readSetRam(0x11);
 }
-/*
+
 void test_bcam(P4TopRequestProxy *device) {
     fprintf(stderr, "Insert CAM\n");
     device->camInsert(0x0, 0x0);
@@ -199,25 +199,8 @@ void test_bcam(P4TopRequestProxy *device) {
     device->camSearch(0x3);
     //device->camInsert(0x303, 0x24);
 }
-<<<<<<< HEAD
-<<<<<<< HEAD
-*/
-int main(int argc, char **argv)
-{
-    void *buffer;
-    long length;
-    struct pcap_pkthdr* pcap_hdr;
-    int i;
-    int loops = 1;
 
-    P4TopIndication echoIndication(IfcNames_P4TopIndicationH2S);
-    device = new P4TopRequestProxy(IfcNames_P4TopRequestS2H);
-
-    device->sonic_read_version();
-
-//    test_setram(device);
-  //  test_bcam(device);
-
+void test_mtable(P4TopRequestProxy *device) {
     device->matchTableRequest(10, 15, 1); //PUT(10,15)
     device->matchTableRequest(10, 0, 0);  //GET(10) should print k=10 v=15
 /*    device->matchTableRequest(10, 20, 2); //UPDATE(10,20)
@@ -238,9 +221,26 @@ int main(int argc, char **argv)
     device->matchTableRequest(20, 0, 3);  //REMOVE(20)
     device->matchTableRequest(20, 60, 1); //PUT(20,15)
     device->matchTableRequest(20, 0, 0);  //GET(20) should print k=20 v=60
-<<<<<<< HEAD
-<<<<<<< HEAD
-  */  
+*/
+}
+
+int main(int argc, char **argv)
+{
+    void *buffer;
+    long length;
+    struct pcap_pkthdr* pcap_hdr;
+    int i;
+    int loops = 1;
+
+    P4TopIndication echoIndication(IfcNames_P4TopIndicationH2S);
+    device = new P4TopRequestProxy(IfcNames_P4TopRequestS2H);
+
+    device->sonic_read_version();
+
+//    test_setram(device);
+//    test_bcam(device);
+    test_mtable(device);
+    
     while(1) sleep(1);
 
     fprintf(stderr, "Attempts to read pcap file %s\n", argv[1]);
