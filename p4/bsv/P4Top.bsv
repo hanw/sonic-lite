@@ -42,6 +42,7 @@ import MMUIndication::*;
 
 `ifdef MTABLE_CAM
 import MatchTable_Bcam::*;
+import MatchTableTypes::*;
 `endif
 
 `ifdef MTABLE_HASH::*;
@@ -73,11 +74,13 @@ import AsymmetricBRAM::*;
 
 import PriorityEncoderEfficient::*;
 
+`define MTABLE 1
+
 typedef TDiv#(`DataBusWidth, 32) WordsPerBeat;
 
 interface P4TopIndication;
    method Action sonic_read_version_resp(Bit#(32) version);
-   method Action matchTableResponse(Bit#(32) key, Bit#(32) value);
+   method Action matchTableResponse(Bit#(64) key, Bit#(32) value);
    method Action cam_search_result(Bit#(32) data);
    method Action read_setram_result(Bit#(64) data);
 endinterface
@@ -92,7 +95,7 @@ interface P4TopRequest;
    method Action writeSetRam(Bit#(32) addr, Bit#(64) data);
    method Action readSetRam(Bit#(32) addr);
    method Action matchTableInsert(Bit#(32) key, Bit#(32) ops);
-   method Action matchTableRequest(Bit#(32) key, Bit#(32) value, Bit#(32) op);
+   method Action matchTableRequest(Bit#(64) key, Bit#(32) value, Bit#(32) op);
    method Action port_mapping_add_entry(Bit#(32) table_name, MatchInput_port_mapping match_key);
    method Action port_mapping_set_default_action(Bit#(32) table_name);
    method Action port_mapping_delete_entry(Bit#(32) table_name, Bit#(32) id);
@@ -306,7 +309,7 @@ module mkP4Top#(P4TopIndication indication)(P4Top);
 `ifdef MTABLE
    rule matchTableRes;
        let res <- matchTable.response.get;
-       indication.matchTableResponse(res.key, res.value);
+       indication.matchTableResponse(zeroExtend(res.key), res.value);
    endrule
 `endif
 
@@ -340,15 +343,15 @@ module mkP4Top#(P4TopIndication indication)(P4Top);
       endmethod
 
 `ifdef MTABLE
-      method Action matchTableRequest(Bit#(32) key, Bit#(32) value, Bit#(32) op);
+      method Action matchTableRequest(Bit#(64) key, Bit#(32) value, Bit#(32) op);
         if (op == 0)
-            matchTable.request.put(makeRequest(key, value, GET));
+            matchTable.request.put(makeRequest(truncate(key), value, GET));
         else if (op == 1)
-            matchTable.request.put(makeRequest(key, value, PUT));
+            matchTable.request.put(makeRequest(truncate(key), value, PUT));
         else if (op == 2)
-            matchTable.request.put(makeRequest(key, value, UPDATE));
+            matchTable.request.put(makeRequest(truncate(key), value, UPDATE));
         else if (op == 3)
-            matchTable.request.put(makeRequest(key, value, REMOVE));
+            matchTable.request.put(makeRequest(truncate(key), value, REMOVE));
       endmethod
 `endif
 

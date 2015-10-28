@@ -10,10 +10,10 @@ import MatchTableTypes::*;
 import Bcam::*;
 
 module mkMatchTable_Bcam (Server#(RequestType, ResponseType));
-    BinaryCam#(TABLE_LEN, 9) bcam <- mkBinaryCam;
+    BinaryCam#(BCAM_TABLE_LEN, KEY_LEN) bcam <- mkBinaryCam;
 
     BRAM_Configure cfg = defaultValue;
-    cfg.memorySize = fromInteger(valueof(TABLE_LEN))
+    cfg.memorySize = fromInteger(valueof(BCAM_TABLE_LEN))
                    * fromInteger(valueof(VALUE_LEN));
 
     BRAM2Port#(Address, Value) valueMem  <- mkBRAM2Server(cfg);
@@ -40,7 +40,7 @@ module mkMatchTable_Bcam (Server#(RequestType, ResponseType));
 
     rule put_value_to_bram;
         let currReq <- toGet(put_fifo).get;
-        addrIdx <= (currReq.addrIdx + 1) % fromInteger(valueof(TABLE_LEN));
+        addrIdx <= (currReq.addrIdx + 1) % fromInteger(valueof(BCAM_TABLE_LEN));
         Address addr = zeroExtend(currReq.addrIdx)
                      * fromInteger(valueof(VALUE_LEN));
         $display("Putting value to address = %d", addr);
@@ -49,9 +49,9 @@ module mkMatchTable_Bcam (Server#(RequestType, ResponseType));
 
     rule get_addr_from_bcam;
         let currReq <- toGet(get_fifo_1).get;
-        Maybe#(Bit#(TLog#(TABLE_LEN))) a <- bcam.readServer.response.get;
-        Address addr = zeroExtend(pack(a)) * fromInteger(valueof(VALUE_LEN));
-        $display("Getting value from address = %d (index = %d)", addr, a);
+        Maybe#(Bit#(TLog#(BCAM_TABLE_LEN))) a <- bcam.readServer.response.get;
+        Address addr = zeroExtend(pack(fromMaybe(0,a))) * fromInteger(valueof(VALUE_LEN));
+        $display("Getting value from address = %d", addr);
         valueMem.portA.request.put(makeRequest(False, addr, 0));
         get_fifo_2.enq(currReq);
     endrule
