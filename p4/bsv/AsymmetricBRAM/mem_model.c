@@ -25,6 +25,7 @@
  * @BERI_LICENSE_HEADER_END@
  */
 
+extern "C" {
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -135,3 +136,4 @@ void mem_clean(unsigned long long mem_ptr)
     }
     free(m);
 }
+} //extern "C"
