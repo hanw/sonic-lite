@@ -99,7 +99,7 @@ module mkAsymmetricBRAM#(Bool hasOutputRegister, Bool hasForwarding, String name
         Bits#(Vector#(ratio, wdata_t), rdata_sz)
     );
     AsymmetricBRAM#(raddr_t, rdata_t, waddr_t, wdata_t) ret_ifc;
-    `ifndef BSIM
+    `ifndef SIMULATION
         ret_ifc <- mkAsymmetricBRAMVerilog(hasOutputRegister, hasForwarding);
     `else
         ret_ifc <- mkAsymmetricBRAMBluesim(hasOutputRegister, hasForwarding, name);
