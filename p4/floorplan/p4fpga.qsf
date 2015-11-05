@@ -1,0 +1,26 @@
+set_global_assignment -name LL_ENABLED ON -section_id mkBinaryCam_1024_9
+set_global_assignment -name LL_AUTO_SIZE OFF -section_id mkBinaryCam_1024_9
+set_global_assignment -name LL_STATE FLOATING -section_id mkBinaryCam_1024_9
+set_global_assignment -name LL_RESERVED OFF -section_id mkBinaryCam_1024_9
+set_global_assignment -name LL_SECURITY_ROUTING_INTERFACE OFF -section_id mkBinaryCam_1024_9
+set_global_assignment -name LL_IGNORE_IO_BANK_SECURITY_CONSTRAINT OFF -section_id mkBinaryCam_1024_9
+set_global_assignment -name LL_PR_REGION OFF -section_id mkBinaryCam_1024_9
+set_global_assignment -name LL_ROUTING_REGION_EXPANSION_SIZE 2147483647 -section_id mkBinaryCam_1024_9
+set_global_assignment -name LL_WIDTH 100 -section_id mkBinaryCam_1024_9
+set_global_assignment -name LL_HEIGHT 50 -section_id mkBinaryCam_1024_9
+set_global_assignment -name LL_ORIGIN X50_Y1 -section_id mkBinaryCam_1024_9
+set_global_assignment -name LL_MEMBER_OF mkBinaryCam_1024_9 -section_id mkBinaryCam_1024_9
+set_instance_assignment -name LL_MEMBER_OF mkBinaryCam_1024_9 -to "mkConnectalTop:tile_0|mkBinaryCam_1024_9:lP4Top_bcam" -section_id mkBinaryCam_1024_9
+set_global_assignment -name LL_ENABLED ON -section_id mkPcieEndpointS5
+set_global_assignment -name LL_AUTO_SIZE OFF -section_id mkPcieEndpointS5
+set_global_assignment -name LL_STATE FLOATING -section_id mkPcieEndpointS5
+set_global_assignment -name LL_RESERVED OFF -section_id mkPcieEndpointS5
+set_global_assignment -name LL_SECURITY_ROUTING_INTERFACE OFF -section_id mkPcieEndpointS5
+set_global_assignment -name LL_IGNORE_IO_BANK_SECURITY_CONSTRAINT OFF -section_id mkPcieEndpointS5
+set_global_assignment -name LL_PR_REGION OFF -section_id mkPcieEndpointS5
+set_global_assignment -name LL_ROUTING_REGION_EXPANSION_SIZE 2147483647 -section_id mkPcieEndpointS5
+set_global_assignment -name LL_WIDTH 20 -section_id mkPcieEndpointS5
+set_global_assignment -name LL_HEIGHT 30 -section_id mkPcieEndpointS5
+set_global_assignment -name LL_ORIGIN X1_Y1 -section_id mkPcieEndpointS5
+set_global_assignment -name LL_MEMBER_OF mkPcieEndpointS5 -section_id mkPcieEndpointS5
+set_instance_assignment -name LL_MEMBER_OF mkPcieEndpointS5 -to "mkPcieEndpointS5:host_ep7" -section_id mkPcieEndpointS5

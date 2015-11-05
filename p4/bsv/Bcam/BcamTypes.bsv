@@ -28,3 +28,8 @@ typedef struct {
    Bit#(32) wIndc;
    Bool wIVld;
 } RamWriteRequest#(numeric type camDepth) deriving (Bits);
+
+typedef struct {
+   Bit#(addrWidth) addr;
+   Bit#(dataWidth) data;
+} BcamWriteReq#(numeric type addrWidth, numeric type dataWidth) deriving (Bits);

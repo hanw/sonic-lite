@@ -74,14 +74,12 @@ import AsymmetricBRAM::*;
 
 import PriorityEncoderEfficient::*;
 
-`define MTABLE 1
-
 typedef TDiv#(`DataBusWidth, 32) WordsPerBeat;
 
 interface P4TopIndication;
    method Action sonic_read_version_resp(Bit#(32) version);
    method Action matchTableResponse(Bit#(64) key, Bit#(32) value);
-   method Action cam_search_result(Bit#(32) data);
+   method Action cam_search_result(Bit#(64) data);
    method Action read_setram_result(Bit#(64) data);
 endinterface
 
@@ -90,8 +88,8 @@ interface P4TopRequest;
    method Action writePacketData(Vector#(2, Bit#(64)) data, Bit#(1) sop, Bit#(1) eop);
    method Action readPacketBuffer(Bit#(16) addr);
    method Action writePacketBuffer(Bit#(16) addr, Bit#(64) data);
-   method Action camInsert(Bit#(32) addr, Bit#(32) data);
-   method Action camSearch(Bit#(32) data);
+   method Action camInsert(Bit#(32) addr, Bit#(64) data);
+   method Action camSearch(Bit#(64) data);
    method Action writeSetRam(Bit#(32) addr, Bit#(64) data);
    method Action readSetRam(Bit#(32) addr);
    method Action matchTableInsert(Bit#(32) key, Bit#(32) ops);
@@ -247,7 +245,7 @@ module mkP4Top#(P4TopIndication indication)(P4Top);
 //   SharedBuffer#(12, 128, 1) buff <- mkSharedBuffer(vec(dmaClient), vec(dmaWriteClient), memServerIndication.ifc, mmuIndication.ifc);
 
 `ifdef DEBUG_BCAM
-   BinaryCam#(1024, 9) bcam <- mkBinaryCamBSV();
+   BinaryCam#(1024, 9) bcam <- mkBinaryCam_1024_9();
 `endif
 
    Reg#(Bit#(EtherLen)) pktLen <- mkReg(0);
@@ -356,12 +354,12 @@ module mkP4Top#(P4TopIndication indication)(P4Top);
 `endif
 
 `ifdef DEBUG_BCAM
-      method Action camInsert(Bit#(32) addr, Bit#(32) data);
+      method Action camInsert(Bit#(32) addr, Bit#(64) data);
          //FIXME: BcamWriteRequest
          bcam.writeServer.put(tuple2(truncate(addr), truncate(data)));
       endmethod
 
-      method Action camSearch(Bit#(32) data);
+      method Action camSearch(Bit#(64) data);
          //FIXME: BcamReadRequest
          bcam.readServer.request.put(truncate(data));
       endmethod

@@ -32,6 +32,7 @@ import Vector::*;
 import Pipe::*;
 import AsymmetricBRAM::*;
 
+import BcamTypes::*;
 import Setram::*;
 import IdxVacRam::*;
 import Ram9b::*;
@@ -41,7 +42,7 @@ typedef enum {S0, S1, S2} StateType
    deriving (Bits, Eq);
 
 interface Bcam9b#(numeric type camDepth);
-   interface Put#(Tuple2#(Bit#(TLog#(camDepth)), Bit#(9))) writeServer;
+   interface Put#(BcamWriteReq#(TLog#(camDepth), 9)) writeServer;
    interface PipeIn#(Bit#(9)) mPatt;
    interface PipeOut#(Bit#(TMul#(TSub#(TLog#(camDepth),9), 1024))) mIndc;
 endinterface
@@ -67,11 +68,9 @@ module mkBcam9b(Bcam9b#(camDepth))
 
    let verbose = True;
    Reg#(Bit#(32)) cycle <- mkReg(0);
-   rule every1;
+   rule every1 if (verbose);
       cycle <= cycle + 1;
    endrule
-
-   FIFO#(Tuple2#(Bit#(camSz), Bit#(9))) writeReqFifo <- mkFIFO;
 
    FIFOF#(Bit#(9)) mPatt_fifo <- mkBypassFIFOF();
    FIFOF#(Bit#(9)) wPatt_fifo <- mkBypassFIFOF();
@@ -89,19 +88,6 @@ module mkBcam9b(Bcam9b#(camDepth))
 
    FIFOF#(Bool) oldEqNewPatt_fifo <- mkBypassFIFOF;
    Vector#(2, PipeOut#(Bool)) oldEqNewPattPipes <- mkForkVector(toPipeOut(oldEqNewPatt_fifo));
-
-   rule write_request;
-      let v <- toGet(writeReqFifo).get;
-      Bit#(camSz) wAddr = tpl_1(v);
-      Bit#(9) wData = tpl_2(v);
-      Vector#(wAddrHWidth, Bit#(1)) wAddrH = takeAt(5, unpack(wAddr));
-      setram.writeServer.put(v);
-      ivram.wAddr.put(wAddr);
-      wPatt_fifo.enq(wData);
-      ram9b.wAddr_indx.enq(pack(wAddrH));
-      ram9b.wPatt.enq(wData);
-      $display("cam9b %d: write_request wAddr=%x wAddrH=%x", cycle, wAddr, pack(wAddrH));
-   endrule
 
    rule generate_oldEqNewPatt;
       let wPatt <- toGet(wPatt_fifo).get;
@@ -201,7 +187,19 @@ module mkBcam9b(Bcam9b#(camDepth))
       mIndc_fifo.enq(v);
    endrule
 
-   interface Put writeServer = toPut(writeReqFifo);
+   interface Put writeServer;
+      method Action put(BcamWriteReq#(camSz, 9) req);
+         Bit#(camSz) wAddr = req.addr;
+         Bit#(9) wData = req.data;
+         Vector#(wAddrHWidth, Bit#(1)) wAddrH = takeAt(5, unpack(wAddr));
+         setram.writeServer.put(tuple2(wAddr, wData));
+         ivram.wAddr.put(wAddr);
+         wPatt_fifo.enq(wData);
+         ram9b.wAddr_indx.enq(pack(wAddrH));
+         ram9b.wPatt.enq(wData);
+      endmethod
+   endinterface
+
    interface PipeIn mPatt = toPipeIn(mPatt_fifo);
    interface PipeOut mIndc = toPipeOut(mIndc_fifo);
 endmodule
@@ -258,7 +256,9 @@ module mkBinaryCam(BinaryCam#(camDepth, pattWidth))
       let wData = tpl_2(v);
       for (Integer i=0; i<valueOf(pwid); i=i+1) begin
          Vector#(9, Bit#(1)) data = takeAt(fromInteger(i) * 9, unpack(wData));
-         cam9b[i].writeServer.put(tuple2(wAddr, pack(data)));
+         BcamWriteReq#(camSz, 9) req = BcamWriteReq{addr: wAddr, data: pack(data)};
+         //cam9b[i].writeServer.put(tuple2(wAddr, pack(data)));
+         cam9b[i].writeServer.put(req);
       end
    endrule
 
@@ -320,38 +320,45 @@ module mkBinaryCamBSV(BinaryCam#(1024, 9));
 endmodule
 
 (* synthesize *)
-module mkBinaryCam_1024_18(BinaryCam#(1024, 18));
-   BinaryCam#(1024, 18) bcam <- mkBinaryCam();
+module mkBinaryCam_1024_9(BinaryCam#(1024, 9));
+   BinaryCam#(1024, 9) bcam <- mkBinaryCam();
    interface writeServer = bcam.writeServer;
    interface readServer = bcam.readServer;
 endmodule
 
-(* synthesize *)
-module mkBinaryCam_1024_27(BinaryCam#(1024, 27));
-   BinaryCam#(1024, 27) bcam <- mkBinaryCam();
-   interface writeServer = bcam.writeServer;
-   interface readServer = bcam.readServer;
-endmodule
-
-(* synthesize *)
-module mkBinaryCam_1024_36(BinaryCam#(1024, 36));
-   BinaryCam#(1024, 36) bcam <- mkBinaryCam();
-   interface writeServer = bcam.writeServer;
-   interface readServer = bcam.readServer;
-endmodule
-
-(* synthesize *)
-module mkBinaryCam_1024_45(BinaryCam#(1024, 45));
-   BinaryCam#(1024, 45) bcam <- mkBinaryCam();
-   interface writeServer = bcam.writeServer;
-   interface readServer = bcam.readServer;
-endmodule
-
-(* synthesize *)
-module mkBinaryCam_1024_54(BinaryCam#(1024, 54));
-   BinaryCam#(1024, 54) bcam <- mkBinaryCam();
-   interface writeServer = bcam.writeServer;
-   interface readServer = bcam.readServer;
-endmodule
+//(* synthesize *)
+//module mkBinaryCam_1024_18(BinaryCam#(1024, 18));
+//   BinaryCam#(1024, 18) bcam <- mkBinaryCam();
+//   interface writeServer = bcam.writeServer;
+//   interface readServer = bcam.readServer;
+//endmodule
+//
+//(* synthesize *)
+//module mkBinaryCam_1024_27(BinaryCam#(1024, 27));
+//   BinaryCam#(1024, 27) bcam <- mkBinaryCam();
+//   interface writeServer = bcam.writeServer;
+//   interface readServer = bcam.readServer;
+//endmodule
+//
+//(* synthesize *)
+//module mkBinaryCam_1024_36(BinaryCam#(1024, 36));
+//   BinaryCam#(1024, 36) bcam <- mkBinaryCam();
+//   interface writeServer = bcam.writeServer;
+//   interface readServer = bcam.readServer;
+//endmodule
+//
+//(* synthesize *)
+//module mkBinaryCam_1024_45(BinaryCam#(1024, 45));
+//   BinaryCam#(1024, 45) bcam <- mkBinaryCam();
+//   interface writeServer = bcam.writeServer;
+//   interface readServer = bcam.readServer;
+//endmodule
+//
+//(* synthesize *)
+//module mkBinaryCam_1024_54(BinaryCam#(1024, 54));
+//   BinaryCam#(1024, 54) bcam <- mkBinaryCam();
+//   interface writeServer = bcam.writeServer;
+//   interface readServer = bcam.readServer;
+//endmodule
 
 

@@ -50,8 +50,8 @@ CONNECTALFLAGS += -show-range-conflict +RTS -K46777216 -RTS -demote-errors G0066
 
 # Bluesim and Verilog simulators use two very different bsc calls
 ifeq ($(SIMULATOR),bluesim)
-CMD1 =	$(RUN_BSC) $(BSCFLAGS) $(CONNECTALFLAGS) -D BSIM -sim -g $(TOPMOD) -bdir bdir -simdir simdir -u $(TOPFILE)
-CMD2 =	$(RUN_BSC) $(BSCFLAGS) $(CONNECTALFLAGS) -D BSIM -sim -o $@ -bdir bdir -simdir simdir -e $(TOPMOD) bdir/$(TOPMOD).ba mem_model.o
+CMD1 =	$(RUN_BSC) $(BSCFLAGS) $(CONNECTALFLAGS) -D SIMULATION -sim -g $(TOPMOD) -bdir bdir -simdir simdir -u $(TOPFILE)
+CMD2 =	$(RUN_BSC) $(BSCFLAGS) $(CONNECTALFLAGS) -D SIMULATION -sim -o $@ -bdir bdir -simdir simdir -e $(TOPMOD) bdir/$(TOPMOD).ba mem_model.o
 else
 CMD1 =	$(RUN_BSC) $(BSCFLAGS) $(CONNECTALFLAGS) -u -verilog -g $(TOPMOD) $(TOPFILE)
 CMD2 =	$(RUN_BSC) $(BSCFLAGS) $(CONNECTALFLAGS) -verilog -vsim $(SIMULATOR) -e $(TOPMOD) -o $@ $(TOPMOD).v

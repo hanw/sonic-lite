@@ -99,12 +99,12 @@ function Stmt testSeq(BinaryCam#(1024, 9) dut,
    endseq;
 endfunction
 
-function Stmt testSeq2(PEnc#(16) dut,
+function Stmt testSeq2(PEnc#(1024) dut,
                       String dut_name);
     return seq
       noAction;
       action
-         dut.oht.put(16'h0001);
+         dut.oht.put(1024'h0001);
       endaction
         delay(10);
       action
@@ -113,7 +113,7 @@ function Stmt testSeq2(PEnc#(16) dut,
          $display("read v=%x, b=%x", v, b);
       endaction
       action
-         dut.oht.put(16'h0002);
+         dut.oht.put(1024'h0002);
       endaction
         delay(10);
       action
@@ -122,7 +122,7 @@ function Stmt testSeq2(PEnc#(16) dut,
          $display("read v=%x, b=%x", v, b);
       endaction
       action
-         dut.oht.put(16'h0004);
+         dut.oht.put(1024'h0004);
       endaction
         delay(10);
       action
@@ -131,7 +131,7 @@ function Stmt testSeq2(PEnc#(16) dut,
          $display("read v=%x, b=%x", v, b);
       endaction
       action
-         dut.oht.put(16'h0008);
+         dut.oht.put(1024'h0008);
       endaction
         delay(10);
       action
@@ -140,7 +140,7 @@ function Stmt testSeq2(PEnc#(16) dut,
          $display("read v=%x, b=%x", v, b);
       endaction
       action
-         dut.oht.put(16'h0010);
+         dut.oht.put(1024'h0010);
       endaction
         delay(10);
       action
@@ -149,7 +149,7 @@ function Stmt testSeq2(PEnc#(16) dut,
          $display("read v=%x, b=%x", v, b);
       endaction
       action
-         dut.oht.put(16'h0020);
+         dut.oht.put(1024'h0020);
       endaction
         delay(10);
       action
@@ -158,7 +158,7 @@ function Stmt testSeq2(PEnc#(16) dut,
          $display("read v=%x, b=%x", v, b);
       endaction
       action
-         dut.oht.put(16'h0040);
+         dut.oht.put(1024'h0040);
       endaction
         delay(10);
       action
@@ -167,7 +167,7 @@ function Stmt testSeq2(PEnc#(16) dut,
          $display("read v=%x, b=%x", v, b);
       endaction
       action
-         dut.oht.put(16'h0080);
+         dut.oht.put(1024'h0080);
       endaction
         delay(10);
       action
@@ -176,7 +176,7 @@ function Stmt testSeq2(PEnc#(16) dut,
          $display("read v=%x, b=%x", v, b);
       endaction
       action
-         dut.oht.put(16'h0100);
+         dut.oht.put(1024'h0100);
       endaction
         delay(10);
       action
@@ -185,7 +185,7 @@ function Stmt testSeq2(PEnc#(16) dut,
          $display("read v=%x, b=%x", v, b);
       endaction
       action
-         dut.oht.put(16'h0200);
+         dut.oht.put(1024'h0200);
       endaction
         delay(10);
       action
@@ -194,7 +194,7 @@ function Stmt testSeq2(PEnc#(16) dut,
          $display("read v=%x, b=%x", v, b);
       endaction
       action
-         dut.oht.put(16'h0400);
+         dut.oht.put(1024'h0400);
       endaction
         delay(10);
       action
@@ -203,7 +203,7 @@ function Stmt testSeq2(PEnc#(16) dut,
          $display("read v=%x, b=%x", v, b);
       endaction
       action
-         dut.oht.put(16'h0800);
+         dut.oht.put(1024'h0800);
       endaction
         delay(10);
       action
@@ -212,7 +212,7 @@ function Stmt testSeq2(PEnc#(16) dut,
          $display("read v=%x, b=%x", v, b);
       endaction
       action
-         dut.oht.put(16'h1000);
+         dut.oht.put(1024'h1000);
       endaction
         delay(10);
       action
@@ -221,7 +221,7 @@ function Stmt testSeq2(PEnc#(16) dut,
          $display("read v=%x, b=%x", v, b);
       endaction
       action
-         dut.oht.put(16'h2000);
+         dut.oht.put(1024'h2000);
       endaction
         delay(10);
       action
@@ -230,7 +230,7 @@ function Stmt testSeq2(PEnc#(16) dut,
          $display("read v=%x, b=%x", v, b);
       endaction
       action
-         dut.oht.put(16'h4000);
+         dut.oht.put(1024'h4000);
       endaction
         delay(10);
       action
@@ -239,7 +239,7 @@ function Stmt testSeq2(PEnc#(16) dut,
          $display("read v=%x, b=%x", v, b);
       endaction
       action
-         dut.oht.put(16'h8000);
+         dut.oht.put(1024'h8000);
       endaction
         delay(10);
       action
@@ -253,11 +253,11 @@ endfunction
 (* synthesize *)
 module mkTb (Empty);
 
-   //BinaryCam#(1024, 9) bcam <- mkBinaryCamBSV();
-   PEnc#(1024) pe <- mkPriorityEncoder();
+   BinaryCam#(1024, 9) bcam <- mkBinaryCam_1024_9();
+   //PEnc#(1024) pe <- mkPriorityEncoder();
 
-   //mkAutoFSM(testSeq(bcam, "bcam"));
-   mkAutoFSM(testSeq2(pe, "pe"));
+   mkAutoFSM(testSeq(bcam, "bcam"));
+   //mkAutoFSM(testSeq2(pe, "pe"));
 
 endmodule: mkTb
 

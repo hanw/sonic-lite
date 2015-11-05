@@ -88,8 +88,8 @@ public:
     virtual void sonic_read_version_resp(uint32_t a) {
         fprintf(stderr, "version %d\n", a);
     }
-    virtual void cam_search_result(uint32_t a) {
-        fprintf(stderr, "cam search %x\n", a);
+    virtual void cam_search_result(uint64_t a) {
+        fprintf(stderr, "cam search %lx\n", a);
     }
     virtual void read_setram_result(uint64_t a) {
         fprintf(stderr, "setram %lx\n", a);
