@@ -45,7 +45,7 @@ import MatchTable_Bcam::*;
 import MatchTableTypes::*;
 `endif
 
-`ifdef MTABLE_HASH::*;
+`ifdef MTABLE_HASH
 import MatchTable_Hash::*;
 import MatchTableTypes::*;
 `endif
