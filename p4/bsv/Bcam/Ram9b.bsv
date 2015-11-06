@@ -49,19 +49,19 @@ interface Ram9bx1k;
    interface PipeOut#(Bit#(1024)) mIndc;
 endinterface
 module mkRam9bx1k(Ram9bx1k);
-   FIFOF#(Bool) wEnb_iVld_fifo <- mkFIFOF();
-   FIFOF#(Bool) wEnb_indx_fifo <- mkFIFOF();
-   FIFOF#(Bool) wEnb_indc_fifo <- mkFIFOF();
-   FIFOF#(Bit#(9)) mPatt_fifo <- mkFIFOF();
-   FIFOF#(Bit#(9)) wPatt_fifo <- mkFIFOF();
-   FIFOF#(Bit#(5)) wAddr_indx_fifo <- mkFIFOF();
-   FIFOF#(Bit#(5)) wAddr_indc_fifo <- mkFIFOF();
-   FIFOF#(Bit#(5)) wIndx_fifo <- mkFIFOF();
-   FIFOF#(Bit#(32)) wIndc_fifo <- mkFIFOF();
-   FIFOF#(Bool) wIVld_fifo <- mkFIFOF();
+   FIFOF#(Bool) wEnb_iVld_fifo <- mkBypassFIFOF();
+   FIFOF#(Bool) wEnb_indx_fifo <- mkBypassFIFOF();
+   FIFOF#(Bool) wEnb_indc_fifo <- mkBypassFIFOF();
+   FIFOF#(Bit#(9)) mPatt_fifo <- mkBypassFIFOF();
+   FIFOF#(Bit#(9)) wPatt_fifo <- mkBypassFIFOF();
+   FIFOF#(Bit#(5)) wAddr_indx_fifo <- mkBypassFIFOF();
+   FIFOF#(Bit#(5)) wAddr_indc_fifo <- mkBypassFIFOF();
+   FIFOF#(Bit#(5)) wIndx_fifo <- mkBypassFIFOF();
+   FIFOF#(Bit#(32)) wIndc_fifo <- mkBypassFIFOF();
+   FIFOF#(Bool) wIVld_fifo <- mkBypassFIFOF();
    FIFOF#(Bit#(1024)) mIndc_fifo <- mkBypassFIFOF();
 
-   FIFOF#(Bit#(32)) iVld_fifo <- mkFIFOF;
+   FIFOF#(Bit#(32)) iVld_fifo <- mkBypassFIFOF;
 
    let verbose = True;
    Reg#(Bit#(32)) cycle <- mkReg(0);
@@ -207,16 +207,16 @@ module mkRam9b(Ram9b#(cdep))
       cycle <= cycle + 1;
    endrule
 
-   FIFOF#(Bool) wEnb_iVld_fifo <- mkFIFOF();
-   FIFOF#(Bool) wEnb_indx_fifo <- mkFIFOF();
-   FIFOF#(Bool) wEnb_indc_fifo <- mkFIFOF();
-   FIFOF#(Bit#(9)) mPatt_fifo <- mkFIFOF();
-   FIFOF#(Bit#(9)) wPatt_fifo <- mkFIFOF();
-   FIFOF#(Bit#(wAddrHWidth)) wAddr_indx_fifo <- mkFIFOF();
-   FIFOF#(Bit#(5)) wAddr_indc_fifo <- mkFIFOF();
-   FIFOF#(Bit#(5)) wIndx_fifo <- mkFIFOF();
-   FIFOF#(Bit#(32)) wIndc_fifo <- mkFIFOF();
-   FIFOF#(Bool) wIVld_fifo <- mkFIFOF();
+   FIFOF#(Bool) wEnb_iVld_fifo <- mkBypassFIFOF();
+   FIFOF#(Bool) wEnb_indx_fifo <- mkBypassFIFOF();
+   FIFOF#(Bool) wEnb_indc_fifo <- mkBypassFIFOF();
+   FIFOF#(Bit#(9)) mPatt_fifo <- mkBypassFIFOF();
+   FIFOF#(Bit#(9)) wPatt_fifo <- mkBypassFIFOF();
+   FIFOF#(Bit#(wAddrHWidth)) wAddr_indx_fifo <- mkBypassFIFOF();
+   FIFOF#(Bit#(5)) wAddr_indc_fifo <- mkBypassFIFOF();
+   FIFOF#(Bit#(5)) wIndx_fifo <- mkBypassFIFOF();
+   FIFOF#(Bit#(32)) wIndc_fifo <- mkBypassFIFOF();
+   FIFOF#(Bool) wIVld_fifo <- mkBypassFIFOF();
    FIFOF#(Bit#(indcWidth)) mIndc_fifo <- mkBypassFIFOF();
 
    Vector#(cdep, Ram9bx1k) ram <- replicateM(mkRam9bx1k());

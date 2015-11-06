@@ -242,8 +242,8 @@ module mkBinaryCam(BinaryCam#(camDepth, pattWidth))
 
    FIFO#(Tuple2#(Bit#(camSz), Bit#(pattWidth))) writeReqFifo <- mkFIFO;
 
-   FIFO#(Maybe#(Bit#(camSz))) readFifo <- mkFIFO;
-   FIFO#(Bit#(pattWidth)) readReqFifo <- mkFIFO;
+   FIFO#(Maybe#(Bit#(camSz))) readFifo <- mkBypassFIFO;
+   FIFO#(Bit#(pattWidth)) readReqFifo <- mkBypassFIFO;
 
    Wire#(Bool) writeEnable <- mkDWire(False);
    Wire#(Bit#(camSz)) writeAddr <- mkDWire(0);

@@ -82,24 +82,24 @@ module mkSetram(Setram#(camDepth))
       cycle <= cycle + 1;
    endrule
 
-   FIFOF#(Tuple2#(Bit#(camSz), Bit#(9))) writeReqFifo0 <- mkFIFOF;
-   FIFOF#(Tuple2#(Bit#(camSz), Bit#(9))) writeReqFifo1<- mkFIFOF;
-   FIFOF#(Tuple2#(Bit#(camSz), Bit#(9))) writeReqFifo2<- mkFIFOF;
-   FIFOF#(Tuple2#(Bit#(camSz), Bit#(9))) writeReqFifo3<- mkFIFOF;
-   FIFOF#(Tuple2#(Bit#(camSz), Bit#(9))) writeReqFifo4<- mkFIFOF;
+   FIFOF#(Tuple2#(Bit#(camSz), Bit#(9))) writeReqFifo0 <- mkBypassFIFOF;
+   FIFOF#(Tuple2#(Bit#(camSz), Bit#(9))) writeReqFifo1<- mkBypassFIFOF;
+   FIFOF#(Tuple2#(Bit#(camSz), Bit#(9))) writeReqFifo2<- mkBypassFIFOF;
+   FIFOF#(Tuple2#(Bit#(camSz), Bit#(9))) writeReqFifo3<- mkBypassFIFOF;
+   FIFOF#(Tuple2#(Bit#(camSz), Bit#(9))) writeReqFifo4<- mkBypassFIFOF;
 
-   FIFOF#(Bool) wEnb_setram_fifo <- mkFIFOF;
-   FIFOF#(Bit#(9)) oldPatt_fifo <- mkFIFOF();
-   FIFOF#(Bit#(9)) oldPatt_fifo2 <- mkFIFOF();
-   FIFOF#(Bool) oldPattV_fifo<- mkFIFOF();
-   FIFOF#(Bool) oldPattMultiOcc_fifo <- mkFIFOF();
-   FIFOF#(Bool) newPattMultiOcc_fifo <- mkFIFOF();
-   FIFOF#(Bit#(5)) newPattOccFLoc_fifo <- mkFIFOF();
-   FIFOF#(Bit#(32)) oldPattIndc_fifo <- mkFIFOF();
-   FIFOF#(Bit#(32)) newPattIndc_fifo <- mkFIFOF();
+   FIFOF#(Bool) wEnb_setram_fifo <- mkBypassFIFOF;
+   FIFOF#(Bit#(9)) oldPatt_fifo <- mkBypassFIFOF();
+   FIFOF#(Bit#(9)) oldPatt_fifo2 <- mkBypassFIFOF();
+   FIFOF#(Bool) oldPattV_fifo<- mkBypassFIFOF();
+   FIFOF#(Bool) oldPattMultiOcc_fifo <- mkBypassFIFOF();
+   FIFOF#(Bool) newPattMultiOcc_fifo <- mkBypassFIFOF();
+   FIFOF#(Bit#(5)) newPattOccFLoc_fifo <- mkBypassFIFOF();
+   FIFOF#(Bit#(32)) oldPattIndc_fifo <- mkBypassFIFOF();
+   FIFOF#(Bit#(32)) newPattIndc_fifo <- mkBypassFIFOF();
 
-   Vector#(8, FIFOF#(RPatt)) rpatt_fifo0 <- replicateM(mkFIFOF);
-   Vector#(8, FIFOF#(RPatt)) rpatt_fifo1 <- replicateM(mkFIFOF);
+   Vector#(8, FIFOF#(RPatt)) rpatt_fifo0 <- replicateM(mkBypassFIFOF);
+   Vector#(8, FIFOF#(RPatt)) rpatt_fifo1 <- replicateM(mkBypassFIFOF);
 
 `define SETRAM AsymmetricBRAM#(Bit#(readDepthSz), Bit#(readSz), Bit#(writeDepthSz), Bit#(writeSz))
 
