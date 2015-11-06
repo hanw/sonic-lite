@@ -20,7 +20,7 @@ function Stmt testSeq(BinaryCam#(1024, 9) dut,
     return seq
         noAction;
         action
-            dut.writeServer.put(tuple2('h0, 'h0));
+            dut.writeServer.put(tuple2('h1, 'h1));
         endaction
         delay(100);
         action
@@ -32,7 +32,7 @@ function Stmt testSeq(BinaryCam#(1024, 9) dut,
         endaction
         delay(10);
         action
-            dut.readServer.request.put('h0);
+            dut.readServer.request.put('h1);
         endaction
         delay(10);
         action
@@ -59,7 +59,7 @@ function Stmt testSeq(BinaryCam#(1024, 9) dut,
         endaction
         delay(100);
         action
-            dut.writeServer.put(tuple2('h0, 'h0));
+            dut.writeServer.put(tuple2('h1, 'h1));
         endaction
         delay(100);
         action
@@ -71,7 +71,7 @@ function Stmt testSeq(BinaryCam#(1024, 9) dut,
         endaction
         delay(10);
         action
-            dut.readServer.request.put('h0);
+            dut.readServer.request.put('h1);
         endaction
         delay(10);
         action

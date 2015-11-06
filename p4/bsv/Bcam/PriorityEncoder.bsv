@@ -40,8 +40,8 @@ endtypeclass
 
 instance PriorityEncoder#(2);
    module mkPriorityEncoder(PEnc#(2));
-      FIFO#(Bit#(1)) binpipe <- mkFIFO;
-      FIFO#(Bool) vldpipe <- mkFIFO;
+      FIFO#(Bit#(1)) binpipe <- mkBypassFIFO;
+      FIFO#(Bool) vldpipe <- mkBypassFIFO;
 
       interface Put oht;
          method Action put(Bit#(2) v);
@@ -76,10 +76,10 @@ instance PriorityEncoder#(n)
             ,Log#(TDiv#(n, 2), TLog#(nhalf))
             ,PriorityEncoder::PriorityEncoder#(TDiv#(n, 2)));
    module mkPriorityEncoder(PEnc#(n));
-      FIFO#(Bit#(TLog#(n))) binpipe <- mkFIFO;
-      FIFO#(Bool) vldpipe <- mkFIFO;
-      FIFO#(Bit#(nhalf)) p0_infifo <- mkFIFO;
-      FIFO#(Bit#(nhalf)) p1_infifo <- mkFIFO;
+      FIFO#(Bit#(TLog#(n))) binpipe <- mkBypassFIFO;
+      FIFO#(Bool) vldpipe <- mkBypassFIFO;
+      FIFO#(Bit#(nhalf)) p0_infifo <- mkBypassFIFO;
+      FIFO#(Bit#(nhalf)) p1_infifo <- mkBypassFIFO;
       FIFOF#(Bit#(n)) oht_fifo <- mkBypassFIFOF;
 
       PEnc#(TDiv#(n, 2)) p0 <- mkPriorityEncoder();
@@ -119,10 +119,10 @@ interface PEnc8;
 endinterface
 (* synthesize *)
 module mkPriorityEncoder8(PEnc8);
-  FIFO#(Bit#(TLog#(8))) binpipe <- mkFIFO;
-  FIFO#(Bool) vldpipe <- mkFIFO;
-  FIFO#(Bit#(4)) p0_infifo <- mkFIFO;
-  FIFO#(Bit#(4)) p1_infifo <- mkFIFO;
+  FIFO#(Bit#(TLog#(8))) binpipe <- mkBypassFIFO;
+  FIFO#(Bool) vldpipe <- mkBypassFIFO;
+  FIFO#(Bit#(4)) p0_infifo <- mkBypassFIFO;
+  FIFO#(Bit#(4)) p1_infifo <- mkBypassFIFO;
   FIFOF#(Bit#(8)) oht_fifo <- mkBypassFIFOF;
 
   PEnc#(4) p0 <- mkPriorityEncoder();
@@ -161,10 +161,10 @@ interface PEnc16;
 endinterface
 (* synthesize *)
 module mkPriorityEncoder16(PEnc16);
-  FIFO#(Bit#(TLog#(16))) binpipe <- mkFIFO;
-  FIFO#(Bool) vldpipe <- mkFIFO;
-  FIFO#(Bit#(8)) p0_infifo <- mkFIFO;
-  FIFO#(Bit#(8)) p1_infifo <- mkFIFO;
+  FIFO#(Bit#(TLog#(16))) binpipe <- mkBypassFIFO;
+  FIFO#(Bool) vldpipe <- mkBypassFIFO;
+  FIFO#(Bit#(8)) p0_infifo <- mkBypassFIFO;
+  FIFO#(Bit#(8)) p1_infifo <- mkBypassFIFO;
   FIFOF#(Bit#(16)) oht_fifo <- mkBypassFIFOF;
 
   PEnc8 p0 <- mkPriorityEncoder8();
@@ -205,8 +205,8 @@ endinterface
 module mkPriorityEncoder32(PEnc32);
   FIFO#(Bit#(TLog#(32))) binpipe <- mkFIFO;
   FIFO#(Bool) vldpipe <- mkFIFO;
-  FIFO#(Bit#(16)) p0_infifo <- mkFIFO;
-  FIFO#(Bit#(16)) p1_infifo <- mkFIFO;
+  FIFO#(Bit#(16)) p0_infifo <- mkBypassFIFO;
+  FIFO#(Bit#(16)) p1_infifo <- mkBypassFIFO;
   FIFOF#(Bit#(32)) oht_fifo <- mkBypassFIFOF;
 
   PEnc16 p0 <- mkPriorityEncoder16();

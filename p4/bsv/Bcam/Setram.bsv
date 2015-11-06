@@ -183,8 +183,8 @@ module mkSetram(Setram#(camDepth))
             Bit#(9) rPatt = fromMaybe(?, data.rpatt[j]);
             Bool rPattV = isValid(data.rpatt[j]);
             Bit#(32) indx = pack(wAddrLOH);
-            oldPattIndc[i*4+j] = (rPatt == oldPatt) && !unpack(indx[i*4+j]) && rPattV;
-            //$display("%d: rPatt=%x, wAddrLOH=%x, rPattV=%d oldPattIndc=%d", cycle, rPatt, wAddrLOH, rPattV, oldPattIndc[i*4+j]);
+            oldPattIndc[i*4+j] = (rPatt == oldPatt) && rPattV; //&& !unpack(indx[i*4+j]) && rPattV;
+            $display("%d: rPatt=%x, oldPatt=%x, wAddrLOH=%x, rPattV=%d oldPattIndc=%d", cycle, rPatt, oldPatt, wAddrLOH, rPattV, oldPattIndc[i*4+j]);
          end
       end
       // detect if old pattern has multi-occurence in segment

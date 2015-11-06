@@ -130,7 +130,7 @@ module mkRam9bx1k(Ram9bx1k);
       for (Integer i=0; i<4; i=i+1) begin
          for (Integer j=0; j<8; j=j+1) begin
             if ((wAddr_indx[4:3] == fromInteger(i)) && wAddr_indx[2:0] == fromInteger(j)) begin
-               $display("dpmlab %d: write i=%d, j=%d index=%d", cycle, i, j, i*8+j);
+               $display("dpmlab %d: write i=%d, j=%d index=%d, data=%x", cycle, i, j, i*8+j, wIndc);
                //dpmlab[i*8+j].writeServer.put(tuple2(wAddr_indc, wIndc));
                dpmlab[i*8+j].portA.request.put(BRAMRequest{write:True, responseOnWrite:False, address: wAddr_indc, datain: wIndc});
             end
@@ -150,6 +150,7 @@ module mkRam9bx1k(Ram9bx1k);
             Bit#(5) addr = v[(j+1)*5-1 : j*5];
             //dpmlab[i*8+j].readServer.request.put(addr);
             dpmlab[i*8+j].portB.request.put(BRAMRequest{write: False, responseOnWrite: False, address: addr, datain: ?});
+            //$display("dpmlab %d: write i=%d, j=%d index=%d", cycle, i, j, i*8+j);
          end
       endrule
    end
@@ -167,6 +168,7 @@ module mkRam9bx1k(Ram9bx1k);
          end
       end
       mIndc_fifo.enq(mIndc);
+      $display("dpmlab %d: mIndc=%x", cycle, pack(mIndc));
    endrule
 
    interface PipeIn wEnb_iVld = toPipeIn(wEnb_iVld_fifo);
@@ -262,7 +264,7 @@ module mkRam9b(Ram9b#(cdep))
          ram[i].wIVld.enq(wIVld);
          ram[i].wIndc.enq(wIndc);
       end
-      $display("ram9b %d: wAddr=%x", cycle, wAddr_indc);
+      $display("ram9b %d: wAddr=%x, wIndc=%x", cycle, wAddr_indc, wIndc);
    endrule
 
    rule ram_output;

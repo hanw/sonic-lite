@@ -67,6 +67,10 @@ module mkBcam9b(Bcam9b#(camDepth))
          );
 
    let verbose = True;
+   let verbose_setram = verbose && True;
+   let verbose_idxram = verbose && True;
+   let verbose_vacram = verbose && True;
+
    Reg#(Bit#(32)) cycle <- mkReg(0);
    rule every1 if (verbose);
       cycle <= cycle + 1;
@@ -80,7 +84,7 @@ module mkBcam9b(Bcam9b#(camDepth))
    Reg#(Bit#(9)) oldPattR <- mkReg(0);
    Reg#(Bool) oldPattVR <- mkReg(False);
    Reg#(Bool) oldPattMultiOccR <- mkReg(False);
-   Reg#(Bool) newPattMultiOccR <- mkReg(False);
+   Wire#(Bool) newPattMultiOccR <- mkDWire(False);
 
    Ram9b#(cdep) ram9b <- mkRam9b();
    Setram#(camDepth) setram <- mkSetram();
@@ -89,11 +93,12 @@ module mkBcam9b(Bcam9b#(camDepth))
    FIFOF#(Bool) oldEqNewPatt_fifo <- mkBypassFIFOF;
    Vector#(2, PipeOut#(Bool)) oldEqNewPattPipes <- mkForkVector(toPipeOut(oldEqNewPatt_fifo));
 
+   // FIXME: nothing here, shouldn't take a cycle.
    rule generate_oldEqNewPatt;
       let wPatt <- toGet(wPatt_fifo).get;
       let oldPatt <- toGet(setram.oldPatt).get;
       Bool oldEqNewPatt = (wPatt == oldPatt);
-      $display("bcam %d: oldEqNewPatt=%x", cycle, oldEqNewPatt);
+      if (verbose) $display("bcam %d: oldEqNewPatt=%x", cycle, oldEqNewPatt);
       oldPattR <= oldPatt;
       oldEqNewPatt_fifo.enq(oldEqNewPatt);
       if (verbose) $display("bcam %d: oldPatt=%x", cycle, oldPatt);
@@ -167,6 +172,7 @@ module mkBcam9b(Bcam9b#(camDepth))
       let newPattIndc <- toGet(setram.newPattIndc).get;
       let oldNewbPattWr <- toGet(oldNewbPattWr_fifo).get;
       Bit#(32) wIndc = oldNewbPattWr ? oldPattIndc : newPattIndc;
+      if(verbose) $display("cam9b %d: oldPattIndc=%x, newPattIndc=%x", cycle, oldPattIndc, newPattIndc);
       if(verbose) $display("cam9b %d: oldNewbPattwr=%x, wIndc=", cycle, oldNewbPattWr, fshow(wIndc));
       ram9b.wIndc.enq(wIndc);
    endrule
