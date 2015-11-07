@@ -183,7 +183,7 @@ module mkAsymmetricBRAMBluesim#(Bool hasOutputRegister, Bool hasForwarding, Stri
     );
     FIFO#(Tuple2#(waddr_t, wdata_t)) writeReqFifo <- mkFIFO;
     FIFO#(raddr_t) readReqFifo <- mkFIFO;
-    FIFO#(rdata_t) readDataFifo <- mkBypassFIFO;
+    FIFO#(rdata_t) readDataFifo <- mkFIFO;
 
     Reg#(Bit#(64))  mem_ptr         <- mkRegU();
     Reg#(Bool)      isInitialized   <- mkReg(False);
@@ -193,7 +193,7 @@ module mkAsymmetricBRAMBluesim#(Bool hasOutputRegister, Bool hasForwarding, Stri
       cntr <= cntr + 1;
     endrule
 
-    (* execution_order = "do_write, do_read" *)
+    (* execution_order = "do_read, do_write" *)
     rule do_read (isInitialized);
        let v <- toGet(readReqFifo).get;
        rdata_t rdata  <- mem_read(mem_ptr, v);
