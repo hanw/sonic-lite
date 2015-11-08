@@ -82,7 +82,7 @@ instance PriorityEncoder#(n)
             ,Div#(n, 2, nhalf)
             ,Add#(1, TLog#(nhalf), TLog#(n))
             ,Log#(TDiv#(n, 2), TLog#(nhalf))
-            ,PriorityEncoder::PriorityEncoder#(TDiv#(n, 2)));
+            ,PriorityEncoder0::PriorityEncoder#(TDiv#(n, 2)));
    module mkPriorityEncoder(PEnc#(n));
       Wire#(Bool) valid0_wire <- mkDWire(False);
       Wire#(Bool) valid1_wire <- mkDWire(False);
