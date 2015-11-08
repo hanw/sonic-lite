@@ -1,11 +1,7 @@
-## BlueNIC
+## Repository for DTP, P4FPGA, SONIC
 
 ### Platform
-BlueNIC is targeted for multiple development platforms. Currently We have support for DE5-net, HTG4 and NetFPGA-SUME board.
-
-### Support I/O operation
-#### Kernel
-ioread32, iowrite32
+DE5-Net and NetFPGA SUME
 
 ### Flash Programming
 #### DE5
