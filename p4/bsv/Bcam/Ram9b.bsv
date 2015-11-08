@@ -117,7 +117,7 @@ module mkRam9bx1k(Ram9bx1k);
          if (wAddr_indx[4:3] == fromInteger(i)) begin
             Bit#(12) wAddr = {wPatt, wAddr_indx[2:0]};
             indxram[i].writeServer.put(tuple2(wAddr, wIndx));
-            $display("indxram %d: write i=%x wAddr=%x, data=%x", cycle, i, wAddr, wIndx);
+            $display("indxram %d: write i=%x wAddr=%x, wIndx=%x", cycle, i, wAddr, wIndx);
          end
       end
    endrule
@@ -130,7 +130,7 @@ module mkRam9bx1k(Ram9bx1k);
       for (Integer i=0; i<4; i=i+1) begin
          for (Integer j=0; j<8; j=j+1) begin
             if ((wAddr_indx[4:3] == fromInteger(i)) && wAddr_indx[2:0] == fromInteger(j)) begin
-               $display("dpmlab %d: write i=%d, j=%d index=%d, data=%x", cycle, i, j, i*8+j, wIndc);
+               $display("dpmlab %d: write i=%d, j=%d index=%d, wIndc=%x", cycle, i, j, i*8+j, wIndc);
                //dpmlab[i*8+j].writeServer.put(tuple2(wAddr_indc, wIndc));
                dpmlab[i*8+j].portA.request.put(BRAMRequest{write:True, responseOnWrite:False, address: wAddr_indc, datain: wIndc});
             end
@@ -184,7 +184,7 @@ module mkRam9bx1k(Ram9bx1k);
    interface PipeOut mIndc = toPipeOut(mIndc_fifo);
 endmodule
 
-interface Ram9b#(numeric type cdep);//camDepth);
+interface Ram9b#(numeric type cdep);
    interface PipeIn#(Bool) wEnb_iVld;
    interface PipeIn#(Bool) wEnb_indx;
    interface PipeIn#(Bool) wEnb_indc;
@@ -196,6 +196,7 @@ interface Ram9b#(numeric type cdep);//camDepth);
    interface PipeIn#(Bit#(32)) wIndc;
    interface PipeIn#(Bool) wIVld;
    interface PipeOut#(Bit#(TMul#(cdep, 1024))) mIndc;
+   //interface PipeOut#(Vector#(cdep, Bit#(1024))) mIndc;
 endinterface
 module mkRam9b(Ram9b#(cdep))
    provisos(Mul#(cdep, 1024, indcWidth)
@@ -264,18 +265,13 @@ module mkRam9b(Ram9b#(cdep))
          ram[i].wIVld.enq(wIVld);
          ram[i].wIndc.enq(wIndc);
       end
-      $display("ram9b %d: wAddr=%x, wIndc=%x", cycle, wAddr_indc, wIndc);
+      $display("ram9b %d: wAddr_indc=%x, wIndc=%x", cycle, wAddr_indc, wIndc);
    endrule
 
-   rule ram_output;
-      Vector#(cdep, Bit#(1024)) mIndc;
-      for (Integer i=0; i < valueOf(cdep); i=i+1) begin
-         let v <- toGet(ram[i].mIndc).get;
-         mIndc[i] = v;
-      end
-      mIndc_fifo.enq(pack(mIndc));
-      $display("ram9b %d: mIndc=%x", cycle, pack(mIndc));
-   endrule
+   function PipeOut#(Bit#(1024)) to_mIndc(Ram9bx1k a);
+      return a.mIndc;
+   endfunction
+   PipeOut#(Bit#(TMul#(cdep, 1024))) mIndcPipe <- mkJoinVector(pack, map(to_mIndc, ram));
 
    interface PipeIn wEnb_iVld = toPipeIn(wEnb_iVld_fifo);
    interface PipeIn wEnb_indx = toPipeIn(wEnb_indx_fifo);
@@ -287,7 +283,7 @@ module mkRam9b(Ram9b#(cdep))
    interface PipeIn wIndx = toPipeIn(wIndx_fifo);
    interface PipeIn wIndc = toPipeIn(wIndc_fifo);
    interface PipeIn wIVld = toPipeIn(wIVld_fifo);
-   interface PipeOut mIndc = toPipeOut(mIndc_fifo);
+   interface PipeOut mIndc = mIndcPipe;
 endmodule
 
 

@@ -24,11 +24,15 @@ function Stmt testSeq(BinaryCam#(1024, 9) dut,
         endaction
         delay(100);
         action
-            dut.writeServer.put(tuple2('h1, 'h1));
+            dut.writeServer.put(tuple2('h2, 'h2));
         endaction
         delay(100);
         action
-            dut.writeServer.put(tuple2('h2, 'h2));
+            dut.writeServer.put(tuple2('h3, 'h3));
+        endaction
+        delay(100);
+        action
+            dut.writeServer.put(tuple2('h3, 'h3));
         endaction
         delay(100);
         action
@@ -40,62 +44,62 @@ function Stmt testSeq(BinaryCam#(1024, 9) dut,
             $display("read result=%x", fromMaybe(?,v));
         endaction
         delay(10);
-//        action
-//            dut.readServer.request.put('h1);
-//        endaction
-//        delay(10);
-//        action
-//            let v <- dut.readServer.response.get;
-//            $display("read result=%x", fromMaybe(?,v));
-//        endaction
-//        delay(10);
-//        action
-//            dut.readServer.request.put('h2);
-//        endaction
-//        delay(10);
-//        action
-//            let v <- dut.readServer.response.get;
-//            $display("read result=%x", fromMaybe(?,v));
-//        endaction
-//        delay(100);
-//        action
-//            dut.writeServer.put(tuple2('h1, 'h1));
-//        endaction
-//        delay(100);
-//        action
-//            dut.writeServer.put(tuple2('h1, 'h1));
-//        endaction
-//        delay(100);
-//        action
-//            dut.writeServer.put(tuple2('h2, 'h2));
-//        endaction
-//        delay(10);
-//        action
-//            dut.readServer.request.put('h1);
-//        endaction
-//        delay(10);
-//        action
-//            let v <- dut.readServer.response.get;
-//            $display("read result=%x", fromMaybe(?,v));
-//        endaction
-//        delay(10);
-//        action
-//            dut.readServer.request.put('h1);
-//        endaction
-//        delay(10);
-//        action
-//            let v <- dut.readServer.response.get;
-//            $display("read result=%x", fromMaybe(?,v));
-//        endaction
-//        delay(10);
-//        action
-//            dut.readServer.request.put('h2);
-//        endaction
-//        delay(10);
-//        action
-//            let v <- dut.readServer.response.get;
-//            $display("read result=%x", fromMaybe(?,v));
-//        endaction
+        action
+            dut.readServer.request.put('h1);
+        endaction
+        delay(10);
+        action
+            let v <- dut.readServer.response.get;
+            $display("read result=%x", fromMaybe(?,v));
+        endaction
+        delay(10);
+        action
+            dut.readServer.request.put('h2);
+        endaction
+        delay(10);
+        action
+            let v <- dut.readServer.response.get;
+            $display("read result=%x", fromMaybe(?,v));
+        endaction
+        delay(100);
+        action
+            dut.writeServer.put(tuple2('h1, 'h1));
+        endaction
+        delay(100);
+        action
+            dut.writeServer.put(tuple2('h3, 'h3));
+        endaction
+        delay(100);
+        action
+            dut.writeServer.put(tuple2('h3, 'h3));
+        endaction
+        delay(10);
+        action
+            dut.readServer.request.put('h1);
+        endaction
+        delay(10);
+        action
+            let v <- dut.readServer.response.get;
+            $display("read result=%x", fromMaybe(?,v));
+        endaction
+        delay(10);
+        action
+            dut.readServer.request.put('h1);
+        endaction
+        delay(10);
+        action
+            let v <- dut.readServer.response.get;
+            $display("read result=%x", fromMaybe(?,v));
+        endaction
+        delay(10);
+        action
+            dut.readServer.request.put('h3);
+        endaction
+        delay(10);
+        action
+            let v <- dut.readServer.response.get;
+            $display("read result=%x", fromMaybe(?,v));
+        endaction
    endseq;
 endfunction
 
