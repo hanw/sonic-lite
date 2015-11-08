@@ -6,7 +6,7 @@ import Vector::*;
 import DefaultValue::*;
 import BRAM::*;
 
-import MatchTableTypes::*;
+import P4Types::*;
 import Bcam::*;
 
 module mkMatchTable_Bcam (Server#(RequestType, ResponseType));
