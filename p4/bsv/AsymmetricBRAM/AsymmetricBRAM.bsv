@@ -119,10 +119,10 @@ module mkAsymmetricBRAMVerilog#(Bool hasOutputRegister, Bool hasForwarding)
         Add#(raddr_sz,offset_sz,waddr_sz),
         Bits#(Vector#(ratio, wdata_t), rdata_sz)
     );
-    FIFO#(Tuple2#(waddr_t, wdata_t)) writeReqFifo <- mkBypassFIFO;
-    FIFO#(raddr_t) readReqFifo <- mkBypassFIFO;
-    FIFO#(rdata_t) readDataFifo <- mkBypassFIFO;
-    FIFO#(void) readCtrlFifo <- mkBypassFIFO;
+    FIFO#(Tuple2#(waddr_t, wdata_t)) writeReqFifo <- mkFIFO;
+    FIFO#(raddr_t) readReqFifo <- mkFIFO;
+    FIFO#(rdata_t) readDataFifo <- mkFIFO;
+    FIFO#(void) readCtrlFifo <- mkFIFO;
 
     VAsymBRAMIfc#(raddr_t, rdata_t, waddr_t, wdata_t) bram <- vAsymBRAM(hasOutputRegister);
 

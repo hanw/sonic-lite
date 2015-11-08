@@ -106,15 +106,12 @@ module mkBcam9b(Bcam9b#(camDepth))
       cycle <= cycle + 1;
    endrule
 
-   FIFOF#(Bit#(9)) mPatt_fifo <- mkFIFOF();
    Reg#(Bool) oldNewbPattWr_reg <- mkReg(False);
 
    Reg#(Bit#(9)) oldPattR <- mkReg(0);
    Reg#(Bool) oldPattVR <- mkReg(False);
-   //FIXME: Wire#(Bool) newPattMultiOccR <- mkDWire(False);
 
    // setram fifo, remove later.
-   //FIFO#(Bit#(5)) newPattOccFLoc_fifo <- mkFIFO1();
    FIFO#(Bit#(32)) oldPattIndc_fifo <- mkFIFO1();
    FIFO#(Bit#(32)) newPattIndc_fifo <- mkFIFO1();
 
@@ -132,7 +129,6 @@ module mkBcam9b(Bcam9b#(camDepth))
    Reg#(Bit#(5)) newPattOccFLoc_reg <- mkReg(0);
 
    // BEGIN IVRAM STATES
-   FIFOF#(Bit#(camSz)) ivram_writeReqFifo <- mkFIFOF;
    FIFOF#(Bool) oldPattV_fifo <- mkFIFOF();
    FIFOF#(Bool) oldPattMultiOcc_fifo <- mkFIFOF();
 
@@ -241,7 +237,7 @@ module mkBcam9b(Bcam9b#(camDepth))
       let v <- toGet(vacram_read).get;
       Vector#(wAddrHWidth, Bit#(1)) wAddrH = takeAt(5, unpack(wAddr_bcam));
       vacram.readServer.request.put(pack(wAddrH));
-      $display("vacram %d: vacram read addr=%x", cycle, pack(wAddrH));
+      if (verbose) $display("vacram %d: vacram read addr=%x", cycle, pack(wAddrH));
    endrule
 
    rule vacram_read_response;
@@ -253,16 +249,16 @@ module mkBcam9b(Bcam9b#(camDepth))
       Bit#(32) cVac = compute_cVac(rVac, oldPattMultiOcc, oldPattV, oldIdxR);
       cVacR <= cVac;
       pe_vac.oht.put(cVac);
-      $display("vacram %d: response cVac=%x, rVac = %x, oldPattMultiOcc = %x, oldPattV = %x, oldIdx = %x", cycle, cVac, rVac, oldPattMultiOcc, oldPattV, oldIdxR);
+      if (verbose) $display("vacram %d: response cVac=%x, rVac = %x, oldPattMultiOcc = %x, oldPattV = %x, oldIdx = %x", cycle, cVac, rVac, oldPattMultiOcc, oldPattV, oldIdxR);
    endrule
 
    rule vacram_write_request;
       let wEnb <- toGet(wEnb_vacram_fifo).get;
       Vector#(wAddrHWidth, Bit#(1)) wAddrH = takeAt(5, unpack(wAddr_bcam));
       Bit#(32) wVac = compute_wVac(vacFLocR, newPattMultiOccR, cVacR);
-      $display("vacram %d: vacFLoc=%x, newPattMultiOcc=%x, cVac=%x", cycle, vacFLocR, newPattMultiOccR, cVacR);
+      if (verbose) $display("vacram %d: vacFLoc=%x, newPattMultiOcc=%x, cVac=%x", cycle, vacFLocR, newPattMultiOccR, cVacR);
       vacram.writeServer.put(tuple2(pack(wAddrH), wVac));
-      $display("vacram %d: vacram write wAddrH=%x, wVac=%x", cycle, pack(wAddrH), wVac);
+      if (verbose) $display("vacram %d: vacram write wAddrH=%x, wVac=%x", cycle, pack(wAddrH), wVac);
    endrule
 
    // FIXME: consider merging with previous rule
@@ -282,7 +278,7 @@ module mkBcam9b(Bcam9b#(camDepth))
       vacFLocR <= bin;
       bcam_fsm_start.enq(?);
       ram9b_wIndx_start.enq(?);
-      $display("vacram %d: bin=%x vld=%x vacFLoc=%x", cycle, bin, vld, bin);
+      if (verbose) $display("vacram %d: bin=%x vld=%x vacFLoc=%x", cycle, bin, vld, bin);
    endrule
 
    // IdxRAM
@@ -305,7 +301,7 @@ module mkBcam9b(Bcam9b#(camDepth))
       Bit#(160) data_pack = pack(data);
       data_oldPatt_fifo.enq(data_pack);
       data_newPatt_fifo.enq(data_pack);
-      $display("idxram %d: response %x", cycle, data_pack);
+      if (verbose) $display("idxram %d: response %x", cycle, data_pack);
    endrule
 
    rule idxram_write_request;
@@ -331,7 +327,7 @@ module mkBcam9b(Bcam9b#(camDepth))
       Vector#(5, Bit#(1)) wAddrL = take(unpack(wAddr_bcam));
       Bit#(5) oldIdx = data[pack(wAddrL)*5+5 : pack(wAddrL)*5];
       oldIdxR <= oldIdx;
-      $display("idxram %d: oldIdx=%x", cycle, oldIdx);
+      if (verbose) $display("idxram %d: oldIdx=%x", cycle, oldIdx);
    endrule
 
    rule idxram_gen_newIdx;
@@ -339,7 +335,7 @@ module mkBcam9b(Bcam9b#(camDepth))
       let newPattOccFLoc <- toGet(newPattOccFLoc_fifo).get;
       Bit#(5) newIdx = data[newPattOccFLoc*5 + 5: newPattOccFLoc*5];
       newIdxR <= newIdx;
-      $display("idxram %d: newIdx=%x", cycle, newIdx);
+      if (verbose) $display("idxram %d: newIdx=%x", cycle, newIdx);
    endrule
 
    // Original
@@ -347,13 +343,13 @@ module mkBcam9b(Bcam9b#(camDepth))
       let v <- toGet(wIndx_fifo).get;
       ram9b.wIndx.enq(v);
       ram9b.wAddr_indc.enq(v);
-      $display("bcam %d: ram9b wIndx=%x", cycle, v);
+      if (verbose) $display("bcam %d: ram9b wIndx=%x", cycle, v);
    endrule
 
-   rule read_mPatt;
-      let v <- toGet(mPatt_fifo).get;
-      ram9b.mPatt.enq(v);
-   endrule
+//   rule read_mPatt;
+//      let v <- toGet(mPatt_fifo).get;
+//      ram9b.mPatt.enq(v);
+//   endrule
 
    rule setram_read_request;
       let v <- toGet(setram_read).get;
@@ -471,7 +467,7 @@ module mkBcam9b(Bcam9b#(camDepth))
       endmethod
    endinterface
 
-   interface PipeIn mPatt = toPipeIn(mPatt_fifo);
+   interface PipeIn mPatt = ram9b.mPatt;
    interface PipeOut mIndc = ram9b.mIndc;
 endmodule
 
@@ -505,38 +501,10 @@ module mkBinaryCam(BinaryCam#(camDepth, pattWidth))
    Clock defaultClock <- exposeCurrentClock();
    Reset defaultReset <- exposeCurrentReset();
 
-   FIFO#(Tuple2#(Bit#(camSz), Bit#(pattWidth))) writeReqFifo <- mkFIFO;
-
    FIFO#(Maybe#(Bit#(camSz))) readFifo <- mkFIFO;
-   FIFO#(Bit#(pattWidth)) readReqFifo <- mkFIFO;
-
-   Wire#(Bool) writeEnable <- mkDWire(False);
-   Wire#(Bit#(camSz)) writeAddr <- mkDWire(0);
-   Wire#(Bit#(pattWidth)) writeData <- mkDWire(0);
-   Wire#(Bit#(pattWidth)) readData <- mkDWire(0);
 
    Vector#(pwid, Bcam9b#(camDepth)) cam9b <- replicateM(mkBcam9b());
    PEnc#(indcWidth) pe_bcam <- mkPriorityEncoder();
-
-   rule writeBcam;
-      let v <- toGet(writeReqFifo).get;
-      let wAddr = tpl_1(v);
-      let wData = tpl_2(v);
-      for (Integer i=0; i<valueOf(pwid); i=i+1) begin
-         Vector#(9, Bit#(1)) data = takeAt(fromInteger(i) * 9, unpack(wData));
-         BcamWriteReq#(camSz, 9) req = BcamWriteReq{addr: wAddr, data: pack(data)};
-         //cam9b[i].writeServer.put(tuple2(wAddr, pack(data)));
-         cam9b[i].writeServer.put(req);
-      end
-   endrule
-
-   rule readBcam;
-      let mPatt <- toGet(readReqFifo).get;
-      for (Integer i=0; i<valueOf(pwid); i=i+1) begin
-         Vector#(9, Bit#(1)) data = takeAt(fromInteger(i) * 9, unpack(mPatt));
-         cam9b[i].mPatt.enq(pack(data));
-      end
-   endrule
 
    rule cam9b_fifo_out;
       Bit#(indcWidth) mIndc = maxBound;
@@ -562,13 +530,26 @@ module mkBinaryCam(BinaryCam#(camDepth, pattWidth))
 
    interface Server readServer;
       interface Put request;
-         method Action put(Bit#(pattWidth) data);
-            readReqFifo.enq(data);
+         method Action put(Bit#(pattWidth) v);
+            for (Integer i=0; i<valueOf(pwid); i=i+1) begin
+               Vector#(9, Bit#(1)) data = takeAt(fromInteger(i) * 9, unpack(v));
+               cam9b[i].mPatt.enq(pack(data));
+            end
          endmethod
       endinterface
       interface Get response = toGet(readFifo);
    endinterface
-   interface Put writeServer = toPut(writeReqFifo);
+   interface Put writeServer;
+      method Action put(Tuple2#(Bit#(camSz), Bit#(pattWidth)) v);
+         let wAddr = tpl_1(v);
+         let wData = tpl_2(v);
+         for (Integer i=0; i<valueOf(pwid); i=i+1) begin
+            Vector#(9, Bit#(1)) data = takeAt(fromInteger(i) * 9, unpack(wData));
+            BcamWriteReq#(camSz, 9) req = BcamWriteReq{addr: wAddr, data: pack(data)};
+            cam9b[i].writeServer.put(req);
+         end
+      endmethod
+   endinterface
 endmodule
 
 // Generated by compiler
