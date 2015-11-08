@@ -63,7 +63,7 @@ module mkRam9bx1k(Ram9bx1k);
 
    FIFOF#(Bit#(32)) iVld_fifo <- mkFIFOF;
 
-   let verbose = True;
+   let verbose = False;
    Reg#(Bit#(32)) cycle <- mkReg(0);
    rule every1 if (verbose);
       cycle <= cycle + 1;
@@ -97,7 +97,7 @@ module mkRam9bx1k(Ram9bx1k);
       let wIVld <- toGet(wIVld_fifo).get;
       Bit#(14) wAddr = {wPatt, wAddr_indx};
       vldram.writeServer.put(tuple2(wAddr, pack(wIVld)));
-      $display("vldram %d: write to vldram wAddr=%x, data=%x", cycle, wAddr, pack(wIVld));
+      if (verbose) $display("vldram %d: write to vldram wAddr=%x, data=%x", cycle, wAddr, pack(wIVld));
    endrule
 
    rule ram_read;
@@ -117,7 +117,7 @@ module mkRam9bx1k(Ram9bx1k);
          if (wAddr_indx[4:3] == fromInteger(i)) begin
             Bit#(12) wAddr = {wPatt, wAddr_indx[2:0]};
             indxram[i].writeServer.put(tuple2(wAddr, wIndx));
-            $display("indxram %d: write i=%x wAddr=%x, wIndx=%x", cycle, i, wAddr, wIndx);
+            if (verbose) $display("indxram %d: write i=%x wAddr=%x, wIndx=%x", cycle, i, wAddr, wIndx);
          end
       end
    endrule
@@ -130,7 +130,7 @@ module mkRam9bx1k(Ram9bx1k);
       for (Integer i=0; i<4; i=i+1) begin
          for (Integer j=0; j<8; j=j+1) begin
             if ((wAddr_indx[4:3] == fromInteger(i)) && wAddr_indx[2:0] == fromInteger(j)) begin
-               $display("dpmlab %d: write i=%d, j=%d index=%d, wIndc=%x", cycle, i, j, i*8+j, wIndc);
+               if (verbose) $display("dpmlab %d: write i=%d, j=%d index=%d, wIndc=%x", cycle, i, j, i*8+j, wIndc);
                //dpmlab[i*8+j].writeServer.put(tuple2(wAddr_indc, wIndc));
                dpmlab[i*8+j].portA.request.put(BRAMRequest{write:True, responseOnWrite:False, address: wAddr_indc, datain: wIndc});
             end
@@ -168,7 +168,7 @@ module mkRam9bx1k(Ram9bx1k);
          end
       end
       mIndc_fifo.enq(mIndc);
-      $display("dpmlab %d: mIndc=%x", cycle, pack(mIndc));
+      if (verbose) $display("dpmlab %d: mIndc=%x", cycle, pack(mIndc));
    endrule
 
    interface PipeIn wEnb_iVld = toPipeIn(wEnb_iVld_fifo);
@@ -235,7 +235,7 @@ module mkRam9b(Ram9b#(cdep))
          ram[i].wEnb_indc.enq(wEnb_indc && wEnb[i]);
          ram[i].wAddr_indx.enq(wAddr_indx[4:0]);
       end
-      $display("ram9b %d: write wEnb to all ram blocks", cycle);
+      if (verbose) $display("ram9b %d: write wEnb to all ram blocks", cycle);
    endrule
 
    rule ram_mPatt;
@@ -243,7 +243,7 @@ module mkRam9b(Ram9b#(cdep))
       for (Integer i=0; i < valueOf(cdep); i=i+1) begin
          ram[i].mPatt.enq(mPatt);
       end
-      $display("ram9b %d: mPatt=%x", cycle, mPatt);
+      if (verbose) $display("ram9b %d: mPatt=%x", cycle, mPatt);
    endrule
 
    rule ram_wPatt;
@@ -251,7 +251,7 @@ module mkRam9b(Ram9b#(cdep))
       for (Integer i=0; i < valueOf(cdep); i=i+1) begin
           ram[i].wPatt.enq(wPatt);
       end
-      $display("ram9b %d: wPatt=%x", cycle, wPatt);
+      if (verbose) $display("ram9b %d: wPatt=%x", cycle, wPatt);
    endrule
 
    rule ram_wAddr;
@@ -265,7 +265,7 @@ module mkRam9b(Ram9b#(cdep))
          ram[i].wIVld.enq(wIVld);
          ram[i].wIndc.enq(wIndc);
       end
-      $display("ram9b %d: wAddr_indc=%x, wIndc=%x", cycle, wAddr_indc, wIndc);
+      if (verbose) $display("ram9b %d: wAddr_indc=%x, wIndc=%x", cycle, wAddr_indc, wIndc);
    endrule
 
    function PipeOut#(Bit#(1024)) to_mIndc(Ram9bx1k a);

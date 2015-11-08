@@ -96,7 +96,7 @@ module mkBcam9b(Bcam9b#(camDepth))
             ,Add#(idxReadDepthSz, 0, wAddrHWidth)
          );
 
-   let verbose = True;
+   let verbose = False;
    let verbose_setram = verbose && True;
    let verbose_idxram = verbose && True;
    let verbose_vacram = verbose && True;
@@ -502,6 +502,7 @@ module mkBinaryCam(BinaryCam#(camDepth, pattWidth))
    Clock defaultClock <- exposeCurrentClock();
    Reset defaultReset <- exposeCurrentReset();
 
+   let verbose = True;
    FIFO#(Maybe#(Bit#(camSz))) readFifo <- mkFIFO;
 
    Vector#(pwid, Bcam9b#(camDepth)) cam9b <- replicateM(mkBcam9b());
@@ -514,13 +515,13 @@ module mkBinaryCam(BinaryCam#(camDepth, pattWidth))
          mIndc = mIndc & pack(v_mIndc);
       end
       pe_bcam.oht.put(mIndc);
-      $display("bcam: cascading mindc=%x", mIndc);
+      if (verbose) $display("bcam: cascading mindc=%x", mIndc);
    endrule
 
    rule pe_bcam_out;
       let bin <- pe_bcam.bin.get;
       let vld <- pe_bcam.vld.get;
-      $display("pe_bcam: bin=%x, vld=%x", bin, vld);
+      if (verbose) $display("pe_bcam: bin=%x, vld=%x", bin, vld);
       if (vld) begin
          readFifo.enq(tagged Valid bin);
       end
