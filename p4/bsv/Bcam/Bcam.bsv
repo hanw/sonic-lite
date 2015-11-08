@@ -33,9 +33,9 @@ import Pipe::*;
 import AsymmetricBRAM::*;
 
 import BcamTypes::*;
-import PriorityEncoder::*;
 import Ram9b::*;
-import PriorityEncoderEfficient::*;
+import PriorityEncoder0::*;
+import PriorityEncoder1::*;
 
 typedef struct {
    Vector#(4, Maybe#(Bit#(9))) rpatt;
