@@ -8,9 +8,7 @@ import Pipe::*;
 
 // ----------------
 // Imports for the design
-import IdxVacRam::*;
-import Setram::*;
-import PriorityEncoderEfficient::*;
+import PriorityEncoder1::*;
 import Ram9b::*;
 import BcamTypes::*;
 import Bcam::*;
@@ -20,19 +18,19 @@ function Stmt testSeq(BinaryCam#(1024, 9) dut,
     return seq
         noAction;
         action
-            dut.writeServer.put(tuple2('h1, 'h1));
+            dut.writeServer.put(BcamWriteReq{addr:'h1, data:'h1});
         endaction
         delay(100);
         action
-            dut.writeServer.put(tuple2('h2, 'h2));
+            dut.writeServer.put(BcamWriteReq{addr:'h2, data:'h2});
         endaction
         delay(100);
         action
-            dut.writeServer.put(tuple2('h3, 'h3));
+            dut.writeServer.put(BcamWriteReq{addr:'h3, data:'h3});
         endaction
         delay(100);
         action
-            dut.writeServer.put(tuple2('h3, 'h3));
+            dut.writeServer.put(BcamWriteReq{addr:'h3, data:'h3});
         endaction
         delay(100);
         action
@@ -63,15 +61,15 @@ function Stmt testSeq(BinaryCam#(1024, 9) dut,
         endaction
         delay(100);
         action
-            dut.writeServer.put(tuple2('h1, 'h1));
+            dut.writeServer.put(BcamWriteReq{addr:'h1, data:'h1});
         endaction
         delay(100);
         action
-            dut.writeServer.put(tuple2('h3, 'h3));
+            dut.writeServer.put(BcamWriteReq{addr:'h3, data:'h3});
         endaction
         delay(100);
         action
-            dut.writeServer.put(tuple2('h3, 'h3));
+            dut.writeServer.put(BcamWriteReq{addr:'h3, data:'h3});
         endaction
         delay(10);
         action

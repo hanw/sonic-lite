@@ -34,4 +34,3 @@ typedef struct {
    Bit#(dataWidth) data;
 } BcamWriteReq#(numeric type addrWidth, numeric type dataWidth) deriving (Bits);
 
-
