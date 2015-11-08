@@ -56,21 +56,6 @@ module mkMatchTable(MatchTable);
 
    Reg#(Bit#(AddrIdx)) addrIdx <- mkReg(0);
 
-//   rule start;
-//      let currReq <- toGet(requestFIFO).get;
-//      if (currReq.op == PUT)
-//      begin
-//         bcam.writeServer.put(tuple2(truncate(addrIdx), truncate(currReq.key)));
-//         currReq.addrIdx = addrIdx;
-//         put_fifo.enq(currReq);
-//      end
-//      else if (currReq.op == GET)
-//      begin
-//         bcam.readServer.request.put(truncate(currReq.key));
-//         get_fifo_1.enq(currReq);
-//      end
-//   endrule
-
    rule handle_bcam_response;
       let v <- bcam.readServer.response.get;
       if (verbose) $display("matchTable %d: recv bcam response ", cycle, fshow(v));
@@ -80,6 +65,7 @@ module mkMatchTable(MatchTable);
       end
    endrule
 
+   // Interface for lookup from data-plane modules
    interface Server lookupPort;
       interface Put request;
          method Action put (Bit#(9) v);
@@ -97,6 +83,7 @@ module mkMatchTable(MatchTable);
       endinterface
    endinterface
 
+   // Interface for read from control-plane
    interface Server readPort;
       interface Put request;
          method Action put (Bit#(10) addr);
@@ -110,6 +97,7 @@ module mkMatchTable(MatchTable);
       endinterface
    endinterface
 
+   // Interface for write from control-plane
    interface Put add_entry;
       method Action put (MatchSpec_t m);
          BcamWriteReq#(10, 9) req_bcam = BcamWriteReq{addr: addrIdx, data: m.data};
