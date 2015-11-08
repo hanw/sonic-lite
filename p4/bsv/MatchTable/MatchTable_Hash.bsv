@@ -6,7 +6,7 @@ import Vector::*;
 import DefaultValue::*;
 import BRAM::*;
 
-import MatchTableTypes::*;
+import P4Types::*;
 import HashFunction::*;
 import HashTable::*;
 
