@@ -40,34 +40,28 @@ endtypeclass
 
 instance PriorityEncoder#(4);
    module mkPriorityEncoder(PEnc#(4));
-      Reg#(Bit#(2)) binpipe <- mkReg(0);
-      Reg#(Bool) vldpipe <- mkReg(False);
+      FIFO#(Bit#(2)) binpipe <- mkBypassFIFO;
+      FIFO#(Bool) vldpipe <- mkBypassFIFO;
 
       interface Put oht;
          method Action put(Bit#(4) v);
             Bool output_vld = unpack(v[0]) || unpack(v[1]) || unpack(v[2]) || unpack(v[3]);
             Bit#(2) output_bin = {pack(!(unpack(v[0])||unpack(v[1]))), pack(!unpack(v[0]) && (unpack(v[1])||!unpack(v[2])))};
-            binpipe <= output_bin;
-            vldpipe <= output_vld;
+            binpipe.enq(output_bin);
+            vldpipe.enq(output_vld);
          endmethod
       endinterface
-      interface Get bin;
-         method ActionValue#(Bit#(2)) get();
-            return binpipe;
-         endmethod
-      endinterface
-      interface Get vld;
-         method ActionValue#(Bool) get();
-            return vldpipe;
-         endmethod
-      endinterface
-
+      interface bin = fifoToGet(binpipe);
+      interface vld = fifoToGet(vldpipe);
    endmodule
 endinstance
 
 instance PriorityEncoder#(16);
    module mkPriorityEncoder(PEnc#(16));
-      Vector#(4, Reg#(Bit#(2))) binIR <- replicateM(mkReg(0));
+      Vector#(4, Wire#(Bit#(2))) binIR <- replicateM(mkDWire(0));
+      FIFO#(Bool) vldpipe <- mkFIFO;
+      FIFO#(Bit#(4)) binpipe <- mkFIFO;
+
       Vector#(4, PEnc#(4)) pe4_cam <- replicateM(mkPriorityEncoder());
       PEnc#(4) pe4_cam_out0 <- mkPriorityEncoder();
 
@@ -83,6 +77,16 @@ instance PriorityEncoder#(16);
          pe4_cam_out0.oht.put({pack(vldI3), pack(vldI2), pack(vldI1), pack(vldI0)});
       endrule
 
+      rule vld_out;
+         let v <- pe4_cam_out0.vld.get;
+         vldpipe.enq(v);
+      endrule
+
+      rule bin_out;
+         let v <- pe4_cam_out0.bin.get;
+         binpipe.enq({v, binIR[v]});
+      endrule
+
       interface Put oht;
          method Action put(Bit#(16) v);
             for (Integer i=0; i<4; i=i+1) begin
@@ -90,25 +94,17 @@ instance PriorityEncoder#(16);
             end
          endmethod
       endinterface
-      interface Get bin;
-         method ActionValue#(Bit#(4)) get();
-            let v <- pe4_cam_out0.bin.get;
-            let out = {v, binIR[v]};
-            return out;
-         endmethod
-      endinterface
-      interface Get vld;
-         method ActionValue#(Bool) get();
-            let v <- pe4_cam_out0.vld.get;
-            return v;
-         endmethod
-      endinterface
+      interface bin = fifoToGet(binpipe);
+      interface vld = fifoToGet(vldpipe);
    endmodule
 endinstance
 
 instance PriorityEncoder#(64);
    module mkPriorityEncoder(PEnc#(64));
-      Vector#(4, Reg#(Bit#(4))) binIR <- replicateM(mkReg(0));
+      Vector#(4, Wire#(Bit#(4))) binIR <- replicateM(mkDWire(0));
+      FIFO#(Bool) vldpipe <- mkFIFO;
+      FIFO#(Bit#(6)) binpipe <- mkFIFO;
+
       Vector#(4, PEnc#(16)) pe4_cam <- replicateM(mkPriorityEncoder());
       PEnc#(4) pe4_cam_out0 <- mkPriorityEncoder();
 
@@ -124,6 +120,16 @@ instance PriorityEncoder#(64);
          pe4_cam_out0.oht.put({pack(vldI3), pack(vldI2), pack(vldI1), pack(vldI0)});
       endrule
 
+      rule vld_out;
+         let v <- pe4_cam_out0.vld.get;
+         vldpipe.enq(v);
+      endrule
+
+      rule bin_out;
+         let v <- pe4_cam_out0.bin.get;
+         binpipe.enq({v, binIR[v]});
+      endrule
+
       interface Put oht;
          method Action put(Bit#(64) v);
             for (Integer i=0; i<4; i=i+1) begin
@@ -131,25 +137,16 @@ instance PriorityEncoder#(64);
             end
          endmethod
       endinterface
-      interface Get bin;
-         method ActionValue#(Bit#(6)) get();
-            let v <- pe4_cam_out0.bin.get;
-            let out = {v, binIR[v]};
-            return out;
-         endmethod
-      endinterface
-      interface Get vld;
-         method ActionValue#(Bool) get();
-            let v <- pe4_cam_out0.vld.get;
-            return v;
-         endmethod
-      endinterface
+      interface bin = fifoToGet(binpipe);
+      interface vld = fifoToGet(vldpipe);
    endmodule
 endinstance
 
 instance PriorityEncoder#(256);
    module mkPriorityEncoder(PEnc#(256));
-      Vector#(4, Reg#(Bit#(6))) binIR <- replicateM(mkReg(0));
+      Vector#(4, Wire#(Bit#(6))) binIR <- replicateM(mkDWire(0));
+      FIFO#(Bool) vldpipe <- mkFIFO;
+      FIFO#(Bit#(8)) binpipe <- mkFIFO;
 
       Vector#(4, PEnc#(64)) pe4_cam <- replicateM(mkPriorityEncoder());
       PEnc#(4) pe4_cam_out0 <- mkPriorityEncoder();
@@ -166,6 +163,16 @@ instance PriorityEncoder#(256);
          pe4_cam_out0.oht.put({pack(vldI3), pack(vldI2), pack(vldI1), pack(vldI0)});
       endrule
 
+      rule vld_out;
+         let v <- pe4_cam_out0.vld.get;
+         vldpipe.enq(v);
+      endrule
+
+      rule bin_out;
+         let v <- pe4_cam_out0.bin.get;
+         binpipe.enq({v, binIR[v]});
+      endrule
+
       interface Put oht;
          method Action put(Bit#(256) v);
             for (Integer i=0; i<4; i=i+1) begin
@@ -173,19 +180,8 @@ instance PriorityEncoder#(256);
             end
          endmethod
       endinterface
-      interface Get bin;
-         method ActionValue#(Bit#(8)) get();
-            let v <- pe4_cam_out0.bin.get;
-            let out = {v, binIR[v]};
-            return out;
-         endmethod
-      endinterface
-      interface Get vld;
-         method ActionValue#(Bool) get();
-            let v <- pe4_cam_out0.vld.get;
-            return v;
-         endmethod
-      endinterface
+      interface bin = fifoToGet(binpipe);
+      interface vld = fifoToGet(vldpipe);
    endmodule
 endinstance
 
@@ -210,10 +206,12 @@ endinterface
 (* synthesize *)
 module mkPriorityEncoder1024(PEnc1024);
    Vector#(4, Reg#(Bit#(8))) binIR <- replicateM(mkReg(0));
+   FIFO#(Bool) vldpipe <- mkFIFO;
+   FIFO#(Bit#(10)) binpipe <- mkFIFO;
+
    Vector#(4, PEnc#(256)) pe4_cam <- replicateM(mkPriorityEncoder());
    PEnc#(4) pe4_cam_out0 <- mkPriorityEncoder();
 
-   // mkJoinVector
    rule bin_in;
       Bool vldI0 <- pe4_cam[0].vld.get;
       Bool vldI1 <- pe4_cam[1].vld.get;
@@ -226,6 +224,16 @@ module mkPriorityEncoder1024(PEnc1024);
       pe4_cam_out0.oht.put({pack(vldI3), pack(vldI2), pack(vldI1), pack(vldI0)});
    endrule
 
+   rule vld_out;
+      let v <- pe4_cam_out0.vld.get;
+      vldpipe.enq(v);
+   endrule
+
+   rule bin_out;
+      let v <- pe4_cam_out0.bin.get;
+      binpipe.enq({v, binIR[v]});
+   endrule
+
    interface Put oht;
       method Action put(Bit#(1024) v);
          for (Integer i=0; i<4; i=i+1) begin
@@ -233,44 +241,70 @@ module mkPriorityEncoder1024(PEnc1024);
          end
       endmethod
    endinterface
-   interface Get bin;
-      method ActionValue#(Bit#(10)) get();
-         let v <- pe4_cam_out0.bin.get;
-         let out = {v, binIR[v]};
-         return out;
-      endmethod
-   endinterface
-   interface Get vld;
-      method ActionValue#(Bool) get();
-         let v <- pe4_cam_out0.vld.get;
-         return v;
-      endmethod
-   endinterface
+   interface bin = fifoToGet(binpipe);
+   interface vld = fifoToGet(vldpipe);
 endmodule
 
+// Should never be used.. not efficient
 instance PriorityEncoder#(2);
    module mkPriorityEncoder(PEnc#(2));
-      Reg#(Bit#(1)) binpipe <- mkReg(0);
-      Reg#(Bool) vldpipe <- mkReg(False);
+      FIFO#(Bit#(1)) binpipe <- mkFIFO;
+      FIFO#(Bool) vldpipe <- mkFIFO;
 
       interface Put oht;
          method Action put(Bit#(2) v);
             Bool output_vld = boolor(unpack(v[0]), unpack(v[1]));
             Bit#(1) output_bin = ~v[0];
-            binpipe <= output_bin;
-            vldpipe <= output_vld;
+            binpipe.enq(output_bin);
+            vldpipe.enq(output_vld);
          endmethod
       endinterface
-      interface Get bin;
-         method ActionValue#(Bit#(1)) get();
-            return binpipe;
-         endmethod
-      endinterface
-      interface Get vld;
-         method ActionValue#(Bool) get();
-            return vldpipe;
-         endmethod
-      endinterface
+      interface bin = fifoToGet(binpipe);
+      interface vld = fifoToGet(vldpipe);
    endmodule
 endinstance
 
+//instance PriorityEncoder#(n)
+//   provisos (Add#(TDiv#(n, 2), a__, n)
+//            ,Div#(n, 2, nhalf)
+//            ,Add#(1, TLog#(nhalf), TLog#(n))
+//            ,Log#(TDiv#(n, 2), TLog#(nhalf))
+//            ,PriorityEncoder#(TDiv#(n, 2)));
+//   module mkPriorityEncoder(PEnc#(n));
+//      FIFO#(Bit#(TLog#(n))) binpipe <- mkFIFO;
+//      FIFO#(Bool) vldpipe <- mkFIFO;
+//      FIFO#(Bit#(nhalf)) p0_infifo <- mkFIFO;
+//      FIFO#(Bit#(nhalf)) p1_infifo <- mkFIFO;
+//      FIFOF#(Bit#(n)) oht_fifo <- mkBypassFIFOF;
+//
+//      PEnc#(TDiv#(n, 2)) p0 <- mkPriorityEncoder();
+//      PEnc#(TDiv#(n, 2)) p1 <- mkPriorityEncoder();
+//
+//      rule set_input;
+//         let bin <- toGet(oht_fifo).get;
+//         p0.oht.put(bin[valueOf(nhalf)-1:0]);
+//         p1.oht.put(bin[valueOf(n)-1:valueOf(nhalf)]);
+//      endrule
+//
+//      rule set_output;
+//         let valid0 <- p0.vld.get;
+//         let valid1 <- p1.vld.get;
+//         let bin0 <- p0.bin.get;
+//         let bin1 <- p1.bin.get;
+//         Bit#(TLog#(n)) output_bin = valid0 ? {1'b0, bin0} : {1'b1, bin1};
+//         Bool output_vld = boolor(valid0, valid1);
+//         binpipe.enq(output_bin);
+//         vldpipe.enq(output_vld);
+//      endrule
+//
+//      interface Put oht;
+//         method Action put(Bit#(n) v);
+//            oht_fifo.enq(v);
+//         endmethod
+//      endinterface
+//      interface bin = fifoToGet(binpipe);
+//      interface vld = fifoToGet(vldpipe);
+//   endmodule
+//endinstance
+//
+//
