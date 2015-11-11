@@ -113,4 +113,4 @@ endif
 .PHONY: clean
 clean:
 	rm -f  *.bi *.bo *.ba *.info *.sched *.c *.h *.o *.so  mk*.v *.cxx  *~ $(TOPMOD) v95/* >/dev/null
-	rm -rf bdir simdir
+	rm -rf bdir simdir altera_mf
