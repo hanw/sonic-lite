@@ -39,6 +39,7 @@ import MemReadEngine::*;
 import MemWriteEngine::*;
 import MemServerIndication::*;
 import MMUIndication::*;
+import ConnectalMemory::*;
 
 `ifdef MTABLE_CAM
 import MatchTable_Bcam::*;
@@ -69,10 +70,11 @@ import `PinTypeInclude::*;
 
 `ifdef DEBUG_BCAM
 import Bcam::*;
+import BcamTypes::*;
 import AsymmetricBRAM::*;
 `endif
 
-import PriorityEncoderEfficient::*;
+import PriorityEncoder1::*;
 
 typedef TDiv#(`DataBusWidth, 32) WordsPerBeat;
 
@@ -126,11 +128,11 @@ interface P4Top;
 endinterface
 
 //module mkP4Top#(Clock derivedClock, Reset derivedReset, P4TopIndication indication)(P4Top);
-module mkP4Top#(P4TopIndication indication)(P4Top);
+module mkP4Top#(P4TopIndication indication, ConnectalMemory::MemServerIndication memServerIndication, ConnectalMemory::MMUIndication mmuIndication)(P4Top);
+//module mkP4Top#(P4TopIndication indication)(P4Top);
    Clock defaultClock <- exposeCurrentClock();
    Reset defaultReset <- exposeCurrentReset();
 
-`ifndef BSIM
 `ifndef SIMULATION
    B2C iclock_50 <- mkB2C();
    B2C1 iclock_644 <- mkB2C1();
@@ -198,7 +200,6 @@ module mkP4Top#(P4TopIndication indication)(P4Top);
    mapM(uncurry(mkConnection), zip(phy.rx, mac.rx));
 `endif
 
-`endif //BSIM
 `endif //SIMULATION
 
    let verbose = True;
@@ -240,9 +241,7 @@ module mkP4Top#(P4TopIndication indication)(P4Top);
       interface Put writeDone = toPut(writeDoneFifo);
    endinterface);
 
-   MemServerIndicationOutput memServerIndication <- mkMemServerIndicationOutput;
-   MMUIndicationOutput mmuIndication <- mkMMUIndicationOutput;
-//   SharedBuffer#(12, 128, 1) buff <- mkSharedBuffer(vec(dmaClient), vec(dmaWriteClient), memServerIndication.ifc, mmuIndication.ifc);
+   SharedBuffer#(12, 128, 1) buff <- mkSharedBuffer(vec(dmaClient), vec(dmaWriteClient), memServerIndication, mmuIndication);
 
 `ifdef DEBUG_BCAM
    BinaryCam#(1024, 9) bcam <- mkBinaryCam_1024_9();
@@ -295,13 +294,6 @@ module mkP4Top#(P4TopIndication indication)(P4Top);
    endrule
 `endif
 
-`ifdef DEBUG_SETRAM
-   rule readSetram;
-      let v <- toGet(setRam.getRead).get;
-      indication.read_setram_result(zeroExtend(v));
-   endrule
-`endif
-
    //mkConnection(parser.phvOut, ingress_port_mapping.phvIn);
 
 `ifdef MTABLE
@@ -325,18 +317,22 @@ module mkP4Top#(P4TopIndication indication)(P4Top);
       endmethod
 
       method Action readPacketBuffer(Bit#(16) addr);
-         Bit#(ByteEnableSize) firstbe = 'hff;
-         Bit#(ByteEnableSize) lastbe = 'hff;
+         Bit#(ByteEnableSize) firstbe = 'hffff;
+         Bit#(ByteEnableSize) lastbe = 'hffff;
+         $display("readPacketbuffer");
          reqFifo.enq(MemRequest {sglId: 0, offset: 0, burstLen: 16, tag:0, firstbe: firstbe, lastbe: lastbe});
       endmethod
 
       method Action writePacketBuffer(Bit#(16) addr, Bit#(64) data);
-         Bit#(ByteEnableSize) firstbe = 'hff;
-         Bit#(ByteEnableSize) lastbe = 'hff;
-         writeReqFifo.enq(MemRequest {sglId:0, offset:0, burstLen:16, tag:0, firstbe: firstbe, lastbe: lastbe});
+         Bit#(ByteEnableSize) firstbe = 'hffff;
+         Bit#(ByteEnableSize) lastbe = 'hffff;
+         writeReqFifo.enq(MemRequest {sglId:0, offset:0, burstLen: 16, tag:0, firstbe: firstbe, lastbe: lastbe});
 
-         function Bit#(32) plusi(Integer i); return fromInteger(i); endfunction
-         Vector#(WordsPerBeat, Bit#(32)) v = genWith(plusi);
+         //function Bit#(32) plusi(Integer i); return fromInteger(i); endfunction
+         //Vector#(WordsPerBeat, Bit#(32)) v = genWith(plusi);
+         function Bit#(8) plusi(Integer i); return fromInteger(i); endfunction
+         Vector#(TMul#(4, WordsPerBeat), Bit#(8)) v = genWith(plusi);
+         $display("%x", v);
          writeDataFifo.enq(MemData {data: pack(v), tag:0, last:True});
       endmethod
 
@@ -355,24 +351,12 @@ module mkP4Top#(P4TopIndication indication)(P4Top);
 
 `ifdef DEBUG_BCAM
       method Action camInsert(Bit#(32) addr, Bit#(64) data);
-         //FIXME: BcamWriteRequest
-         bcam.writeServer.put(tuple2(truncate(addr), truncate(data)));
+         bcam.writeServer.put(BcamWriteReq{addr:truncate(addr), data:truncate(data)});
       endmethod
 
       method Action camSearch(Bit#(64) data);
          //FIXME: BcamReadRequest
          bcam.readServer.request.put(truncate(data));
-      endmethod
-`endif
-
-`ifdef DEBUG_SETRAM
-      method Action writeSetRam(Bit#(32) addr, Bit#(64) data);
-         setRam.write(truncate(addr), truncate(data));
-      endmethod
-
-      method Action readSetRam(Bit#(32) addr);
-         $display("%d: read set ram %x", fshow(cycle), addr);
-         setRam.read(truncate(addr));
       endmethod
 `endif
 
