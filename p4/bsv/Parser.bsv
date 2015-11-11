@@ -36,7 +36,7 @@ import SpecialFIFOs::*;
 import Vector::*;
 
 import Ethernet::*;
-import Types::*;
+import P4Types::*;
 
 interface Parser;
    // derive parseReset from start of packet

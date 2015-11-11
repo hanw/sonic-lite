@@ -34,7 +34,7 @@ import GetPut::*;
 import Vector::*;
 import Pipe::*;
 
-import Types::*;
+import P4Types::*;
 
 // Action Types
 interface ActionEngine_port_mapping;

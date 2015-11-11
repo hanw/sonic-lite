@@ -31,7 +31,7 @@ import Vector::*;
 import Pipe::*;
 import SimpleMatchTable::*;
 import SimpleActionEngine::*;
-import Types::*;
+import P4Types::*;
 
 interface Pipeline_port_mapping;
    interface PipeIn#(MatchKey_port_mapping) phvIn;

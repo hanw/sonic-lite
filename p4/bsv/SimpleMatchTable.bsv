@@ -33,7 +33,7 @@ import FIFOF::*;
 import Pipe::*;
 import SpecialFIFOs::*;
 
-import Types::*;
+import P4Types::*;
 import SimpleCAM::*;
 
 interface MatchTable_port_mapping;
