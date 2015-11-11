@@ -36,17 +36,20 @@ import MemTypes::*;
 import MemServer::*;
 import MemServerInternal::*;
 import MMU::*;
-import SimpleMMU::*;
+import SharedBuffMMU::*;
+import Malloc::*;
 import PhysMemToBram::*;
 
 interface SharedBuffer#(numeric type addrWidth, numeric type busWidth, numeric type nMasters);
-   interface MemServerRequest request;
+   interface MemServerRequest memServerRequest;
+   method Action malloc(Bit#(PacketAddrLen) sz);
+   method Action free(Bit#(32) id);
 endinterface
 
 module mkSharedBuffer#(Vector#(numReadClients, MemReadClient#(busWidth)) readClients,
                        Vector#(numWriteClients, MemWriteClient#(busWidth)) writeClients,
                        MemServerIndication indication,
-                       MMUIndication mmuIndication)
+                       MallocIndication mallocIndication)
                        (SharedBuffer#(addrWidth, busWidth, nMasters))
    provisos(Add#(TLog#(TDiv#(busWidth, 8)), e__, 8)
 	    ,Add#(TLog#(TDiv#(busWidth, 8)), f__, BurstLenSize)
@@ -59,8 +62,9 @@ module mkSharedBuffer#(Vector#(numReadClients, MemReadClient#(busWidth)) readCli
             ,Add#(`DataBusWidth, 0, busWidth)
 	    );
 
-   MMU#(addrWidth) simpleMMU <- mkSimpleMMU();
-   MemServer#(addrWidth, busWidth, nMasters) dma <- mkMemServer(readClients, writeClients, cons(simpleMMU, nil), indication);
+   Malloc allocator <- mkMalloc(mallocIndication);
+   MMU#(addrWidth) mmu <- mkSharedBuffMMU(0, True, allocator.mmuIndication);
+   MemServer#(addrWidth, busWidth, nMasters) dma <- mkMemServer(readClients, writeClients, cons(mmu, nil), indication);
 
    BRAM_Configure bramConfig = defaultValue;
    bramConfig.latency = 2;
@@ -69,6 +73,32 @@ module mkSharedBuffer#(Vector#(numReadClients, MemReadClient#(busWidth)) readCli
 
    mkConnection(dma.masters, memSlaves);
 
-   interface MemServerRequest request = dma.request;
+   rule program_MMU_sglist;
+      let v <- toGet(allocator.pageAllocated).get;
+      let id = tpl_1(v);
+      let segment = tpl_2(v);
+      $display("sharedBuff: id=%d, segmentIdx=%x", id, segment);
+      // NOTE: all segments have the same size, hence segmentIdx == addr.
+      mmu.request.sglist(id, extend(segment), extend(segment), 256);
+   endrule
+
+   rule program_region;
+      let v <- toGet(allocator.regionAllocated).get;
+      let id = tpl_1(v);
+      let barr0 = tpl_2(v);
+      // only smallest page size is used
+      mmu.request.region(id, 0, 0, 0, 0, 0, 0, barr0, 0);
+   endrule
+
+   interface MemServerRequest memServerRequest = dma.request;
+
+   method Action malloc(Bit#(PacketAddrLen) sz);
+      mmu.request.idRequest(0);
+      allocator.alloc_mem(sz);
+   endmethod
+   method Action free(Bit#(32) id);
+      mmu.request.idReturn(id);
+      //allocator.free_mem(id);
+   endmethod
 endmodule
 
