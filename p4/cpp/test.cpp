@@ -1,4 +1,4 @@
-/* Copyright (c) 2014 Quanta Research Cambridge, Inc
+/* Copyright (c) 2015 Cornell University
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -33,7 +33,10 @@
 #include <errno.h>
 #include <sys/ioctl.h>
 #include <sys/time.h>
+#include <getopt.h>
+#include <pcap.h>
 
+#include "MemServerIndication.h"
 #include "P4TopIndication.h"
 #include "P4TopRequest.h"
 #include "GeneratedTypes.h"
@@ -57,27 +60,27 @@
 
 #define DATA_WIDTH 128
 
-struct pcap_file_header {
-    u32 magic;
-    u16 version_major;
-    u16 version_minor;
-    s32 thiszone; /* gmt to local correction */
-    u32 sigfigs;  /* accuracy of timL1 cache bytes userspaceestamps */
-    u32 snaplen;  /* max length saved portion of each pkt */
-    u32 linktype; /* data link type (LINKTYPE_*) */
-} __attribute__((packed));
-
-struct pcap_pkthdr_ts {
-    le32 hts_sec;
-    le32 hts_usec;
-}  __attribute__((packed));
-
-struct pcap_pkthdr {
-    struct  pcap_pkthdr_ts ts;  /* time stamp */
-    le32 caplen;              /* length of portion present */
-    le32 length;                  /* length this packet (off wire) */
-}  __attribute__((packed));
-
+//struct pcap_file_header {
+//    u32 magic;
+//    u16 version_major;
+//    u16 version_minor;
+//    s32 thiszone; /* gmt to local correction */
+//    u32 sigfigs;  /* accuracy of timL1 cache bytes userspaceestamps */
+//    u32 snaplen;  /* max length saved portion of each pkt */
+//    u32 linktype; /* data link type (LINKTYPE_*) */
+//} __attribute__((packed));
+//
+//struct pcap_pkthdr_ts {
+//    le32 hts_sec;
+//    le32 hts_usec;
+//}  __attribute__((packed));
+//
+//struct pcap_pkthdr {
+//    struct  pcap_pkthdr_ts ts;  /* time stamp */
+//    le32 caplen;              /* length of portion present */
+//    le32 length;                  /* length this packet (off wire) */
+//}  __attribute__((packed));
+//
 void mem_copy(const void *buff, int length);
 
 static P4TopRequestProxy *device = 0;
@@ -102,6 +105,25 @@ public:
     }
 
     P4TopIndication(unsigned int id) : P4TopIndicationWrapper(id) {}
+};
+
+class MemServerIndication : public MemServerIndicationWrapper
+{
+public:
+    virtual void error(uint32_t code, uint32_t sglId, uint64_t offset, uint64_t extra) {
+        fprintf(stderr, "memServer Indication.error=%d\n", code);
+    }
+
+    virtual void addrResponse ( const uint64_t physAddr ) {
+        fprintf(stderr, "phyaddr=%lx\n", physAddr);
+    }
+    virtual void reportStateDbg ( const DmaDbgRec rec ) {
+        fprintf(stderr, "rec\n");
+    }
+    virtual void reportMemoryTraffic ( const uint64_t words ) {
+        fprintf(stderr, "words %lx\n", words);
+    }
+    MemServerIndication(unsigned int id) : MemServerIndicationWrapper(id) {}
 };
 
 void mem_copy(const void *buff, int packet_size) {
@@ -154,7 +176,7 @@ static inline int quick_tx_send_packet(const void* buffer, int length) {
     return length;
 }
 
-bool read_pcap_file(char* filename, void** buffer, long *length) {
+bool read_pcap_file(const char* filename, void** buffer, long *length) {
     FILE *infile;
     long length_read;
 
@@ -224,47 +246,130 @@ void test_mtable(P4TopRequestProxy *device) {
 */
 }
 
+const char* get_exe_name(const char* argv0) {
+    if (const char *last_slash = strrchr(argv0, '/')) {
+        return last_slash + 1;
+    }
+    return argv0;
+}
+
+void usage (const char *program_name) {
+    printf("%s: p4fpga tester\n"
+     "usage: %s [OPTIONS] \n",
+     program_name, program_name);
+    printf("\nOther options:\n"
+    " -b, --shared-buffer-demo              demo shared buffer\n"
+    " -p, --parser-demo=FILE                demo parsing pcap log\n"
+    " -m, --match-table-demo=FILE           demo match table\n"
+    " -f, --full-pipeline-demo=FILE         demo full pipeline\n");
+}
+
 int main(int argc, char **argv)
 {
+    const char *program_name = get_exe_name(argv[0]);
+    const char *pcap_file="";
     void *buffer;
     long length;
     struct pcap_pkthdr* pcap_hdr;
-    int i;
-    int loops = 1;
+    int c, option_index;
 
-    P4TopIndication echoIndication(IfcNames_P4TopIndicationH2S);
-    device = new P4TopRequestProxy(IfcNames_P4TopRequestS2H);
+    bool run_basic = true;
+    bool load_pcap = false;
+    bool shared_buff_test = false;
+    bool parser_test = false;
+    bool match_table_test = false;
+    bool full_test = false;
 
-    device->sonic_read_version();
+    for (;;) {
+        static struct option long_option [] = {
+            {"shared-buffer-test",  no_argument, 0, 'b'},
+            {"help",                no_argument, 0, 'h'},
+            {"parser-test",         required_argument, 0, 'p'},
+            {"match-table-test",    required_argument, 0, 'm'},
+            {"full-test",           required_argument, 0, 'f'},
+            {0, 0, 0, 0}
+        };
+        c = getopt_long(argc, argv, "bhpmf", long_option, &option_index);
 
-//    test_setram(device);
-//    test_bcam(device);
-    test_mtable(device);
-    
-    while(1) sleep(1);
+        if (c == -1)
+            break;
 
-    fprintf(stderr, "Attempts to read pcap file %s\n", argv[1]);
-    if (!read_pcap_file(argv[1], &buffer, &length)) {
-        perror("Failed to read file!");
-        exit(-1);
+        switch (c) {
+            case 'b':
+                shared_buff_test = true;
+                break;
+            case 'h':
+                usage(program_name);
+                run_basic = false;
+                break;
+            case 'p':
+                load_pcap = true;
+                parser_test = true;
+                pcap_file = optarg;
+                break;
+            case 'm':
+                load_pcap = true;
+                match_table_test = true;
+                pcap_file = optarg;
+                break;
+            case 'f':
+                load_pcap = true;
+                full_test = true;
+                pcap_file = optarg;
+                break;
+            default:
+                run_basic = false;
+                break;
+        }
     }
 
-    for (i = 0; i < loops; i++) {
-        void* offset = static_cast<char *>(buffer) + sizeof(struct pcap_file_header);
+    if (run_basic) {
+        P4TopIndication echoIndication(IfcNames_P4TopIndicationH2S);
+        MemServerIndication memServerIndication(IfcNames_MemServerIndicationH2S);
+        device = new P4TopRequestProxy(IfcNames_P4TopRequestS2H);
 
+        device->sonic_read_version();
+    }
+
+    if (load_pcap) {
+        fprintf(stderr, "Attempts to read pcap file %s\n", argv[1]);
+        if (!read_pcap_file(pcap_file, &buffer, &length)) {
+            perror("Failed to read file!");
+            exit(-1);
+        }
+
+        void* offset = static_cast<char *>(buffer) + sizeof(struct pcap_file_header);
         while(offset < static_cast<char *>(buffer) + length) {
             pcap_hdr = (struct pcap_pkthdr*) offset;
             offset = static_cast<char *>(offset) + sizeof(struct pcap_pkthdr);
-
             if ((quick_tx_send_packet((const void*)offset, pcap_hdr->caplen)) < 0) {
                 printf("An error occurred while trying to send a packet\n");
                 exit(-1);
             }
-
             offset = static_cast<char *>(offset) + pcap_hdr->caplen;
         }
     }
 
+    if (shared_buff_test) {
+        device->writePacketBuffer(0, 0xFACEBABE);
+        device->readPacketBuffer(0);
+    }
 
+    if (parser_test) {
+        
+    }
+
+    if (match_table_test) {
+    
+    }
+
+    if (full_test) {
+    
+    }
+
+    if (run_basic) {
+        sleep(1);
+        printf("done!");
+    }
     return 0;
 }
