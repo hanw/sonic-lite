@@ -1,3 +1,4 @@
+import FIFO::*;
 import FIFOF::*;
 import GetPut::*;
 import ClientServer::*;
@@ -6,6 +7,7 @@ import Vector::*;
 import DefaultValue::*;
 import BRAM::*;
 import FShow::*;
+import Pipe::*;
 
 import MatchTableTypes::*;
 import Bcam::*;
@@ -15,30 +17,16 @@ typedef 9 KeyLen;
 typedef 10 ValueLen;
 typedef 10 AddrIdx;
 
-typedef struct {
-   Bit#(16) action_ops;
-} ActionSpec_t deriving (Bits, Eq, FShow);
-
-typedef struct {
-   Bit#(9) data;
-   ActionSpec_t param;
-} MatchSpec_t deriving (Bits, Eq, FShow);
+typedef Bit#(16) FlowId;
 
 interface MatchTable;
    interface Server#(Bit#(KeyLen), ActionSpec_t) lookupPort;
    interface Server#(Bit#(10), Bit#(9)) readPort;
+   interface PipeOut#(FlowId) entry_added;
    interface Put#(MatchSpec_t) add_entry;
+   interface Put#(FlowId) delete_entry;
+   interface Put#(Tuple2#(FlowId, ActionSpec_t)) modify_entry;
 endinterface
-
-function BRAMRequest#(Address, Value)
-   makeRequest(Bool write, Address addr, Value data);
-   return BRAMRequest {
-      write : write,
-      responseOnWrite : False,
-      address : addr,
-      datain : data
-   };
-endfunction
 
 module mkMatchTable(MatchTable);
    let verbose = True;
@@ -48,6 +36,7 @@ module mkMatchTable(MatchTable);
       cycle <= cycle + 1;
    endrule
 
+   FIFOF#(FlowId) entry_added_fifo <- mkSizedFIFOF(1);
    BinaryCam#(1024, 9) bcam <- mkBinaryCam;
 
    BRAM_Configure cfg = defaultValue;
@@ -101,10 +90,30 @@ module mkMatchTable(MatchTable);
    interface Put add_entry;
       method Action put (MatchSpec_t m);
          BcamWriteReq#(10, 9) req_bcam = BcamWriteReq{addr: addrIdx, data: m.data};
-         BRAMRequest#(Bit#(10), ActionSpec_t) req_ram = BRAMRequest{write: False, responseOnWrite: False, address: addrIdx, datain: m.param};
+         BRAMRequest#(Bit#(10), ActionSpec_t) req_ram = BRAMRequest{write: True, responseOnWrite: False, address: addrIdx, datain: m.param};
          bcam.writeServer.put(req_bcam);
          ram.portA.request.put(req_ram);
+         $display("match_table %d: add flow %x", cycle, addrIdx);
          addrIdx <= addrIdx + 1; //FIXME: currently no reuse of address.
+         entry_added_fifo.enq(extend(addrIdx));
+      endmethod
+   endinterface
+   interface PipeOut entry_added = toPipeOut(entry_added_fifo);
+   interface Put delete_entry;
+      method Action put (FlowId id);
+         BcamWriteReq#(10, 9) req_bcam = BcamWriteReq{addr: truncate(id), data: 0};
+         BRAMRequest#(Bit#(10), ActionSpec_t) req_ram = BRAMRequest{write: True, responseOnWrite: False, address: truncate(id), datain: ActionSpec_t{op:0}};
+         bcam.writeServer.put(req_bcam);
+         ram.portA.request.put(req_ram);
+         $display("match_table %d: delete flow %x", cycle, id);
+      endmethod
+   endinterface
+   interface Put modify_entry;
+      method Action put (Tuple2#(FlowId, ActionSpec_t) v);
+         match { .flowid, .act} = v;
+         $display("match_table %d: modify flow %x with action %x", cycle, flowid, act);
+         BRAMRequest#(Bit#(10), ActionSpec_t) req_ram = BRAMRequest{write: True, responseOnWrite: False, address: truncate(flowid), datain: ActionSpec_t{ op : act.op } };
+         ram.portA.request.put(req_ram);
       endmethod
    endinterface
 endmodule
