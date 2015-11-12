@@ -88,12 +88,8 @@ module mkRam9bx1k(Ram9bx1k);
    // change the following to registers..
    Reg#(Bit#(9)) wPatt_reg <- mkReg(0);
    Reg#(Bit#(5)) wAddr_indx_reg <- mkReg(0);
-   //Vector#(2, PipeOut#(Bit#(9))) wPattPipes <- mkForkVector(toPipeOut(wPatt_fifo));
-   //Vector#(3, PipeOut#(Bit#(5))) wAddrIndxPipes <- mkForkVector(toPipeOut(wAddr_indx_fifo));
 
    rule vldram_write;
-      //let wPatt <- toGet(wPattPipes[0]).get;
-      //let wAddr_indx <- toGet(wAddrIndxPipes[0]).get;
       let wIVld <- toGet(wIVld_fifo).get;
       let wEnb_iVld <- toGet(wEnb_iVld_fifo).get;
       if (wEnb_iVld) begin
@@ -112,8 +108,6 @@ module mkRam9bx1k(Ram9bx1k);
    endrule
 
    rule indxram_write;
-      //let wPatt <- toGet(wPattPipes[1]).get;
-      //let wAddr_indx <- toGet(wAddrIndxPipes[1]).get;
       let wIndx <- toGet(wIndx_fifo).get;
       let wEnb_indx <- toGet(wEnb_indx_fifo).get;
       if (wEnb_indx) begin
@@ -128,7 +122,6 @@ module mkRam9bx1k(Ram9bx1k);
    endrule
 
    rule dpmlab_write;
-      //let wAddr_indx <- toGet(wAddrIndxPipes[2]).get;
       let wAddr_indc <- toGet(wAddr_indc_fifo).get;
       let wIndc <- toGet(wIndc_fifo).get;
       let wEnb_indc <- toGet(wEnb_indc_fifo).get;
