@@ -34,7 +34,7 @@
 #include <sys/ioctl.h>
 #include <sys/time.h>
 #include <getopt.h>
-#include <pcap.h>
+//#include <pcap.h>
 #include <string>
 
 #include "MemServerIndication.h"
@@ -246,12 +246,12 @@ int main(int argc, char **argv)
         device->sonic_read_version();
     }
 
-//    if (load_pcap) {
-//        fprintf(stderr, "Attempts to read pcap file %s\n", pcap_file);
+    if (load_pcap) {
+        fprintf(stderr, "Attempts to read pcap file %s\n", pcap_file);
 //        if (int err = load_pcap_file(pcap_file)) {
 //            fprintf(stderr, "Error: %s\n", strerror(err));
 //        }
-//    }
+    }
 
     if (shared_buff_test) {
         device->writePacketBuffer(0, 0xFACEBABE);
