@@ -46,7 +46,7 @@ typedef enum {S0, S1, S2} StateType
 
 interface Bcam9b#(numeric type camDepth);
    interface Put#(BcamWriteReq#(TLog#(camDepth), 9)) writeServer;
-   interface PipeIn#(Bit#(9)) mPatt;
+   interface Put#(Bit#(9)) mPatt;
    interface PipeOut#(Bit#(TMul#(TSub#(TLog#(camDepth),9), 1024))) mIndc;
 endinterface
 module mkBcam9b(Bcam9b#(camDepth))
@@ -96,7 +96,7 @@ module mkBcam9b(Bcam9b#(camDepth))
             ,Add#(idxReadDepthSz, 0, wAddrHWidth)
          );
 
-   let verbose = False;
+   let verbose = True;
    let verbose_setram = verbose && True;
    let verbose_idxram = verbose && True;
    let verbose_vacram = verbose && True;
@@ -170,6 +170,7 @@ module mkBcam9b(Bcam9b#(camDepth))
    Vector#(4, `IDXRAM) idxRam <- replicateM(mkAsymmetricBRAM(True, False, "Idxram"));
 
    // Cam Control
+   // first state, erase previous entry
    Reg#(StateType) curr_state <- mkReg(S0);
    (* fire_when_enabled *)
    rule state_S0 (curr_state == S0);
@@ -177,12 +178,20 @@ module mkBcam9b(Bcam9b#(camDepth))
       let oldEqNewPatt <- toGet(oldEqNewPatt_fifo).get;
       Bool wEnb_indc = !(oldEqNewPatt && oldPattVR) && oldPattVR && oldPattMultiOcc_reg;
       Bool wEnb_iVld = !(oldEqNewPatt && oldPattVR) && oldPattVR && !oldPattMultiOcc_reg;
+      if (wEnb_indc)
+      //ram9b.wEnb_indc.put(wEnb_indc); //FIXME: should rewrite indc ram as well.
+      ram9b.wEnb_iVld.put(wEnb_iVld);
+      ram9b.wIVld.put(False);
+      oldNewbPattWr_reg <= oldPattVR;
+      Bit#(9) patt = oldPattVR ? oldPattR : wPatt_bcam;
+      ram9b.wPatt.put(patt);
       curr_state <= S1;
-
+      if (verbose) $display("camctrl\t %d: currStt=%d, patt=%x oldPattV=%x, oldPatt=%x, wPatt=%x", cycle, curr_state, patt, oldPattVR, oldPattR, wPatt_bcam);
       if (verbose) $display("camctrl\t %d: currStt=%d, oldPatt=%x, oldPattV=%x, oldMultiOcc=%x, newMultiOcc=%x", cycle, curr_state, oldPattR, oldPattVR, oldPattMultiOcc_reg, newPattMultiOccR);
       if (verbose) $display("camctrl\t %d: Genereate wEnb_indc=%x and wEnb_iVld=%x", cycle, wEnb_indc, wEnb_iVld);
    endrule
 
+   // second state, write new entry
    (* fire_when_enabled *)
    rule state_S1 (curr_state == S1);
       let oldEqNewPatt = oldEqNewPatt_reg;
@@ -198,10 +207,12 @@ module mkBcam9b(Bcam9b#(camDepth))
       wEnb_setram_fifo.enq(wEnb_setram);
       wEnb_vacram_fifo.enq(wEnb_vacram);
       wEnb_idxram_fifo.enq(wEnb_idxram);
-      ram9b.wEnb_iVld.enq(wEnb_iVld);
-      ram9b.wEnb_indx.enq(wEnb_indx);
-      ram9b.wEnb_indc.enq(wEnb_indc);
-      ram9b.wIVld.enq(True);
+      ram9b.wEnb_iVld.put(wEnb_iVld);
+      ram9b.wEnb_indx.put(wEnb_indx);
+      ram9b.wEnb_indc.put(wEnb_indc);
+      oldNewbPattWr_reg <= False;
+      ram9b.wPatt.put(wPatt_bcam);
+      ram9b.wIVld.put(True);
       if (verbose) $display("camctrl %d: write new pattern to iitram", cycle);
       curr_state <= S0;
    endrule
@@ -213,7 +224,7 @@ module mkBcam9b(Bcam9b#(camDepth))
       Bit#(32) wIndc = oldNewbPattWr_reg ? oldPattIndc : newPattIndc;
       if(verbose) $display("cam9b %d: oldPattIndc=%x, newPattIndc=%x", cycle, oldPattIndc, newPattIndc);
       if(verbose) $display("cam9b %d: oldNewbPattwr=%x, wIndc=", cycle, oldNewbPattWr_reg, fshow(wIndc));
-      ram9b.wIndc.enq(wIndc);
+      ram9b.wIndc.put(wIndc);
    endrule
 
    // vacram
@@ -339,17 +350,13 @@ module mkBcam9b(Bcam9b#(camDepth))
    endrule
 
    // Original
+   //FIXME:
    rule wIndx_to_ram;
       let v <- toGet(wIndx_fifo).get;
-      ram9b.wIndx.enq(v);
-      ram9b.wAddr_indc.enq(v);
+      ram9b.wIndx.put(v);
+      ram9b.wAddr_indc.put(v);
       if (verbose) $display("bcam %d: ram9b wIndx=%x", cycle, v);
    endrule
-
-//   rule read_mPatt;
-//      let v <- toGet(mPatt_fifo).get;
-//      ram9b.mPatt.enq(v);
-//   endrule
 
    rule setram_read_request;
       let v <- toGet(setram_read).get;
@@ -398,7 +405,8 @@ module mkBcam9b(Bcam9b#(camDepth))
          for (Integer j=0; j<4; j=j+1) begin
             Bit#(9) rPatt = fromMaybe(?, data[i].rpatt[j]);
             Bool rPattV = isValid(data[i].rpatt[j]);
-            oldPattIndc[i*4+j] = (rPatt == oldPatt) && rPattV; //&& !unpack(indx[i*4+j]) && rPattV;
+            //oldPattIndc[i*4+j] = (rPatt == oldPatt) && rPattV;
+            oldPattIndc[i*4+j] = (rPatt==oldPatt) && !unpack(pack(wAddrLOH)[i*4+j]) && rPattV;
             //$display("setram %d: rPatt=%x, oldPatt=%x, wAddrLOH=%x, rPattV=%d oldPattIndc=%d", cycle, rPatt, oldPatt, wAddrLOH, rPattV, oldPattIndc[i*4+j]);
          end
       end
@@ -410,6 +418,7 @@ module mkBcam9b(Bcam9b#(camDepth))
       oldPattIndc_reg <= pack(oldPattIndc);
 
       oldPattV_fifo.enq(oldPattV);
+      oldPattR <= oldPatt;
 
       oldEqNewPatt_fifo.enq(oldPatt==wPatt_bcam);
       oldEqNewPatt_reg <= (oldPatt==wPatt_bcam);
@@ -462,12 +471,11 @@ module mkBcam9b(Bcam9b#(camDepth))
          idxram_read.enq(?);
 
          // ram9b control
-         ram9b.wAddr_indx.enq(pack(wAddrH));
-         ram9b.wPatt.enq(wData);
+         ram9b.wAddr_indx.put(pack(wAddrH));
       endmethod
    endinterface
 
-   interface PipeIn mPatt = ram9b.mPatt;
+   interface Put mPatt = ram9b.mPatt;
    interface PipeOut mIndc = ram9b.mIndc;
 endmodule
 
@@ -540,7 +548,7 @@ module mkBinaryCam(BinaryCam#(camDepth, pattWidth))
          method Action put(Bit#(pattWidth) v);
             for (Integer i=0; i<valueOf(pwid); i=i+1) begin
                Vector#(9, Bit#(1)) data = takeAt(fromInteger(i) * 9, unpack(v));
-               cam9b[i].mPatt.enq(pack(data));
+               cam9b[i].mPatt.put(pack(data));
             end
          endmethod
       endinterface
