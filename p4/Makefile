@@ -1,23 +1,23 @@
+
+########################################################
+# Basic Environment Setup
+########################################################
 QUARTUS_SH=$(shell which quartus_sh)
 ROOTDIR=$(realpath .)
 CONNECTALDIR?=$(ROOTDIR)/../../connectal/
 IPDIR?=$(ROOTDIR)/../../fpgamake-cache/$(shell basename `/bin/pwd`)/
 PROJTOP?=$(ROOTDIR)
-PROJLIB=$(PROJTOP)/../hw/lib/bsv:$(PROJTOP)/../hw/bsv:$(PROJTOP)/bsv/AsymmetricBRAM:$(PROJTOP)/bsv/Bcam:$(PROJTOP)/../hw/generated
+PROJLIB=$(PROJTOP)/../hw/lib/bsv:$(PROJTOP)/../hw/bsv:$(PROJTOP)/bsv/AsymmetricBRAM:$(PROJTOP)/bsv/Bcam:$(PROJTOP)/bsv/MatchTable:$(PROJTOP)/bsv/PktBuff:$(PROJTOP)/../hw/generated
 
 ALTERAPINOUT=$(PROJTOP)/../boards/de5.json
 
-ifndef P4FACTORY
-P4FACTORY=$(ROOTDIR)/../../p4/p4factory/
-endif
-
 ifeq ($(P4),)
 # compile manual bsv
-BSVFILES=$(PROJTOP)/bsv/P4Top.bsv $(PROJTOP)/bsv/Types.bsv
+BSVFILES=$(PROJTOP)/bsv/P4Top.bsv $(PROJTOP)/bsv/P4Types.bsv $(PROJTOP)/bsv/PktBuff/Malloc.bsv
 CONNECTALFLAGS += --bscflags="-p +:$(PROJTOP)/bsv:$(CONNECTALDIR)/bsv:$(PROJLIB)"
 else
 # compile generated P4 code
-BSVFILES=$(PROJTOP)/build/bluespec/src/P4Top.bsv $(PROJTOP)/build/bluespec/src/Types.bsv
+BSVFILES=$(PROJTOP)/build/bluespec/src/P4Top.bsv $(PROJTOP)/build/bluespec/src/P4Types.bsv
 CONNECTALFLAGS += --bscflags="-p +:$(PROJTOP)/build/bluespec/src:$(CONNECTALDIR)/bsv:$(PROJLIB)"
 endif
 
@@ -27,52 +27,78 @@ endif
 #CONNECTALFLAGS += -D IMPORT_HOST_CLOCKS
 #CONNECTALFLAGS += --derivedclockperiod=6.4
 
+########################################################
+# Top Level Switches
+########################################################
+CONFIG_PCIE=y
+CONFIG_NETWORK=n
+CONFIG_P4=y
+
+########################################################
+# Connectal Support
+########################################################
 S2H_INTERFACES=P4TopRequest:P4Top.request
-H2S_INTERFACES=P4Top:P4TopIndication
+H2S_INTERFACES=P4Top:P4TopIndication,MemServerIndication,MallocIndication
 AUTOTOP= --interface pins:P4Top.pins
 PIN_TYPE = DE5Pins
 PIN_TYPE_INCLUDE = DE5Pins
 CPPFILES=$(PROJTOP)/cpp/test.cpp
 PIN_BINDINGS?=PCIE:PCIE LED:LED OSC:OSC SFPA:SFPA SFPB:SFPB SFPC:SFPC SFPD:SFPD SFP:SFP I2C:CLOCK BUTTON:BUTTON
+
+ifeq ($(CONFIG_PCIE), y)
 CONNECTALFLAGS += -D NicVersion=$(shell printf "%d" 0x`git rev-parse --short=8 HEAD`)
 CONNECTALFLAGS += --verilog=$(PROJTOP)/../hw/verilog/
-CONNECTALFLAGS += --verilog=$(PROJTOP)/bsv/AsymmetricBRAM/
 #CONNECTALFLAGS += --verilog=$(PROJTOP)/../hw/ip/ii2dcam/
 CONNECTALFLAGS += -D PcieHostIF
 CONNECTALFLAGS += -D DataBusWidth=128
 CONNECTALFLAGS += -D BYTE_ENABLES
-CONNECTALFLAGS += -D USE_ALTERA_10GBASER
-CONNECTALFLAGS += -D USE_ALTERA_MAC
 CONNECTALFLAGS += -D USE_ALTERA_CLKCTRL
 CONNECTALFLAGS += -D USE_ALTERA_PLL_PMA
-
-CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/altera_xcvr_10gbaser_wrapper/altera_xcvr_10gbaser_wrapper.qip
-CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/altera_mac/altera_mac.qip
 CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/pll_156/altera_pll_156.qip
-CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/altera_clkctrl/altera_clkctrl.qip
+#CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/altera_clkctrl/altera_clkctrl.qip
+
+CONNECTALFLAGS += -I="../sw/"
+CONNECTALFLAGS += --bscflags="-show-range-conflict +RTS -K46777216 -RTS -demote-errors G0066:G0045 -suppress-warnings G0046:G0020:S0015:S0080:S0039 -steps-max-intervals 20"
+FPGAMAKE_CONNECTALFLAGS += -P mkPcieHostTop
+
 CONNECTALFLAGS += --verilog=$(PROJTOP)/../hw/verilog/si570/
 CONNECTALFLAGS += --tcl=$(PROJTOP)/../boards/de5_extra.qsf
 CONNECTALFLAGS += --floorplan=$(PROJTOP)/floorplan/p4fpga.qsf
 #CONNECTALFLAGS += --tcl=$(PROJTOP)/../boards/quartus_advanced_settings.qsf
+endif #CONFIG_PCIE
 
-CONNECTALFLAGS += -I="../sw/"
-CONNECTALFLAGS += --bscflags="-show-range-conflict +RTS -K46777216 -RTS -demote-errors G0066:G0045 -suppress-warnings G0046:G0020:S0015:S0080:S0039 -steps-max-intervals 20"
+########################################################
+# 10GbE Support
+########################################################
+ifeq ($(CONFIG_NETWORK), y)
+FPGAMAKE_CONNECTALFLAGS += -P mkEthMac
+CONNECTALFLAGS += -D DEBUG_ETH
+CONNECTALFLAGS += -D USE_ALTERA_10GBASER
+CONNECTALFLAGS += -D USE_ALTERA_MAC
+CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/altera_xcvr_10gbaser_wrapper/altera_xcvr_10gbaser_wrapper.qip
+CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/altera_mac/altera_mac.qip
 #CONNECTALFLAGS += --chipscope=$(PROJTOP)/xgmii.stp
+endif #CONFIG_NETWORK
 
-FPGAMAKE_CONNECTALFLAGS += -P mkBinaryCam_1024_9
-
+########################################################
+# P4 Support
+########################################################
+ifeq ($(CONFIG_P4), y)
+CONNECTALFLAGS += --verilog=$(PROJTOP)/bsv/AsymmetricBRAM/
 #CONNECTALFLAGS += -D DEBUG_MATCH_TABLE
 CONNECTALFLAGS += -D DEBUG_BCAM
 #CONNECTALFLAGS += -D MTABLE_HASH
 #CONNECTALFLAGS += -D MTABLE_CAM
 #CONNECTALFLAGS += -D MTABLE
-#CONNECTALFLAGS += -D DEBUG_ETH
 CONNECTALFLAGS += -m $(PROJTOP)/bsv/AsymmetricBRAM/mem_model.c
+FPGAMAKE_CONNECTALFLAGS += -P mkBinaryCam_1024_9
+endif #CONFIG_P4
 
 # P4 support
+P4FACTORY ?=$(ROOTDIR)/../../p4/p4factory/
 export TARGET_ROOT :=$(abspath $(dir $(lastword $(MAKEFILE_LIST))))
-export P4_INPUT := p4src/sonic.p4
-export P4_NAME := sonic
+export P4_INPUT := p4src/source_routing.p4
+export P4_NAME := source_routing
 include ${P4FACTORY}/init.mk
 MAKEFILES_DIR := ${P4FACTORY}/makefiles
 include ${MAKEFILES_DIR}/common.mk
@@ -94,12 +120,14 @@ $(addprefix test.,$(TEST_PACKET)):
 prebuild::
 ifneq (, $(QUARTUS_SH))
 ifeq (de5, $(BOARD))
+ifeq ($(CONFIG_NETWORK), y)
 	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) $(QUARTUS_SH) -t $(PROJTOP)/../hw/scripts/connectal-synth-mac.tcl)
-	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) $(QUARTUS_SH) -t $(PROJTOP)/../hw/scripts/connectal-synth-misc.tcl)
-	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) $(QUARTUS_SH) -t $(PROJTOP)/../hw/scripts/connectal-synth-pciedma.tcl)
 	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) $(QUARTUS_SH) -t $(PROJTOP)/../hw/scripts/connectal-synth-phy.tcl)
-	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) $(QUARTUS_SH) -t $(CONNECTALDIR)/scripts/connectal-synth-pll.tcl)
 	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) $(QUARTUS_SH) -t $(PROJTOP)/../hw/scripts/connectal-synth-pma.tcl)
+endif
+	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) $(QUARTUS_SH) -t $(PROJTOP)/../hw/scripts/connectal-synth-misc.tcl)
+	#(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) $(QUARTUS_SH) -t $(PROJTOP)/../hw/scripts/connectal-synth-pciedma.tcl)
+	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) $(QUARTUS_SH) -t $(CONNECTALDIR)/scripts/connectal-synth-pll.tcl)
 endif
 endif
 
