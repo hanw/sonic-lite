@@ -37,11 +37,11 @@ else
 FILECMD = $(shell rm $(FILENAME)  2>/dev/null)
 endif
 
-ifeq ($(USE_BUILDCACHE),1)
-BUILDCACHE?=$(CONNECTALDIR)/../buildcache/buildcache
-BUILDCACHE_CACHEDIR?=$(CONNECTALDIR)/../fpgamake-cache/$(shell basename `/bin/pwd`)/$(PROJECTDIR)
-CONNECTALFLAGS += --cache=$(BUILDCACHE_CACHEDIR)
-endif
+#ifeq ($(USE_BUILDCACHE),1)
+#BUILDCACHE?=$(CONNECTALDIR)/../buildcache/buildcache
+#BUILDCACHE_CACHEDIR?=$(CONNECTALDIR)/../fpgamake-cache/$(shell basename `/bin/pwd`)/$(PROJECTDIR)
+#CONNECTALFLAGS += --cache=$(BUILDCACHE_CACHEDIR)
+#endif
 
 #CONNECTALFLAGS += -v
 

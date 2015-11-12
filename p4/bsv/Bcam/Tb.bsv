@@ -61,7 +61,7 @@ function Stmt testSeq(BinaryCam#(1024, 9) dut,
         endaction
         delay(100);
         action
-            dut.writeServer.put(BcamWriteReq{addr:'h1, data:'h1});
+            dut.writeServer.put(BcamWriteReq{addr:'h1, data:'h0});
         endaction
         delay(100);
         action
