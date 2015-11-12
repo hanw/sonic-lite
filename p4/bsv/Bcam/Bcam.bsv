@@ -179,7 +179,7 @@ module mkBcam9b(Bcam9b#(camDepth))
       Bool wEnb_indc = !(oldEqNewPatt && oldPattVR) && oldPattVR && oldPattMultiOcc_reg;
       Bool wEnb_iVld = !(oldEqNewPatt && oldPattVR) && oldPattVR && !oldPattMultiOcc_reg;
       if (wEnb_indc)
-      ram9b.wEnb_indc.put(wEnb_indc); //FIXME: should rewrite indc ram as well.
+      ram9b.wEnb_indc.put(wEnb_indc);
       ram9b.wEnb_iVld.put(wEnb_iVld);
       ram9b.wIVld.put(False);
       oldNewbPattWr_reg <= oldPattVR;
