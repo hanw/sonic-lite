@@ -35,53 +35,18 @@
 #include <sys/time.h>
 #include <getopt.h>
 #include <pcap.h>
+#include <string>
 
 #include "MemServerIndication.h"
 #include "P4TopIndication.h"
 #include "P4TopRequest.h"
 #include "GeneratedTypes.h"
 #include "utils.h"
+#include "sonic_pcap_utils.h"
 
-#ifndef le32
-#define le32    int32_t
-#endif
-
-#ifndef u32
-#define u32     u_int32_t
-#endif
-
-#ifndef u16
-#define u16     u_int16_t
-#endif
-
-#ifndef s32
-#define s32     int32_t
-#endif
+using namespace std;
 
 #define DATA_WIDTH 128
-
-//struct pcap_file_header {
-//    u32 magic;
-//    u16 version_major;
-//    u16 version_minor;
-//    s32 thiszone; /* gmt to local correction */
-//    u32 sigfigs;  /* accuracy of timL1 cache bytes userspaceestamps */
-//    u32 snaplen;  /* max length saved portion of each pkt */
-//    u32 linktype; /* data link type (LINKTYPE_*) */
-//} __attribute__((packed));
-//
-//struct pcap_pkthdr_ts {
-//    le32 hts_sec;
-//    le32 hts_usec;
-//}  __attribute__((packed));
-//
-//struct pcap_pkthdr {
-//    struct  pcap_pkthdr_ts ts;  /* time stamp */
-//    le32 caplen;              /* length of portion present */
-//    le32 length;                  /* length this packet (off wire) */
-//}  __attribute__((packed));
-//
-void mem_copy(const void *buff, int length);
 
 static P4TopRequestProxy *device = 0;
 
@@ -89,7 +54,7 @@ class P4TopIndication : public P4TopIndicationWrapper
 {
 public:
     virtual void sonic_read_version_resp(uint32_t a) {
-        fprintf(stderr, "version %d\n", a);
+        fprintf(stderr, "version %x\n", a);
     }
     virtual void cam_search_result(uint64_t a) {
         fprintf(stderr, "cam search %lx\n", a);
@@ -155,55 +120,6 @@ void mem_copy(const void *buff, int packet_size) {
     }
 }
 
-/**
- * Send packet on quick_tx device
- * @param qtx       pointer to a quick_tx structure
- * @param buffer   full packet data starting at the ETH frame
- * @param length  length of packet (must be over 0)
- * @return           length of packet if it was successfully queued, QTX_E_EXIT if a critical error occurred
- *                  and close needs to be called
- */
-static inline int quick_tx_send_packet(const void* buffer, int length) {
-    assert(buffer);
-    assert(length > 0);
-
-#ifdef EXTRA_DEBUG
-    printf("[quick_tx] Copying data from %p buffer, length = %d\n",
-                (buffer, length);
-#endif
-    mem_copy(buffer, length);
-
-    return length;
-}
-
-bool read_pcap_file(const char* filename, void** buffer, long *length) {
-    FILE *infile;
-    long length_read;
-
-    infile = fopen(filename, "r");
-    if(infile == NULL) {
-            printf("File does not exist!\n");
-            return false;
-        }
-
-    fseek(infile, 0L, SEEK_END);
-    *length = ftell(infile);
-    fseek(infile, 0L, SEEK_SET);
-    *buffer = (char*)calloc(*length, sizeof(char));
-
-    /* memory error */
-    if(*buffer == NULL) {
-            printf("Could not allocate %ld bytes of memory!\n", *length);
-            return false;
-        }
-
-    length_read = fread(*buffer, sizeof(char), *length, infile);
-    *length = length_read;
-    fclose(infile);
-
-    return true;
-}
-
 void test_setram(P4TopRequestProxy *device) {
     device->writeSetRam(0x11, 0xff);
     device->readSetRam(0x11);
@@ -219,7 +135,6 @@ void test_bcam(P4TopRequestProxy *device) {
     device->camSearch(0x1);
     device->camSearch(0x2);
     device->camSearch(0x3);
-    //device->camInsert(0x303, 0x24);
 }
 
 void test_mtable(P4TopRequestProxy *device) {
@@ -234,11 +149,11 @@ void test_mtable(P4TopRequestProxy *device) {
     device->matchTableRequest(10, 0, 0);  //GET(10) should not print anything
     device->matchTableRequest(10, 45, 1); //PUT(10,45)
     device->matchTableRequest(10, 0, 0);  //GET(10) should print k=10 v=45
-    
+
     device->matchTableRequest(20, 15, 1); //PUT(20,15)
     device->matchTableRequest(20, 0, 3);  //REMOVE(20)
     device->matchTableRequest(20, 0, 0);  //GET(20) should not print anyting
-    
+
     device->matchTableRequest(20, 15, 1); //PUT(20,15)
     device->matchTableRequest(20, 0, 3);  //REMOVE(20)
     device->matchTableRequest(20, 60, 1); //PUT(20,15)
@@ -258,19 +173,16 @@ void usage (const char *program_name) {
      "usage: %s [OPTIONS] \n",
      program_name, program_name);
     printf("\nOther options:\n"
-    " -b, --shared-buffer-demo              demo shared buffer\n"
-    " -p, --parser-demo=FILE                demo parsing pcap log\n"
-    " -m, --match-table-demo=FILE           demo match table\n"
-    " -f, --full-pipeline-demo=FILE         demo full pipeline\n");
+    " -b, --shared-buffer              demo shared buffer\n"
+    " -p, --parser=FILE                demo parsing pcap log\n"
+    " -m, --match-table=FILE           demo match table\n"
+    " -f, --full-pipeline=FILE         demo full pipeline\n");
 }
 
 int main(int argc, char **argv)
 {
     const char *program_name = get_exe_name(argv[0]);
     const char *pcap_file="";
-    void *buffer;
-    long length;
-    struct pcap_pkthdr* pcap_hdr;
     int c, option_index;
 
     bool run_basic = true;
@@ -280,16 +192,23 @@ int main(int argc, char **argv)
     bool match_table_test = false;
     bool full_test = false;
 
+    P4TopIndication echoIndication(IfcNames_P4TopIndicationH2S);
+    MemServerIndication memServerIndication(IfcNames_MemServerIndicationH2S);
+    device = new P4TopRequestProxy(IfcNames_P4TopRequestS2H);
+
+    static struct option long_options [] = {
+        {"shared-buffer-test",  no_argument, 0, 'b'},
+        {"help",                no_argument, 0, 'h'},
+        {"parser-test",         required_argument, 0, 'p'},
+        {"match-table-test",    required_argument, 0, 'm'},
+        {"full-test",           required_argument, 0, 'f'},
+        {0, 0, 0, 0}
+    };
+    static string short_options
+        (long_options_to_short_options(long_options));
+
     for (;;) {
-        static struct option long_option [] = {
-            {"shared-buffer-test",  no_argument, 0, 'b'},
-            {"help",                no_argument, 0, 'h'},
-            {"parser-test",         required_argument, 0, 'p'},
-            {"match-table-test",    required_argument, 0, 'm'},
-            {"full-test",           required_argument, 0, 'f'},
-            {0, 0, 0, 0}
-        };
-        c = getopt_long(argc, argv, "bhpmf", long_option, &option_index);
+        c = getopt_long(argc, argv, short_options.c_str(), long_options, &option_index);
 
         if (c == -1)
             break;
@@ -324,31 +243,15 @@ int main(int argc, char **argv)
     }
 
     if (run_basic) {
-        P4TopIndication echoIndication(IfcNames_P4TopIndicationH2S);
-        MemServerIndication memServerIndication(IfcNames_MemServerIndicationH2S);
-        device = new P4TopRequestProxy(IfcNames_P4TopRequestS2H);
-
         device->sonic_read_version();
     }
 
-    if (load_pcap) {
-        fprintf(stderr, "Attempts to read pcap file %s\n", argv[1]);
-        if (!read_pcap_file(pcap_file, &buffer, &length)) {
-            perror("Failed to read file!");
-            exit(-1);
-        }
-
-        void* offset = static_cast<char *>(buffer) + sizeof(struct pcap_file_header);
-        while(offset < static_cast<char *>(buffer) + length) {
-            pcap_hdr = (struct pcap_pkthdr*) offset;
-            offset = static_cast<char *>(offset) + sizeof(struct pcap_pkthdr);
-            if ((quick_tx_send_packet((const void*)offset, pcap_hdr->caplen)) < 0) {
-                printf("An error occurred while trying to send a packet\n");
-                exit(-1);
-            }
-            offset = static_cast<char *>(offset) + pcap_hdr->caplen;
-        }
-    }
+//    if (load_pcap) {
+//        fprintf(stderr, "Attempts to read pcap file %s\n", pcap_file);
+//        if (int err = load_pcap_file(pcap_file)) {
+//            fprintf(stderr, "Error: %s\n", strerror(err));
+//        }
+//    }
 
     if (shared_buff_test) {
         device->writePacketBuffer(0, 0xFACEBABE);
@@ -356,19 +259,26 @@ int main(int argc, char **argv)
     }
 
     if (parser_test) {
-        
+        // load packet
+        // parse
+        // print match result
     }
 
     if (match_table_test) {
-    
+        // insert rule to match table
+        // load packet
+        // parse
+        // print match result
     }
 
     if (full_test) {
-    
+        // insert rules to match table
+        // load packet
+        // print action
+        // deparse
     }
 
     if (run_basic) {
-        sleep(1);
         printf("done!");
     }
     return 0;
