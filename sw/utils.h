@@ -1,6 +1,13 @@
 #ifndef __UTILS_H__
 #define __UTILS_H__
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <getopt.h>
+#include <limits.h>
+#include <string>
+#include <memory>
+
 #define RESET   "\033[0m"
 #define BLACK   "\033[30m"      /* Black */
 #define RED     "\033[31m"      /* Red */
@@ -25,4 +32,25 @@
     fprintf(stderr, YELLOW "[WARN]" M RESET , ##__VA_ARGS__)
 #define PRINT_INFO(M, ...)\
     fprintf(stderr, GREEN "[INFO]" M RESET , ##__VA_ARGS__)
+
+/* from NOX */
+std::string long_options_to_short_options(const struct option* options)
+{
+    std::string short_options;
+    for (; options->name; options++) {
+        const struct option* o = options;
+        if (o->flag == NULL && o->val > 0 && o->val <= UCHAR_MAX) {
+            short_options.push_back(o->val);
+            if (o->has_arg == required_argument) {
+                short_options.push_back(':');
+            } else if (o->has_arg == optional_argument) {
+                short_options.append("::");
+            }
+        }
+    }
+    return short_options;
+}
+
+
 #endif
+
