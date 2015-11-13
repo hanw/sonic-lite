@@ -96,7 +96,7 @@ module mkBcam9b(Bcam9b#(camDepth))
             ,Add#(idxReadDepthSz, 0, wAddrHWidth)
          );
 
-   let verbose = True;
+   let verbose = False;
    let verbose_setram = verbose && True;
    let verbose_idxram = verbose && True;
    let verbose_vacram = verbose && True;
@@ -510,7 +510,7 @@ module mkBinaryCam(BinaryCam#(camDepth, pattWidth))
    Clock defaultClock <- exposeCurrentClock();
    Reset defaultReset <- exposeCurrentReset();
 
-   let verbose = True;
+   let verbose = False;
    Reg#(Bit#(32)) cycle <- mkReg(0);
    rule every1 if (verbose);
       cycle <= cycle + 1;

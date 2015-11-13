@@ -63,7 +63,7 @@ module mkRam9bx1k(Ram9bx1k);
 
    FIFOF#(Bit#(32)) iVld_fifo <- mkFIFOF;
 
-   let verbose = True;
+   let verbose = False;
    Reg#(Bit#(32)) cycle <- mkReg(0);
    rule every1 if (verbose);
       cycle <= cycle + 1;
@@ -140,7 +140,7 @@ module mkRam9bx1k(Ram9bx1k);
 
    rule vldram_output;
       let v <- vldram.readServer.response.get;
-      $display("vldram %d: read v=%x", cycle, v);
+      if (verbose) $display("vldram %d: read v=%x", cycle, v);
       iVld_fifo.enq(v);
    endrule
 
@@ -166,7 +166,7 @@ module mkRam9bx1k(Ram9bx1k);
             Vector#(32, Bit#(1)) ivld_vec = replicate(ivld[8*i+j]);
             Bit#(32) mIndcV = v & pack(ivld_vec);
             mIndc[(i*8+j+1)*32-1 : (i*8+j)*32] = mIndcV;
-            $display("dpmlab %d: read i=%d, j=%d index=%d v=%x", cycle, i, j, i*8+j, v);
+            if (verbose) $display("dpmlab %d: read i=%d, j=%d index=%d v=%x", cycle, i, j, i*8+j, v);
          end
       end
       mIndc_fifo.enq(mIndc);
@@ -180,13 +180,13 @@ module mkRam9bx1k(Ram9bx1k);
    interface Put wPatt;
       method Action put (Bit#(9) v);
          wPatt_reg <= v;
-         $display("ram9b %d: wPatt_reg = %x", cycle, v);
+         if (verbose) $display("ram9b %d: wPatt_reg = %x", cycle, v);
       endmethod
    endinterface
    interface Put wAddr_indx;
       method Action put (Bit#(5) v);
          wAddr_indx_reg <= v;
-         $display("ram9b %d: wAddr_indx_reg = %x", cycle, v);
+         if (verbose) $display("ram9b %d: wAddr_indx_reg = %x", cycle, v);
       endmethod
    endinterface
    interface PipeIn wAddr_indc = toPipeIn(wAddr_indc_fifo);
@@ -213,7 +213,7 @@ module mkRam9b(Ram9b#(cdep))
    provisos(Mul#(cdep, 1024, indcWidth)
             ,Add#(TLog#(cdep), 5, wAddrHWidth));
 
-   let verbose = True;
+   let verbose = False;
    Reg#(Bit#(32)) cycle <- mkReg(0);
    rule every1 if (verbose);
       cycle <= cycle + 1;
