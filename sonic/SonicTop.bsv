@@ -33,6 +33,7 @@ import Gearbox ::*;
 import Pipe ::*;
 import SpecialFIFOs ::*;
 import Vector ::*;
+import ConnectalConfig::*;
 
 import Ethernet::*;
 import MemTypes::*;
