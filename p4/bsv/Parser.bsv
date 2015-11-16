@@ -114,7 +114,6 @@ module mkParseEthernet(ParseEthernet);
    Stmt parse_ethernet =
    seq
    action // parse_ethernet
-      //let data <- toGet(packet_in_fifo).get;
       let data = packet_in_wire;
       Vector#(128, Bit#(1)) dataVec = unpack(data);
       let ethernet = extrace_ethernet(pack(takeAt(0, dataVec)));
@@ -145,15 +144,13 @@ module mkParseEthernet(ParseEthernet);
    endaction
    endseq;
 
-   FSM fsm_parse_ethernet <- mkFSMWithPred(parse_ethernet, True);
-   //Once once_parse_ethernet <- mkOnce(fsm_parse_ethernet.start);
+   FSM fsm_parse_ethernet <- mkFSM(parse_ethernet);
 
-   //method Action start = once_parse_ethernet.start;
-   method Action start = fsm_parse_ethernet.start;
+   method Action start();
+      fsm_parse_ethernet.start;
+   endmethod
    method Action clear();
-      //once_parse_ethernet.clear;
       fsm_parse_ethernet.abort;
-      //packet_in_fifo.clear;
    endmethod
    interface packetIn = toPipeIn(packet_in_fifo);
    interface unparsedOutIpv4 = toPipeOut(unparsed_out_parse_ipv4_fifo);
@@ -192,7 +189,7 @@ module mkParseVlan(ParseVlan);
    FIFOF#(Bit#(128)) packet_in_fifo <- mkBypassFIFOF;
    FIFOF#(Bit#(16)) unparsed_in_fifo <- mkBypassFIFOF;
    FIFOF#(Bit#(16)) unparsed_in_fifo_vlan0 <- mkBypassFIFOF;
-   FIFOF#(Bit#(16)) unparsed_in_fifo_vlan1 <- mkBypassFIFOF;
+//   FIFOF#(Bit#(16)) unparsed_in_fifo_vlan1 <- mkBypassFIFOF;
    FIFOF#(Vlan_tag_t) parsed_out_fifo <- mkSizedFIFOF(1);
    FIFOF#(Bit#(112)) unparsed_out_parse_vlan0_fifo <- mkSizedFIFOF(1);
    FIFOF#(Bit#(80)) unparsed_out_parse_vlan1_fifo <- mkSizedFIFOF(1);
@@ -233,70 +230,72 @@ module mkParseVlan(ParseVlan);
    rule load_unparsed_in;
       let data_delayed <- toGet(unparsed_in_fifo).get;
       unparsed_in_fifo_vlan0.enq(data_delayed);
-      unparsed_in_fifo_vlan1.enq(data_delayed);
+//      unparsed_in_fifo_vlan1.enq(data_delayed);
       if (verbose) $display(fshow(cycle) + fshow("load unparsed in"));
    endrule
 
    mkConnection(nextStateArbiter.outToFSM, toPipeIn(next_state_fifo));
 
-   Stmt parse_vlan =
-   par
-      // VLAN
-      seq
-      action
-         let data_delayed <- toGet(unparsed_in_fifo_vlan0).get;
-         let data_current = packet_in_wire;
-         $display("VLAN %x", data_current);
-         Bit#(144) data = {data_current, data_delayed};
-         Vector#(144, Bit#(1)) dataVec = unpack(data);
-         let vlan0 = extract_vlan(pack(takeAt(0, dataVec)));
-         let nextState0 = compute_next_state(vlan0.etherType);
-         let residue0 = takeAt(32, dataVec);
-         if (nextState0 == S3) begin
-            if (verbose) $display(fshow(cycle) + fshow("Vlan etherType=") + fshow(vlan0.etherType));
-            unparsed_out_parse_vlan0_fifo.enq(pack(residue0));
-            nextStateArbiter.in[0].enq(nextState0);
-         end
-      endaction
-      endseq
-      // VLAN|VLAN
-      seq
-      action
-         let data_delayed <- toGet(unparsed_in_fifo_vlan1).get;
-         let data_current = packet_in_wire;
-         $display("VLAN|VLAN %x", data_current);
-         Bit#(144) data = {data_current, data_delayed};
-         Vector#(144, Bit#(1)) dataVec = unpack(data);
-         let vlan0 = extract_vlan(pack(takeAt(0, dataVec)));
-         let nextState0 = compute_next_state(vlan0.etherType);
-         let residue0 = takeAt(32, dataVec);
-         let vlan1 = extract_vlan(pack(takeAt(32, dataVec)));
-         let nextState1 = compute_next_state(vlan1.etherType);
-         let residue1 = takeAt(64, dataVec);
-         if (nextState0 == S2 && nextState1 == S3) begin
-            if (verbose) $display(fshow(cycle) + fshow("Vlan etherType=") + fshow(vlan0.etherType));
-            if (verbose) $display(fshow(cycle) + fshow("Vlan etherType=") + fshow(vlan1.etherType));
-            unparsed_out_parse_vlan1_fifo.enq(pack(residue1));
-            nextStateArbiter.in[1].enq(nextState1);
-         end
-      endaction
-      endseq
-   endpar;
+   Stmt parse_vlan_0 =
+   // VLAN
+   seq
+   action
+      let data_delayed <- toGet(unparsed_in_fifo_vlan0).get;
+      let data_current = packet_in_wire;
+      $display("VLAN %x", data_current);
+      Bit#(144) data = {data_current, data_delayed};
+      Vector#(144, Bit#(1)) dataVec = unpack(data);
+      let vlan0 = extract_vlan(pack(takeAt(0, dataVec)));
+      let nextState0 = compute_next_state(vlan0.etherType);
+      let residue0 = takeAt(32, dataVec);
+      if (nextState0 == S3) begin
+         if (verbose) $display(fshow(cycle) + fshow("Vlan etherType=") + fshow(vlan0.etherType));
+         unparsed_out_parse_vlan0_fifo.enq(pack(residue0));
+         nextStateArbiter.in[0].enq(nextState0);
+      end
+   endaction
+   endseq;
 
-   FSM fsm_parse_vlan <- mkFSMWithPred(parse_vlan, True);
-   //Once once_parse_vlan <- mkOnce(fsm_parse_vlan.start);
+//   Stmt parse_vlan_1 =
+//   // VLAN|VLAN
+//   seq
+//   action
+//      let data_delayed <- toGet(unparsed_in_fifo_vlan1).get;
+//      let data_current = packet_in_wire;
+//      $display("VLAN|VLAN %x", data_current);
+//      Bit#(144) data = {data_current, data_delayed};
+//      Vector#(144, Bit#(1)) dataVec = unpack(data);
+//      let vlan0 = extract_vlan(pack(takeAt(0, dataVec)));
+//      let nextState0 = compute_next_state(vlan0.etherType);
+//      let residue0 = takeAt(32, dataVec);
+//      let vlan1 = extract_vlan(pack(takeAt(32, dataVec)));
+//      let nextState1 = compute_next_state(vlan1.etherType);
+//      let residue1 = takeAt(64, dataVec);
+//      if (nextState0 == S2 && nextState1 == S3) begin
+//         if (verbose) $display(fshow(cycle) + fshow("Vlan etherType=") + fshow(vlan0.etherType));
+//         if (verbose) $display(fshow(cycle) + fshow("Vlan etherType=") + fshow(vlan1.etherType));
+//         unparsed_out_parse_vlan1_fifo.enq(pack(residue1));
+//         nextStateArbiter.in[1].enq(nextState1);
+//      end
+//   endaction
+//   endseq;
 
-   //method Action start = once_parse_vlan.start;
-   method Action start = fsm_parse_vlan.start;
-   method Action clear;
-      //once_parse_vlan.clear;
-      fsm_parse_vlan.abort;
-      //packet_in_fifo.clear;
+   FSM fsm_parse_vlan_0 <- mkFSM(parse_vlan_0);
+//   FSM fsm_parse_vlan_1 <- mkFSM(parse_vlan_0);
+
+   method Action start;
+      fsm_parse_vlan_0.start;
+//      fsm_parse_vlan_1.start;
    endmethod
+   method Action clear;
+      fsm_parse_vlan_0.abort;
+//      fsm_parse_vlan_1.abort;
+   endmethod
+
    interface packetIn = toPipeIn(packet_in_fifo);
    interface unparsedIn = toPipeIn(unparsed_in_fifo);
    interface unparsedOutVlan0 = toPipeOut(unparsed_out_parse_vlan0_fifo);
-   interface unparsedOutVlan1 = toPipeOut(unparsed_out_parse_vlan1_fifo);
+//   interface unparsedOutVlan1 = toPipeOut(unparsed_out_parse_vlan1_fifo);
    interface parsedOut = toPipeOut(parsed_out_fifo);
    interface nextState = toPipeOut(next_state_fifo);
 endmodule
@@ -414,9 +413,9 @@ module mkParseIpv4(ParseIpv4);
    endaction
    endseq;
 
-   FSM fsm_parse_ipv4_0 <- mkFSMWithPred(parse_ipv4_0, True);
-   FSM fsm_parse_ipv4_1 <- mkFSMWithPred(parse_ipv4_1, True);
-   FSM fsm_parse_ipv4_2 <- mkFSMWithPred(parse_ipv4_2, True);
+   FSM fsm_parse_ipv4_0 <- mkFSM(parse_ipv4_0);
+   FSM fsm_parse_ipv4_1 <- mkFSM(parse_ipv4_1);
+   FSM fsm_parse_ipv4_2 <- mkFSM(parse_ipv4_2);
 
    method Action start();
       fsm_parse_ipv4_0.start;
@@ -463,7 +462,6 @@ module mkParser(Parser);
    Reg#(Bool) started <- mkReg(False);
 
    rule start_fsm (curr_state == S0 && data_in_fifo.notEmpty);
-      //$display(fshow(cycle) + fshow("started"));
       if (!started) begin
          parse_ethernet.start;
          parse_vlan.start;
@@ -473,7 +471,6 @@ module mkParser(Parser);
    endrule
 
    rule stop_fsm (curr_state == S4);
-      //$display(fshow(cycle) + fshow("end"));
       if (started) begin
          parse_ethernet.clear;
          parse_ipv4.clear;
