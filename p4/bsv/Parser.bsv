@@ -67,7 +67,7 @@ interface ParseVlan;
    interface PipeIn#(Bit#(16)) unparsedIn;
    interface PipeOut#(Vlan_tag_t) parsedOut;
    interface PipeOut#(Bit#(112)) unparsedOutVlan0;
-   interface PipeOut#(Bit#(80)) unparsedOutVlan1;
+   //interface PipeOut#(Bit#(80)) unparsedOutVlan1;
    interface PipeOut#(ParserState) nextState;
    method Action start;
    method Action clear;
@@ -78,7 +78,7 @@ interface ParseIpv4;
    interface PipeIn#(Bit#(16)) unparsedIn;
    interface PipeOut#(Ipv4_t) parsedOut;
    interface PipeIn#(Bit#(112)) unparsedInVlan0;
-   interface PipeIn#(Bit#(80)) unparsedInVlan1;
+   //interface PipeIn#(Bit#(80)) unparsedInVlan1;
    interface PipeOut#(Bit#(112)) unparsedOut;
    interface PipeOut#(ParserState) nextState;
    method Action start;
@@ -331,7 +331,7 @@ module mkParseIpv4(ParseIpv4);
    FIFOF#(Ipv4_t) parsed_out_fifo <- mkSizedFIFOF(1);
    FIFOF#(Bit#(16)) unparsed_in_fifo <- mkBypassFIFOF;
    FIFOF#(Bit#(112)) unparsed_in_vlan0_fifo <- mkBypassFIFOF;
-   FIFOF#(Bit#(80)) unparsed_in_vlan1_fifo <- mkBypassFIFOF;
+//   FIFOF#(Bit#(80)) unparsed_in_vlan1_fifo <- mkBypassFIFOF;
    FIFOF#(Bit#(112)) unparsed_out_fifo <- mkSizedFIFOF(1);
    FIFOF#(Bit#(144)) internal_fifo <- mkSizedFIFOF(1);
 
@@ -396,41 +396,41 @@ module mkParseIpv4(ParseIpv4);
    endaction
    endseq;
 
-   Stmt parse_ipv4_2 =
-   // VLAN|VLAN|IP
-   seq
-   action
-      let residue_last <- toGet(unparsed_in_vlan1_fifo).get; // 112-bit;
-      let data_current = packet_in_wire;
-      Bit#(208) data = {data_current, residue_last};
-      Vector#(208, Bit#(1)) dataVec = unpack(data);
-      Vector#(48, Bit#(1)) residue = takeAt(160, dataVec);
-      let ipv4 = extract_ipv4(data[159:0]);
-      if (verbose) $display(fshow(cycle)+
-                            $format(" ipv4.srcAddr=%x", ipv4.srcAddr)+
-                            $format(" ipv4.dstAddr=%x", ipv4.dstAddr));
-      nextStateArbiter.in[2].enq(S4);
-   endaction
-   endseq;
+//   Stmt parse_ipv4_2 =
+//   // VLAN|VLAN|IP
+//   seq
+//   action
+//      let residue_last <- toGet(unparsed_in_vlan1_fifo).get; // 112-bit;
+//      let data_current = packet_in_wire;
+//      Bit#(208) data = {data_current, residue_last};
+//      Vector#(208, Bit#(1)) dataVec = unpack(data);
+//      Vector#(48, Bit#(1)) residue = takeAt(160, dataVec);
+//      let ipv4 = extract_ipv4(data[159:0]);
+//      if (verbose) $display(fshow(cycle)+
+//                            $format(" ipv4.srcAddr=%x", ipv4.srcAddr)+
+//                            $format(" ipv4.dstAddr=%x", ipv4.dstAddr));
+//      nextStateArbiter.in[2].enq(S4);
+//   endaction
+//   endseq;
 
    FSM fsm_parse_ipv4_0 <- mkFSM(parse_ipv4_0);
    FSM fsm_parse_ipv4_1 <- mkFSM(parse_ipv4_1);
-   FSM fsm_parse_ipv4_2 <- mkFSM(parse_ipv4_2);
+//   FSM fsm_parse_ipv4_2 <- mkFSM(parse_ipv4_2);
 
    method Action start();
       fsm_parse_ipv4_0.start;
       fsm_parse_ipv4_1.start;
-      fsm_parse_ipv4_2.start;
+//      fsm_parse_ipv4_2.start;
    endmethod
    method Action clear();
       fsm_parse_ipv4_0.abort;
       fsm_parse_ipv4_1.abort;
-      fsm_parse_ipv4_2.abort;
+//      fsm_parse_ipv4_2.abort;
    endmethod
    interface packetIn = toPipeIn(packet_in_fifo);
    interface unparsedIn = toPipeIn(unparsed_in_fifo);
    interface unparsedInVlan0 = toPipeIn(unparsed_in_vlan0_fifo);
-   interface unparsedInVlan1 = toPipeIn(unparsed_in_vlan1_fifo);
+//   interface unparsedInVlan1 = toPipeIn(unparsed_in_vlan1_fifo);
    interface unparsedOut = toPipeOut(unparsed_out_fifo);
    interface parsedOut = toPipeOut(parsed_out_fifo);
    interface nextState = toPipeOut(next_state_fifo);
@@ -450,7 +450,7 @@ module mkParser(Parser);
    mkConnection(parse_ethernet.unparsedOutIpv4, parse_ipv4.unparsedIn);
    mkConnection(parse_ethernet.unparsedOutVlan, parse_vlan.unparsedIn);
    mkConnection(parse_vlan.unparsedOutVlan0, parse_ipv4.unparsedInVlan0);
-   mkConnection(parse_vlan.unparsedOutVlan1, parse_ipv4.unparsedInVlan1);
+   //mkConnection(parse_vlan.unparsedOutVlan1, parse_ipv4.unparsedInVlan1);
 
    let verbose = True;
    Reg#(Cycle_t) cycle <- mkReg(defaultValue);
