@@ -22,9 +22,9 @@ typedef TDiv#(`DataBusWidth, 32) WordsPerBeat;
 
 interface ParserTestIndication;
    method Action read_version_resp(Bit#(32) version);
-   method Action parsed_ipv4_resp();
+   method Action parsed_ipv4_resp(Bit#(8) ttl);
    method Action parsed_vlan_resp();
-   method Action parsed_ether_resp();
+   method Action parsed_ether_resp(Bit#(48) srcAddr, Bit#(48) dstAddr);
 endinterface
 
 interface ParserTestRequest;
@@ -55,6 +55,17 @@ module mkParserTest#(ParserTestIndication indication)(ParserTest);
       if (v.eop) begin
          if (verbose) $display(fshow(" eop."));
       end
+   endrule
+
+   rule parser_out_ethernet_srcAddr;
+      let s <- toGet(parser.parsedOut_ethernet_srcAddr).get;
+      let d <- toGet(parser.parsedOut_ethernet_dstAddr).get;
+      indication.parsed_ether_resp(s,d);
+   endrule
+
+   rule parser_out_ip_ttl;
+      let v <- toGet(parser.parsedOut_ipv4_ttl).get;
+      indication.parsed_ipv4_resp(v);
    endrule
 
    interface ParserTestRequest request;

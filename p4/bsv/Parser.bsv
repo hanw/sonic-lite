@@ -43,18 +43,16 @@ interface Parser;
    method Action parserReset();
    interface PipeIn#(EtherData) frameIn;
    interface PipeOut#(void) parseDone;
-   interface PipeOut#(MatchKey_port_mapping) match_key_port_mapping;
-   interface PipeOut#(MatchKey_bd) match_key_bd;
-   interface PipeOut#(MatchKey_ipv4_fib) match_key_ipv4_fib;
-   interface PipeOut#(MatchKey_ipv4_fib_lpm) match_key_ipv4_fib_lpm;
-   interface PipeOut#(MatchKey_nexthop) match_key_nexthop;
-   interface PipeOut#(MatchKey_rewrite_mac) match_rewrite_mac;
+   interface PipeOut#(Bit#(8)) parsedOut_ipv4_ttl;
+   interface PipeOut#(Bit#(48)) parsedOut_ethernet_srcAddr;
+   interface PipeOut#(Bit#(48)) parsedOut_ethernet_dstAddr;
    interface PipeOut#(Bit#(128)) payloadOut;
 endinterface
 
 interface ParseEthernet;
    interface PipeIn#(Bit#(128)) packetIn;
-   interface PipeOut#(Ethernet_t) parsedOut;
+   interface PipeOut#(Bit#(48)) parsedOut_ethernet_srcAddr;
+   interface PipeOut#(Bit#(48)) parsedOut_ethernet_dstAddr;
    interface PipeOut#(Bit#(16)) unparsedOutIpv4; // number is parse state id
    interface PipeOut#(Bit#(16)) unparsedOutVlan; // number is parse state id
    interface PipeOut#(ParserState) nextState;
@@ -80,6 +78,7 @@ interface ParseIpv4;
    interface PipeIn#(Bit#(112)) unparsedInVlan0;
    //interface PipeIn#(Bit#(80)) unparsedInVlan1;
    interface PipeOut#(Bit#(112)) unparsedOut;
+   interface PipeOut#(Bit#(8)) parsedOut_ipv4_ttl;
    interface PipeOut#(ParserState) nextState;
    method Action start;
    method Action clear;
@@ -94,7 +93,8 @@ endinstance
 
 module mkParseEthernet(ParseEthernet);
    FIFOF#(Bit#(128)) packet_in_fifo <- mkBypassFIFOF;
-   FIFOF#(Ethernet_t) parsed_out_fifo <- mkSizedFIFOF(1);
+   FIFOF#(Bit#(48)) parsed_out_ethernet_srcAddr_fifo <- mkFIFOF1;
+   FIFOF#(Bit#(48)) parsed_out_ethernet_dstAddr_fifo <- mkFIFOF1;
    FIFOF#(Bit#(16))  unparsed_out_parse_ipv4_fifo <- mkSizedFIFOF(1);
    FIFOF#(Bit#(16))  unparsed_out_parse_vlan_fifo <- mkSizedFIFOF(1);
    FIFOF#(ParserState) next_state_fifo <- mkBypassFIFOF;
@@ -123,6 +123,8 @@ module mkParseEthernet(ParseEthernet);
                             +fshow(" ether.srcAddr=")+fshow(ethernet.srcAddr)
                             +fshow(" ether.etherType=")+fshow(ethernet.etherType));
 
+      parsed_out_ethernet_srcAddr_fifo.enq(ethernet.srcAddr);
+      parsed_out_ethernet_dstAddr_fifo.enq(ethernet.dstAddr);
       ParserState nextState = S0;
       case (byteSwap2B(ethernet.etherType)) matches
          'h_8100: begin
@@ -155,7 +157,8 @@ module mkParseEthernet(ParseEthernet);
    interface packetIn = toPipeIn(packet_in_fifo);
    interface unparsedOutIpv4 = toPipeOut(unparsed_out_parse_ipv4_fifo);
    interface unparsedOutVlan = toPipeOut(unparsed_out_parse_vlan_fifo);
-   interface parsedOut = toPipeOut(parsed_out_fifo);
+   interface parsedOut_ethernet_srcAddr = toPipeOut(parsed_out_ethernet_srcAddr_fifo);
+   interface parsedOut_ethernet_dstAddr = toPipeOut(parsed_out_ethernet_dstAddr_fifo);
    interface nextState = toPipeOut(next_state_fifo);
 endmodule
 
@@ -328,7 +331,7 @@ endmodule
 module mkParseIpv4(ParseIpv4);
    FIFOF#(Bit#(128)) packet_in_fifo <- mkBypassFIFOF;
 
-   FIFOF#(Ipv4_t) parsed_out_fifo <- mkSizedFIFOF(1);
+   FIFOF#(Bit#(8)) parsed_out_ipv4_ttl_fifo <- mkFIFOF1;
    FIFOF#(Bit#(16)) unparsed_in_fifo <- mkBypassFIFOF;
    FIFOF#(Bit#(112)) unparsed_in_vlan0_fifo <- mkBypassFIFOF;
 //   FIFOF#(Bit#(80)) unparsed_in_vlan1_fifo <- mkBypassFIFOF;
@@ -372,6 +375,7 @@ module mkParseIpv4(ParseIpv4);
       Vector#(272, Bit#(1)) dataVec = unpack(data);
       Vector#(112, Bit#(1)) residue = takeAt(160, dataVec);
       let ipv4 = extract_ipv4(data[159:0]);
+      parsed_out_ipv4_ttl_fifo.enq(ipv4.ttl);
       if (verbose) $display(fshow(cycle)+
                             $format(" ipv4.srcAddr=%x", ipv4.srcAddr)+
                             $format(" ipv4.dstAddr=%x", ipv4.dstAddr));
@@ -432,7 +436,7 @@ module mkParseIpv4(ParseIpv4);
    interface unparsedInVlan0 = toPipeIn(unparsed_in_vlan0_fifo);
 //   interface unparsedInVlan1 = toPipeIn(unparsed_in_vlan1_fifo);
    interface unparsedOut = toPipeOut(unparsed_out_fifo);
-   interface parsedOut = toPipeOut(parsed_out_fifo);
+   interface parsedOut_ipv4_ttl = toPipeOut(parsed_out_ipv4_ttl_fifo);
    interface nextState = toPipeOut(next_state_fifo);
 endmodule
 
@@ -538,5 +542,8 @@ module mkParser(Parser);
    // derive parse done from state machine
    interface frameIn = toPipeIn(data_in_fifo);
    interface parseDone = toPipeOut(parse_done_fifo);
+   interface parsedOut_ipv4_ttl = parse_ipv4.parsedOut_ipv4_ttl;
+   interface parsedOut_ethernet_srcAddr = parse_ethernet.parsedOut_ethernet_srcAddr;
+   interface parsedOut_ethernet_dstAddr = parse_ethernet.parsedOut_ethernet_dstAddr;
 endmodule
 

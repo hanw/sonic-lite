@@ -57,14 +57,14 @@ public:
     virtual void read_version_resp(uint32_t a) {
         fprintf(stderr, "version %x\n", a);
     }
-    virtual void parsed_ipv4_resp() {
-        fprintf(stderr, "found ipv4\n");
+    virtual void parsed_ipv4_resp(uint8_t ttl) {
+        fprintf(stderr, "found ipv4 %x\n", ttl);
     }
     virtual void parsed_vlan_resp() {
         fprintf(stderr, "found vlan\n");
     }
-    virtual void parsed_ether_resp() {
-        fprintf(stderr, "found ether\n");
+    virtual void parsed_ether_resp(uint64_t srcAddr, uint64_t dstAddr) {
+        fprintf(stderr, "found ether %lx %lx\n", srcAddr, dstAddr);
     }
     ParserTestIndication(unsigned int id) : ParserTestIndicationWrapper(id) {}
 };
