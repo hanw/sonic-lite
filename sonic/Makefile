@@ -4,7 +4,7 @@ CONNECTALDIR?=$(ROOTDIR)/../../connectal/
 IPDIR?=$(ROOTDIR)/../../fpgamake-cache/$(shell basename `/bin/pwd`)/
 PROJTOP?=$(ROOTDIR)
 
-CONNECTALFLAGS += --bscflags="-p +:$(PROJTOP)/../hw/lib/bsv:$(PROJTOP)/../hw/bsv:$(PROJTOP)/../hw/generated"
+#CONNECTALFLAGS += --bscflags="-p +:$(PROJTOP)/../hw/lib/bsv:$(PROJTOP)/../hw/bsv:$(PROJTOP)/../hw/generated"
 CONNECTALFLAGS += --bscflags="+RTS -K46777216 -RTS -demote-errors G0066:G0045 -suppress-warnings G0046:G0020:S0015:S0080:S0039 -steps-max-intervals 20"
 
 S2H_INTERFACES=SonicTopRequest:SonicTop.request:host.derivedClock,host.derivedReset
@@ -14,7 +14,7 @@ MEM_WRITE_INTERFACES=lSonicTop.dmaWriteClient
 AUTOTOP= --interface pins:SonicTop.pins
 PIN_TYPE = DE5Pins
 PIN_TYPE_INCLUDE = DE5Pins
-BSVFILES=$(CONNECTALDIR)/bsv/MemTypes.bsv $(PROJTOP)/../sonic/SonicTop.bsv
+BSVFILES=$(CONNECTALDIR)/bsv/MemTypes.bsv $(PROJTOP)/../sonic/SonicTop.bsv $(PROJTOP)/../hw/bsv/DE5Pins.bsv $(PROJTOP)/../hw/lib/bsv/PacketBuffer.bsv
 CPPFILES=$(PROJTOP)/cpp/dpdk.cpp
 CPPFILES2=$(PROJTOP)/t/test-receive-single-packet.cpp
 CONNECTALFLAGS += -l="tins"
@@ -26,7 +26,7 @@ CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/sv_10g_pma/sv_10g_pma.qip
 CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/altera_clkctrl/altera_clkctrl.qip
 CONNECTALFLAGS += --verilog=$(PROJTOP)/../hw/verilog/si570/
 CONNECTALFLAGS += --tcl=$(PROJTOP)/../boards/de5_extra.qsf
-CONNECTALFLAGS += -D SonicVersion=$(shell date +"%y%m%d%H%M")
+CONNECTALFLAGS += -D SonicVersion=$(shell printf "%d" 0x`git rev-parse --short=8 HEAD`)
 CONNECTALFLAGS += -D PcieHostIF
 CONNECTALFLAGS += -D DataBusWidth=128
 CONNECTALFLAGS += --shared
