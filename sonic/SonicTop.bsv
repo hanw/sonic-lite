@@ -317,8 +317,10 @@ module mkSonicTop#(Clock derivedClock, Reset derivedReset, SonicTopIndication in
    endinterface
    interface `PinType pins;
       // Clocks
+`ifndef SIMULATION
       interface deleteme_unused_clock = defaultClock;
       interface deleteme_unused_reset = defaultReset;
+`endif
       // Resets
       // SFP+
    endinterface
