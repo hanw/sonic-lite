@@ -320,6 +320,8 @@ module mkSonicTop#(Clock derivedClock, Reset derivedReset, SonicTopIndication in
 `ifndef SIMULATION
       interface deleteme_unused_clock = defaultClock;
       interface deleteme_unused_reset = defaultReset;
+      interface deleteme_unused_clock2 = defaultClock;
+      interface deleteme_unused_clock3 = defaultClock;
 `endif
       // Resets
       // SFP+
