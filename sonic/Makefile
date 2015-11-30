@@ -4,8 +4,10 @@ CONNECTALDIR?=$(ROOTDIR)/../../connectal/
 IPDIR?=$(ROOTDIR)/../../fpgamake-cache/$(shell basename `/bin/pwd`)/
 PROJTOP?=$(ROOTDIR)
 
-#CONNECTALFLAGS += --bscflags="-p +:$(PROJTOP)/../hw/lib/bsv:$(PROJTOP)/../hw/bsv:$(PROJTOP)/../hw/generated"
 CONNECTALFLAGS += --bscflags="+RTS -K46777216 -RTS -demote-errors G0066:G0045 -suppress-warnings G0046:G0020:S0015:S0080:S0039 -steps-max-intervals 20"
+CONNECTALFLAGS += --bsvpath=$(PROJTOP)/../hw/lib/bsv
+CONNECTALFLAGS += --bsvpath=$(PROJTOP)/../hw/bsv
+CONNECTALFLAGS += --bsvpath=$(PROJTOP)/../hw/generated
 
 S2H_INTERFACES=SonicTopRequest:SonicTop.request:host.derivedClock,host.derivedReset
 H2S_INTERFACES=SonicTop:SonicTopIndication:host.derivedClock,host.derivedReset
@@ -14,7 +16,7 @@ MEM_WRITE_INTERFACES=lSonicTop.dmaWriteClient
 AUTOTOP= --interface pins:SonicTop.pins
 PIN_TYPE = DE5Pins
 PIN_TYPE_INCLUDE = DE5Pins
-BSVFILES=$(CONNECTALDIR)/bsv/MemTypes.bsv $(PROJTOP)/../sonic/SonicTop.bsv $(PROJTOP)/../hw/bsv/DE5Pins.bsv $(PROJTOP)/../hw/lib/bsv/PacketBuffer.bsv
+BSVFILES=$(CONNECTALDIR)/bsv/MemTypes.bsv $(PROJTOP)/../sonic/SonicTop.bsv
 CPPFILES=$(PROJTOP)/cpp/dpdk.cpp
 CPPFILES2=$(PROJTOP)/t/test-receive-single-packet.cpp
 CONNECTALFLAGS += -l="tins"
