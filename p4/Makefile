@@ -7,18 +7,26 @@ ROOTDIR=$(realpath .)
 CONNECTALDIR?=$(ROOTDIR)/../../connectal/
 IPDIR?=$(ROOTDIR)/../../fpgamake-cache/$(shell basename `/bin/pwd`)/
 PROJTOP?=$(ROOTDIR)
-PROJLIB=$(PROJTOP)/../hw/lib/bsv:$(PROJTOP)/../hw/bsv:$(PROJTOP)/bsv/AsymmetricBRAM:$(PROJTOP)/bsv/Bcam:$(PROJTOP)/bsv/MatchTable:$(PROJTOP)/bsv/PktBuff:$(PROJTOP)/../hw/generated
+CONNECTALFLAGS += --bsvpath=$(PROJTOP)/../hw/lib/bsv
+CONNECTALFLAGS += --bsvpath=$(PROJTOP)/../hw/bsv
+CONNECTALFLAGS += --bsvpath=$(PROJTOP)/../hw/generated
+CONNECTALFLAGS += --bsvpath=$(PROJTOP)/bsv/AsymmetricBRAM
+CONNECTALFLAGS += --bsvpath=$(PROJTOP)/bsv/Bcam
+CONNECTALFLAGS += --bsvpath=$(PROJTOP)/bsv/MatchTable
+CONNECTALFLAGS += --bsvpath=$(PROJTOP)/bsv/PktBuff
 
 ALTERAPINOUT=$(PROJTOP)/../boards/de5.json
 
 ifeq ($(P4),)
 # compile manual bsv
 BSVFILES=$(PROJTOP)/bsv/P4Top.bsv $(PROJTOP)/bsv/P4Types.bsv $(PROJTOP)/bsv/PktBuff/Malloc.bsv
-CONNECTALFLAGS += --bscflags="-p +:$(PROJTOP)/bsv:$(CONNECTALDIR)/bsv:$(PROJLIB)"
+CONNECTALFLAGS += --bsvpath=$(PROJTOP)/bsv
+CONNECTALFLAGS += --bsvpath=$(CONNECTALDIR)/bsv
 else
 # compile generated P4 code
 BSVFILES=$(PROJTOP)/build/bluespec/src/P4Top.bsv $(PROJTOP)/build/bluespec/src/P4Types.bsv
-CONNECTALFLAGS += --bscflags="-p +:$(PROJTOP)/build/bluespec/src:$(CONNECTALDIR)/bsv:$(PROJLIB)"
+CONNECTALFLAGS += --bsvpath=$(PROJTOP)/build/bluespec/src
+CONNECTALFLAGS += --bsvpath=$(CONNECTALDIR)/bsv
 endif
 
 # if P4Top needs a second clock.
@@ -31,7 +39,7 @@ endif
 # Top Level Switches
 ########################################################
 CONFIG_PCIE=y
-CONFIG_NETWORK=n
+CONFIG_NETWORK=y
 CONFIG_P4=y
 
 ########################################################
