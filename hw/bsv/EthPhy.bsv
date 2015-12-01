@@ -39,7 +39,6 @@ import EthPcsRx                      ::*;
 import DtpTx                         ::*;
 import DtpRx                         ::*;
 import DtpSwitch                     ::*;
-//import DTP_DCFIFO_WRAPPER            ::*;
 import DtpDCFifo            ::*;
 import ALTERA_SI570_WRAPPER          ::*;
 import ALTERA_EDGE_DETECTOR_WRAPPER  ::*;
