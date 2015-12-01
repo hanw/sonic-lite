@@ -1,20 +1,16 @@
-package Test;
 import FIFO::*;
 import FIFOF::*;
 import DefaultValue::*;
-import SpecialFIFOs::*;
 import Vector::*;
-import BuildVector::*;
 import GetPut::*;
 import ClientServer::*;
 import Connectable::*;
-import HostInterface::*;
 
 import Pipe::*;
 import MemTypes::*;
 import Ethernet::*;
 import PacketBuffer::*;
-import BlockSync::*;
+import Decoder::*;
 
 interface TestIndication;
    method Action done(Bit#(32) matchCount);
@@ -33,12 +29,12 @@ module mkTest#(TestIndication indication) (Test);
    Reg#(Bit#(32)) cycle <- mkReg(0);
    FIFOF#(Bit#(66)) write_data <- mkFIFOF;
    PacketBuffer buff <- mkPacketBuffer();
-   BlockSync bsync <- mkBlockSync;
-   mkConnection(toPipeOut(write_data), bsync.blockSyncIn);
+   Decoder sc <- mkDecoder;
+   mkConnection(toPipeOut(write_data), sc.decoderIn);
 
    rule every1;
       cycle <= cycle + 1;
-      bsync.rx_ready(True);
+      sc.rx_ready(True);
    endrule
 
    rule readDataStart;
@@ -57,9 +53,23 @@ module mkTest#(TestIndication indication) (Test);
    endrule
 
    rule out;
-      let v = bsync.dataOut.first();
-      bsync.dataOut.deq;
-      if(verbose) $display("%d: blocksync in v=%h", cycle, v);
+      Vector#(8, Bit#(8)) txd;
+      Vector#(8, Bit#(1)) txc;
+      Bit#(64) xgmii_txd;
+      Bit#(8)  xgmii_txc;
+
+      let v = sc.decoderOut.first();
+      sc.decoderOut.deq;
+      //if(verbose) $display("%d: decoder out v=%h", cycle, v);
+
+      for (Integer i=0; i<8; i=i+1) begin
+         txd[i] = v[9*i+7 : 9*i];
+         txc[i] = v[9*i+8];
+      end
+      xgmii_txd = pack(txd);
+      xgmii_txc = pack(txc);
+
+      if(verbose) $display("%d: xgmii_txd=%h, txc=%h", cycle, xgmii_txd, xgmii_txc);
    endrule
 
    interface TestRequest request;
@@ -72,4 +82,4 @@ module mkTest#(TestIndication indication) (Test);
       endmethod
    endinterface
 endmodule
-endpackage: Test
+
