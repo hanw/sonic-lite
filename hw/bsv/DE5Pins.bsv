@@ -5,8 +5,8 @@ interface DE5Pins;
 `ifndef SIMULATION
    method Action osc_50(Bit#(1) b3d, Bit#(1) b4a, Bit#(1) b4d, Bit#(1) b7a, Bit#(1) b7d, Bit#(1) b8a, Bit#(1) b8d);
    method Action buttons(Bit#(4) v);
-`ifdef DEBUG_ETH
    method Action sfp(Bit#(1) refclk);
+`ifdef DEBUG_ETH
    interface SFPCtrl#(4) sfpctrl;
    method Bit#(4) serial_tx_data;
    method Action serial_rx(Bit#(4) data);

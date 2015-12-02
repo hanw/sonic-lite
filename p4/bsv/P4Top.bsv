@@ -474,13 +474,9 @@ module mkP4Top#(P4TopIndication indication, ConnectalMemory::MemServerIndication
    endinterface
    interface `PinType pins;
       // Clocks
-`ifndef BSIM
 `ifndef SIMULATION
       method Action osc_50(Bit#(1) b3d, Bit#(1) b4a, Bit#(1) b4d, Bit#(1) b7a, Bit#(1) b7d, Bit#(1) b8a, Bit#(1) b8d);
          iclock_50.inputclock(b4a);
-      endmethod
-      method Action sfp(Bit#(1) refclk);
-         iclock_644.inputclock(refclk);
       endmethod
       method Action buttons(Bit#(4) v);
          for (Integer i=0; i<valueOf(NumPorts); i=i+1) begin
@@ -488,17 +484,10 @@ module mkP4Top#(P4TopIndication indication, ConnectalMemory::MemServerIndication
          end
          iclock_50.inputreset(v[0]);
       endmethod
-`ifdef DEBUG_ETH
-      method Action serial_rx(Bit#(NumPorts) data);
-         phy.serial.rx(data);
+      method Action sfp(Bit#(1) refclk);
+         iclock_644.inputclock(refclk);
       endmethod
-      method serial_tx_data = phy.serial.tx;
-      method led0 = eth_tx_led.ifc.out;
-      method led1 = eth_rx_led.ifc.out;
-`endif
-      method led2 = mgmt_led.ifc.out;
-      method led3 = sfp_led.ifc.out;
-      method led_bracket = led_xcvr.out;
+`ifdef DEBUG_ETH
       interface sfpctrl = (interface SFPCtrl;
          method Action los (Bit#(NumPorts) v); endmethod
          method Action mod0_presnt_n(Bit#(NumPorts) v); endmethod
@@ -507,11 +496,20 @@ module mkP4Top#(P4TopIndication indication, ConnectalMemory::MemServerIndication
          method txdisable = pack(replicate(1'b0));
          method Action txfault(Bit#(NumPorts) v); endmethod
       endinterface);
+      method serial_tx_data = phy.serial.tx;
+      method Action serial_rx(Bit#(NumPorts) data);
+         phy.serial.rx(data);
+      endmethod
+      method led0 = eth_tx_led.ifc.out;
+      method led1 = eth_rx_led.ifc.out;
+`endif
+      method led2 = mgmt_led.ifc.out;
+      method led3 = sfp_led.ifc.out;
+      method led_bracket = led_xcvr.out;
       interface deleteme_unused_clock = iclock_50.c;
       interface deleteme_unused_reset = iclock_50.r;
       interface deleteme_unused_clock2 = defaultClock;
       interface deleteme_unused_clock3 = clk_156_25;
-`endif
 `endif
    endinterface
 endmodule
