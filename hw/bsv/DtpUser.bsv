@@ -266,28 +266,16 @@ module mkDtpUser#(DtpUserIndication indication)(DtpUser);
       rule save_host_data (!dtpResetOut.isAsserted);
          let v <- toGet(toHostFifo[i]).get;
 
-         Bit#(53) timestamp = 0;
-            if (switch_mode_reg == 0) begin // 0 for NIC, 1 for Switch
-               timestamp = clocal_reg[i] + 3;
-            end
-            else begin
-               timestamp = cglobal_reg + 3;
-            end 
-
          if (v[52] == 0) begin
-            lread_data_cycle1[i].enq(BufData{port_no:fromInteger(i), data:zeroExtend(v[51:0])});
-            lread_data_timestamp[i].enq(timestamp); 
-            lread_cnt_enq1[i] <= lread_cnt_enq1[i] + 1;
-         end
-         else if (v[52] == 1) begin
-            lread_data_cycle2[i].enq(BufData{port_no:fromInteger(i), data:zeroExtend(v[51:0])});
             Bit#(53) timestamp = 0;
             if (switch_mode_reg == 0) begin // 0 for NIC, 1 for Switch
                timestamp = clocal_reg[i] + 3;
             end
             else begin
-               timestamp = cglobal_reg + 3;
+               timestamp = cglobal_reg + 4;
             end 
+
+            lread_data_cycle1[i].enq(BufData{port_no:fromInteger(i), data:zeroExtend(v[51:0])});
             lread_data_timestamp[i].enq(timestamp); 
             lread_cnt_enq1[i] <= lread_cnt_enq1[i] + 1;
             if (verbose) $display("%d: %d, received %d\n", cycle_count, i, timestamp);
