@@ -218,7 +218,7 @@ void stop_default_poller() {
     defaultPoller->stop();
 }
 
-void poll(void) {
+void sonic_poll(void) {
     defaultPoller->event();
 }
 
