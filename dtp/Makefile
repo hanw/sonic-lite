@@ -28,13 +28,14 @@ CONNECTALFLAGS += --verilog=$(PROJTOP)/../hw/verilog/asyncfifo/
 #CONNECTALFLAGS += --chipscope=$(PROJTOP)/stp/fifo_stp.stp
 CONNECTALFLAGS += --tcl=$(PROJTOP)/../boards/de5_extra.qsf
 CONNECTALFLAGS += -D DtpVersion=$(shell printf "%d" 0x`git rev-parse --short=8 HEAD`)
+CONNECTALFLAGS += -D NumberOfMasters=0
 CONNECTALFLAGS += --pinfo=$(PROJTOP)/../boards/dtp_synth.json
 
 prebuild::
 ifneq (, $(QUARTUS_SH))
 	#(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) $(QUARTUS_SH) -t $(PROJTOP)/hw/scripts/connectal-simu-pcietb.tcl)
 	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) $(QUARTUS_SH) -t $(CONNECTALDIR)/scripts/connectal-synth-pll.tcl)
-	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) $(QUARTUS_SH) -t $(PROJTOP)/../hw/scripts/connectal-synth-mac.tcl)
+	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) $(QUARTUS_SH) -t $(PROJTOP)/../hw/scripts/generate-mac.tcl)
 	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) $(QUARTUS_SH) -t $(CONNECTALDIR)/scripts/connectal-synth-eth.tcl)
 endif
 
