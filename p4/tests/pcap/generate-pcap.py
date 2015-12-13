@@ -47,6 +47,25 @@ def gen_udp_pkts():
                  UDP(sport=6000, dport=20000) / Raw(data))
     all_pkts['udp-burst'] = udp_10
 
+    vlan_10 = PacketList()
+    for i in range(10):
+        data = bytearray(os.urandom(random.randint(1,100)))
+        vlan_10.append(Ether(src="01:02:03:04:05:06", dst="11:12:13:14:15:16") / \
+                Dot1Q(vlan=3393) / IP(src="10.0.0.1", dst="10.0.0.2") /   \
+                UDP(sport=6000, dport=20000) / Raw(data))
+    all_pkts['vlan-burst'] = vlan_10
+
+    # ETH|IP|UDP|PAYLOAD X 10
+    udp_5 = PacketList()
+    for i in range(5):
+        data = bytearray(os.urandom(random.randint(1,100)))
+        udp_5.append(Ether(src="01:02:03:04:05:06", dst="11:12:13:14:15:16") / \
+                 IP(src="10.0.0.1", dst="10.0.0.2") /   \
+                 UDP(sport=6000, dport=20000) / Raw(data))
+    all_pkts['udp-burst-5'] = udp_5
+
+
+
 def gen_tcp_pkts():
     pass
 

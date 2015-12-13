@@ -1,1 +1,1 @@
-TEST_PACKET= vlan2-udp vlan-udp udp-small udp-large udp-burst
+TEST_PACKET= vlan2-udp vlan-udp udp-small udp-large udp-burst vlan-burst udp-burst-5

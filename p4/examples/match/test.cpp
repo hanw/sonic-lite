@@ -184,6 +184,14 @@ int main(int argc, char **argv)
         device->read_version();
     }
 
+    if (match_table_test) {
+        fprintf(stderr, "match table\n");
+        // insert rule to match table
+        MatchInput match_input = { key1: 4, key2: 4};
+        device->add_entry(0, match_input);
+        sem_wait(&sem_ctrl);
+    }
+
     if (load_pcap) {
         fprintf(stderr, "Attempts to read pcap file %s\n", pcap_file);
 
@@ -197,16 +205,11 @@ int main(int argc, char **argv)
         }
     }
 
+    // parse
+    // print match result
+
     if (match_table_test) {
-        fprintf(stderr, "match table\n");
-        // insert rule to match table
-        MatchInput match_input = { key1: 4, key2: 4};
-        device->add_entry(0, match_input);
-        sem_wait(&sem_ctrl);
         device->delete_entry(0, flowid);
-        // load packet
-        // parse
-        // print match result
     }
 
     if (run_basic) {

@@ -32,7 +32,7 @@ parser parse_ethernet {
     }
 }
 
-#define VLAN_DEPTH 2
+#define VLAN_DEPTH 1
 header vlan_tag_t vlan_tag_[VLAN_DEPTH];
 
 parser parse_vlan {

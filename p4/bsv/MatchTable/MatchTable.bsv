@@ -57,8 +57,8 @@ module mkMatchTable(MatchTable);
    // Interface for lookup from data-plane modules
    interface Server lookupPort;
       interface Put request;
-         method Action put (Bit#(9) v);
-            BcamReadReq#(9) req_bcam = BcamReadReq{data: v};
+         method Action put (Bit#(KeyLen) v);
+            BcamReadReq#(KeyLen) req_bcam = BcamReadReq{data: v};
             bcam.readServer.request.put(pack(req_bcam));
             if (verbose) $display("matchTable %d: lookup ", cycle, fshow(req_bcam));
          endmethod
@@ -89,7 +89,7 @@ module mkMatchTable(MatchTable);
    // Interface for write from control-plane
    interface Put add_entry;
       method Action put (MatchSpec_t m);
-         BcamWriteReq#(10, 9) req_bcam = BcamWriteReq{addr: addrIdx, data: m.data};
+         BcamWriteReq#(10, KeyLen) req_bcam = BcamWriteReq{addr: addrIdx, data: m.data};
          BRAMRequest#(Bit#(10), ActionSpec_t) req_ram = BRAMRequest{write: True, responseOnWrite: False, address: addrIdx, datain: m.param};
          bcam.writeServer.put(req_bcam);
          ram.portA.request.put(req_ram);
@@ -101,7 +101,7 @@ module mkMatchTable(MatchTable);
    interface PipeOut entry_added = toPipeOut(entry_added_fifo);
    interface Put delete_entry;
       method Action put (FlowId id);
-         BcamWriteReq#(10, 9) req_bcam = BcamWriteReq{addr: truncate(id), data: 0};
+         BcamWriteReq#(10, KeyLen) req_bcam = BcamWriteReq{addr: truncate(id), data: 0};
          BRAMRequest#(Bit#(10), ActionSpec_t) req_ram = BRAMRequest{write: True, responseOnWrite: False, address: truncate(id), datain: ActionSpec_t{op:0}};
          bcam.writeServer.put(req_bcam);
          ram.portA.request.put(req_ram);
