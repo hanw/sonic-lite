@@ -306,5 +306,21 @@
 	"loopback_lpbk_en_en": {
 		"PIO_DIRECTION": "INPUT",
 		"SW": "SW[3]"
+	},
+	"rzq_0_rzqin_v": {
+		"PIO_DIRECTION": "INPUT",
+		"RZQ": "RZQ_0"
+	},
+	"rzq_1_rzqin_v": {
+		"PIO_DIRECTION": "INPUT",
+		"RZQ": "RZQ_1"
+	},
+	"rzq_4_rzqin_v": {
+		"PIO_DIRECTION": "INPUT",
+		"RZQ": "RZQ_4"
+	},
+	"rzq_5_rzqin_v": {
+		"PIO_DIRECTION": "INPUT",
+		"RZQ": "RZQ_5"
 	}
 }
