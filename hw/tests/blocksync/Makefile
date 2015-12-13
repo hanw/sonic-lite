@@ -11,7 +11,6 @@ CONNECTALFLAGS += --bsvpath=$(CONNECTAL_DIR)/bsv
 CONNECTALFLAGS += --bsvpath=$(SONIC_DIR)/hw/lib/bsv
 CONNECTALFLAGS += --bsvpath=$(SONIC_DIR)/hw/bsv/
 
-#CONNECTALFLAGS += --bscflags="-p +:$(CONNECTAL_DIR)/bsv:$(SONIC_DIR)/hw/lib/bsv:$(SONIC_DIR)/hw/bsv"
 CONNECTALFLAGS += -I $(SONIC_DIR)/sw/
 
 include $(CONNECTAL_DIR)/Makefile.connectal
