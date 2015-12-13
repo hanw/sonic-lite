@@ -22,8 +22,10 @@
 #include <stdio.h>
 #include <assert.h>
 
+#include "dmaManager.h"
 #include "DtpUserRequest.h"
 #include "DtpUserIndication.h"
+#include "GeneratedTypes.h"
 
 #define NUMBER_OF_TESTS 1
 

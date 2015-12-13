@@ -2,6 +2,7 @@
 #define _SONIC_PCAP_H_
 
 #include <errno.h>
+#include <assert.h>
 
 #ifndef le32
 #define le32    u_int32_t
