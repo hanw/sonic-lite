@@ -32,8 +32,6 @@ import GetPut ::*;
 
 import ConnectalClocks                      ::*;
 import Ethernet                             ::*;
-//import ALTERA_ETH_10G_PMA                 ::*;
-//import ALTERA_ETH_PMA_RECONFIG_WRAPPER      ::*;
 import ALTERA_ETH_PMA_QSYS                 ::*;
 
 `ifdef NUMBER_OF_10G_PORTS
