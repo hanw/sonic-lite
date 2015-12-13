@@ -181,6 +181,7 @@ module mkAsymmetricBRAMBluesim#(Bool hasOutputRegister, Bool hasForwarding, Stri
         Add#(raddr_sz,offset_sz,waddr_sz),
         Bits#(Vector#(ratio, wdata_t), rdata_sz)
     );
+    let verbose = False;
     FIFO#(Tuple2#(waddr_t, wdata_t)) writeReqFifo <- mkFIFO;
     FIFO#(raddr_t) readReqFifo <- mkFIFO;
     FIFO#(rdata_t) readDataFifo <- mkFIFO;
@@ -189,7 +190,7 @@ module mkAsymmetricBRAMBluesim#(Bool hasOutputRegister, Bool hasForwarding, Stri
     Reg#(Bool)      isInitialized   <- mkReg(False);
 
     Reg#(Bit#(32)) cntr <- mkReg(0);
-    rule every1;
+    rule every1 if (verbose);
       cntr <= cntr + 1;
     endrule
 
@@ -198,7 +199,7 @@ module mkAsymmetricBRAMBluesim#(Bool hasOutputRegister, Bool hasForwarding, Stri
        let v <- toGet(readReqFifo).get;
        rdata_t rdata  <- mem_read(mem_ptr, v);
        readDataFifo.enq(rdata);
-       $display("%s %d: read data from %x with index %x = %x", name, cntr, mem_ptr, v, rdata);
+       if (verbose) $display("%s %d: read data from %x with index %x = %x", name, cntr, mem_ptr, v, rdata);
     endrule
 
     rule do_write (isInitialized);
@@ -206,7 +207,7 @@ module mkAsymmetricBRAMBluesim#(Bool hasOutputRegister, Bool hasForwarding, Stri
        let writeAddr = tpl_1(v);
        let writeData = tpl_2(v);
        mem_write(mem_ptr, writeAddr, writeData);
-       $display("%s %d: write data to %x with index %x = %x", name, cntr, mem_ptr, writeAddr, writeData);
+       if (verbose) $display("%s %d: write data to %x with index %x = %x", name, cntr, mem_ptr, writeAddr, writeData);
     endrule
 
     rule do_init (!isInitialized);
@@ -217,7 +218,7 @@ module mkAsymmetricBRAMBluesim#(Bool hasOutputRegister, Bool hasForwarding, Stri
        isInitialized <= True;
 
        if (valueOf(raddr_sz) > 64) begin
-         $display("raddr_sz larger than 64 is not supported");
+          $display("raddr_sz larger than 64 is not supported");
        end
     endrule
 
