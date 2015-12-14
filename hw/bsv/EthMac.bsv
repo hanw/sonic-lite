@@ -34,19 +34,13 @@ import Pipe::*;
 import AlteraMacWrap::*;
 import Ethernet::*;
 
-
-`ifdef NUMBER_OF_10G_PORTS
-typedef `NUMBER_OF_10G_PORTS NumPorts;
-`else
-typedef 4 NumPorts;
-`endif
-
-//(* always_ready, always_enabled *)
 interface EthMacIfc;
-   interface Vector#(NumPorts, PipeOut#(Bit#(72))) tx; //XGMII
-   interface Vector#(NumPorts, PipeIn#(Bit#(72))) rx;  //XGMII
-   interface Vector#(NumPorts, Put#(PacketDataT#(Bit#(64)))) packet_tx; 
-   interface Vector#(NumPorts, Get#(PacketDataT#(Bit#(64)))) packet_rx;
+   (* always_ready, always_enabled *)
+   method Bit#(72) tx;
+   (* always_ready, always_enabled *)
+   method Action rx (Bit#(72) v);
+   interface Put#(PacketDataT#(Bit#(64))) packet_tx; 
+   interface Get#(PacketDataT#(Bit#(64))) packet_rx;
 endinterface
 
 //
@@ -154,72 +148,37 @@ endmodule
 
 // Mac Wrapper
 (* synthesize *)
-module mkEthMac#(Clock clk_50, Clock clk_156_25, Vector#(4, Clock) rx_clk, Reset rst_156_25_n)(EthMacIfc);
-    Vector#(NumPorts, FIFOF#(Bit#(72))) txFifo = newVector;
-    Vector#(NumPorts, FIFOF#(Bit#(72))) rxFifo = newVector;
-    Vector#(NumPorts, Reset) rx_rst = newVector;
+module mkEthMac#(Clock clk_50, Clock clk_156_25, Clock rx_clk, Reset rst_156_25_n)(EthMacIfc);
     Clock defaultClock <- exposeCurrentClock;
     Reset defaultReset <- exposeCurrentReset;
 
-    for (Integer i=0; i<valueOf(NumPorts); i=i+1) begin
-       rx_rst[i] <- mkAsyncReset(2, rst_156_25_n, rx_clk[i]);
-    end
+    Reset rx_rst <- mkAsyncReset(2, rst_156_25_n, rx_clk);
     Reset rst_50_n <- mkAsyncReset(2, defaultReset, clk_50);
 
-    Vector#(NumPorts, MacWrap) mac;
-    for (Integer i=0; i<valueOf(NumPorts); i=i+1) begin
-       mac[i] <- mkMacWrap(clk_50, clk_156_25, rx_clk[i], rst_50_n, rst_156_25_n, rx_rst[i], clocked_by clk_156_25, reset_by rst_156_25_n);
-    end
+    MacWrap mac <- mkMacWrap(clk_50, clk_156_25, rx_clk, rst_50_n, rst_156_25_n, rx_rst, clocked_by clk_156_25, reset_by rst_156_25_n);
 
-    Vector#(NumPorts, AvalonStTxIfc#(Bit#(64))) stream_out <- replicateM(mkPut2AvalonStTx(clocked_by clk_156_25, reset_by rst_156_25_n));
-    Vector#(NumPorts, AvalonStRxIfc#(Bit#(64))) stream_in = newVector;
-    for (Integer i=0; i<valueOf(NumPorts); i=i+1) begin
-       stream_in[i] <- mkAvalonStRx2Get(clocked_by rx_clk[i], reset_by rx_rst[i]);
-    end
+    AvalonStTxIfc#(Bit#(64)) stream_out <- mkPut2AvalonStTx(clocked_by clk_156_25, reset_by rst_156_25_n);
+    AvalonStRxIfc#(Bit#(64)) stream_in <- mkAvalonStRx2Get(clocked_by rx_clk, reset_by rx_rst);
 
-    for (Integer i=0; i<valueOf(NumPorts); i=i+1) begin
-       rule txFromPacketBuffer;
-          mac[i].tx.fifo_in_data(stream_out[i].physical.data);
-          mac[i].tx.fifo_in_endofpacket(pack(stream_out[i].physical.endofpacket));
-          stream_out[i].physical.stream_out_ready(unpack(mac[i].tx.fifo_in_ready));
-          mac[i].tx.fifo_in_startofpacket(pack(stream_out[i].physical.startofpacket));
-          mac[i].tx.fifo_in_valid(pack(stream_out[i].physical.valid));
-       endrule
-    end
+    rule txFromPacketBuffer;
+       mac.tx.fifo_in_data(stream_out.physical.data);
+       mac.tx.fifo_in_endofpacket(pack(stream_out.physical.endofpacket));
+       stream_out.physical.stream_out_ready(unpack(mac.tx.fifo_in_ready));
+       mac.tx.fifo_in_startofpacket(pack(stream_out.physical.startofpacket));
+       mac.tx.fifo_in_valid(pack(stream_out.physical.valid));
+    endrule
 
-    for (Integer i=0; i<valueOf(NumPorts); i=i+1) begin
-      rule rxToPacketBuffer;
-         stream_in[i].physical.stream_in(mac[i].rx.fifo_out_data,
-                                         unpack(mac[i].rx.fifo_out_valid),
-                                         unpack(mac[i].rx.fifo_out_startofpacket),
-                                         unpack(mac[i].rx.fifo_out_endofpacket));
-         mac[i].rx.fifo_out_ready(pack(stream_in[i].physical.stream_in_ready()));
-      endrule
-    end
+    rule rxToPacketBuffer;
+       stream_in.physical.stream_in(mac.rx.fifo_out_data,
+          unpack(mac.rx.fifo_out_valid),
+          unpack(mac.rx.fifo_out_startofpacket),
+          unpack(mac.rx.fifo_out_endofpacket));
+       mac.rx.fifo_out_ready(pack(stream_in.physical.stream_in_ready()));
+    endrule
 
-    for (Integer i=0; i<valueOf(NumPorts); i=i+1) begin
-       txFifo[i] <- mkFIFOF(clocked_by clk_156_25, reset_by rst_156_25_n);
-       rxFifo[i] <- mkFIFOF(clocked_by rx_clk[i], reset_by rx_rst[i]);
-
-       rule receive;
-          let v <- toGet(rxFifo[i]).get;
-          mac[i].xgmii.rx_data(v);
-       endrule
-    end
-
-    for (Integer i=0; i<valueOf(NumPorts); i=i+1) begin
-       rule transmit;
-          txFifo[i].enq(mac[i].xgmii.tx_data);
-       endrule
-    end
-
-    function Put#(PacketDataT#(Bit#(64))) mtx(Integer i) = stream_out[i].tx;
-    function Get#(PacketDataT#(Bit#(64))) mrx(Integer i) = stream_in[i].rx;
-
-    interface tx = map(toPipeOut, txFifo);
-    interface rx = map(toPipeIn, rxFifo);
-    interface packet_tx = map(mtx, genVector);
-    interface packet_rx = map(mrx, genVector);
+    method tx = mac.xgmii.tx_data;
+    method Action rx(x) = mac.xgmii.rx_data(x);
+    interface packet_tx = stream_out.tx;
+    interface packet_rx = stream_in.rx;
 endmodule
-
 endpackage: EthMac

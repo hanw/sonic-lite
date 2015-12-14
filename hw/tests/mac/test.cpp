@@ -14,7 +14,7 @@
 #include "utils.h"
 #include "sonic_pcap_utils.h"
 
-#define ITERATION 1024
+#define ITERATION 20000
 
 sem_t test_sem;
 static TestRequestProxy *device=0;
