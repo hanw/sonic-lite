@@ -13,6 +13,7 @@ import MemTypes::*;
 import Ethernet::*;
 import PacketBuffer::*;
 import AlteraMacWrap::*;
+import EthMac::*;
 
 interface TestIndication;
    method Action done(Bit#(32) matchCount);
@@ -31,16 +32,17 @@ module mkTest#(TestIndication indication) (Test);
    Clock defaultClock <- exposeCurrentClock();
    Reset defaultReset <- exposeCurrentReset();
 
-   Clock txClock <- mkAbsoluteClock(0, 6400);
+   Clock txClock <- mkAbsoluteClock(0, 64);
    Reset txReset <- mkSyncReset(2, defaultReset, txClock);
-   Clock rxClock <- mkAbsoluteClock(0, 6400);
+   Clock rxClock <- mkAbsoluteClock(0, 64);
    Reset rxReset <- mkSyncReset(2, defaultReset, rxClock);
 
    Reg#(Bit#(32)) cycle <- mkReg(0);
 
    FIFOF#(Bit#(72)) write_data <- mkFIFOF;
    PacketBuffer buff <- mkPacketBuffer();
-   MacWrap mac <- mkMacWrap(defaultClock, txClock, rxClock, defaultReset, defaultReset, rxReset);
+
+   EthMacIfc macs <- mkEthMac(defaultClock, txClock, replicate(rxClock), txReset);
 
    rule every1;
       cycle <= cycle + 1;

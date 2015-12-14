@@ -21,34 +21,6 @@
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-/*-
- * Copyright (c) 2011 Simon W. Moore
- * All rights reserved.
- *
- * This software was developed by SRI International and the University of
- * Cambridge Computer Laboratory under DARPA/AFRL contract FA8750-10-C-0237
- * ("CTSRD"), as part of the DARPA CRASH research programme.
- *
- * @BERI_LICENSE_HEADER_START@
- *
- * Licensed to BERI Open Systems C.I.C. (BERI) under one or more contributor
- * license agreements.  See the NOTICE file distributed with this work for
- * additional information regarding copyright ownership.  BERI licenses this
- * file to you under the BERI Hardware-Software License, Version 1.0 (the
- * "License"); you may not use this file except in compliance with the
- * License.  You may obtain a copy of the License at:
- *
- *   http://www.beri-open-systems.org/legal/license-1-0.txt
- *
- * Unless required by applicable law or agreed to in writing, Work distributed
- * under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
- * CONDITIONS OF ANY KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations under the License.
- *
- * @BERI_LICENSE_HEADER_END@
- *
- *****************************************************************************/
-
 package EthMac;
 
 import Clocks::*;
@@ -59,10 +31,9 @@ import FIFOF                         ::*;
 import GetPut                        ::*;
 import Pipe::*;
 
+import AlteraMacWrap::*;
 import Ethernet::*;
 
-// 4-port 10GbE MAC Qsys wrapper
-import ALTERA_MAC_WRAPPER::*;
 
 `ifdef NUMBER_OF_10G_PORTS
 typedef `NUMBER_OF_10G_PORTS NumPorts;
@@ -194,7 +165,11 @@ module mkEthMac#(Clock clk_50, Clock clk_156_25, Vector#(4, Clock) rx_clk, Reset
        rx_rst[i] <- mkAsyncReset(2, rst_156_25_n, rx_clk[i]);
     end
     Reset rst_50_n <- mkAsyncReset(2, defaultReset, clk_50);
-    MacWrap mac <- mkMacWrap(clk_50, clk_156_25, rx_clk, rx_rst, rst_50_n, rst_156_25_n, clocked_by clk_156_25, reset_by rst_156_25_n);
+
+    Vector#(NumPorts, MacWrap) mac;
+    for (Integer i=0; i<valueOf(NumPorts); i=i+1) begin
+       mac[i] <- mkMacWrap(clk_50, clk_156_25, rx_clk[i], rst_50_n, rst_156_25_n, rx_rst[i], clocked_by clk_156_25, reset_by rst_156_25_n);
+    end
 
     Vector#(NumPorts, AvalonStTxIfc#(Bit#(64))) stream_out <- replicateM(mkPut2AvalonStTx(clocked_by clk_156_25, reset_by rst_156_25_n));
     Vector#(NumPorts, AvalonStRxIfc#(Bit#(64))) stream_in = newVector;
@@ -204,71 +179,21 @@ module mkEthMac#(Clock clk_50, Clock clk_156_25, Vector#(4, Clock) rx_clk, Reset
 
     for (Integer i=0; i<valueOf(NumPorts); i=i+1) begin
        rule txFromPacketBuffer;
-         case(i)
-            0: begin
-               mac.p0_tx.fifo_in_data(stream_out[0].physical.data);
-               mac.p0_tx.fifo_in_endofpacket(pack(stream_out[0].physical.endofpacket));
-               stream_out[0].physical.stream_out_ready(unpack(mac.p0_tx.fifo_in_ready));
-               mac.p0_tx.fifo_in_startofpacket(pack(stream_out[0].physical.startofpacket));
-               mac.p0_tx.fifo_in_valid(pack(stream_out[0].physical.valid));
-            end
-            1: begin
-               mac.p1_tx.fifo_in_data(stream_out[1].physical.data);
-               mac.p1_tx.fifo_in_endofpacket(pack(stream_out[1].physical.endofpacket));
-               stream_out[1].physical.stream_out_ready(unpack(mac.p1_tx.fifo_in_ready));
-               mac.p1_tx.fifo_in_startofpacket(pack(stream_out[1].physical.startofpacket));
-               mac.p1_tx.fifo_in_valid(pack(stream_out[1].physical.valid));
-            end
-            2: begin
-               mac.p2_tx.fifo_in_data(stream_out[2].physical.data);
-               mac.p2_tx.fifo_in_endofpacket(pack(stream_out[2].physical.endofpacket));
-               stream_out[2].physical.stream_out_ready(unpack(mac.p2_tx.fifo_in_ready));
-               mac.p2_tx.fifo_in_startofpacket(pack(stream_out[2].physical.startofpacket));
-               mac.p2_tx.fifo_in_valid(pack(stream_out[2].physical.valid));
-            end
-            3: begin
-               mac.p3_tx.fifo_in_data(stream_out[3].physical.data);
-               mac.p3_tx.fifo_in_endofpacket(pack(stream_out[3].physical.endofpacket));
-               stream_out[3].physical.stream_out_ready(unpack(mac.p3_tx.fifo_in_ready));
-               mac.p3_tx.fifo_in_startofpacket(pack(stream_out[3].physical.startofpacket));
-               mac.p3_tx.fifo_in_valid(pack(stream_out[3].physical.valid));
-            end
-         endcase
+          mac[i].tx.fifo_in_data(stream_out[i].physical.data);
+          mac[i].tx.fifo_in_endofpacket(pack(stream_out[i].physical.endofpacket));
+          stream_out[i].physical.stream_out_ready(unpack(mac[i].tx.fifo_in_ready));
+          mac[i].tx.fifo_in_startofpacket(pack(stream_out[i].physical.startofpacket));
+          mac[i].tx.fifo_in_valid(pack(stream_out[i].physical.valid));
        endrule
     end
 
     for (Integer i=0; i<valueOf(NumPorts); i=i+1) begin
       rule rxToPacketBuffer;
-         case(i)
-            0: begin
-               stream_in[0].physical.stream_in(mac.p0_rx.fifo_out_data,
-                                               unpack(mac.p0_rx.fifo_out_valid),
-                                               unpack(mac.p0_rx.fifo_out_startofpacket),
-                                               unpack(mac.p0_rx.fifo_out_endofpacket));
-               mac.p0_rx.fifo_out_ready(pack(stream_in[0].physical.stream_in_ready()));
-            end
-            1: begin
-               stream_in[1].physical.stream_in(mac.p1_rx.fifo_out_data,
-                                               unpack(mac.p1_rx.fifo_out_valid),
-                                               unpack(mac.p1_rx.fifo_out_startofpacket),
-                                               unpack(mac.p1_rx.fifo_out_endofpacket));
-               mac.p1_rx.fifo_out_ready(pack(stream_in[1].physical.stream_in_ready));
-            end
-            2: begin
-               stream_in[2].physical.stream_in(mac.p2_rx.fifo_out_data,
-                                               unpack(mac.p2_rx.fifo_out_valid),
-                                               unpack(mac.p2_rx.fifo_out_startofpacket),
-                                               unpack(mac.p2_rx.fifo_out_endofpacket));
-               mac.p2_rx.fifo_out_ready(pack(stream_in[2].physical.stream_in_ready));
-            end
-            3: begin
-               stream_in[3].physical.stream_in(mac.p3_rx.fifo_out_data,
-                                               unpack(mac.p3_rx.fifo_out_valid),
-                                               unpack(mac.p3_rx.fifo_out_startofpacket),
-                                               unpack(mac.p3_rx.fifo_out_endofpacket));
-               mac.p3_rx.fifo_out_ready(pack(stream_in[3].physical.stream_in_ready));
-            end
-         endcase
+         stream_in[i].physical.stream_in(mac[i].rx.fifo_out_data,
+                                         unpack(mac[i].rx.fifo_out_valid),
+                                         unpack(mac[i].rx.fifo_out_startofpacket),
+                                         unpack(mac[i].rx.fifo_out_endofpacket));
+         mac[i].rx.fifo_out_ready(pack(stream_in[i].physical.stream_in_ready()));
       endrule
     end
 
@@ -278,23 +203,13 @@ module mkEthMac#(Clock clk_50, Clock clk_156_25, Vector#(4, Clock) rx_clk, Reset
 
        rule receive;
           let v <- toGet(rxFifo[i]).get;
-          case(i)
-             0: mac.p0_xgmii.rx_data(v);
-             1: mac.p1_xgmii.rx_data(v);
-             2: mac.p2_xgmii.rx_data(v);
-             3: mac.p3_xgmii.rx_data(v);
-          endcase
+          mac[i].xgmii.rx_data(v);
        endrule
     end
 
     for (Integer i=0; i<valueOf(NumPorts); i=i+1) begin
        rule transmit;
-          case(i)
-             0: txFifo[0].enq(mac.p0_xgmii.tx_data);
-             1: txFifo[1].enq(mac.p1_xgmii.tx_data);
-             2: txFifo[2].enq(mac.p2_xgmii.tx_data);
-             3: txFifo[3].enq(mac.p3_xgmii.tx_data);
-          endcase
+          txFifo[i].enq(mac[i].xgmii.tx_data);
        endrule
     end
 

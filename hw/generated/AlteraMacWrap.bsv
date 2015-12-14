@@ -60,11 +60,11 @@ module mkMacWrap#(Clock mgmt_clk, Clock tx_clk, Clock rx_clk, Reset mgmt_reset_n
    default_clock clk();
    default_reset rst();
    input_clock mgmt_clk(mm_clk_clk) = mgmt_clk;
-   input_reset mgmt_reset_n(mm_reset_reset_n) = mgmt_reset_n;
+   input_reset mgmt_reset_n(mm_reset_reset_n) clocked_by (mgmt_clk) = mgmt_reset_n;
    input_clock rx_clk(rx_clk_clk) = rx_clk;
    input_reset rx_reset_n(rx_reset_reset_n) clocked_by(rx_clk) = rx_reset_n;
    input_clock tx_clk(tx_clk_clk) = tx_clk;
-   input_reset tx_reset_n(tx_reset_reset_n) = tx_reset_n;
+   input_reset tx_reset_n(tx_reset_reset_n) clocked_by(tx_clk)= tx_reset_n;
 
    interface Mac_link_fault     link_fault;
       method link_fault_status_xgmii_rx_data status_data();
