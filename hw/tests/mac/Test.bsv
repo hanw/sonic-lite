@@ -37,13 +37,13 @@ module mkTest#(TestIndication indication) (Test);
    Clock rxClock <- mkAbsoluteClock(0, 64);
    Reset rxReset <- mkSyncReset(2, defaultReset, rxClock);
 
-   Reg#(Bit#(32)) cycle <- mkReg(0);
+   Reg#(Bit#(32)) cycle <- mkReg(0, clocked_by rxClock, reset_by rxReset);
 
-   FIFOF#(Bit#(72)) write_data <- mkFIFOF;
    SyncFIFOIfc#(Bit#(72)) rx_fifo <- mkSyncFIFO(5, defaultClock, defaultReset, rxClock);
 
    PacketBuffer buff <- mkPacketBuffer();
    EthMacIfc mac <- mkEthMac(defaultClock, txClock, rxClock, txReset);
+
    rule every1;
       cycle <= cycle + 1;
    endrule
@@ -51,6 +51,7 @@ module mkTest#(TestIndication indication) (Test);
    rule receive_fifo;
       let v <- toGet(rx_fifo).get;
       mac.rx(v);
+      if (verbose) $display("%d: received data %h", cycle, v);
    endrule
 
    rule readDataStart;
@@ -61,9 +62,8 @@ module mkTest#(TestIndication indication) (Test);
 
    rule readDataInProgress;
       let v <- buff.readServer.readData.get;
-      if(verbose) $display("%d: mkTest.write_data v=%h", cycle, v);
+      //if(verbose) $display("%d: mkTest.write_data v=%h", cycle, v);
       Bit#(72) xgmii = {v.data[99:64], v.data[35:0]};
-      write_data.enq(xgmii);
       rx_fifo.enq(xgmii);
       if (v.eop) begin
          indication.done(0);

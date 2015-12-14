@@ -14,7 +14,7 @@
 #include "utils.h"
 #include "sonic_pcap_utils.h"
 
-#define ITERATION 20000
+#define ITERATION 2000
 
 sem_t test_sem;
 static TestRequestProxy *device=0;
@@ -34,7 +34,7 @@ int main(int argc, char **argv) {
     TestIndication deviceIndication(IfcNames_TestIndicationH2S);
     device = new TestRequestProxy(IfcNames_TestRequestS2H);
 
-    const std::string path="../../data/xgmii.data";
+    const std::string path="../../data/xgmii.data2";
     std::ifstream traceinfo(path.c_str());
     std::string line;
     uint64_t data[2];
