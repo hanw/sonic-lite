@@ -47,11 +47,6 @@ typedef struct {
    Bool                    valid;
 } PacketData#(numeric type dataT_width) deriving (Bits, Eq);
 
-typedef struct {
-   Bit#(8)  data;
-   Bit#(1)  control;
-} XGMII_LANES deriving (Bits);
-
 instance DefaultValue#(PacketData#(n));
    defaultValue =
    PacketData {
@@ -63,63 +58,6 @@ instance DefaultValue#(PacketData#(n));
       valid : False
       };
 endinstance
-
-(* always_ready, always_enabled *)
-interface XGMII_RX_PCS;                               // PCS provides to MAC
-   method Bit#(72) rx_dc;
-endinterface
-
-(* always_ready, always_enabled *)
-interface XGMII_TX_PCS;                               // PCS provides to MAC
-   method Action tx_dc (Bit#(72) v);
-endinterface
-
-(* always_ready, always_enabled *)
-interface XGMII_PCS; // top of PCS facing MAC
-   interface XGMII_RX_PCS rx;
-   interface XGMII_TX_PCS tx;
-endinterface
-
-(* always_ready, always_enabled *)
-interface XGMII_RX_MAC;                               // MAC provides to PCS
-   method Action rx_dc (Bit#(72) v);
-endinterface
-
-(* always_ready, always_enabled *)
-interface XGMII_TX_MAC;                               // MAC provides to PCS
-   method Bit#(72) tx_dc;
-endinterface
-
-(* always_ready, always_enabled *)
-interface XGMII_MAC; // bottom of MAC facing PCS
-   (* prefix = "" *)
-   interface XGMII_RX_MAC rx;
-   (* prefix = "" *)
-   interface XGMII_TX_MAC tx;
-endinterface
-
-(* always_ready, always_enabled *)
-interface XCVR_RX_PCS;                                // PCS provides to PMA
-   method Action rx_ready ( (* port = "rx_ready" *)  Bit#(1) v);
-   method Action rx_clkout( (* port = "rx_clkout" *) Bit#(1) v);
-   method Action rx_data  ( (* port = "rx_data" *)   Bit#(40) v);
-endinterface
-
-(* always_ready, always_enabled *)
-interface XCVR_TX_PCS;                                // PCS provides to PMA
-   method Action tx_ready ( (* port = "tx_ready" *)  Bit#(1) v);
-   method Action tx_clkout( (* port = "tx_clkout" *) Bit#(1) v);
-   (* prefix = "", result = "tx_data" *)
-   method Bit#(40) tx_data;
-endinterface
-
-(* always_ready, always_enabled *)
-interface XCVR_PCS;  // bottom of PCS facing PMA
-   (* prefix = "" *)
-   interface XCVR_RX_PCS rx;
-   (* prefix = "" *)
-   interface XCVR_TX_PCS tx;
-endinterface
 
 interface SerialIfc;
    (* prefix = "" , result = "tx_data" *)
