@@ -107,9 +107,10 @@ typedef 12   PktAddrWidth;
 typedef 128  PktDataWidth;
 typedef 16   EtherLen;
 typedef struct {
+   Bit#(PktDataWidth) data;
+   Bit#(TDiv#(PktDataWidth, 8)) mask;
    Bool sop;
    Bool eop;
-   Bit#(PktDataWidth) data;
 } EtherData deriving (Eq, Bits);
 instance FShow#(EtherData);
    function Fmt fshow (EtherData v);
@@ -123,6 +124,7 @@ instance DefaultValue#(EtherData);
    defaultValue =
    EtherData {
    data : 0,
+   mask : 0,
    sop : False,
    eop : False
    };

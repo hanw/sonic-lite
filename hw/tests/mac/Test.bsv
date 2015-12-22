@@ -7,6 +7,7 @@ import GetPut::*;
 import ClientServer::*;
 import Connectable::*;
 import Clocks::*;
+import Gearbox::*;
 
 import Pipe::*;
 import MemTypes::*;
@@ -20,7 +21,7 @@ interface TestIndication;
 endinterface
 
 interface TestRequest;
-   method Action writePacketData(Vector#(2, Bit#(64)) data, Bit#(1) sop, Bit#(1) eop);
+   method Action writePacketData(Vector#(2, Bit#(64)) data, Vector#(2, Bit#(8)) mask, Bit#(1) sop, Bit#(1) eop);
 endinterface
 
 interface Test;
@@ -40,6 +41,7 @@ module mkTest#(TestIndication indication) (Test);
    Reg#(Bit#(32)) cycle <- mkReg(0, clocked_by rxClock, reset_by rxReset);
 
    SyncFIFOIfc#(Bit#(72)) rx_fifo <- mkSyncFIFO(5, defaultClock, defaultReset, rxClock);
+   Gearbox#(2, 1, PacketDataT#(64)) fifoTxData <- mkNto1Gearbox(txClock, txReset, txClock, txReset);
 
    PacketBuffer buff <- mkPacketBuffer();
    EthMacIfc mac1 <- mkEthMac(defaultClock, txClock, rxClock, txReset);
@@ -48,7 +50,7 @@ module mkTest#(TestIndication indication) (Test);
    SyncFIFOIfc#(Bit#(72)) lpbk_fifo1 <- mkSyncFIFO(5, txClock, txReset, rxClock);
    SyncFIFOIfc#(Bit#(72)) lpbk_fifo2 <- mkSyncFIFO(5, txClock, txReset, rxClock);
 
-   SyncFIFOIfc#(PacketDataT#(Bit#(64))) tx_fifo <- mkSyncFIFO(5, defaultClock, defaultReset, txClock);
+   SyncFIFOIfc#(EtherData) tx_fifo <- mkSyncFIFO(5, defaultClock, defaultReset, txClock);
 
    rule every1;
       cycle <= cycle + 1;
@@ -80,29 +82,48 @@ module mkTest#(TestIndication indication) (Test);
       buff.readServer.readReq.put(EtherReq{len: truncate(pktLen)});
    endrule
 
-   rule readDataInProgress;
+   function Vector#(2, PacketDataT#(64)) split(EtherData in);
+      Vector#(2, PacketDataT#(64)) v = defaultValue;
+      v[0].sop = pack(in.sop);
+      v[0].data = in.data[63:0];
+      v[0].eop = (in.mask[15:8] == 0) ? pack(in.eop) : 0;
+      v[0].mask = in.mask[7:0];
+      v[1].sop = 0;
+      v[1].data = in.data[127:64];
+      v[1].eop = pack(in.eop);
+      v[1].mask = in.mask[15:8];
+      return v;
+   endfunction
+
+   rule cross_clocking;
       let v <- buff.readServer.readData.get;
-      tx_fifo.enq(PacketDataT{d: v.data[63:0], sop: pack(v.sop), eop: pack(v.eop)});
-//      if (v.eop) begin
-//         indication.done(0);
-//      end
+      tx_fifo.enq(v);
    endrule
 
-   rule tx_packet;
+   rule process_incoming_packet;
       let v <- toGet(tx_fifo).get;
-      if (verbose) $display("tx data %h", v.d);
-      mac1.packet_tx.put(v);
+      fifoTxData.enq(split(v));
+   endrule
+
+   rule process_outgoing_packet;
+      let data = fifoTxData.first; fifoTxData.deq;
+      let temp = head(data);
+      if (temp.mask != 0) begin
+         if (verbose) $display("tx data %h", temp.data);
+         mac1.packet_tx.put(temp);
+      end
    endrule
 
    rule rx_packet;
       let v <- mac2.packet_rx.get();
-      $display("rx data %h", v.d);
+      $display("rx data %h", v.data);
    endrule
 
    interface TestRequest request;
-      method Action writePacketData(Vector#(2, Bit#(64)) data, Bit#(1) sop, Bit#(1) eop);
+      method Action writePacketData(Vector#(2, Bit#(64)) data, Vector#(2, Bit#(8)) mask, Bit#(1) sop, Bit#(1) eop);
          EtherData beat = defaultValue;
          beat.data = pack(reverse(data));
+         beat.mask = pack(mask);
          beat.sop = unpack(sop);
          beat.eop = unpack(eop);
          buff.writeServer.writeData.put(beat);
