@@ -6,6 +6,7 @@
 #include <fstream>
 #include <sstream>
 #include <iostream>
+#include <string>
 
 #include "MemServerRequest.h"
 #include "TestRequest.h"
@@ -14,7 +15,9 @@
 #include "utils.h"
 #include "sonic_pcap_utils.h"
 
-#define ITERATION 2000
+using namespace std;
+
+#define ITERATION 100
 
 sem_t test_sem;
 static TestRequestProxy *device=0;
@@ -28,31 +31,90 @@ public:
 };
 
 void mem_copy(const void *buff, int packet_size) {
+
+    int i, sop, eop;
+    uint64_t data[2];
+    int numBeats;
+
+    numBeats = packet_size / 8; // 16 bytes per beat for 128-bit datawidth;
+    if (packet_size % 8) numBeats++;
+    PRINT_INFO("nBeats=%d, packetSize=%d\n", numBeats, packet_size);
+    for (i=0; i<numBeats; i++) {
+        data[i%2] = *(static_cast<const uint64_t *>(buff) + i);
+        sop = (i/2 == 0);
+        eop = (i/2 == (numBeats-1)/2);
+        if (i%2) {
+            device->writePacketData(data, sop, eop);
+            PRINT_INFO("%016lx %016lx %d %d\n", data[1], data[0], sop, eop);
+        }
+
+        // last beat, padding with zero
+        if ((numBeats%2!=0) && (i==numBeats-1)) {
+            sop = (i/2 == 0) ? 1 : 0;
+            eop = 1;
+            data[1] = 0;
+            device->writePacketData(data, sop, eop);
+            PRINT_INFO("%016lx %016lx %d %d\n", data[1], data[0], sop, eop);
+        }
+    }
+}
+
+void usage (const char *program_name) {
+    printf("%s: p4fpga tester\n"
+     "usage: %s [OPTIONS] \n",
+     program_name, program_name);
+    printf("\nOther options:\n"
+    " -b, --shared-buffer              demo shared buffer\n");
 }
 
 int main(int argc, char **argv) {
+    const char *program_name = get_exe_name(argv[0]);
+    const char *pcap_file="";
+    void *buffer;
+    long length;
+    int c, option_index;
+    bool load_pcap = false;
+
     TestIndication deviceIndication(IfcNames_TestIndicationH2S);
     device = new TestRequestProxy(IfcNames_TestRequestS2H);
 
-    const std::string path="../../data/xgmii.data2";
-    std::ifstream traceinfo(path.c_str());
-    std::string line;
-    uint64_t data[2];
-    int sop, eop;
+    static struct option long_options [] = {
+        {"packet",  required_argument, 0, 'p'},
+        {"help",                no_argument, 0, 'h'},
+        {0, 0, 0, 0}
+    };
 
-    for (int i = 0; i < ITERATION; i=i+2 ) {
-        std::getline(traceinfo, line);
-        std::istringstream iss(line);
-        std::string first_64;
-        iss >> first_64;
-        std::string second_64;
-        iss >> second_64;
-        data[1] = strtoul(first_64.c_str(), NULL, 16);
-        data[0] = strtoul(second_64.c_str(), NULL, 16);
-        sop = (i == 0) ? 1 : 0;
-        eop = (i == ITERATION-2) ? 1 : 0;
-        device->writePacketData(data, sop, eop);
-        PRINT_INFO("%016lx %016lx %d %d\n", data[1], data[0], sop, eop);
+    static string short_options
+        (long_options_to_short_options(long_options));
+
+    for (;;) {
+        c = getopt_long(argc, argv, short_options.c_str(), long_options, &option_index);
+
+        if (c == -1)
+            break;
+
+        switch (c) {
+            case 'h':
+                usage(program_name);
+                break;
+            case 'p':
+                load_pcap = true;
+                pcap_file = optarg;
+                break;
+         }
+    }
+
+    if (load_pcap) {
+        fprintf(stderr, "Attempts to read pcap file %s\n", pcap_file);
+
+        if (!read_pcap_file(pcap_file, &buffer, &length)) {
+            perror("Failed to read file!");
+            exit(-1);
+        }
+
+        if (int err = load_pcap_file(buffer, length)) {
+            fprintf(stderr, "Error: %s\n", strerror(err));
+        }
     }
 
     sem_wait(&test_sem);

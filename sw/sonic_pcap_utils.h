@@ -108,4 +108,11 @@ int load_pcap_file(void *buffer, long length) {
     return 0;
 }
 
+const char* get_exe_name(const char* argv0) {
+    if (const char *last_slash = strrchr(argv0, '/')) {
+        return last_slash + 1;
+    }
+    return argv0;
+}
+
 #endif

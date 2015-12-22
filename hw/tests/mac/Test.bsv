@@ -42,16 +42,36 @@ module mkTest#(TestIndication indication) (Test);
    SyncFIFOIfc#(Bit#(72)) rx_fifo <- mkSyncFIFO(5, defaultClock, defaultReset, rxClock);
 
    PacketBuffer buff <- mkPacketBuffer();
-   EthMacIfc mac <- mkEthMac(defaultClock, txClock, rxClock, txReset);
+   EthMacIfc mac1 <- mkEthMac(defaultClock, txClock, rxClock, txReset);
+   EthMacIfc mac2 <- mkEthMac(defaultClock, txClock, rxClock, txReset);
+
+   SyncFIFOIfc#(Bit#(72)) lpbk_fifo1 <- mkSyncFIFO(5, txClock, txReset, rxClock);
+   SyncFIFOIfc#(Bit#(72)) lpbk_fifo2 <- mkSyncFIFO(5, txClock, txReset, rxClock);
+
+   SyncFIFOIfc#(PacketDataT#(Bit#(64))) tx_fifo <- mkSyncFIFO(5, defaultClock, defaultReset, txClock);
 
    rule every1;
       cycle <= cycle + 1;
    endrule
 
-   rule receive_fifo;
-      let v <- toGet(rx_fifo).get;
-      mac.rx(v);
-      if (verbose) $display("%d: received data %h", cycle, v);
+   rule tx_mac1;
+      let v = mac1.tx;
+      lpbk_fifo1.enq(v);
+   endrule
+
+   rule tx_mac2;
+      let v = mac2.tx;
+      lpbk_fifo2.enq(v);
+   endrule
+
+   rule rx_mac1;
+      let v <- toGet(lpbk_fifo2).get;
+      mac1.rx(v);
+   endrule
+
+   rule rx_mac2;
+      let v <- toGet(lpbk_fifo1).get;
+      mac2.rx(v);
    endrule
 
    rule readDataStart;
@@ -62,12 +82,21 @@ module mkTest#(TestIndication indication) (Test);
 
    rule readDataInProgress;
       let v <- buff.readServer.readData.get;
-      //if(verbose) $display("%d: mkTest.write_data v=%h", cycle, v);
-      Bit#(72) xgmii = {v.data[99:64], v.data[35:0]};
-      rx_fifo.enq(xgmii);
-      if (v.eop) begin
-         indication.done(0);
-      end
+      tx_fifo.enq(PacketDataT{d: v.data[63:0], sop: pack(v.sop), eop: pack(v.eop)});
+//      if (v.eop) begin
+//         indication.done(0);
+//      end
+   endrule
+
+   rule tx_packet;
+      let v <- toGet(tx_fifo).get;
+      if (verbose) $display("tx data %h", v.d);
+      mac1.packet_tx.put(v);
+   endrule
+
+   rule rx_packet;
+      let v <- mac2.packet_rx.get();
+      $display("rx data %h", v.d);
    endrule
 
    interface TestRequest request;

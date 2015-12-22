@@ -44,21 +44,6 @@ interface EthMacIfc;
    interface Get#(PacketDataT#(Bit#(64))) packet_rx;
 endinterface
 
-//
-// AvalonStreaming
-// ===============
-//
-// This library provides Bluespec wrappers for Altera's Avalon Streaming
-// interface.
-(* always_ready, always_enabled *)
-interface AvalonStTx#(numeric type dataT_width);
-   method Bit#(dataT_width) data;
-   method Bool valid;
-   method Action stream_out_ready(Bool ready);
-   method Bit#(1) startofpacket;
-   method Bit#(1) endofpacket;
-endinterface
-
 typedef struct {
    dataT d;  // data (generic)
    Bit#(1) sop; // start-of-packet marker
@@ -73,121 +58,69 @@ instance DefaultValue#(PacketDataT#(Bit#(64)));
     };
 endinstance
 
-interface AvalonStTxVerboseIfc#(type dataT, numeric type dataT_width);
-   interface Put#(PacketDataT#(dataT)) tx;
-   interface AvalonStTx#(dataT_width) physical;
-endinterface
-
-typedef AvalonStTxVerboseIfc#(dataT,SizeOf#(dataT)) AvalonStTxIfc#(type dataT);
-
-module mkPut2AvalonStTx(AvalonStTxVerboseIfc#(dataT,dataT_width))
-   provisos(Bits#(dataT,dataT_width));
-
-   Wire#(Maybe#(Bit#(dataT_width))) data_dw <- mkDWire(tagged Invalid);
-   Wire#(Bool) ready_w <- mkBypassWire;
-   Wire#(Bit#(1)) sop_dw <- mkDWire(0);
-   Wire#(Bit#(1)) eop_dw <- mkDWire(0);
-
-   interface Put tx;
-      method Action put(PacketDataT#(dataT) d) if(ready_w);
-         data_dw <= tagged Valid pack(d.d);
-         sop_dw <= d.sop;
-         eop_dw <= d.eop;
-      endmethod
-   endinterface
-
-   interface AvalonStTx physical;
-      method Bit#(dataT_width) data;
-         return fromMaybe(0,data_dw);
-      endmethod
-      method Bool valid;
-         return isValid(data_dw);
-      endmethod
-      method Action stream_out_ready(Bool ready);
-         ready_w <= ready;
-      endmethod
-      method Bit#(1) startofpacket;
-         return sop_dw;
-      endmethod
-      method Bit#(1) endofpacket;
-         return eop_dw;
-      endmethod
-   endinterface
-endmodule
-
-(* always_ready, always_enabled *)
-interface AvalonStRx#(type dataT_width);
-   method Action stream_in(Bit#(dataT_width) data, Bool valid,
-			   Bit#(1) startofpacket, Bit#(1) endofpacket);
-   method Bool stream_in_ready;
-endinterface
-
-interface AvalonStRxVerboseIfc#(type dataT, numeric type dataT_width);
-   interface Get#(PacketDataT#(dataT)) rx;
-   interface AvalonStRx#(dataT_width) physical;
-endinterface
-
-typedef AvalonStRxVerboseIfc#(dataT,SizeOf#(dataT)) AvalonStRxIfc#(type dataT);
-
-module mkAvalonStRx2Get(AvalonStRxVerboseIfc#(dataT,dataT_width))
-provisos(Bits#(dataT,dataT_width));
-
-   FIFOF#(PacketDataT#(dataT)) f <- mkLFIFOF;
-   Wire#(Maybe#(PacketDataT#(dataT))) d_dw <- mkDWire(tagged Invalid);
-
-   rule push_data_into_fifo (isValid(d_dw));
-      f.enq(fromMaybe(?,d_dw));
-   endrule
-
-   interface Get rx = toGet(f);
-
-   interface AvalonStRx physical;
-      // method to receive data.  Note that the data should be held
-      // until stream_in_ready is True, i.e. there is room in the internal
-      // FIFO - f - so we should never loose data from our d_dw DWire
-      method Action stream_in(Bit#(dataT_width) data, Bool valid, Bit#(1) startofpacket, Bit#(1) endofpacket);
-         if(valid)
-            d_dw <= tagged Valid PacketDataT{d:unpack(data), sop:startofpacket, eop:endofpacket};
-      endmethod
-      method Bool stream_in_ready;
-         return f.notFull;
-      endmethod
-   endinterface
-endmodule
-
 // Mac Wrapper
 (* synthesize *)
 module mkEthMac#(Clock clk_50, Clock clk_156_25, Clock rx_clk, Reset rst_156_25_n)(EthMacIfc);
-    Clock defaultClock <- exposeCurrentClock;
-    Reset defaultReset <- exposeCurrentReset;
+   Clock defaultClock <- exposeCurrentClock;
+   Reset defaultReset <- exposeCurrentReset;
 
-    Reset rx_rst <- mkAsyncReset(2, rst_156_25_n, rx_clk);
-    Reset rst_50_n <- mkAsyncReset(2, defaultReset, clk_50);
+   Reset rx_rst_n <- mkAsyncReset(2, rst_156_25_n, rx_clk);
+   Reset rst_50_n <- mkAsyncReset(2, defaultReset, clk_50);
 
-    MacWrap mac <- mkMacWrap(clk_50, clk_156_25, rx_clk, rst_50_n, rst_156_25_n, rx_rst, clocked_by clk_156_25, reset_by rst_156_25_n);
+   // Wire data_dw
+   Wire#(Maybe#(Bit#(64))) tx_data_dw <- mkDWire(tagged Invalid, clocked_by clk_156_25, reset_by rst_156_25_n);
+   Wire#(Bit#(1)) tx_ready_dw <- mkDWire(0, clocked_by clk_156_25, reset_by rst_156_25_n);
+   Wire#(Bit#(1)) tx_sop_dw <- mkDWire(0, clocked_by clk_156_25, reset_by rst_156_25_n);
+   Wire#(Bit#(1)) tx_eop_dw <- mkDWire(0, clocked_by clk_156_25, reset_by rst_156_25_n);
 
-    AvalonStTxIfc#(Bit#(64)) stream_out <- mkPut2AvalonStTx(clocked_by clk_156_25, reset_by rst_156_25_n);
-    AvalonStRxIfc#(Bit#(64)) stream_in <- mkAvalonStRx2Get(clocked_by rx_clk, reset_by rx_rst);
+   FIFOF#(PacketDataT#(Bit#(64))) rx_fifo <- mkFIFOF(clocked_by rx_clk, reset_by rx_rst_n);
 
-    rule txFromPacketBuffer;
-       mac.tx.fifo_in_data(stream_out.physical.data);
-       mac.tx.fifo_in_endofpacket(pack(stream_out.physical.endofpacket));
-       stream_out.physical.stream_out_ready(unpack(mac.tx.fifo_in_ready));
-       mac.tx.fifo_in_startofpacket(pack(stream_out.physical.startofpacket));
-       mac.tx.fifo_in_valid(pack(stream_out.physical.valid));
-    endrule
+   MacWrap mac <- mkMacWrap(clk_50, clk_156_25, rx_clk, rst_50_n, rst_156_25_n, rx_rst_n, clocked_by clk_156_25, reset_by rst_156_25_n);
 
-    rule rxToPacketBuffer;
-       stream_in.physical.stream_in(mac.rx.fifo_out_data,
-          unpack(mac.rx.fifo_out_valid),
-          mac.rx.fifo_out_startofpacket,
-          mac.rx.fifo_out_endofpacket);
-       mac.rx.fifo_out_ready(pack(stream_in.physical.stream_in_ready()));
-    endrule
+   rule tx_ready;
+      tx_ready_dw <= mac.tx.fifo_in_ready();
+   endrule
 
-    method tx = mac.xgmii.tx_data;
-    method Action rx(x) = mac.xgmii.rx_data(x);
-    interface packet_tx = stream_out.tx;
-    interface packet_rx = stream_in.rx;
+   rule tx_data;
+      mac.tx.fifo_in_data(fromMaybe(0,tx_data_dw));
+   endrule
+
+   rule tx_sop;
+      mac.tx.fifo_in_startofpacket(tx_sop_dw);
+   endrule
+
+   rule tx_eop;
+      mac.tx.fifo_in_endofpacket(tx_eop_dw);
+   endrule
+
+   rule tx_valid;
+      mac.tx.fifo_in_valid(pack(isValid(tx_data_dw)));
+   endrule
+
+   rule rx_data;
+      let data = mac.rx.fifo_out_data();
+      let sop = mac.rx.fifo_out_startofpacket();
+      let eop = mac.rx.fifo_out_endofpacket();
+      let valid = mac.rx.fifo_out_valid();
+
+      if (valid == 1'b1) begin
+         rx_fifo.enq(PacketDataT{d: data, sop:sop, eop:eop});
+      end
+   endrule
+
+   rule rx_ready;
+      mac.rx.fifo_out_ready(pack(rx_fifo.notFull));
+   endrule
+
+   method tx = mac.xgmii.tx_data;
+   method Action rx(x) = mac.xgmii.rx_data(x);
+   interface Put packet_tx;
+      method Action put(PacketDataT#(Bit#(64)) d) if (tx_ready_dw != 0);
+         tx_data_dw <= tagged Valid pack(d.d);
+         tx_sop_dw <= pack(d.sop);
+         tx_eop_dw <= pack(d.eop);
+      endmethod
+   endinterface
+   interface Get packet_rx = toGet(rx_fifo);
 endmodule
 endpackage: EthMac
