@@ -97,6 +97,14 @@ module mkEthMac#(Clock clk_50, Clock clk_156_25, Clock rx_clk, Reset rst_156_25_
       mac.tx.fifo_in_endofpacket(tx_eop_w);
    endrule
 
+   rule tx_empty;
+      mac.tx.fifo_in_empty(tx_empty_w);
+   endrule
+
+   rule tx_error;
+      mac.tx.fifo_in_error(1'b0);
+   endrule
+
    rule tx_valid;
       mac.tx.fifo_in_valid(pack(isValid(tx_data_w)));
    endrule
@@ -123,10 +131,12 @@ module mkEthMac#(Clock clk_50, Clock clk_156_25, Clock rx_clk, Reset rst_156_25_
    method Action rx(x) = mac.xgmii.rx_data(x);
    interface Put packet_tx;
       method Action put(PacketDataT#(64) d) if (tx_ready_w != 0);
+         Bit#(3) tx_empty = truncate(fromOInt(unpack(d.mask+1)));
          tx_data_w <= tagged Valid pack(d.data);
-         tx_empty_w <= truncate(fromOInt(unpack(d.mask+1)));
+         tx_empty_w <= tx_empty;
          tx_sop_w <= pack(d.sop);
          tx_eop_w <= pack(d.eop);
+         $display("tx_empty %h", tx_empty);
       endmethod
    endinterface
    interface Get packet_rx = toGet(rx_fifo);
