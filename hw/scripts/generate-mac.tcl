@@ -5,9 +5,15 @@ proc generate_mac_core {core_version ip_name mode} {
     global ipdir boardname partname
     set arg_list [list]
 
+    if { $mode == "simulation"} {
+        set file_set "SIM_VERILOG"
+    } else {
+        set file_set "SYNTH_VERILOG"
+    }
+
     lappend arg_list "--project-directory=$ipdir/$boardname"
     lappend arg_list "--output-directory=$ipdir/$boardname/$mode/$ip_name"
-    lappend arg_list "--file-set=SIM_VERILOG"
+    lappend arg_list "--file-set=$file_set"
     lappend arg_list "--language=VERILOG"
     lappend arg_list "--system-info=DEVICE_FAMILY=STRATIXV"
     lappend arg_list "--system-info=DEVICE=$partname"
@@ -41,19 +47,22 @@ proc generate_mac_core {core_version ip_name mode} {
     lappend arg_list "--component-param=PLL_EXTERNAL_ENABLE=0"
     catch { eval [concat [list exec ip-generate --component-name=altera_eth_10g_design_example] $arg_list] } temp
     puts $temp
-    puts "Generating simulation files ..."
-    catch { eval [concat [list exec ip-make-simscript --spd=$ipdir/$boardname/$mode/$ip_name.spd --compile-to-work] --output-directory=$ipdir/$boardname/$mode/$ip_name/] } temp
-    puts $temp
-    puts "Generating simulation scripts ..."
+    if { $mode == "simulation" } {
+        catch { eval [concat [list exec ip-make-simscript --spd=$ipdir/$boardname/$mode/$ip_name.spd --compile-to-work] --output-directory=$ipdir/$boardname/$mode/$ip_name/] } temp
+        puts $temp
+    }
 }
 
-if {[info exists USE_ALTERA_MAC]} {
-    #fpgamake_altera_ipcore_qsys ../../hw/qsys/mac.qsys 14.0 altera_mac
-    generate_mac_core 14.0 mac_10gbe synthesis
+regexp {[\.0-9]+} $quartus(version) core_version
+puts $core_version
+
+if {[info exists SYNTHESIS]} {
+    puts "Genereate synthesis model.."
+    generate_mac_core $core_version mac_10gbe synthesis
 }
 
 if {[info exists SIMULATION]} {
     puts "Genereate simulation model.."
-    generate_mac_core 14.0 mac_10gbe simulation
+    generate_mac_core $core_version mac_10gbe simulation
 }
 

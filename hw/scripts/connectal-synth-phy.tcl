@@ -43,8 +43,6 @@ proc create_altera_10gber_phy {channels} {
 	connectal_altera_synth_ip $core_name $core_version $ip_name $component_parameters
 }
 
-if {[info exists NUMBER_OF_10G_PORTS]} {
-   if {[info exists USE_ALTERA_10GBASER]} {
-       create_altera_10gber_phy $NUMBER_OF_10G_PORTS
-   }
+if {[info exists SYNTHESIS]} {
+    create_altera_10gber_phy $NUMBER_OF_10G_PORTS
 }
