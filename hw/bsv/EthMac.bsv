@@ -131,7 +131,8 @@ module mkEthMac#(Clock clk_50, Clock clk_156_25, Clock rx_clk, Reset rst_156_25_
    method Action rx(x) = mac.xgmii.rx_data(x);
    interface Put packet_tx;
       method Action put(PacketDataT#(64) d) if (tx_ready_w != 0);
-         Bit#(3) tx_empty = truncate(fromOInt(unpack(d.mask+1)));
+         Bit#(3) tx_empty = truncate(pack(countOnes(maxBound-unpack(d.mask))));
+         //Bit#(3) tx_empty = truncate(fromOInt(unpack(d.mask + 1)));
          tx_data_w <= tagged Valid pack(d.data);
          tx_empty_w <= tx_empty;
          tx_sop_w <= pack(d.sop);

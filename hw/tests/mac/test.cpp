@@ -42,12 +42,18 @@ void mem_copy(const void *buff, int packet_size) {
     PRINT_INFO("nBeats=%d, packetSize=%d\n", numBeats, packet_size);
     for (i=0; i<numBeats; i++) {
         data[i%2] = *(static_cast<const uint64_t *>(buff) + i);
-        mask[i%2] = 0xff;
+        if (packet_size > 8) {
+            mask[i%2] = 0xff;
+            packet_size -= 8; // 64-bit
+        } else {
+            mask[i%2] = ((1 << packet_size) - 1) & 0xff;
+            packet_size = 0;
+        }
         sop = (i/2 == 0);
         eop = (i/2 == (numBeats-1)/2);
         if (i%2) {
             device->writePacketData(data, mask, sop, eop);
-            PRINT_INFO("%016lx %016lx %d %d\n", data[1], data[0], sop, eop);
+            PRINT_INFO("%016lx %016lx %0x %0x %d %d\n", data[1], data[0], mask[1], mask[0], sop, eop);
         }
 
         // last beat, padding with zero
@@ -55,8 +61,9 @@ void mem_copy(const void *buff, int packet_size) {
             sop = (i/2 == 0) ? 1 : 0;
             eop = 1;
             data[1] = 0;
+            mask[1] = 0;
             device->writePacketData(data, mask, sop, eop);
-            PRINT_INFO("%016lx %016lx %d %d\n", data[1], data[0], sop, eop);
+            PRINT_INFO("%016lx %016lx %0x %0x %d %d\n", data[1], data[0], mask[1], mask[0], sop, eop);
         }
     }
 }
