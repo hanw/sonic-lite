@@ -22,12 +22,17 @@ endif
 
 ifneq (, $(DTP))
 BUILDBOT_TREE="dtp"
-FIRMWARE="mkDtpTop.sof"
+FIRMWARE="mkPcieTop.sof"
 endif
 
 ifneq (, $(SONIC))
 BUILDBOT_TREE="sonic"
-FIRMWARE="mkSonicTop.sof"
+FIRMWARE="mkPcieTop.sof"
+endif
+
+ifneq (, $(DMAC))
+BUILDBOT_TREE="dmac"
+FIRMWARE="mkPcieTop.sof"
 endif
 
 ifneq (, $(DEBUG))
