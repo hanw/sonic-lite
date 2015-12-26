@@ -46,8 +46,8 @@ interface SerialIfc;
 endinterface
 
 interface EthPhyIfc;
-   interface Vector#(NumPorts, PipeIn#(Bit#(72)))  tx;
-   interface Vector#(NumPorts, PipeOut#(Bit#(72))) rx;
+   interface Vector#(NumPorts, Put#(Bit#(72)))  tx;
+   interface Vector#(NumPorts, Get#(Bit#(72))) rx;
    (*always_ready, always_enabled*)
    interface SerialIfc serial;
    interface Clock rx_clkout;
@@ -117,8 +117,8 @@ module mkAlteraEthPhy#(Clock clk_50, Clock clk_644, Clock clk_xgmii, Reset rst_5
       phy.rx_serial.data_3(rx_serial_wire[3]);
    endrule
 
-   interface tx = map(toPipeIn, txFifo);
-   interface rx = map(toPipeOut, rxFifo);
+   interface tx = map(toPut, txFifo);
+   interface rx = map(toGet, rxFifo);
    interface SerialIfc serial;
       method tx = pack(readVReg(tx_serial));
       method Action rx (Bit#(NumPorts) v);
