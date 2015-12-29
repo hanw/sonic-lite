@@ -98,13 +98,6 @@ void mem_copy(const void *buff, int packet_size) {
     }
 }
 
-const char* get_exe_name(const char* argv0) {
-    if (const char *last_slash = strrchr(argv0, '/')) {
-        return last_slash + 1;
-    }
-    return argv0;
-}
-
 void usage (const char *program_name) {
     printf("%s: p4fpga tester\n"
      "usage: %s [OPTIONS] \n",
