@@ -103,6 +103,38 @@
 		"PIO_DIRECTION": "INPUT",
 		"OSC": "OSC_50_B8D"
 	},
+	"led0": {
+		"PIO_DIRECTION": "OUTPUT",
+		"LED": "LED[0]"
+	},
+	"led1": {
+		"PIO_DIRECTION": "OUTPUT",
+		"LED": "LED[1]"
+	},
+	"led2": {
+		"PIO_DIRECTION": "OUTPUT",
+		"LED": "LED[2]"
+	},
+	"led3": {
+		"PIO_DIRECTION": "OUTPUT",
+		"LED": "LED[3]"
+	},
+	"led_bracket[0]": {
+		"PIO_DIRECTION": "OUTPUT",
+		"LED": "LED_BRACKET[0]"
+	},
+	"led_bracket[1]": {
+		"PIO_DIRECTION": "OUTPUT",
+		"LED": "LED_BRACKET[1]"
+	},
+	"led_bracket[2]": {
+		"PIO_DIRECTION": "OUTPUT",
+		"LED": "LED_BRACKET[2]"
+	},
+	"led_bracket[3]": {
+		"PIO_DIRECTION": "OUTPUT",
+		"LED": "LED_BRACKET[3]"
+	},
 	"serial_rx_data[0]": {
 		"PIO_DIRECTION": "INPUT",
 		"SFPA": "SFPA_RX_p"
@@ -234,5 +266,13 @@
 	"sfp_refclk": {
 		"PIO_DIRECTION": "INPUT",
 		"SFP": "SFP_REFCLK_p"
+	},
+	"i2c_clk": {
+		"PIO_DIRECTION": "INPUT",
+		"I2C": "CLOCK_SCL"
+	},
+	"i2c_data": {
+		"PIO_DIRECTION": "BIDIR",
+		"I2C": "CLOCK_SDA"
 	}
 }

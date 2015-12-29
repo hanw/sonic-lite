@@ -30,6 +30,7 @@ endinterface
 interface De5Clocks;
    interface Si570wrapI2c i2c;
    interface Clock clock_50;
+   interface Reset reset_50_n;
    interface Clock clock_156_25;
    interface Reset reset_156_25_n;
    interface Clock clock_644_53;
@@ -43,7 +44,7 @@ module mkDe5Clocks#(Bit#(1) clk_50, Bit#(1) clk_644)(De5Clocks);
    B2C1 iclock_644 <- mkB2C1();
 
    //Reset reset_50 <- mkResetInverter(reset_n, clocked_by clk_50_b4a_buf.outclk);
-   Reset reset_50_n <- mkAsyncReset(2, defaultReset, iclock_50.c);
+   Reset rst_50_n <- mkAsyncReset(2, defaultReset, iclock_50.c);
    Reset reset_644 <- mkResetInverter(defaultReset, clocked_by iclock_644.c);
    //Reset reset_644_53_n <- mkAsyncReset(2, reset_n, sfp_refclk);
 
@@ -62,7 +63,7 @@ module mkDe5Clocks#(Bit#(1) clk_50, Bit#(1) clk_644)(De5Clocks);
    // Input:
    // Output:
    // Reset: Active Low, use default Reset
-   Si570Wrap si570 <- mkSi570Wrap(iclock_50.c, reset_50_n, clocked_by iclock_50.c, reset_by reset_50_n);
+   Si570Wrap si570 <- mkSi570Wrap(iclock_50.c, rst_50_n, clocked_by iclock_50.c, reset_by rst_50_n);
 
    rule si570_connections;
       let ifreq_mode = 3'b110;  //644.53125 MHZ
@@ -80,6 +81,7 @@ module mkDe5Clocks#(Bit#(1) clk_50, Bit#(1) clk_644)(De5Clocks);
 
    interface i2c = si570.i2c;
    interface clock_50 = iclock_50.c;
+   interface reset_50_n = rst_50_n;
    interface clock_156_25 = clk_156_25;
    interface reset_156_25_n = rst_156_n;
    interface clock_644_53 = iclock_644.c;

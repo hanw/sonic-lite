@@ -8,6 +8,7 @@ import ClientServer::*;
 import Connectable::*;
 import Clocks::*;
 import Gearbox::*;
+import LedController::*;
 
 import Pipe::*;
 import MemTypes::*;
@@ -53,13 +54,30 @@ module mkTest#(TestIndication indication) (Test);
    EthPhyIfc phys <- mkAlteraEthPhy(defaultClock, phyClock, txClock, defaultReset);
    Clock rxClock = phys.rx_clkout;
    Reset rxReset <- mkSyncReset(2, defaultReset, rxClock);
-
    Vector#(4, EthMacIfc) mac <- replicateM(mkEthMac(defaultClock, txClock, rxClock, txReset));
 
    SyncFIFOIfc#(EtherData) tx_fifo <- mkSyncFIFO(5, defaultClock, defaultReset, txClock);
 
    rule every1;
       cycle <= cycle + 1;
+   endrule
+
+   LedController pci_led <- mkLedController(False, clocked_by defaultClock, reset_by defaultReset);
+   LedController tx_led <- mkLedController(False, clocked_by txClock, reset_by txReset);
+   LedController mgmt_led <- mkLedController(False, clocked_by clocks.clock_50, reset_by clocks.reset_50_n);
+   LedController phy_led <- mkLedController(False, clocked_by phyClock, reset_by phyReset);
+
+   rule led_pcie;
+      pci_led.setPeriod(led_off, 500, led_on_max, 500);
+   endrule
+   rule led_eth_tx;
+      tx_led.setPeriod(led_off, 500, led_on_max, 500);
+   endrule
+   rule led_eth_rx;
+      mgmt_led.setPeriod(led_off, 500, led_on_max, 500);
+   endrule
+   rule led_sfp;
+      phy_led.setPeriod(led_off, 500, led_on_max, 500);
    endrule
 
    for (Integer i=0; i<4; i=i+1) begin
@@ -138,6 +156,10 @@ module mkTest#(TestIndication indication) (Test);
          clk_644_wire <= refclk;
       endmethod
       interface i2c = clocks.i2c;
+      interface led0 = pci_led.ifc.out;
+      interface led1 = tx_led.ifc.out;
+      interface led2 = mgmt_led.ifc.out;
+      interface led3 = phy_led.ifc.out;
       interface deleteme_unused_clock = defaultClock;
       interface deleteme_unused_clock2 = clocks.clock_50;
       interface deleteme_unused_clock3 = defaultClock;
