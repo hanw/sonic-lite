@@ -1,5 +1,6 @@
 import Clocks::*;
 import ConnectalClocks::*;
+import LedController::*;
 
 import Ethernet::*;
 import AlteraExtra::*;
@@ -85,4 +86,78 @@ module mkDe5Clocks#(Bit#(1) clk_50, Bit#(1) clk_644)(De5Clocks);
    interface clock_156_25 = clk_156_25;
    interface reset_156_25_n = rst_156_n;
    interface clock_644_53 = iclock_644.c;
+endmodule
+
+interface De5Leds;
+   method Bit#(1) led0_out;
+   method Bit#(1) led1_out;
+   method Bit#(1) led2_out;
+   method Bit#(1) led3_out;
+endinterface
+
+module mkDe5Leds#(Clock clk0, Clock clk1, Clock clk2, Clock clk3)(De5Leds);
+   Clock defaultClock <- exposeCurrentClock;
+   Reset defaultReset <- exposeCurrentReset;
+
+   Reset reset0 <- mkSyncReset(2, defaultReset, clk0);
+   Reset reset1 <- mkSyncReset(2, defaultReset, clk1);
+   Reset reset2 <- mkSyncReset(2, defaultReset, clk2);
+   Reset reset3 <- mkSyncReset(2, defaultReset, clk3);
+
+   LedController led0 <- mkLedController(False, clocked_by clk0, reset_by reset0);
+   LedController led1 <- mkLedController(False, clocked_by clk1, reset_by reset1);
+   LedController led2 <- mkLedController(False, clocked_by clk2, reset_by reset2);
+   LedController led3 <- mkLedController(False, clocked_by clk3, reset_by reset3);
+
+   rule led0_run;
+      led0.setPeriod(led_off, 500, led_on_max, 500);
+   endrule
+
+   rule led1_run;
+      led1.setPeriod(led_off, 500, led_on_max, 500);
+   endrule
+
+   rule led2_run;
+      led2.setPeriod(led_off, 500, led_on_max, 500);
+   endrule
+
+   rule led3_run;
+      led3.setPeriod(led_off, 500, led_on_max, 500);
+   endrule
+
+   method led0_out = led0.ifc.out;
+   method led1_out = led1.ifc.out;
+   method led2_out = led2.ifc.out;
+   method led3_out = led3.ifc.out;
+endmodule
+
+interface De5SfpCtrl;
+   method Action los (Bit#(1) v);
+   method Action mod0_presnt_n (Bit#(1) v);
+   method Bit#(1) ratesel0;
+   method Bit#(1) ratesel1;
+   method Bit#(1) txdisable;
+   method Action txfault (Bit#(1) v);
+endinterface
+
+module mkDe5SfpCtrl(De5SfpCtrl);
+   Wire#(Bit#(1)) los_wire <- mkDWire(0);
+   Wire#(Bit#(1)) mod0_presnt_n_wire <- mkDWire(0);
+   Wire#(Bit#(1)) txfault_wire <- mkDWire(0);
+   Wire#(Bit#(1)) ratesel0_wire <- mkDWire(0);
+   Wire#(Bit#(1)) ratesel1_wire <- mkDWire(0);
+   Wire#(Bit#(1)) txdisable_wire <- mkDWire(0);
+
+   rule set_output;
+      ratesel0_wire <= 1'b1;
+      ratesel1_wire <= 1'b1;
+      txdisable_wire <= 1'b0;
+   endrule
+
+   method los = los_wire._write;
+   method mod0_presnt_n = mod0_presnt_n_wire._write;
+   method txfault = txfault_wire._write;
+   method ratesel0 = ratesel0_wire;
+   method ratesel1 = ratesel1_wire;
+   method txdisable = txdisable_wire;
 endmodule
