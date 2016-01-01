@@ -65,8 +65,10 @@ module mkNullTest#(NullTestIndication indication)(NullTest);
 
    Clock txClock = clocks.clock_156_25;
    Clock phyClock = clocks.clock_644_53;
+   Clock mgmtClock = clocks.clock_50;
    Reset txReset <- mkSyncReset(2, defaultReset, txClock);
    Reset phyReset <- mkSyncReset(2, defaultReset, phyClock);
+   Reset mgmtReset <- mkSyncReset(2, defaultReset, mgmtClock);
 
    EthPhyIfc phys <- mkAlteraEthPhy(defaultClock, phyClock, txClock, defaultReset);
 
@@ -74,9 +76,20 @@ module mkNullTest#(NullTestIndication indication)(NullTest);
    Reset rxReset <- mkSyncReset(2, defaultReset, rxClock);
    Vector#(4, EthMacIfc) mac <- replicateM(mkEthMac(defaultClock, txClock, rxClock, txReset));
 
-   De5Leds leds <- mkDe5Leds(defaultClock, txClock, clocks.clock_50, phyClock);
+   for (Integer i=0; i<4; i=i+1) begin
+      rule mac_phy_tx;
+         phys.tx[i].put(mac[i].tx);
+      endrule
 
+      rule mac_phy_rx;
+         let v <- phys.rx[i].get;
+         mac[i].rx(v);
+      endrule
+   end
+
+   De5Leds leds <- mkDe5Leds(defaultClock, txClock, mgmtClock, phyClock);
    De5SfpCtrl#(4) sfpctrl <- mkDe5SfpCtrl();
+   De5Buttons#(4) buttons <- mkDe5Buttons(clocked_by mgmtClock, reset_by mgmtReset);
 
    interface NullTestRequest request;
       method Action read_version();
@@ -98,7 +111,9 @@ module mkNullTest#(NullTestIndication indication)(NullTest);
       interface led1 = leds.led1_out;
       interface led2 = leds.led2_out;
       interface led3 = leds.led3_out;
+      interface led_bracket = {leds.led0_out, leds.led1_out, leds.led2_out, leds.led3_out};
       interface sfpctrl = sfpctrl;
+      interface buttons = buttons.pins;
       interface deleteme_unused_clock = defaultClock;
       interface deleteme_unused_clock2 = clocks.clock_50;
       interface deleteme_unused_clock3 = defaultClock;

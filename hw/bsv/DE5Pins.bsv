@@ -1,7 +1,9 @@
 import Clocks::*;
+import Vector::*;
+
 import ConnectalClocks::*;
 import LedController::*;
-import Vector::*;
+import PushButtonController::*;
 
 import AlteraExtra::*;
 import ALTERA_SI570_WRAPPER::*;
@@ -10,7 +12,6 @@ import ALTERA_SI570_WRAPPER::*;
 interface DE5Pins;
 `ifndef SIMULATION
    method Action osc_50(Bit#(1) b3d, Bit#(1) b4a, Bit#(1) b4d, Bit#(1) b7a, Bit#(1) b7d, Bit#(1) b8a, Bit#(1) b8d);
-   method Action buttons(Bit#(4) v);
    method Action sfp(Bit#(1) refclk);
    method Bit#(4) serial_tx_data;
    method Action serial_rx(Bit#(4) data);
@@ -19,6 +20,7 @@ interface DE5Pins;
    method Bit#(1) led2;
    method Bit#(1) led3;
    method Bit#(4) led_bracket;
+   method Action buttons(Vector#(4, Bit#(1)) v);
    interface Si570wrapI2c i2c;
    interface De5SfpCtrl#(4) sfpctrl;
    interface Clock deleteme_unused_clock;
@@ -163,4 +165,34 @@ module mkDe5SfpCtrl(De5SfpCtrl#(nPorts));
    method ratesel0 = readVReg(ratesel0_wire);
    method ratesel1 = readVReg(ratesel1_wire);
    method txdisable = readVReg(txdisable_wire);
+endmodule
+
+interface De5Buttons#(numeric type nButtons);
+   method Action pins(Vector#(nButtons, Bit#(1)) v);
+   method Vector#(nButtons, Bool) pressed;
+endinterface
+
+module mkDe5Buttons(De5Buttons#(nButtons));
+   Clock defaultClock <- exposeCurrentClock;
+   Reset defaultReset <- exposeCurrentReset;
+   Vector#(nButtons, Wire#(Bit#(1))) button_in <- replicateM(mkDWire(0));
+   Vector#(nButtons, Wire#(Bool)) button_pressed <- replicateM(mkDWire(False));
+
+   Vector#(4, PushButtonController) buttons <- replicateM(mkPushButtonController(defaultClock));
+   for (Integer i=0; i<valueOf(nButtons); i=i+1) begin
+      rule setPushButtonInput;
+         buttons[i].ifc.button(button_in[i]);
+      endrule
+
+      rule setPushButtonParam;
+         buttons[i].setRepeatParams(10, 10);
+      endrule
+
+      rule setPushButtonOutput;
+         button_pressed[i] <= buttons[i].pressed;
+      endrule
+   end
+
+   method pins = writeVReg(button_in);
+   method pressed = readVReg(button_pressed);
 endmodule
