@@ -147,14 +147,4 @@ instance FShow#(AddrTransRequest);
    endfunction
 endinstance
 
-interface SFPCtrl#(numeric type numPorts);
-   method Action los(Bit#(numPorts) v);
-   method Action mod0_presnt_n(Bit#(numPorts) v);
-   // SCL/SDA not implemented
-   method Bit#(numPorts) ratesel0();
-   method Bit#(numPorts) ratesel1();
-   method Bit#(numPorts) txdisable();
-   method Action txfault(Bit#(numPorts) v);
-endinterface
-
 endpackage: Ethernet

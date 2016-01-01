@@ -1,8 +1,8 @@
 import Clocks::*;
 import ConnectalClocks::*;
 import LedController::*;
+import Vector::*;
 
-import Ethernet::*;
 import AlteraExtra::*;
 import ALTERA_SI570_WRAPPER::*;
 
@@ -12,7 +12,6 @@ interface DE5Pins;
    method Action osc_50(Bit#(1) b3d, Bit#(1) b4a, Bit#(1) b4d, Bit#(1) b7a, Bit#(1) b7d, Bit#(1) b8a, Bit#(1) b8d);
    method Action buttons(Bit#(4) v);
    method Action sfp(Bit#(1) refclk);
-   interface SFPCtrl#(4) sfpctrl;
    method Bit#(4) serial_tx_data;
    method Action serial_rx(Bit#(4) data);
    method Bit#(1) led0;
@@ -21,6 +20,7 @@ interface DE5Pins;
    method Bit#(1) led3;
    method Bit#(4) led_bracket;
    interface Si570wrapI2c i2c;
+   interface De5SfpCtrl#(4) sfpctrl;
    interface Clock deleteme_unused_clock;
    interface Clock deleteme_unused_clock2;
    interface Clock deleteme_unused_clock3;
@@ -131,33 +131,36 @@ module mkDe5Leds#(Clock clk0, Clock clk1, Clock clk2, Clock clk3)(De5Leds);
    method led3_out = led3.ifc.out;
 endmodule
 
-interface De5SfpCtrl;
-   method Action los (Bit#(1) v);
-   method Action mod0_presnt_n (Bit#(1) v);
-   method Bit#(1) ratesel0;
-   method Bit#(1) ratesel1;
-   method Bit#(1) txdisable;
-   method Action txfault (Bit#(1) v);
+interface De5SfpCtrl#(numeric type nPorts);
+   method Action los (Vector#(nPorts, Bit#(1)) v);
+   method Action mod0_presnt_n (Vector#(nPorts, Bit#(1)) v);
+   method Action txfault (Vector#(nPorts, Bit#(1)) v);
+   // SCL/SDA not implemented
+   method Vector#(nPorts, Bit#(1)) ratesel0;
+   method Vector#(nPorts, Bit#(1)) ratesel1;
+   method Vector#(nPorts, Bit#(1)) txdisable;
 endinterface
 
-module mkDe5SfpCtrl(De5SfpCtrl);
-   Wire#(Bit#(1)) los_wire <- mkDWire(0);
-   Wire#(Bit#(1)) mod0_presnt_n_wire <- mkDWire(0);
-   Wire#(Bit#(1)) txfault_wire <- mkDWire(0);
-   Wire#(Bit#(1)) ratesel0_wire <- mkDWire(0);
-   Wire#(Bit#(1)) ratesel1_wire <- mkDWire(0);
-   Wire#(Bit#(1)) txdisable_wire <- mkDWire(0);
+module mkDe5SfpCtrl(De5SfpCtrl#(nPorts));
+   Vector#(nPorts, Wire#(Bit#(1))) los_wire <- replicateM(mkDWire(0));
+   Vector#(nPorts, Wire#(Bit#(1))) mod0_presnt_n_wire <- replicateM(mkDWire(0));
+   Vector#(nPorts, Wire#(Bit#(1))) txfault_wire <- replicateM(mkDWire(0));
+   Vector#(nPorts, Wire#(Bit#(1))) ratesel0_wire <- replicateM(mkDWire(0));
+   Vector#(nPorts, Wire#(Bit#(1))) ratesel1_wire <- replicateM(mkDWire(0));
+   Vector#(nPorts, Wire#(Bit#(1))) txdisable_wire <- replicateM(mkDWire(0));
 
-   rule set_output;
-      ratesel0_wire <= 1'b1;
-      ratesel1_wire <= 1'b1;
-      txdisable_wire <= 1'b0;
-   endrule
+   for (Integer i=0; i<valueOf(nPorts); i=i+1) begin
+      rule set_output;
+         ratesel0_wire[i] <= 1'b1;
+         ratesel1_wire[i] <= 1'b1;
+         txdisable_wire[i] <= 1'b0;
+      endrule
+   end
 
-   method los = los_wire._write;
-   method mod0_presnt_n = mod0_presnt_n_wire._write;
-   method txfault = txfault_wire._write;
-   method ratesel0 = ratesel0_wire;
-   method ratesel1 = ratesel1_wire;
-   method txdisable = txdisable_wire;
+   method los = writeVReg(los_wire);
+   method mod0_presnt_n = writeVReg(mod0_presnt_n_wire);
+   method txfault = writeVReg(txfault_wire);
+   method ratesel0 = readVReg(ratesel0_wire);
+   method ratesel1 = readVReg(ratesel1_wire);
+   method txdisable = readVReg(txdisable_wire);
 endmodule

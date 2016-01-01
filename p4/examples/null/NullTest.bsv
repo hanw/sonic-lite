@@ -76,6 +76,8 @@ module mkNullTest#(NullTestIndication indication)(NullTest);
 
    De5Leds leds <- mkDe5Leds(defaultClock, txClock, clocks.clock_50, phyClock);
 
+   De5SfpCtrl#(4) sfpctrl <- mkDe5SfpCtrl();
+
    interface NullTestRequest request;
       method Action read_version();
          let v= `NicVersion;
@@ -96,6 +98,7 @@ module mkNullTest#(NullTestIndication indication)(NullTest);
       interface led1 = leds.led1_out;
       interface led2 = leds.led2_out;
       interface led3 = leds.led3_out;
+      interface sfpctrl = sfpctrl;
       interface deleteme_unused_clock = defaultClock;
       interface deleteme_unused_clock2 = clocks.clock_50;
       interface deleteme_unused_clock3 = defaultClock;
