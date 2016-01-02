@@ -45,8 +45,6 @@ interface EthPortIfc;
    (* always_ready, always_enabled *)
    interface Vector#(NumPorts, SerialIfc) serial;
    (* always_ready, always_enabled *)
-   interface SFPCtrl#(NumPorts) sfpctrl;
-   (* always_ready, always_enabled *)
    interface Vector#(NumPorts, Clock) tx_clkout;
    (* always_ready, always_enabled *)
    interface LoopbackIfc loopback;
@@ -110,23 +108,6 @@ module mkEthPorts#(Clock clk_50, Clock clk_156_25, Clock clk_644)(EthPortIfc);
    interface tx_clkout = phys.tx_clkout;
    interface serial = phys.serial;
    interface led_rx_ready = phys.led_rx_ready;
-   interface sfpctrl = (interface SFPCtrl;
-      method Action los (Bit#(NumPorts) v);
-      endmethod
-      method Action mod0_presnt_n(Bit#(NumPorts) v);
-      endmethod
-      method Bit#(NumPorts) ratesel0();
-         return 4'hf;
-      endmethod
-      method Bit#(NumPorts) ratesel1();
-         return 4'hf;
-      endmethod
-      method Bit#(NumPorts) txdisable();
-         return 4'h0;
-      endmethod
-      method Action txfault(Bit#(NumPorts) v);
-      endmethod
-   endinterface);
 
 endmodule: mkEthPorts
 endpackage: EthPorts
