@@ -71,6 +71,8 @@ module mkDtpTop#(DtpIndication indication)(DtpTop);
    Reset txReset <- mkSyncReset(2, defaultReset, txClock);
    Reset phyReset <- mkSyncReset(2, defaultReset, phyClock);
 
+   De5SfpCtrl#(4) sfpctrl <- mkDe5SfpCtrl();
+
 `ifndef SIMULATION
    NetTopIfc net <- mkNetTop(clock_50, txClock, phyClock, clocked_by txClock, reset_by txReset);
    DtpController dtp <- mkDtpController(net.api, indication, txClock, txReset, clocked_by defaultClock);
@@ -87,14 +89,6 @@ module mkDtpTop#(DtpIndication indication)(DtpTop);
          clk_644_wire <= refclk;
       endmethod
 `ifdef DEBUG_ETH
-      interface sfpctrl = (interface SFPCtrl;
-         method Action los (Bit#(4) v); endmethod
-         method Action mod0_presnt_n(Bit#(NumPorts) v); endmethod
-         method ratesel0 = pack(replicate(1'b1));
-         method ratesel1 = pack(replicate(1'b1));
-         method txdisable = pack(replicate(1'b0));
-         method Action txfault(Bit#(4) v); endmethod
-      endinterface);
       method serial_tx_data = {net.ifcs.serial[3].tx,net.ifcs.serial[2].tx,net.ifcs.serial[1].tx,net.ifcs.serial[0].tx};
       method Action serial_rx(Bit#(4) data);
          for (Integer i = 0 ; i < 4; i = i+1) begin
@@ -102,6 +96,7 @@ module mkDtpTop#(DtpIndication indication)(DtpTop);
          end
       endmethod
       interface i2c = clocks.i2c;
+      interface sfpctrl = sfpctrl;
 `endif  // DEBUG_ETH
       interface deleteme_unused_clock = clocks.clock_50;
       interface deleteme_unused_reset = defaultReset;
