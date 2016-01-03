@@ -21,6 +21,7 @@ PINOUT_FILE=../boards/de5.json
 PIN_BINDINGS?=PCIE:PCIE LED:LED OSC:OSC SFPA:SFPA SFPB:SFPB SFPC:SFPC SFPD:SFPD SFP:SFP I2C:CLOCK BUTTON:BUTTON
 #PIN_BINDINGS?=PCIE:PCIE LED:LED OSC:OSC I2C:CLOCK BUTTON:BUTTON
 
+CONNECTALFLAGS += -C $(PROJTOP)/mkDtpTop.sdc
 #CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/altera_mac/altera_mac.qip # To be removed.
 CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/pll_156/altera_pll_156.qip
 CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/sv_10g_pma/sv_10g_pma.qip

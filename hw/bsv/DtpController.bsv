@@ -113,78 +113,76 @@ module mkDtpController#(NetToConnectalIfc net, DtpIndication indication, Clock c
       cycle_count <= cycle_count + 1;
    endrule
 
+   // clear all fifo on reset
+   rule clearOnReset(dtpResetOut.isAsserted);
+      for (Integer i=0; i<4; i=i+1) begin
+         lread_data_cycle1[i].clear();
+         lread_data_cycle2[i].clear();
+         lread_data_timestamp[i].clear();
+      end
+      lwrite_data_cycle1.clear();
+      lwrite_data_cycle2.clear();
+      log_write_cf.clear();
+   endrule
+
    SyncFIFOIfc#(Bit#(128)) cntFifo <- mkSyncFIFO(8, clk_156_25, rst_156_n, defaultClock);
    mkConnection(net.timestamp, toPipeIn(cntFifo));
 
    // send log data from host to network
    Vector#(4, SyncFIFOIfc#(Bit#(53))) fromHostFifo <- replicateM(mkSyncFIFO(8, defaultClock, defaultReset, clk_156_25));
-   Vector#(4, PipeOut#(Bit#(53))) fromHostPipeOut = map(toPipeOut,fromHostFifo);
    for (Integer i=0; i<4; i=i+1) begin
-      mkConnection(fromHostPipeOut[i], net.phys[i].fromHost);
+      mkConnection(toPipeOut(fromHostFifo[i]), net.phys[i].fromHost);
    end
 
    // send log data from network to host
    Vector#(4, SyncFIFOIfc#(Bit#(53))) toHostFifo <- replicateM(mkSyncFIFO(8, clk_156_25, rst_156_n, defaultClock));
-   Vector#(4, PipeIn#(Bit#(53))) toHostPipeIn = map(toPipeIn, toHostFifo);
    for (Integer i=0; i<4; i=i+1) begin
-      mkConnection(net.phys[i].toHost, toHostPipeIn[i]);
+      mkConnection(net.phys[i].toHost, toPipeIn(toHostFifo[i]));
    end
 
    // send delay measurement to host
-   Vector#(4, SyncFIFOIfc#(Bit#(32))) sDelayFifo <- replicateM(mkSyncFIFO(8, clk_156_25, rst_156_n, defaultClock));
-   Vector#(4, FIFOF#(Bit#(32))) delayFifo <- replicateM(mkSizedFIFOF(4));
-   Vector#(4, PipeOut#(Bit#(32))) sDelayPipeOut = map(toPipeOut, sDelayFifo);
-   Vector#(4, PipeIn#(Bit#(32))) sDelayPipeIn = map(toPipeIn, sDelayFifo);
-   Vector#(4, PipeIn#(Bit#(32))) delayPipeIn = map(toPipeIn, delayFifo);
+   Vector#(4, SyncFIFOIfc#(Bit#(32))) delayFifo <- replicateM(mkSyncFIFO(8, clk_156_25, rst_156_n, defaultClock));
    for (Integer i=0; i<4; i=i+1) begin
-      mkConnection(net.phys[i].delayOut, sDelayPipeIn[i]);
-      mkConnection(sDelayPipeOut[i], delayPipeIn[i]);
+      mkConnection(net.phys[i].delayOut, toPipeIn(delayFifo[i]));
    end
 
    // send dtp state to host
    Vector#(4, SyncFIFOIfc#(Bit#(32))) stateFifo <- replicateM(mkSyncFIFO(8, clk_156_25, rst_156_n, defaultClock));
-   Vector#(4, PipeIn#(Bit#(32))) statePipeIn = map(toPipeIn, stateFifo);
    for (Integer i=0; i<4; i=i+1) begin
-      mkConnection(net.phys[i].stateOut, statePipeIn[i]);
+      mkConnection(net.phys[i].stateOut, toPipeIn(stateFifo[i]));
    end
 
    // send dtp error count to host
    Vector#(4, SyncFIFOIfc#(Bit#(64))) jumpCountFifo <- replicateM(mkSyncFIFO(8, clk_156_25, rst_156_n, defaultClock));
-   Vector#(4, PipeIn#(Bit#(64))) jumpCountPipeIn = map(toPipeIn, jumpCountFifo);
    for (Integer i=0; i<4; i=i+1) begin
-      mkConnection(net.phys[i].jumpCount, jumpCountPipeIn[i]);
+      mkConnection(net.phys[i].jumpCount, toPipeIn(jumpCountFifo[i]));
    end
 
    // send dtp clocal to host
    Vector#(4, SyncFIFOIfc#(Bit#(53))) cLocalFifo <- replicateM(mkSyncFIFO(8, clk_156_25, rst_156_n, defaultClock));
-   Vector#(4, PipeIn#(Bit#(53))) cLocalPipeIn = map(toPipeIn, cLocalFifo);
    for (Integer i=0; i<4; i=i+1) begin
-      mkConnection(net.phys[i].cLocalOut, cLocalPipeIn[i]);
+      mkConnection(net.phys[i].cLocalOut, toPipeIn(cLocalFifo[i]));
    end
 
    // send dtp cglobal to host
    SyncFIFOIfc#(Bit#(53)) cGlobalFifo <- mkSyncFIFO(8, clk_156_25, rst_156_n, defaultClock);
-   PipeIn#(Bit#(53)) cGlobalPipeIn = toPipeIn(cGlobalFifo);
-   mkConnection(net.globalOut, cGlobalPipeIn);
+   mkConnection(net.globalOut, toPipeIn(cGlobalFifo));
 
    // set interval
    Vector#(4, SyncFIFOIfc#(Bit#(32))) intervalFifo <- replicateM(mkSyncFIFO(8, defaultClock, defaultReset, clk_156_25));
-   Vector#(4, PipeOut#(Bit#(32))) intervalPipeOut = map(toPipeOut,intervalFifo);
    for (Integer i=0; i<4; i=i+1) begin
-      mkConnection(intervalPipeOut[i], net.phys[i].interval);
+      mkConnection(toPipeOut(intervalFifo[i]), net.phys[i].interval);
    end
 
    // send dtp rcvd err count
    Vector#(4, SyncFIFOIfc#(Bit#(32))) dtpErrCntFifo <- replicateM(mkSyncFIFO(8, clk_156_25, rst_156_n, defaultClock));
-   Vector#(4, PipeIn#(Bit#(32))) dtpErrCntPipeIn = map(toPipeIn, dtpErrCntFifo);
    for (Integer i=0; i<4; i=i+1) begin
-      mkConnection(net.phys[i].dtpErrCnt, dtpErrCntPipeIn[i]);
+      mkConnection(net.phys[i].dtpErrCnt, toPipeIn(dtpErrCntFifo[i]));
    end
 
    // send switch mode
    SyncFIFOIfc#(Bit#(1)) switchModeFifo <- mkSyncFIFO(8, defaultClock, defaultReset, clk_156_25);
-   PipeOut#(Bit#(1)) switchModePipeOut = toPipeOut(switchModeFifo);
-   mkConnection(switchModePipeOut, net.switchMode);
+   mkConnection(toPipeOut(switchModeFifo), net.switchMode);
 
    // dtp_read_cnt
    rule snapshot_dtp_timestamp;
@@ -322,19 +320,6 @@ module mkDtpController#(NetToConnectalIfc net, DtpIndication indication, Clock c
 
    rule switch_mode;
       switchModeFifo.enq(switch_mode_reg);
-   endrule
-
-   // clear all fifo on reset
-   rule clearOnReset(dtpResetOut.isAsserted);
-      for (Integer i=0; i<4; i=i+1) begin
-         delayFifo[i].clear();
-         lread_data_cycle1[i].clear();
-         lread_data_cycle2[i].clear();
-         lread_data_timestamp[i].clear();
-      end
-      lwrite_data_cycle1.clear();
-      lwrite_data_cycle2.clear();
-      log_write_cf.clear();
    endrule
 
    // API implementation
