@@ -94,8 +94,8 @@ module mkNullTest#(NullTestIndication indication)(NullTest);
       method Action osc_50(Bit#(1) b3d, Bit#(1) b4a, Bit#(1) b4d, Bit#(1) b7a, Bit#(1) b7d, Bit#(1) b8a, Bit#(1) b8d);
          clk_50_wire <= b4a;
       endmethod
-      method serial_tx_data = phys.serial.tx;
-      method serial_rx = phys.serial.rx;
+      method serial_tx_data = phys.serial_tx;
+      method serial_rx = phys.serial_rx;
       method Action sfp(Bit#(1) refclk);
          clk_644_wire <= refclk;
       endmethod

@@ -31,25 +31,17 @@ import SpecialFIFOs::*;
 import Connectable::*;
 import GetPut::*;
 import Pipe::*;
-
 import ALTERA_ETH_10GBASER_WRAPPER::*;
 
-`ifdef NUMBER_OF_10G_PORTS
-typedef `NUMBER_OF_10G_PORTS NumPorts;
-`else
 typedef 4 NumPorts;
-`endif
-
-interface SerialIfc;
-   method Bit#(NumPorts) tx;
-   method Action rx(Bit#(NumPorts) v);
-endinterface
 
 interface EthPhyIfc;
    interface Vector#(NumPorts, Put#(Bit#(72)))  tx;
    interface Vector#(NumPorts, Get#(Bit#(72))) rx;
    (*always_ready, always_enabled*)
-   interface SerialIfc serial;
+   method Vector#(NumPorts, Bit#(1)) serial_tx;
+   (*always_ready, always_enabled*)
+   method Action serial_rx(Vector#(NumPorts, Bit#(1)) v);
    interface Clock rx_clkout;
 endinterface
 
@@ -120,12 +112,8 @@ module mkAlteraEthPhy#(Clock clk_50, Clock clk_644, Clock clk_xgmii, Reset rst_5
 
    interface tx = map(toPut, txFifo);
    interface rx = map(toGet, rxFifo);
-   interface SerialIfc serial;
-      method tx = pack(readVReg(tx_serial));
-      method Action rx (Bit#(NumPorts) v);
-         writeVReg(rx_serial_wire, unpack(v));
-      endmethod
-   endinterface
+   method serial_tx = readVReg(tx_serial);
+   method serial_rx = writeVReg(rx_serial_wire);
    interface rx_clkout = phy.xgmii_rx_clk;
 endmodule
 

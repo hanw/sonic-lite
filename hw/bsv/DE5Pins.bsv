@@ -13,8 +13,8 @@ interface DE5Pins;
 `ifndef SIMULATION
    method Action osc_50(Bit#(1) b3d, Bit#(1) b4a, Bit#(1) b4d, Bit#(1) b7a, Bit#(1) b7d, Bit#(1) b8a, Bit#(1) b8d);
    method Action sfp(Bit#(1) refclk);
-   method Bit#(4) serial_tx_data;
-   method Action serial_rx(Bit#(4) data);
+   method Vector#(4, Bit#(1)) serial_tx_data;
+   method Action serial_rx(Vector#(4, Bit#(1)) data);
    method Bit#(4) led;
    method Bit#(4) led_bracket;
    method Action buttons(Vector#(4, Bit#(1)) v);
@@ -126,10 +126,6 @@ module mkDe5Leds#(Clock clk0, Clock clk1, Clock clk2, Clock clk3)(De5Leds);
                      led2.ifc.out,
                      led3.ifc.out
                      };
-   //method led0_out = led0.ifc.out;
-   //method led1_out = led1.ifc.out;
-   //method led2_out = led2.ifc.out;
-   //method led3_out = led3.ifc.out;
 endmodule
 
 interface De5SfpCtrl#(numeric type nPorts);
