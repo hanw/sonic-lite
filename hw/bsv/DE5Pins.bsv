@@ -15,10 +15,7 @@ interface DE5Pins;
    method Action sfp(Bit#(1) refclk);
    method Bit#(4) serial_tx_data;
    method Action serial_rx(Bit#(4) data);
-   method Bit#(1) led0;
-   method Bit#(1) led1;
-   method Bit#(1) led2;
-   method Bit#(1) led3;
+   method Bit#(4) led;
    method Bit#(4) led_bracket;
    method Action buttons(Vector#(4, Bit#(1)) v);
    interface Si570wrapI2c i2c;
@@ -91,10 +88,7 @@ module mkDe5Clocks#(Bit#(1) clk_50, Bit#(1) clk_644)(De5Clocks);
 endmodule
 
 interface De5Leds;
-   method Bit#(1) led0_out;
-   method Bit#(1) led1_out;
-   method Bit#(1) led2_out;
-   method Bit#(1) led3_out;
+   method Bit#(4) led_out;
 endinterface
 
 module mkDe5Leds#(Clock clk0, Clock clk1, Clock clk2, Clock clk3)(De5Leds);
@@ -127,10 +121,15 @@ module mkDe5Leds#(Clock clk0, Clock clk1, Clock clk2, Clock clk3)(De5Leds);
       led3.setPeriod(led_off, 500, led_on_max, 500);
    endrule
 
-   method led0_out = led0.ifc.out;
-   method led1_out = led1.ifc.out;
-   method led2_out = led2.ifc.out;
-   method led3_out = led3.ifc.out;
+   method led_out = {led0.ifc.out,
+                     led1.ifc.out,
+                     led2.ifc.out,
+                     led3.ifc.out
+                     };
+   //method led0_out = led0.ifc.out;
+   //method led1_out = led1.ifc.out;
+   //method led2_out = led2.ifc.out;
+   //method led3_out = led3.ifc.out;
 endmodule
 
 interface De5SfpCtrl#(numeric type nPorts);
