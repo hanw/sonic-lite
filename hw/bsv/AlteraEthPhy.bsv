@@ -59,8 +59,9 @@ module mkAlteraEthPhy#(Clock clk_50, Clock clk_644, Clock clk_xgmii, Reset rst_5
    Vector#(NumPorts, FIFOF#(Bit#(72))) rxFifo = newVector;
    Clock defaultClock <- exposeCurrentClock;
    Reset defaultReset <- exposeCurrentReset;
+   Reset invertedReset <- mkResetInverter(rst_50, clocked_by defaultClock);
 
-   Eth10GPhyWrap phy <- mkEth10GPhyWrap(clk_50, clk_644, clk_xgmii, rst_50);
+   Eth10GPhyWrap phy <- mkEth10GPhyWrap(clk_50, clk_644, clk_xgmii, invertedReset);
    Reset xgmii_reset <- mkAsyncReset(2, defaultReset, phy.xgmii_rx_clk);
 
    for (Integer i=0; i<valueOf(NumPorts); i=i+1) begin

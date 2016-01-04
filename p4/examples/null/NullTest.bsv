@@ -36,19 +36,12 @@ import Pipe::*;
 
 import MemTypes::*;
 import Ethernet::*;
+import NullAPI::*;
 import PacketBuffer::*;
 import AlteraMacWrap::*;
 import EthMac::*;
 import AlteraEthPhy::*;
 import DE5Pins::*;
-
-interface NullTestIndication;
-   method Action read_version_resp(Bit#(32) version);
-endinterface
-
-interface NullTestRequest;
-   method Action read_version();
-endinterface
 
 interface NullTest;
    interface NullTestRequest request;
@@ -70,12 +63,19 @@ module mkNullTest#(NullTestIndication indication)(NullTest);
    Reset phyReset <- mkSyncReset(2, defaultReset, phyClock);
    Reset mgmtReset <- mkSyncReset(2, defaultReset, mgmtClock);
 
+   // DE5 Pins
+   De5Leds leds <- mkDe5Leds(defaultClock, txClock, mgmtClock, phyClock);
+   De5SfpCtrl#(4) sfpctrl <- mkDe5SfpCtrl();
+   De5Buttons#(4) buttons <- mkDe5Buttons(clocked_by mgmtClock, reset_by mgmtReset);
+
+   // Mac + Phy
    EthPhyIfc phys <- mkAlteraEthPhy(defaultClock, phyClock, txClock, defaultReset);
 
    Clock rxClock = phys.rx_clkout;
    Reset rxReset <- mkSyncReset(2, defaultReset, rxClock);
    Vector#(4, EthMacIfc) mac <- replicateM(mkEthMac(defaultClock, txClock, rxClock, txReset));
 
+   // FIXME
    for (Integer i=0; i<4; i=i+1) begin
       rule mac_phy_tx;
          phys.tx[i].put(mac[i].tx);
@@ -87,16 +87,9 @@ module mkNullTest#(NullTestIndication indication)(NullTest);
       endrule
    end
 
-   De5Leds leds <- mkDe5Leds(defaultClock, txClock, mgmtClock, phyClock);
-   De5SfpCtrl#(4) sfpctrl <- mkDe5SfpCtrl();
-   De5Buttons#(4) buttons <- mkDe5Buttons(clocked_by mgmtClock, reset_by mgmtReset);
+   NullAPI api <- mkNullAPI(indication);
 
-   interface NullTestRequest request;
-      method Action read_version();
-         let v= `NicVersion;
-         indication.read_version_resp(v);
-      endmethod
-   endinterface
+   interface request = api.request;
    interface `PinType pins;
       method Action osc_50(Bit#(1) b3d, Bit#(1) b4a, Bit#(1) b4d, Bit#(1) b7a, Bit#(1) b7d, Bit#(1) b8a, Bit#(1) b8d);
          clk_50_wire <= b4a;
@@ -107,11 +100,8 @@ module mkNullTest#(NullTestIndication indication)(NullTest);
          clk_644_wire <= refclk;
       endmethod
       interface i2c = clocks.i2c;
-      interface led0 = leds.led0_out;
-      interface led1 = leds.led1_out;
-      interface led2 = leds.led2_out;
-      interface led3 = leds.led3_out;
-      interface led_bracket = {leds.led0_out, leds.led1_out, leds.led2_out, leds.led3_out};
+      interface led = leds.led_out;
+      interface led_bracket = leds.led_out;
       interface sfpctrl = sfpctrl;
       interface buttons = buttons.pins;
       interface deleteme_unused_clock = defaultClock;

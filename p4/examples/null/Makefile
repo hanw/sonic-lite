@@ -11,7 +11,7 @@ P4FPGADIR?=$(DEV_ROOT)/sonic-lite/p4
 ########################################################
 S2H_INTERFACES=NullTestRequest:NullTest.request
 H2S_INTERFACES=NullTest:NullTestIndication
-BSVFILES=NullTest.bsv
+BSVFILES=NullTest.bsv NullAPI.bsv
 CPPFILES=test.cpp
 
 CONNECTALFLAGS += --bsvpath=$(SONICDIR)/hw/lib/bsv
@@ -39,6 +39,9 @@ CONNECTALFLAGS += --verilog=$(SONICDIR)/hw/verilog/si570/
 CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/mac_10gbe.qip
 CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/altera_xcvr_10gbaser_wrapper.qip
 CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/pll_156/altera_pll_156.qip
+CONNECTALFLAGS += --tcl=$(SONICDIR)/boards/de5_extra.qsf
+
+CONNECTALFLAGS += --chipscope=$(SONICDIR)/p4/examples/null/mac.stp
 
 #######################################################
 # Bluespec Quirks
