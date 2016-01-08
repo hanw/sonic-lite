@@ -36,8 +36,8 @@
 #include <string>
 
 #include "MemServerIndication.h"
-#include "ParserTestIndication.h"
-#include "ParserTestRequest.h"
+#include "NullTestIndication.h"
+#include "NullTestRequest.h"
 #include "GeneratedTypes.h"
 #include "utils.h"
 #include "sonic_pcap_utils.h"
@@ -46,56 +46,47 @@ using namespace std;
 
 #define DATA_WIDTH 128
 
-static ParserTestRequestProxy *device = 0;
+static NullTestRequestProxy *device = 0;
 uint16_t flowid;
 
 void mem_copy(const void *buff, int length);
 
-class ParserTestIndication : public ParserTestIndicationWrapper
+class NullTestIndication : public NullTestIndicationWrapper
 {
 public:
     virtual void read_version_resp(uint32_t a) {
         fprintf(stderr, "version %x\n", a);
     }
-//    virtual void parsed_ipv4_resp(uint8_t ttl) {
-//        fprintf(stderr, "found ipv4 %x\n", ttl);
-//    }
-//    virtual void parsed_vlan_resp() {
-//        fprintf(stderr, "found vlan\n");
-//    }
-//    virtual void parsed_ether_resp(uint64_t srcAddr, uint64_t dstAddr) {
-//        fprintf(stderr, "found ether %lx %lx\n", srcAddr, dstAddr);
-//    }
-    ParserTestIndication(unsigned int id) : ParserTestIndicationWrapper(id) {}
+    NullTestIndication(unsigned int id) : NullTestIndicationWrapper(id) {}
 };
 
 void mem_copy(const void *buff, int packet_size) {
 
-    int i, sop, eop;
-    uint64_t data[2];
-    int numBeats;
-
-    numBeats = packet_size / 8; // 16 bytes per beat for 128-bit datawidth;
-    if (packet_size % 8) numBeats++;
-    PRINT_INFO("nBeats=%d, packetSize=%d\n", numBeats, packet_size);
-    for (i=0; i<numBeats; i++) {
-        data[i%2] = *(static_cast<const uint64_t *>(buff) + i);
-        sop = (i/2 == 0);
-        eop = (i/2 == (numBeats-1)/2);
-        if (i%2) {
-            device->writePacketData(data, sop, eop);
-            PRINT_INFO("%016lx %016lx %d %d\n", data[1], data[0], sop, eop);
-        }
-
-        // last beat, padding with zero
-        if ((numBeats%2!=0) && (i==numBeats-1)) {
-            sop = (i/2 == 0) ? 1 : 0;
-            eop = 1;
-            data[1] = 0;
-            device->writePacketData(data, sop, eop);
-            PRINT_INFO("%016lx %016lx %d %d\n", data[1], data[0], sop, eop);
-        }
-    }
+//    int i, sop, eop;
+//    uint64_t data[2];
+//    int numBeats;
+//
+//    numBeats = packet_size / 8; // 16 bytes per beat for 128-bit datawidth;
+//    if (packet_size % 8) numBeats++;
+//    PRINT_INFO("nBeats=%d, packetSize=%d\n", numBeats, packet_size);
+//    for (i=0; i<numBeats; i++) {
+//        data[i%2] = *(static_cast<const uint64_t *>(buff) + i);
+//        sop = (i/2 == 0);
+//        eop = (i/2 == (numBeats-1)/2);
+//        if (i%2) {
+//            device->writePacketData(data, sop, eop);
+//            PRINT_INFO("%016lx %016lx %d %d\n", data[1], data[0], sop, eop);
+//        }
+//
+//        // last beat, padding with zero
+//        if ((numBeats%2!=0) && (i==numBeats-1)) {
+//            sop = (i/2 == 0) ? 1 : 0;
+//            eop = 1;
+//            data[1] = 0;
+//            device->writePacketData(data, sop, eop);
+//            PRINT_INFO("%016lx %016lx %d %d\n", data[1], data[0], sop, eop);
+//        }
+//    }
 }
 
 void usage (const char *program_name) {
@@ -116,8 +107,8 @@ int main(int argc, char **argv)
     //struct pcap_pkthdr* pcap_hdr;
     int c, option_index;
 
-    ParserTestIndication echoIndication(IfcNames_ParserTestIndicationH2S);
-    device = new ParserTestRequestProxy(IfcNames_ParserTestRequestS2H);
+    NullTestIndication echoIndication(IfcNames_NullTestIndicationH2S);
+    device = new NullTestRequestProxy(IfcNames_NullTestRequestS2H);
 
     bool run_basic = true;
     bool load_pcap = false;

@@ -16,7 +16,7 @@ CONNECTALFLAGS += --bsvpath=$(SONIC_DIR)/hw/generated/
 CONNECTALFLAGS += -I $(SONIC_DIR)/sw/
 
 ifeq ($(BOARD), vsim)
-CONNECTALFLAGS += --systemverilog $(IPDIR)/$(BOARD)/simulation/mac_10gbe
+CONNECTALFLAGS += --modelsim $(IPDIR)/$(BOARD)/simulation/mac_10gbe
 endif
 
 prebuild::

@@ -39,6 +39,8 @@ import ConnectalConfig::*;
 import NetTop::*;
 import EthPorts::*;
 import Ethernet::*;
+import EthPhy::*;
+import EthMac::*;
 import DtpController::*;
 import MemTypes::*;
 import MemReadEngine::*;
@@ -52,12 +54,20 @@ import ALTERA_SI570_WRAPPER::*;
 import AlteraExtra::*;
 import LedController::*;
 
+interface DummyIndication;
+   method Action read_version_resp(Bit#(32) version);
+endinterface
+
+interface DummyRequest;
+   method Action read_version();
+endinterface
+
 interface DtpTop;
-   interface DtpRequest request;
+   interface DummyRequest request;
    interface `PinType pins;
 endinterface
 
-module mkDtpTop#(DtpIndication indication)(DtpTop);
+module mkDtpTop#(DummyIndication indication)(DtpTop);
    Clock defaultClock <- exposeCurrentClock();
    Reset defaultReset <- exposeCurrentReset();
 
@@ -73,35 +83,58 @@ module mkDtpTop#(DtpIndication indication)(DtpTop);
 
    De5SfpCtrl#(4) sfpctrl <- mkDe5SfpCtrl();
 
-`ifndef SIMULATION
-   NetTopIfc net <- mkNetTop(clock_50, txClock, phyClock, clocked_by txClock, reset_by txReset);
-   DtpController dtp <- mkDtpController(net.api, indication, txClock, txReset, clocked_by defaultClock);
-`endif // SIMULATION
-   interface request = dtp.request;
+   EthPhyIfc#(NumPorts) phys <- mkEthPhy(clock_50, txClock, phyClock, clocked_by txClock, reset_by txReset);
+
+   Clock rxClock = phys.rx_clkout[0];
+
+   function Clock getRxClock (Vector#(N, Clock) clocks, i);
+      return clocks[i];
+   endfunction
+
+   Vector#(NumPorts, EthMacIfc) mac ;
+   Vector#(NumPorts, FIFOF#(Bit#(72))) macToPhy <- replicateM(mkFIFOF, clocked_by txClock, reset_by txReset);
+   Vector#(NumPorts, FIFOF#(Bit#(72))) phyToMac;// <- replicateM(mkFIFOF, clocked_by txClock);
+   for (Integer i = 0 ; i < valueOf(NumPorts) ; i=i+1) begin
+      mac[i] <- mkEthMac(defaultClock, txClock, phys.rx_clkout[i], txReset);
+      Reset rx_rst<- mkSyncReset(2, defaultReset, phys.rx_clkout[i]);
+      phyToMac[i] <- mkFIFOF(clocked_by phys.rx_clkout[i], reset_by rx_rst);
+
+      mkConnection(toPipeOut(macToPhy[i]), phys.tx[i]);
+      mkConnection(phys.rx[i], toPipeIn(phyToMac[i]));
+
+      rule mac_phy_tx;
+         macToPhy[i].enq(mac[i].tx);
+      endrule
+
+      rule mac_phy_rx;
+         let v = phyToMac[i].first;
+         mac[i].rx(v);
+         phyToMac[i].deq;
+      endrule
+   end
+
+   interface DummyRequest request;
+      method Action read_version();
+         let v=`DtpVersion;
+         indication.read_version_resp(v);
+      endmethod
+   endinterface
 
    interface `PinType pins;
       // Clocks
-`ifndef SIMULATION
       method Action osc_50(Bit#(1) b3d, Bit#(1) b4a, Bit#(1) b4d, Bit#(1) b7a, Bit#(1) b7d, Bit#(1) b8a, Bit#(1) b8d);
          clk_50_wire <= b4a;
       endmethod
       method Action sfp(Bit#(1) refclk);
          clk_644_wire <= refclk;
       endmethod
-`ifdef DEBUG_ETH
-      method serial_tx_data = {net.ifcs.serial[3].tx,net.ifcs.serial[2].tx,net.ifcs.serial[1].tx,net.ifcs.serial[0].tx};
-      method Action serial_rx(Bit#(4) data);
-         for (Integer i = 0 ; i < 4; i = i+1) begin
-             net.ifcs.serial[i].rx(data[i]);
-         end
-      endmethod
+      method serial_tx_data = phys.serial_tx;
+      method serial_rx = phys.serial_rx;
       interface i2c = clocks.i2c;
       interface sfpctrl = sfpctrl;
-`endif  // DEBUG_ETH
-      interface deleteme_unused_clock = clocks.clock_50;
-      interface deleteme_unused_reset = defaultReset;
-      interface deleteme_unused_clock2 = defaultClock;
+      interface deleteme_unused_clock = defaultClock;
+      interface deleteme_unused_clock2 = clock_50;
       interface deleteme_unused_clock3 = defaultClock;
-`endif // SIMULATION
+      interface deleteme_unused_reset = defaultReset;
    endinterface
 endmodule

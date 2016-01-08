@@ -141,12 +141,12 @@ void test_mtable(P4TopRequestProxy *device) {
     device->matchTableRequest(10, 0, 0);  //GET(10) should print k=10 v=15
 }
 
-const char* get_exe_name(const char* argv0) {
-    if (const char *last_slash = strrchr(argv0, '/')) {
-        return last_slash + 1;
-    }
-    return argv0;
-}
+//const char* get_exe_name(const char* argv0) {
+//    if (const char *last_slash = strrchr(argv0, '/')) {
+//        return last_slash + 1;
+//    }
+//    return argv0;
+//}
 
 void usage (const char *program_name) {
     printf("%s: p4fpga tester\n"

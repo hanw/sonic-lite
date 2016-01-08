@@ -31,25 +31,17 @@ import SpecialFIFOs::*;
 import Connectable::*;
 import GetPut::*;
 import Pipe::*;
-
 import ALTERA_ETH_10GBASER_WRAPPER::*;
 
-`ifdef NUMBER_OF_10G_PORTS
-typedef `NUMBER_OF_10G_PORTS NumPorts;
-`else
 typedef 4 NumPorts;
-`endif
-
-interface SerialIfc;
-   method Bit#(NumPorts) tx;
-   method Action rx(Bit#(NumPorts) v);
-endinterface
 
 interface EthPhyIfc;
-   interface Vector#(NumPorts, PipeIn#(Bit#(72)))  tx;
-   interface Vector#(NumPorts, PipeOut#(Bit#(72))) rx;
+   interface Vector#(NumPorts, Put#(Bit#(72)))  tx;
+   interface Vector#(NumPorts, Get#(Bit#(72))) rx;
    (*always_ready, always_enabled*)
-   interface SerialIfc serial;
+   method Vector#(NumPorts, Bit#(1)) serial_tx;
+   (*always_ready, always_enabled*)
+   method Action serial_rx(Vector#(NumPorts, Bit#(1)) v);
    interface Clock rx_clkout;
 endinterface
 
@@ -59,8 +51,9 @@ module mkAlteraEthPhy#(Clock clk_50, Clock clk_644, Clock clk_xgmii, Reset rst_5
    Vector#(NumPorts, FIFOF#(Bit#(72))) rxFifo = newVector;
    Clock defaultClock <- exposeCurrentClock;
    Reset defaultReset <- exposeCurrentReset;
+   Reset invertedReset <- mkResetInverter(rst_50, clocked_by defaultClock);
 
-   Eth10GPhyWrap phy <- mkEth10GPhyWrap(clk_50, clk_644, clk_xgmii, rst_50);
+   Eth10GPhyWrap phy <- mkEth10GPhyWrap(clk_50, clk_644, clk_xgmii, invertedReset);
    Reset xgmii_reset <- mkAsyncReset(2, defaultReset, phy.xgmii_rx_clk);
 
    for (Integer i=0; i<valueOf(NumPorts); i=i+1) begin
@@ -117,14 +110,10 @@ module mkAlteraEthPhy#(Clock clk_50, Clock clk_644, Clock clk_xgmii, Reset rst_5
       phy.rx_serial.data_3(rx_serial_wire[3]);
    endrule
 
-   interface tx = map(toPipeIn, txFifo);
-   interface rx = map(toPipeOut, rxFifo);
-   interface SerialIfc serial;
-      method tx = pack(readVReg(tx_serial));
-      method Action rx (Bit#(NumPorts) v);
-         writeVReg(rx_serial_wire, unpack(v));
-      endmethod
-   endinterface
+   interface tx = map(toPut, txFifo);
+   interface rx = map(toGet, rxFifo);
+   method serial_tx = readVReg(tx_serial);
+   method serial_rx = writeVReg(rx_serial_wire);
    interface rx_clkout = phy.xgmii_rx_clk;
 endmodule
 
