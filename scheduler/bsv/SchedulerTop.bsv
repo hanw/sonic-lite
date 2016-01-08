@@ -1,4 +1,5 @@
 import FIFO::*;
+import FIFOLevel::*;
 import Vector::*;
 import GetPut::*;
 import DefaultValue::*;
@@ -64,7 +65,6 @@ module mkSchedulerTop#(SchedulerTopIndication indication)(SchedulerTop);
 
     Clock defaultClock <- exposeCurrentClock();
     Reset defaultReset <- exposeCurrentReset();
-
     Clock txClock <- mkAbsoluteClock(0, 64);
     Reset txReset <- mkSyncReset(2, defaultReset, txClock);
     Clock rxClock <- mkAbsoluteClock(0, 64);
@@ -77,8 +77,8 @@ module mkSchedulerTop#(SchedulerTopIndication indication)(SchedulerTop);
 
     for (Integer i = 0; i < fromInteger(valueof(NUM_OF_SERVERS)); i = i + 1)
     begin
-        scheduler[i] <- mkScheduler(i, defaultClock, defaultReset,
-                                       txClock, txReset, rxClock, rxReset);
+        scheduler[i] <- mkScheduler(i, txClock, txReset, rxClock, rxReset,
+                                    clocked_by txClock, reset_by txReset);
     end
 
     Vector#(NUM_OF_SERVERS, DMASimulator) dma_sim;
@@ -86,57 +86,59 @@ module mkSchedulerTop#(SchedulerTopIndication indication)(SchedulerTop);
 
     for (Integer i = 0; i < fromInteger(valueof(NUM_OF_SERVERS)); i = i + 1)
     begin
-        dma_sim[i] <- mkDMASimulator(i, scheduler[i]);
-        mac[i] <- mkMac(i, scheduler, defaultClock, defaultReset,
-                                      txClock, txReset, rxClock, rxReset);
+        dma_sim[i] <- mkDMASimulator(i, scheduler[i],
+                                     clocked_by txClock, reset_by txReset);
+        mac[i] <- mkMac(i, scheduler[i], txClock, txReset, rxClock, rxReset,
+                        clocked_by txClock, reset_by txReset);
     end
 
 
-    Vector#(12, Reg#(Addresses)) address <- replicateM(mkReg(defaultValue));
-    Reg#(Bit#(1)) loaded_ip <- mkReg(0);
-    Reg#(Bit#(1)) loaded_mac <- mkReg(0);
+    Vector#(NUM_OF_SERVERS, Reg#(Addresses)) address
+        <- replicateM(mkReg(defaultValue, clocked_by txClock, reset_by txReset));
+
+    Reg#(Bit#(1)) loaded_ip <- mkReg(0, clocked_by txClock, reset_by txReset);
+    Reg#(Bit#(1)) loaded_mac <- mkReg(0, clocked_by txClock, reset_by txReset);
 
     rule load_ip_addresses_into_register (loaded_ip == 0);
         loaded_ip <= 1;
         address[0].ip_addr <= 'hc0a80001;
         address[1].ip_addr <= 'hc0a80002;
-//        address[2].ip_addr <= 'hc0a80003;
-//        address[3].ip_addr <= 'hc0a80004;
-//        address[4].ip_addr <= 'hc0a80005;
-//        address[5].ip_addr <= 'hc0a80006;
-//        address[6].ip_addr <= 'hc0a80007;
-//        address[7].ip_addr <= 'hc0a80008;
-//        address[8].ip_addr <= 'hc0a80009;
-//        address[9].ip_addr <= 'hc0a8000a;
-//        address[10].ip_addr <= 'hc0a8000b;
-//        address[11].ip_addr <= 'hc0a8000c;
+        address[2].ip_addr <= 'hc0a80003;
+        address[3].ip_addr <= 'hc0a80004;
+        address[4].ip_addr <= 'hc0a80005;
+        //address[5].ip_addr <= 'hc0a80006;
+        //address[6].ip_addr <= 'hc0a80007;
+        //address[7].ip_addr <= 'hc0a80008;
+        //address[8].ip_addr <= 'hc0a80009;
+        //address[9].ip_addr <= 'hc0a8000a;
     endrule
 
     rule load_mac_addresses_into_register (loaded_ip == 1 && loaded_mac == 0);
         loaded_mac <= 1;
         address[0].mac_addr <= 'hffab4859fbc4;
         address[1].mac_addr <= 'hab4673df3647;
-//        address[2].mac_addr <= 'h2947baffe64c;
-//        address[3].mac_addr <= 'h5bdc664dffee;
-//        address[4].mac_addr <= 'h85774bbcfeaa;
-//        address[5].mac_addr <= 'h95babbdfe857;
-//        address[6].mac_addr <= 'h7584bcaafe65;
-//        address[7].mac_addr <= 'h1baeef3647af;
-//        address[8].mac_addr <= 'hbcaffe43562b;
-//        address[9].mac_addr <= 'hc64bafe66381;
-//        address[10].mac_addr <= 'hd6b4392ba774;
-//        address[11].mac_addr <= 'hefa553617bbc;
+        address[2].mac_addr <= 'h2947baffe64c;
+        address[3].mac_addr <= 'h5bdc664dffee;
+        address[4].mac_addr <= 'h85774bbcfeaa;
+        //address[5].mac_addr <= 'h95babbdfe857;
+        //address[6].mac_addr <= 'h7584bcaafe65;
+        //address[7].mac_addr <= 'h1baeef3647af;
+        //address[8].mac_addr <= 'hbcaffe43562b;
+        //address[9].mac_addr <= 'hc64bafe66381;
     endrule
 
     Vector#(NUM_OF_SERVERS, Reg#(AddrIndex)) count
-              <- replicateM(mkReg(fromInteger(valueof(NUM_OF_SERVERS))));
+              <- replicateM(mkReg(fromInteger(valueof(NUM_OF_SERVERS)),
+                                  clocked_by txClock, reset_by txReset));
 
     Vector#(NUM_OF_SERVERS, Reg#(Bit#(1))) done_populating_table
-                                                 <- replicateM(mkReg(0));
+                    <- replicateM(mkReg(0, clocked_by txClock, reset_by txReset));
 
-    Vector#(NUM_OF_SERVERS, Reg#(Bit#(1))) once <- replicateM(mkReg(0));
+    Vector#(NUM_OF_SERVERS, Reg#(Bit#(1))) once
+                    <- replicateM(mkReg(0, clocked_by txClock, reset_by txReset));
 
-    Vector#(NUM_OF_SERVERS, Reg#(Bit#(1))) stop <- replicateM(mkReg(0));
+    Vector#(NUM_OF_SERVERS, Reg#(Bit#(1))) stop
+                    <- replicateM(mkReg(0, clocked_by txClock, reset_by txReset));
 
     for (Integer i = 0; i < fromInteger(valueof(NUM_OF_SERVERS)); i = i + 1)
     begin
@@ -149,7 +151,6 @@ module mkSchedulerTop#(SchedulerTopIndication indication)(SchedulerTop);
             count[i] <= count[i] - 1;
             if (count[i] == 1)
                 done_populating_table[i] <= 1;
-            $display("[TEST (%d)] Populating table; idx = %d", i, idx);
         endrule
 
         rule consume_res;
@@ -157,24 +158,20 @@ module mkSchedulerTop#(SchedulerTopIndication indication)(SchedulerTop);
         endrule
 
         rule set_start_time (done_populating_table[i] == 1);
-            $display("[TEST (%d)] Setting time", i);
             done_populating_table[i] <= 0;
             scheduler[i].request.put(makeSchedReqRes(0, 0, 20, 0, 0, SETTIME, SUCCESS));
         endrule
 
         rule set_start_interval;
             let res <- scheduler[i].settime_response.get;
-            $display("[TEST (%d)] Setting interval", i);
             scheduler[i].request.put
-                        (makeSchedReqRes(0, 0, 0, 1000, 0, SETINTERVAL, SUCCESS));
+                        (makeSchedReqRes(0, 0, 0, 10, 0, SETINTERVAL, SUCCESS));
         endrule
 
         rule start_scheduler_dma_mac (once[i] == 0);
             let res <- scheduler[i].setinterval_response.get;
-            $display("[TEST (%d)] Starting scheduler, dma and mac", i);
             scheduler[i].request.put(makeSchedReqRes(0, 0, 0, 0, 0, STARTSCHED, SUCCESS));
             dma_sim[i].start();
-            mac[i].start();
             once[i] <= 1;
         endrule
 
@@ -184,29 +181,171 @@ module mkSchedulerTop#(SchedulerTopIndication indication)(SchedulerTop);
         endrule
     end
 
-    Reg#(Bit#(64)) counter <- mkReg(0);
+    Reg#(Bit#(64)) counter <- mkReg(0, clocked_by txClock, reset_by txReset);
 
     rule clk (once[0] == 1
              && once[1] == 1
-//             && once[2] == 1
-//             && once[3] == 1
-             && counter < 1000);
+             && once[2] == 1
+             && once[3] == 1
+             && once[4] == 1
+             && counter <= 1000000);
         counter <= counter + 1;
-        if (counter == 10)
+        if (counter <= 100000)
+            $display("CLK = %d", counter);
+        if (counter == 4)
         begin
+            $display("[TOP] Number of cycles DMA ran for = %d", counter);
             for (Integer i = 0; i < fromInteger(valueof(NUM_OF_SERVERS)); i = i + 1)
+            begin
                 stop[i] <= 1;
+                scheduler[i].print_stats();
+            end
         end
     endrule
 
+    /* Simulating connection wires via SyncFIFOs */
+
+    Vector#(NUM_OF_SERVERS, Vector#(NUM_OF_PORTS, SyncFIFOLevelIfc#(Bit#(72), 4)))
+    wire_fifo <- replicateM(replicateM(mkSyncFIFOLevel(txClock, txReset, rxClock)));
+
+    for (Integer i = 0; i < fromInteger(valueof(NUM_OF_SERVERS)); i = i + 1)
+    begin
+        for (Integer j = 0; j < fromInteger(valueof(NUM_OF_PORTS)); j = j + 1)
+        begin
+            rule mac_tx_rule;
+                let v = mac[i].mac_tx(j);
+                (wire_fifo[i])[j].enq(v);
+                //$display("[%d %d] MAC tx data = %d", i, j, v);
+            endrule
+        end
+    end
+
+    rule mac_rx_rule_0_0;
+        let v <- toGet((wire_fifo[1])[0]).get;
+        mac[0].mac_rx(0, v);
+        //$display("Getting from (1, 0) to (0, 0)");
+    endrule
+
+    rule mac_rx_rule_0_1;
+        let v <- toGet((wire_fifo[2])[0]).get;
+        mac[0].mac_rx(1, v);
+        //$display("Getting from (2, 0) to (0, 1)");
+    endrule
+
+    rule mac_rx_rule_0_2;
+        let v <- toGet((wire_fifo[3])[0]).get;
+        mac[0].mac_rx(2, v);
+        //$display("Getting from (3, 0) to (0, 2)");
+    endrule
+
+    rule mac_rx_rule_0_3;
+        let v <- toGet((wire_fifo[4])[0]).get;
+        mac[0].mac_rx(3, v);
+        //$display("Getting from (4, 0) to (0, 3)");
+    endrule
+
+    rule mac_rx_rule_1_0;
+        let v <- toGet((wire_fifo[0])[0]).get;
+        mac[1].mac_rx(0, v);
+        //$display("Getting from (0, 0) to (1, 0)");
+    endrule
+
+    rule mac_rx_rule_1_1;
+        let v <- toGet((wire_fifo[2])[1]).get;
+        mac[1].mac_rx(1, v);
+        //$display("Getting from (2, 1) to (1, 1)");
+    endrule
+
+    rule mac_rx_rule_1_2;
+        let v <- toGet((wire_fifo[3])[1]).get;
+        mac[1].mac_rx(2, v);
+        //$display("Getting from (3, 1) to (1, 2)");
+    endrule
+
+    rule mac_rx_rule_1_3;
+        let v <- toGet((wire_fifo[4])[1]).get;
+        mac[1].mac_rx(3, v);
+        //$display("Getting from (4, 1) to (1, 3)");
+    endrule
+
+    rule mac_rx_rule_2_0;
+        let v <- toGet((wire_fifo[0])[1]).get;
+        mac[2].mac_rx(0, v);
+        //$display("Getting from (0, 1) to (2, 0)");
+    endrule
+
+    rule mac_rx_rule_2_1;
+        let v <- toGet((wire_fifo[1])[1]).get;
+        mac[2].mac_rx(1, v);
+        //$display("Getting from (1, 1) to (2, 1)");
+    endrule
+
+    rule mac_rx_rule_2_2;
+        let v <- toGet((wire_fifo[3])[2]).get;
+        mac[2].mac_rx(2, v);
+        //$display("Getting from (3, 2) to (2, 2)");
+    endrule
+
+    rule mac_rx_rule_2_3;
+        let v <- toGet((wire_fifo[4])[2]).get;
+        mac[2].mac_rx(3, v);
+        //$display("Getting from (4, 2) to (2, 3)");
+    endrule
+
+    rule mac_rx_rule_3_0;
+        let v <- toGet((wire_fifo[0])[2]).get;
+        mac[3].mac_rx(0, v);
+        //$display("Getting from (0, 2) to (3, 0)");
+    endrule
+
+    rule mac_rx_rule_3_1;
+        let v <- toGet((wire_fifo[1])[2]).get;
+        mac[3].mac_rx(1, v);
+        //$display("Getting from (1, 2) to (3, 1)");
+    endrule
+
+    rule mac_rx_rule_3_2;
+        let v <- toGet((wire_fifo[2])[2]).get;
+        mac[3].mac_rx(2, v);
+        //$display("Getting from (2, 2) to (3, 2)");
+    endrule
+
+    rule mac_rx_rule_3_3;
+        let v <- toGet((wire_fifo[4])[3]).get;
+        mac[3].mac_rx(3, v);
+        //$display("Getting from (4, 3) to (3, 3)");
+    endrule
+
+    rule mac_rx_rule_4_0;
+        let v <- toGet((wire_fifo[0])[3]).get;
+        mac[4].mac_rx(0, v);
+        //$display("Getting from (0, 3) to (4, 0)");
+    endrule
+
+    rule mac_rx_rule_4_1;
+        let v <- toGet((wire_fifo[1])[3]).get;
+        mac[4].mac_rx(1, v);
+        //$display("Getting from (1, 3) to (4, 1)");
+    endrule
+
+    rule mac_rx_rule_4_2;
+        let v <- toGet((wire_fifo[2])[3]).get;
+        mac[4].mac_rx(2, v);
+        //$display("Getting from (2, 3) to (4, 2)");
+    endrule
+
+    rule mac_rx_rule_4_3;
+        let v <- toGet((wire_fifo[3])[3]).get;
+        mac[4].mac_rx(3, v);
+        //$display("Getting from (3, 3) to (4, 3)");
+    endrule
 `endif
 
 `ifdef DEBUG_SCHEDULER
 
    Scheduler#(SchedReqResType, SchedReqResType,
               ReadReqType, ReadResType, WriteReqType, WriteResType)
-        scheduler1 <- mkScheduler(0, defaultClock, defaultReset, txClock, txReset,
-                                      rxClock, rxReset);
+        scheduler1 <- mkScheduler(0, txClock, txReset, rxClock, rxReset);
 
    Reg#(AddrIndex) addrIdx <- mkReg(0);
    Reg#(Bit#(1)) display_in_progress <- mkReg(0);

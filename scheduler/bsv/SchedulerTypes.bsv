@@ -2,8 +2,10 @@ import DefaultValue::*;
 
 typedef 32 IP_ADDR_LEN;
 typedef 48 MAC_ADDR_LEN;
-typedef 2 NUM_OF_SERVERS;
+typedef 5 NUM_OF_SERVERS;
 typedef NUM_OF_SERVERS TABLE_LEN;
+
+typedef 4 NUM_OF_PORTS;
 
 typedef Bit#(IP_ADDR_LEN) IP;
 typedef Bit#(MAC_ADDR_LEN) MAC;

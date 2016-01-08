@@ -35,6 +35,8 @@ CONNECTALFLAGS += -I $(SONIC_DIR)/sw/
 CONNECTALFLAGS += -D DEBUG_SCHEDULER
 CONNECTALFLAGS += -D FULL_SYSTEM_TEST
 
+CONNECTALFLAGS += --bscflags="-show-range-conflict +RTS -K46777216 -RTS -demote-errors G0066:G0045 -suppress-warnings G0046:G0020:S0015:S0080:S0039 -steps-max-intervals 20"
+
 ifeq ($(BOARD), vsim)
 CONNECTALFLAGS += --systemverilog $(IPDIR)/$(BOARD)/simulation/mac_10gbe
 endif

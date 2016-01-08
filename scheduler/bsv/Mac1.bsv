@@ -9,60 +9,73 @@ import SchedulerTypes::*;
 import Scheduler::*;
 import RingBufferTypes::*;
 
-import AlteraMacWrap::*;
-import EthMac::*;
+//import AlteraMacWrap::*;
+//import EthMac::*;
 
 interface Mac;
-    (* always_ready, always_enabled *)
-    method Bit#(72) mac_tx(Integer port_index);
-    (* always_ready, always_enabled *)
-    method Action mac_rx(Integer port_index, Bit#(72) v);
+    method Action start();
+    method Action stop();
 endinterface
 
-module mkMac#(Integer host_index,
-              Scheduler#(SchedReqResType, SchedReqResType,
-                         ReadReqType, ReadResType,
-                         WriteReqType, WriteResType) scheduler,
-              Clock txClock, Reset txReset, Clock rxClock, Reset rxReset) (Mac);
+typedef struct {
+    dataT d;  // data (generic)
+    Bit#(1) sop; // start-of-packet marker
+    Bit#(1) eop; // end-of-packet marker
+} PacketDataT#(type dataT) deriving (Bits,Eq);
 
-    Clock defaultClock <- exposeCurrentClock();
-    Reset defaultReset <- exposeCurrentReset();
+instance DefaultValue#(PacketDataT#(Bit#(64)));
+    defaultValue = PacketDataT {
+                                d : 0,
+                                sop : 0,
+                                eop : 0
+                               };
+endinstance
 
-    Vector#(NUM_OF_PORTS, EthMacIfc) mac <- replicateM(mkEthMac(defaultClock,
-                                                     txClock, rxClock, txReset));
+module mkMac#(Integer host_index, Vector#(NUM_OF_SERVERS,
+    Scheduler#(SchedReqResType, SchedReqResType,
+               ReadReqType, ReadResType,
+               WriteReqType, WriteResType)) scheduler,
+    Clock txClock, Reset txReset,
+    Clock rxClock, Reset rxReset) (Mac);
 
-/*------------------------------------------------------------------------------*/
+    //Clock defaultClock <- exposeCurrentClock();
+    //Reset defaultReset <- exposeCurrentReset();
+    //EthMacIfc mac <- mkEthMac(defaultClock, txClock, rxClock, txReset);
+
+/*-------------------------------------------------------------------------------*/
 
                                 /* Tx Path */
 
-/*------------------------------------------------------------------------------*/
-    Reg#(Bool) tx_verbose <- mkReg(True, clocked_by txClock, reset_by txReset);
+/*-------------------------------------------------------------------------------*/
+    Reg#(Bool) tx_verbose <- mkReg(False, clocked_by txClock, reset_by txReset);
+
+    Vector#(NUM_OF_PORTS, SyncFIFOLevelIfc#(PacketDataT#(Bit#(64)), 8)) buffer
+                        <- replicateM(mkSyncFIFOLevel(txClock, txReset, rxClock));
 
     Vector#(NUM_OF_PORTS, Vector#(2, FIFO#(PacketDataT#(Bit#(64))))) mac_in_buffer
-    <- replicateM
-               (replicateM(mkSizedFIFO(2, clocked_by txClock, reset_by txReset)));
+    <- replicateM(replicateM(mkSizedFIFO(2, clocked_by txClock, reset_by txReset)));
 
     Vector#(NUM_OF_PORTS, Reg#(Bit#(2))) turn
-                    <- replicateM(mkReg(0, clocked_by txClock, reset_by txReset));
+                      <- replicateM(mkReg(0, clocked_by txClock, reset_by txReset));
 
     rule start_polling_tx_buffer_port_1;
-        scheduler.mac_read_request_port_1.put(makeReadReq(READ));
+        scheduler[host_index].mac_read_request_port_1.put(makeReadReq(READ));
     endrule
 
     rule start_polling_tx_buffer_port_2;
-        scheduler.mac_read_request_port_2.put(makeReadReq(READ));
+        scheduler[host_index].mac_read_request_port_2.put(makeReadReq(READ));
     endrule
 
     rule start_polling_tx_buffer_port_3;
-        scheduler.mac_read_request_port_3.put(makeReadReq(READ));
+        scheduler[host_index].mac_read_request_port_3.put(makeReadReq(READ));
     endrule
 
     rule start_polling_tx_buffer_port_4;
-        scheduler.mac_read_request_port_4.put(makeReadReq(READ));
+        scheduler[host_index].mac_read_request_port_4.put(makeReadReq(READ));
     endrule
 
     rule add_blocks_to_fifo_port_1;
-        let d <- scheduler.mac_read_response_port_1.get;
+        let d <- scheduler[host_index].mac_read_response_port_1.get;
 
         Vector#(2, Bit#(1)) start_bit = replicate(0);
         Vector#(2, Bit#(1)) end_bit = replicate(0);
@@ -105,7 +118,7 @@ module mkMac#(Integer host_index,
     endrule
 
     rule add_blocks_to_fifo_port_2;
-        let d <- scheduler.mac_read_response_port_2.get;
+        let d <- scheduler[host_index].mac_read_response_port_2.get;
 
         Vector#(2, Bit#(1)) start_bit = replicate(0);
         Vector#(2, Bit#(1)) end_bit = replicate(0);
@@ -148,7 +161,7 @@ module mkMac#(Integer host_index,
     endrule
 
     rule add_blocks_to_fifo_port_3;
-        let d <- scheduler.mac_read_response_port_3.get;
+        let d <- scheduler[host_index].mac_read_response_port_3.get;
 
         Vector#(2, Bit#(1)) start_bit = replicate(0);
         Vector#(2, Bit#(1)) end_bit = replicate(0);
@@ -191,7 +204,7 @@ module mkMac#(Integer host_index,
     endrule
 
     rule add_blocks_to_fifo_port_4;
-        let d <- scheduler.mac_read_response_port_4.get;
+        let d <- scheduler[host_index].mac_read_response_port_4.get;
 
         Vector#(2, Bit#(1)) start_bit = replicate(0);
         Vector#(2, Bit#(1)) end_bit = replicate(0);
@@ -240,25 +253,25 @@ module mkMac#(Integer host_index,
             rule send_to_mac (turn[i] == fromInteger(j));
                 let d <- toGet((mac_in_buffer[i])[j]).get;
 
-                mac[i].packet_tx.put(d);
+                buffer[i].enq(d);
+                //mac.packet_tx.put(d);
 
                 if (tx_verbose)
                     $display("[MAC (%d)] input to mac %d %d %x i = %d",
                                host_index, d.sop, d.eop, d.d, i);
-
                 turn[i] <= (turn[i] + 1) % 2;
             endrule
         end
     end
 
 
-/*------------------------------------------------------------------------------*/
+/*-------------------------------------------------------------------------------*/
 
                                 /* Rx Path */
 
-/*------------------------------------------------------------------------------*/
+/*-------------------------------------------------------------------------------*/
 
-    Reg#(Bool) rx_verbose <- mkReg(True, clocked_by rxClock, reset_by rxReset);
+    Reg#(Bool) rx_verbose <- mkReg(False, clocked_by rxClock, reset_by rxReset);
 
     Vector#(NUM_OF_PORTS, Reg#(PacketDataT#(Bit#(64)))) mac_out_buffer
         <- replicateM(mkReg(defaultValue, clocked_by rxClock, reset_by rxReset));
@@ -269,7 +282,8 @@ module mkMac#(Integer host_index,
     for (Integer i = 0; i < fromInteger(valueof(NUM_OF_PORTS)); i = i + 1)
     begin
         rule send_blocks_to_dst;
-            let d <- mac[i].packet_rx.get;
+            let d <- toGet(buffer[i]).get;
+            //let d <- mac.packet_rx.get;
 
             if (rx_verbose)
                 $display("[MAC (%d)] output from mac layer %d %d %x",
@@ -309,16 +323,75 @@ module mkMac#(Integer host_index,
                     end_bit = 1;
                 end
 
-                case (i)
-                    0 : scheduler.mac_write_request_port_1.put
+                if (host_index == 0)
+                begin
+                    case (i)
+                    0 : scheduler[1].mac_write_request_port_1.put
                                       (makeWriteReq(start_bit, end_bit, pload));
-                    1 : scheduler.mac_write_request_port_2.put
+                    1 : scheduler[2].mac_write_request_port_1.put
                                       (makeWriteReq(start_bit, end_bit, pload));
-                    2 : scheduler.mac_write_request_port_3.put
+                    2 : scheduler[3].mac_write_request_port_1.put
                                       (makeWriteReq(start_bit, end_bit, pload));
-                    3 : scheduler.mac_write_request_port_4.put
+                    3 : scheduler[4].mac_write_request_port_1.put
                                       (makeWriteReq(start_bit, end_bit, pload));
-                endcase
+                    endcase
+                end
+
+                else if (host_index == 1)
+                begin
+                    case (i)
+                    0 : scheduler[0].mac_write_request_port_1.put
+                                      (makeWriteReq(start_bit, end_bit, pload));
+                    1 : scheduler[2].mac_write_request_port_2.put
+                                      (makeWriteReq(start_bit, end_bit, pload));
+                    2 : scheduler[3].mac_write_request_port_2.put
+                                      (makeWriteReq(start_bit, end_bit, pload));
+                    3 : scheduler[4].mac_write_request_port_2.put
+                                      (makeWriteReq(start_bit, end_bit, pload));
+                    endcase
+                end
+
+                else if (host_index == 2)
+                begin
+                    case (i)
+                    0 : scheduler[0].mac_write_request_port_2.put
+                                      (makeWriteReq(start_bit, end_bit, pload));
+                    1 : scheduler[1].mac_write_request_port_2.put
+                                      (makeWriteReq(start_bit, end_bit, pload));
+                    2 : scheduler[3].mac_write_request_port_3.put
+                                      (makeWriteReq(start_bit, end_bit, pload));
+                    3 : scheduler[4].mac_write_request_port_3.put
+                                      (makeWriteReq(start_bit, end_bit, pload));
+                    endcase
+                end
+
+                else if (host_index == 3)
+                begin
+                    case (i)
+                    0 : scheduler[0].mac_write_request_port_3.put
+                                      (makeWriteReq(start_bit, end_bit, pload));
+                    1 : scheduler[1].mac_write_request_port_3.put
+                                      (makeWriteReq(start_bit, end_bit, pload));
+                    2 : scheduler[2].mac_write_request_port_3.put
+                                      (makeWriteReq(start_bit, end_bit, pload));
+                    3 : scheduler[4].mac_write_request_port_4.put
+                                      (makeWriteReq(start_bit, end_bit, pload));
+                    endcase
+                end
+
+                else if (host_index == 4)
+                begin
+                    case (i)
+                    0 : scheduler[0].mac_write_request_port_4.put
+                                      (makeWriteReq(start_bit, end_bit, pload));
+                    1 : scheduler[1].mac_write_request_port_4.put
+                                      (makeWriteReq(start_bit, end_bit, pload));
+                    2 : scheduler[2].mac_write_request_port_4.put
+                                      (makeWriteReq(start_bit, end_bit, pload));
+                    3 : scheduler[3].mac_write_request_port_4.put
+                                      (makeWriteReq(start_bit, end_bit, pload));
+                    endcase
+                end
 
                 if (rx_verbose)
                     $display("[MAC (%d)] data = %d %d %x i = %d",
@@ -328,18 +401,54 @@ module mkMac#(Integer host_index,
     end
 
 
-/*------------------------------------------------------------------------------*/
+/*-------------------------------------------------------------------------------*/
 
-                            /* Interface Methods */
+                                /* Loopback */
 
-/*------------------------------------------------------------------------------*/
+/*-------------------------------------------------------------------------------*/
+//
+//    SyncFIFOLevelIfc#(Bit#(72), 2) syncfifo
+//                <- mkSyncFIFOLevel(txClock, txReset, rxClock);
+//
+//    rule mac_loopback_tx;
+//        syncfifo.enq(mac.tx);
+//    endrule
+//
+//    rule mac_loopback_rx;
+//        let v <- toGet(syncfifo).get;
+//        mac.rx(v);
+//    endrule
+//
+//    Reg#(Bit#(1)) once <- mkReg(0, clocked_by txClock, reset_by txReset);
+//    rule send_to_tx (once == 0);
+//        once <= 1;
+//
+//        $display("[MAC (%d)] SENDING DATA");
+//        PacketDataT#(Bit#(64)) data = PacketDataT {
+//                                            d : 'h28374fabcce53678,
+//                                            sop : 1,
+//                                            eop : 0
+//                                          };
+//        mac.packet_tx.put(data);
+//    endrule
+//
+//    rule get_from_rx;
+//        let d <- mac.packet_rx.get;
+//        $display("[MAC (%d)] DATA = %d %d %x", host_index, d.sop, d.eop, d.d);
+//    endrule
+//
+//
+/*-------------------------------------------------------------------------------*/
 
-    method Bit#(72) mac_tx(Integer port_index);
-        let v = mac[port_index].tx;
-        return v;
+                            /* Inteface Methods */
+
+/*-------------------------------------------------------------------------------*/
+
+    method Action start();
+        //$display("[MAC (%d)] Starting...............................", host_index);
     endmethod
 
-    method Action mac_rx(Integer port_index, Bit#(72) v);
-        mac[port_index].rx(v);
+    method Action stop();
+        //$display("[MAC (%d)] Stopping...............................", host_index);
     endmethod
 endmodule

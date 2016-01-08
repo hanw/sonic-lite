@@ -1,4 +1,4 @@
-DEV_ROOT ?= $(HOME)/dev/
+DEV_ROOT ?= $(HOME)/
 CONNECTAL_DIR ?= $(DEV_ROOT)/connectal
 SONIC_DIR ?= $(DEV_ROOT)/sonic-lite
 IPDIR=$(DEV_ROOT)/fpgamake-cache/$(shell basename `/bin/pwd`)/

@@ -104,7 +104,7 @@ module mkRingBuffer#(Integer size)
                 length <= 0;
                 Address addr = (truncate(head) % fromInteger(size)) * 32;
                 len_buffer.portA.request.put(makeBRAMLenRequest(True, addr,
-                                          length + fromInteger(valueof(BUS_WIDTH))));
+                                        length + fromInteger(valueof(BUS_WIDTH))));
                 //write_response_fifo.enq(makeWriteRes(SUCCESS));
             end
 
@@ -117,7 +117,7 @@ module mkRingBuffer#(Integer size)
                 length <= 0;
                 Address addr = (truncate(head) % fromInteger(size)) * 32;
                 len_buffer.portA.request.put(makeBRAMLenRequest(True, addr,
-                                          length + fromInteger(valueof(BUS_WIDTH))));
+                                         length + fromInteger(valueof(BUS_WIDTH))));
                 //write_response_fifo.enq(makeWriteRes(SUCCESS));
             end
 
@@ -130,7 +130,7 @@ module mkRingBuffer#(Integer size)
                          * fromInteger(valueof(MAX_PKT_LEN)))
                          + (w_offset * fromInteger(valueof(BUS_WIDTH)));
             ring_buffer.portA.request.put(makeBRAMDataRequest(True, addr,
-                                                                w_req.data.payload));
+                                                               w_req.data.payload));
             end
         end
         //else
