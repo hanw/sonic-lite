@@ -83,6 +83,8 @@ module mkEthPhy#(Clock mgmt_clk, Clock clk_156_25, Clock clk_644, Reset rst_n)(E
    Reg#(Bool) loopback_en <- mkReg(False);
    Reg#(Bool) switch_en <- mkReg(False);
 
+   let bypass_dtp = True;
+
    Vector#(NumPorts, EthPcsRx) pcs_rx = newVector;
    Vector#(NumPorts, EthPcsTx) pcs_tx = newVector;
    Vector#(NumPorts, DtpRx)    dtp_rx = newVector;
@@ -155,10 +157,16 @@ module mkEthPhy#(Clock mgmt_clk, Clock clk_156_25, Clock clk_644, Reset rst_n)(E
       dtpErrCntOut[i] = toPipeOut(dtpErrCntFifo[i]);
       dtpErrCntIn[i]  = toPipeIn(dtpErrCntFifo[i]);
 
-      // Rx Path: PcsRx -> DtpRx
-      mkConnection(pcs_rx[i].dtpRxIn, dtp_rx[i].dtpRxIn);
-      // Rx Path: DtpRx -> PcsRx
-      mkConnection(dtp_rx[i].dtpRxOut, pcs_rx[i].dtpRxOut);
+      if (bypass_dtp) begin
+          // Rx Path: bypassing dtp
+          mkConnection(pcs_rx[i].dtpRxIn, pcs_rx[i].dtpRxOut);
+      end
+      else begin
+          // Rx Path: PcsRx -> DtpRx
+          mkConnection(pcs_rx[i].dtpRxIn, dtp_rx[i].dtpRxIn);
+          // Rx Path: DtpRx -> PcsRx
+          mkConnection(dtp_rx[i].dtpRxOut, pcs_rx[i].dtpRxOut);
+      end
       // Rx Path: DtpRx -> SyncFIFO
       mkConnection(dtp_rx[i].dtpEventOut, dtpEventIn[i]);
       // Rx Path DtpRx -> SyncFifo
@@ -170,10 +178,16 @@ module mkEthPhy#(Clock mgmt_clk, Clock clk_156_25, Clock clk_644, Reset rst_n)(E
       mkConnection(dtpEventOut[i], dtp_tx[i].dtpEventIn);
       // Tx Path: Mac -> Encoder
       mkConnection(vTxPipeOut[i], pcs_tx[i].encoderIn);
-      // Tx Path: PcsTx -> DtpTx
-      mkConnection(pcs_tx[i].dtpTxIn, dtp_tx[i].dtpTxIn);
-      // Tx Path: DtpTx -> PcsTx
-      mkConnection(dtp_tx[i].dtpTxOut, pcs_tx[i].dtpTxOut);
+      if (bypass_dtp) begin
+          // Tx Path: bypassing dtp
+          mkConnection(pcs_tx[i].dtpTxIn, pcs_tx[i].dtpTxOut);
+      end
+      else begin
+          // Tx Path: PcsTx -> DtpTx
+          mkConnection(pcs_tx[i].dtpTxIn, dtp_tx[i].dtpTxIn);
+          // Tx Path: DtpTx -> PcsTx
+          mkConnection(dtp_tx[i].dtpTxOut, pcs_tx[i].dtpTxOut);
+      end
 
       // Loopback Enable Signal
       //ReadOnly#(Bool) rx_lpbk_en <- mkNullCrossingWire(pma4.rx_clkout[i], loopback_en);
