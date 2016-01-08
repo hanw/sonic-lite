@@ -89,19 +89,15 @@ module mkDtpTop#(DtpIndication indication)(DtpTop);
          clk_644_wire <= refclk;
       endmethod
 `ifdef DEBUG_ETH
-      method serial_tx_data = {net.ifcs.serial[3].tx,net.ifcs.serial[2].tx,net.ifcs.serial[1].tx,net.ifcs.serial[0].tx};
-      method Action serial_rx(Bit#(4) data);
-         for (Integer i = 0 ; i < 4; i = i+1) begin
-             net.ifcs.serial[i].rx(data[i]);
-         end
-      endmethod
+      method serial_tx_data = net.ifcs.serial_tx;
+      method serial_rx = net.ifcs.serial_rx;
       interface i2c = clocks.i2c;
       interface sfpctrl = sfpctrl;
 `endif  // DEBUG_ETH
-      interface deleteme_unused_clock = clocks.clock_50;
-      interface deleteme_unused_reset = defaultReset;
-      interface deleteme_unused_clock2 = defaultClock;
+      interface deleteme_unused_clock = defaultClock;
+      interface deleteme_unused_clock2 = clock_50;
       interface deleteme_unused_clock3 = defaultClock;
+      interface deleteme_unused_reset = defaultReset;
 `endif // SIMULATION
    endinterface
 endmodule

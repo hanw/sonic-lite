@@ -42,8 +42,10 @@ typedef 4 NumPorts;
 `endif
 
 interface EthPortIfc;
-   (* always_ready, always_enabled *)
-   interface Vector#(NumPorts, SerialIfc) serial;
+   (*always_ready, always_enabled*)
+   method Vector#(NumPorts,Bit#(1)) serial_tx;
+   (*always_ready, always_enabled*)
+   method Action serial_rx(Vector#(NumPorts,Bit#(1)) data);
    (* always_ready, always_enabled *)
    interface Vector#(NumPorts, Clock) tx_clkout;
    (* always_ready, always_enabled *)
@@ -56,26 +58,25 @@ endinterface
 (* clock_family = "default_clock, clk_156_25" *)
 module mkEthPorts#(Clock clk_50, Clock clk_156_25, Clock clk_644)(EthPortIfc);
 
-   let use_mac = True;
+   let use_mac = False;
 
    Clock defaultClock <- exposeCurrentClock;
    Reset defaultReset <- exposeCurrentReset;
-   Reset rst_50     <- mkAsyncResetFromCR(2, clk_50);
-   Reset rst_156_25_n <- mkAsyncReset(2, defaultReset, clk_156_25);
+//   Reset rst_156_25_n <- mkAsyncReset(2, defaultReset, clk_156_25);
 
    Reg#(Bit#(128)) cycle <- mkReg(0);
    FIFOF#(Bit#(128)) tsFifo <- mkFIFOF();
 
 //   Vector#(NumPorts, EthPktCtrlIfc) pktctrls <- replicateM(mkEthPktCtrl(clk_156_25, rst_156_25, clocked_by clk_156_25, reset_by rst_156_25));
 //
-   EthPhyIfc#(NumPorts) phys <- mkEthPhy(clk_50, clk_156_25, clk_644, rst_156_25_n, clocked_by clk_156_25, reset_by rst_156_25_n);
+   EthPhyIfc#(NumPorts) phys <- mkEthPhy(clk_50, clk_156_25, clk_644, clocked_by defaultClock, reset_by defaultReset);
 
    if (use_mac) begin
-      EthMacIfc macs <- mkEthMac(clk_50, clk_156_25, phys.rx_clkout, rst_156_25_n, clocked_by clk_156_25, reset_by rst_156_25_n);
+/*      EthMacIfc macs <- mkEthMac(clk_50, clk_156_25, phys.rx_clkout, rst_156_25_n, clocked_by clk_156_25, reset_by rst_156_25_n);
       for (Integer i=0; i<valueOf(NumPorts); i=i+1) begin
          mkConnection(macs.tx[i], phys.tx[i]);
          mkConnection(phys.rx[i], macs.rx[i]);
-      end
+      end*/
    end
    else begin
       for (Integer i=0; i<valueOf(NumPorts); i=i+1) begin
@@ -106,7 +107,8 @@ module mkEthPorts#(Clock clk_50, Clock clk_156_25, Clock clk_644)(EthPortIfc);
 
    interface loopback = phys.loopback;
    interface tx_clkout = phys.tx_clkout;
-   interface serial = phys.serial;
+   method serial_tx = phys.serial_tx;
+   method serial_rx = phys.serial_rx;
    interface led_rx_ready = phys.led_rx_ready;
 
 endmodule: mkEthPorts
