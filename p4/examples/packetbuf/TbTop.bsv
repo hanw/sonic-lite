@@ -9,8 +9,6 @@ import Pipe::*;
 import Vector::*;
 import ConnectalMemory::*;
 
-import MatchTable::*;
-import MatchTableTypes::*;
 import MemTypes::*;
 import MemServerIndication::*;
 import MMUIndication::*;
