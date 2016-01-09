@@ -33,7 +33,9 @@ using namespace std;
 static ParserTestRequestProxy *device = 0;
 uint16_t flowid;
 
-void mem_copy(const void *buff, int length);
+void device_writePacketData(uint64_t* data, uint8_t* mask, int sop, int eop) {
+    device->writePacketData(data, mask, sop, eop);
+}
 
 class ParserTestIndication : public ParserTestIndicationWrapper
 {
@@ -41,46 +43,37 @@ public:
     virtual void read_version_resp(uint32_t a) {
         fprintf(stderr, "version %x\n", a);
     }
-//    virtual void parsed_ipv4_resp(uint8_t ttl) {
-//        fprintf(stderr, "found ipv4 %x\n", ttl);
-//    }
-//    virtual void parsed_vlan_resp() {
-//        fprintf(stderr, "found vlan\n");
-//    }
-//    virtual void parsed_ether_resp(uint64_t srcAddr, uint64_t dstAddr) {
-//        fprintf(stderr, "found ether %lx %lx\n", srcAddr, dstAddr);
-//    }
     ParserTestIndication(unsigned int id) : ParserTestIndicationWrapper(id) {}
 };
 
-void mem_copy(const void *buff, int packet_size) {
-
-    int i, sop, eop;
-    uint64_t data[2];
-    int numBeats;
-
-    numBeats = packet_size / 8; // 16 bytes per beat for 128-bit datawidth;
-    if (packet_size % 8) numBeats++;
-    PRINT_INFO("nBeats=%d, packetSize=%d\n", numBeats, packet_size);
-    for (i=0; i<numBeats; i++) {
-        data[i%2] = *(static_cast<const uint64_t *>(buff) + i);
-        sop = (i/2 == 0);
-        eop = (i/2 == (numBeats-1)/2);
-        if (i%2) {
-            device->writePacketData(data, 0xff, sop, eop);
-            PRINT_INFO("%016lx %016lx %d %d\n", data[1], data[0], sop, eop);
-        }
-
-        // last beat, padding with zero
-        if ((numBeats%2!=0) && (i==numBeats-1)) {
-            sop = (i/2 == 0) ? 1 : 0;
-            eop = 1;
-            data[1] = 0;
-            device->writePacketData(data, 0xff, sop, eop);
-            PRINT_INFO("%016lx %016lx %d %d\n", data[1], data[0], sop, eop);
-        }
-    }
-}
+//void mem_copy(const void *buff, int packet_size) {
+//
+//    int i, sop, eop;
+//    uint64_t data[2];
+//    int numBeats;
+//
+//    numBeats = packet_size / 8; // 16 bytes per beat for 128-bit datawidth;
+//    if (packet_size % 8) numBeats++;
+//    PRINT_INFO("nBeats=%d, packetSize=%d\n", numBeats, packet_size);
+//    for (i=0; i<numBeats; i++) {
+//        data[i%2] = *(static_cast<const uint64_t *>(buff) + i);
+//        sop = (i/2 == 0);
+//        eop = (i/2 == (numBeats-1)/2);
+//        if (i%2) {
+//            device->writePacketData(data, 0xff, sop, eop);
+//            PRINT_INFO("%016lx %016lx %d %d\n", data[1], data[0], sop, eop);
+//        }
+//
+//        // last beat, padding with zero
+//        if ((numBeats%2!=0) && (i==numBeats-1)) {
+//            sop = (i/2 == 0) ? 1 : 0;
+//            eop = 1;
+//            data[1] = 0;
+//            device->writePacketData(data, 0xff, sop, eop);
+//            PRINT_INFO("%016lx %016lx %d %d\n", data[1], data[0], sop, eop);
+//        }
+//    }
+//}
 
 void usage (const char *program_name) {
     printf("%s: p4fpga tester\n"

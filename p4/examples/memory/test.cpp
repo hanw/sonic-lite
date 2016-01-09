@@ -19,16 +19,23 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#include "MemServerIndication.h"
+#include "MemoryTestIndication.h"
+#include "MemoryTestRequest.h"
+#include "GeneratedTypes.h"
 #include "lutils.h"
 #include "lpcap.h"
-#include "globals.h"
 
 using namespace std;
 
 #define DATA_WIDTH 128
 
-MemoryTestRequestProxy *device = 0;
+static MemoryTestRequestProxy *device = 0;
 uint16_t flowid;
+
+void device_writePacketData(uint64_t* data, uint8_t* mask, int sop, int eop) {
+    device->writePacketData(data, mask, sop, eop);
+}
 
 class MemoryTestIndication : public MemoryTestIndicationWrapper
 {

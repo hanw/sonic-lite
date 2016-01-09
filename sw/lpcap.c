@@ -1,5 +1,6 @@
 #include "lpcap.h"
-#include "globals.h"
+
+void device_writePacketData(uint64_t* data, uint8_t* mask, int sop, int eop);
 
 /**
  * Send packet on quick_tx device
@@ -94,7 +95,7 @@ void mem_copy(const void *buff, int packet_size) {
         sop = (i/2 == 0);
         eop = (i/2 == (numBeats-1)/2);
         if (i%2) {
-            device->writePacketData(data, mask, sop, eop);
+            device_writePacketData(data, mask, sop, eop);
             PRINT_INFO("%016lx %016lx %0x %0x %d %d\n", data[1], data[0], mask[1], mask[0], sop, eop);
         }
 
@@ -104,7 +105,7 @@ void mem_copy(const void *buff, int packet_size) {
             eop = 1;
             data[1] = 0;
             mask[1] = 0;
-            device->writePacketData(data, mask, sop, eop);
+            device_writePacketData(data, mask, sop, eop);
             PRINT_INFO("%016lx %016lx %0x %0x %d %d\n", data[1], data[0], mask[1], mask[0], sop, eop);
         }
     }

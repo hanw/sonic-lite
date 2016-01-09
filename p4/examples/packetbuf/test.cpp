@@ -18,19 +18,24 @@
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
  * DEALINGS IN THE SOFTWARE.
  */
+#include "MemServerIndication.h"
+#include "MallocIndication.h"
+#include "TbIndication.h"
+#include "TbRequest.h"
+#include "GeneratedTypes.h"
 #include "lutils.h"
 #include "lpcap.h"
-#include "globals.h"
 
 using namespace std;
 
 #define DATA_WIDTH 128
 
-TbRequestProxy *device = 0;
+static TbRequestProxy *device = 0;
 uint16_t flowid;
 
-void mem_copy(const void *buff, int length);
-
+void device_writePacketData(uint64_t* data, uint8_t* mask, int sop, int eop) {
+    device->writePacketData(data, mask, sop, eop);
+}
 
 class TbIndication : public TbIndicationWrapper
 {

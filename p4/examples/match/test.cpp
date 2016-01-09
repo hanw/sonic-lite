@@ -18,9 +18,12 @@
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
  * DEALINGS IN THE SOFTWARE.
  */
+#include "MemServerIndication.h"
+#include "MatchTestIndication.h"
+#include "MatchTestRequest.h"
+#include "GeneratedTypes.h"
 #include "lutils.h"
 #include "lpcap.h"
-#include "globals.h"
 
 using namespace std;
 
@@ -29,6 +32,10 @@ using namespace std;
 MatchTestRequestProxy *device = 0;
 static sem_t sem_ctrl;
 uint16_t flowid;
+
+void device_writePacketData(uint64_t* data, uint8_t* mask, int sop, int eop) {
+    device->writePacketData(data, mask, sop, eop);
+}
 
 class MatchTestIndication : public MatchTestIndicationWrapper
 {
