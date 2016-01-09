@@ -77,7 +77,7 @@ int main(int argc, char **argv) {
         data[0] = strtoul(second_64.c_str(), NULL, 16);
         sop = (i == 0) ? 1 : 0;
         eop = (i == ITERATION-2) ? 1 : 0;
-        device->writePacketData(data, sop, eop);
+        device->writePacketData(data, 0xff, sop, eop);
         PRINT_INFO("%016lx %016lx %d %d\n", data[1], data[0], sop, eop);
     }
 

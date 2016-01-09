@@ -79,7 +79,7 @@ interface SonicTopRequest;
    method Action sonic_read_version();
    method Action startRead(Bit#(32) pointer, Bit#(32) offset, Bit#(32) numBytes, Bit#(32) burstLen);
    method Action startWrite(Bit#(32) pointer, Bit#(32) offset, Bit#(32) numWords, Bit#(32) burstLen);
-   method Action writePacketData(Bit#(64) upper, Bit#(64) lower, Bit#(1) sop, Bit#(1) eop);
+   method Action writePacketData(Vector#(2, Bit#(64)) data, Vector#(2, Bit#(8)) mask, Bit#(1) sop, Bit#(1) eop);
    method Action writeMacData(Bit#(64) data, Bit#(1) sop, Bit#(1) eop);
    method Action resetWrite(Bit#(32) qid);
 endinterface
@@ -297,8 +297,12 @@ module mkSonicTop#(Clock derivedClock, Reset derivedReset, SonicTopIndication in
          //$display("NewRxDesc: rp=%x offset=%x len=%x burstLen=%x", rp, off, nb, bl);
          newRxDesc <= RxDesc{sglId:rp, offset:extend(off), len:nb, burstLen:truncate(bl), nDesc:1};
       endmethod
-      method Action writePacketData(Bit#(64) upper, Bit#(64) lower, Bit#(1) sop, Bit#(1) eop);
-         let d = EtherData{data: {upper, lower}, sop: unpack(sop), eop: unpack(eop)};
+      method Action writePacketData(Vector#(2, Bit#(64)) data, Vector#(2, Bit#(8)) mask, Bit#(1) sop, Bit#(1) eop);
+         EtherData beat = defaultValue;
+         beat.data = pack(reverse(data));
+         beat.mask = pack(reverse(mask));
+         beat.sop = unpack(sop);
+         beat.eop = unpack(eop);
          rxPktBuff.writeServer.writeData.put(d);
       endmethod
       method Action writeMacData(Bit#(64) data, Bit#(1) sop, Bit#(1) eop);
