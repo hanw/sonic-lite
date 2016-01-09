@@ -65,7 +65,10 @@ interface EthSonicPma#(numeric type numPorts);
    interface Vector#(numPorts, Clock) tx_clkout;
    interface Vector#(numPorts, Reset) rx_reset;
    interface Vector#(numPorts, Reset) tx_reset;
-   interface Vector#(numPorts, SerialIfc) pmd;
+   (*always_ready, always_enabled*)
+   method Vector#(numPorts, Bit#(1)) serial_tx;
+   (*always_ready, always_enabled*)
+   method Action serial_rx(Vector#(numPorts, Bit#(1)) v);
    interface Vector#(numPorts, Bool)  rx_ready;
    interface Vector#(numPorts, Bool)  tx_ready;
 endinterface
@@ -181,59 +184,32 @@ module mkEthSonicPma#(Clock mgmt_clk, Clock pll_ref_clk, Clock clk_156_25, Reset
       phy10g.tx.parallel_data3(pack(tx_data3));
    endrule
 
-   // Use Wire to pass data from interface expression to other rules.
-   Vector#(NumPorts, Wire#(Bit#(1))) wires <- replicateM(mkDWire(0));
-   Vector#(NumPorts, SerialIfc) serial_ifcs;
-   // Port 0
-   serial_ifcs[0] = interface SerialIfc;
-      method Action rx (Bit#(1) v);
-         wires[0] <= v;
-      endmethod
-      method Bit#(1) tx;
-         return phy10g.tx.serial_data0;
-      endmethod
-   endinterface;
-   rule set_serial_data0;
-      phy10g.rx.serial_data0(pack(wires[0]));
+   Vector#(NumPorts, Wire#(Bit#(1))) tx_serial <- replicateM(mkDWire(0));
+   rule tx_serial0;
+      tx_serial[0] <= phy10g.tx.serial_data0;
+   endrule
+   rule tx_serial1;
+      tx_serial[1] <= phy10g.tx.serial_data1;
+   endrule
+   rule tx_serial2;
+      tx_serial[2] <= phy10g.tx.serial_data2;
+   endrule
+   rule tx_serial3;
+      tx_serial[3] <= phy10g.tx.serial_data3;
    endrule
 
-   // Port 1
-   serial_ifcs[1] = interface SerialIfc;
-      method Action rx (Bit#(1) v);
-         wires[1] <= v;
-      endmethod
-      method Bit#(1) tx;
-         return phy10g.tx.serial_data1;
-      endmethod
-   endinterface;
-   rule set_serial_data1;
-      phy10g.rx.serial_data1(pack(wires[1]));
+   Vector#(NumPorts, Wire#(Bit#(1))) rx_serial_wire <- replicateM(mkDWire(0));
+   rule rx_serial0;
+      phy10g.rx.serial_data0(rx_serial_wire[0]);
    endrule
-
-   // Port 2
-   serial_ifcs[2] = interface SerialIfc;
-      method Action rx (Bit#(1) v);
-         wires[2] <= v;
-      endmethod
-      method Bit#(1) tx;
-         return phy10g.tx.serial_data2;
-      endmethod
-   endinterface;
-   rule set_serial_data2;
-      phy10g.rx.serial_data2(pack(wires[2]));
+   rule rx_serial1;
+      phy10g.rx.serial_data1(rx_serial_wire[1]);
    endrule
-
-   // Port 3
-   serial_ifcs[3] = interface SerialIfc;
-      method Action rx (Bit#(1) v);
-         wires[3] <= v;
-      endmethod
-      method Bit#(1) tx;
-         return phy10g.tx.serial_data3;
-      endmethod
-   endinterface;
-   rule set_serial_data3;
-      phy10g.rx.serial_data3(pack(wires[3]));
+   rule rx_serial2;
+      phy10g.rx.serial_data2(rx_serial_wire[2]);
+   endrule
+   rule rx_serial3;
+      phy10g.rx.serial_data3(rx_serial_wire[3]);
    endrule
 
    // Status
@@ -289,16 +265,17 @@ module mkEthSonicPma#(Clock mgmt_clk, Clock pll_ref_clk, Clock clk_156_25, Reset
    interface tx_ready  = txReady;
    interface rx        = vRxPipe;
    interface tx        = vTxPipe;
-   interface pmd       = serial_ifcs;
+   method serial_tx = readVReg(tx_serial);
+   method serial_rx = writeVReg(rx_serial_wire);
    interface status    = status_ifcs;
    interface rx_reset  = rxFifo_rst;
    interface tx_reset  = txFifo_rst;
 endmodule: mkEthSonicPma
 
-module mkEthSonicPmaTop#(Clock mgmt_clk, Clock pll_refclk, Clock clk_156_25, Reset mgmt_reset)(EthSonicPmaTopIfc);
+/*module mkEthSonicPmaTop#(Clock mgmt_clk, Clock pll_refclk, Clock clk_156_25, Reset mgmt_reset)(EthSonicPmaTopIfc);
    EthSonicPma#(4) _a <- mkEthSonicPma(mgmt_clk, pll_refclk, clk_156_25, mgmt_reset);
    interface serial = _a.pmd;
    interface Clock clk_phy = mgmt_clk;
-endmodule
+endmodule*/
 
 endpackage: EthSonicPma

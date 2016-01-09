@@ -1,48 +1,6 @@
-#ifndef _SONIC_PCAP_H_
-#define _SONIC_PCAP_H_
+#include "lpcap.h"
 
-#include <errno.h>
-#include <assert.h>
-
-#ifndef le32
-#define le32    u_int32_t
-#endif
-
-#ifndef u32
-#define u32     u_int32_t
-#endif
-
-#ifndef u16
-#define u16     u_int16_t
-#endif
-
-#ifndef s32
-#define s32     int32_t
-#endif
-
-struct pcap_file_header {
-    u32 magic;
-    u16 version_major;
-    u16 version_minor;
-    s32 thiszone; /* gmt to local correction */
-    u32 sigfigs;  /* accuracy of timL1 cache bytes userspaceestamps */
-    u32 snaplen;  /* max length saved portion of each pkt */
-    u32 linktype; /* data link type (LINKTYPE_*) */
-} __attribute__((packed));
-
-struct pcap_pkthdr_ts {
-    le32 hts_sec;
-    le32 hts_usec;
-}  __attribute__((packed));
-
-struct pcap_pkthdr {
-    struct  pcap_pkthdr_ts ts;  /* time stamp */
-    le32 caplen;              /* length of portion present */
-    le32 length;                  /* length this packet (off wire) */
-}  __attribute__((packed));
-
-/* mem_copy must be provided by each test */
-void mem_copy(const void *buff, int length);
+void device_writePacketData(uint64_t* data, uint8_t* mask, int sop, int eop);
 
 /**
  * Send packet on quick_tx device
@@ -115,4 +73,60 @@ const char* get_exe_name(const char* argv0) {
     return argv0;
 }
 
-#endif
+void mem_copy(const void *buff, int packet_size) {
+
+    int i, sop, eop;
+    uint64_t data[2];
+    uint8_t mask[2];
+    int numBeats;
+
+    numBeats = packet_size / 8; // 16 bytes per beat for 128-bit datawidth;
+    if (packet_size % 8) numBeats++;
+    PRINT_INFO("nBeats=%d, packetSize=%d\n", numBeats, packet_size);
+    for (i=0; i<numBeats; i++) {
+        data[i%2] = *(static_cast<const uint64_t *>(buff) + i);
+        if (packet_size > 8) {
+            mask[i%2] = 0xff;
+            packet_size -= 8; // 64-bit
+        } else {
+            mask[i%2] = ((1 << packet_size) - 1) & 0xff;
+            packet_size = 0;
+        }
+        sop = (i/2 == 0);
+        eop = (i/2 == (numBeats-1)/2);
+        if (i%2) {
+            device_writePacketData(data, mask, sop, eop);
+            PRINT_INFO("%016lx %016lx %0x %0x %d %d\n", data[1], data[0], mask[1], mask[0], sop, eop);
+        }
+
+        // last beat, padding with zero
+        if ((numBeats%2!=0) && (i==numBeats-1)) {
+            sop = (i/2 == 0) ? 1 : 0;
+            eop = 1;
+            data[1] = 0;
+            mask[1] = 0;
+            device_writePacketData(data, mask, sop, eop);
+            PRINT_INFO("%016lx %016lx %0x %0x %d %d\n", data[1], data[0], mask[1], mask[0], sop, eop);
+        }
+    }
+}
+
+/* from NOX */
+std::string long_options_to_short_options(const struct option* options)
+{
+    std::string short_options;
+    for (; options->name; options++) {
+        const struct option* o = options;
+        if (o->flag == NULL && o->val > 0 && o->val <= UCHAR_MAX) {
+            short_options.push_back(o->val);
+            if (o->has_arg == required_argument) {
+                short_options.push_back(':');
+            } else if (o->has_arg == optional_argument) {
+                short_options.append("::");
+            }
+        }
+    }
+    return short_options;
+}
+
+

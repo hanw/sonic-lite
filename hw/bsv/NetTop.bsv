@@ -48,7 +48,10 @@ typedef 4 NumPorts;
 `endif
 
 interface NetExportIfc;
-   interface Vector#(NumPorts, SerialIfc) serial;
+   (*always_ready, always_enabled*)
+   method Vector#(NumPorts,Bit#(1)) serial_tx;
+   (*always_ready, always_enabled*)
+   method Action serial_rx(Vector#(NumPorts,Bit#(1)) data);
    interface Clock clk_net;
    interface Vector#(NumPorts, Clock) clk_xcvr;
    interface LoopbackIfc loopback;
@@ -68,14 +71,14 @@ endinterface
 module mkNetTop #(Clock clk_50, Clock clk_156_25, Clock clk_644)(NetTopIfc);
    Clock defaultClock <- exposeCurrentClock;
    Reset defaultReset <- exposeCurrentReset;
-   Reset rst_156_n <- mkAsyncReset(1, defaultReset, clk_156_25);
 
-   EthPortIfc ports <- mkEthPorts(clk_50, clk_156_25, clk_644, clocked_by clk_156_25, reset_by rst_156_n);
+   EthPortIfc ports <- mkEthPorts(clk_50, clk_156_25, clk_644, clocked_by defaultClock, reset_by defaultReset);
 
    interface api = ports.api;
    interface ifcs = (interface NetExportIfc;
       interface loopback = ports.loopback;
-      interface serial = ports.serial;
+      method serial_tx = ports.serial_tx;
+      method serial_rx = ports.serial_rx;
       interface Clock clk_net = clk_156_25;
       interface Clock clk_xcvr = ports.tx_clkout;
       interface led_rx_ready = ports.led_rx_ready;

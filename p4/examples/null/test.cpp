@@ -19,28 +19,12 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#include <assert.h>
-#include <fcntl.h>
-#include <stdlib.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <sys/uio.h>
-#include <unistd.h>
-#include <stdio.h>
-#include <sys/mman.h>
-#include <stdio.h>
-#include <errno.h>
-#include <sys/ioctl.h>
-#include <sys/time.h>
-#include <getopt.h>
-#include <string>
-
 #include "MemServerIndication.h"
 #include "NullTestIndication.h"
 #include "NullTestRequest.h"
 #include "GeneratedTypes.h"
-#include "utils.h"
-#include "sonic_pcap_utils.h"
+#include "lutils.h"
+#include "lpcap.h"
 
 using namespace std;
 
@@ -49,7 +33,9 @@ using namespace std;
 static NullTestRequestProxy *device = 0;
 uint16_t flowid;
 
-void mem_copy(const void *buff, int length);
+void device_writePacketData(uint64_t* data, uint8_t* mask, int sop, int eop) {
+    device->writePacketData(data, mask, sop, eop);
+}
 
 class NullTestIndication : public NullTestIndicationWrapper
 {
@@ -60,8 +46,7 @@ public:
     NullTestIndication(unsigned int id) : NullTestIndicationWrapper(id) {}
 };
 
-void mem_copy(const void *buff, int packet_size) {
-
+//void mem_copy(const void *buff, int packet_size) {
 //    int i, sop, eop;
 //    uint64_t data[2];
 //    int numBeats;
@@ -74,7 +59,7 @@ void mem_copy(const void *buff, int packet_size) {
 //        sop = (i/2 == 0);
 //        eop = (i/2 == (numBeats-1)/2);
 //        if (i%2) {
-//            device->writePacketData(data, sop, eop);
+//            device->writePacketData(data, 0xff, sop, eop);
 //            PRINT_INFO("%016lx %016lx %d %d\n", data[1], data[0], sop, eop);
 //        }
 //
@@ -83,11 +68,11 @@ void mem_copy(const void *buff, int packet_size) {
 //            sop = (i/2 == 0) ? 1 : 0;
 //            eop = 1;
 //            data[1] = 0;
-//            device->writePacketData(data, sop, eop);
+//            device->writePacketData(data, 0xff, sop, eop);
 //            PRINT_INFO("%016lx %016lx %d %d\n", data[1], data[0], sop, eop);
 //        }
 //    }
-}
+//}
 
 void usage (const char *program_name) {
     printf("%s: p4fpga tester\n"

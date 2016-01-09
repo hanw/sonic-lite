@@ -53,8 +53,10 @@ typedef 4 NumPorts;
 interface EthPhyIfc#(numeric type numPorts);
    interface Vector#(numPorts, PipeIn#(Bit#(72)))  tx;
    interface Vector#(numPorts, PipeOut#(Bit#(72))) rx;
-   (* always_ready, always_enabled *)
-   interface Vector#(numPorts, SerialIfc) serial;
+   (*always_ready, always_enabled*)
+   method Vector#(numPorts,Bit#(1)) serial_tx;
+   (*always_ready, always_enabled*)
+   method Action serial_rx(Vector#(numPorts,Bit#(1)) data);
    interface Vector#(numPorts, Clock) tx_clkout;
    interface Vector#(numPorts, Clock) rx_clkout;
    (* always_ready, always_enabled *)
@@ -74,16 +76,17 @@ function Bit#(n) reverseBits(Bit#(n) x);
 endfunction
 
 (* synthesize *)
-module mkEthPhy#(Clock mgmt_clk, Clock clk_156_25, Clock clk_644, Reset rst_n)(EthPhyIfc#(NumPorts));
+module mkEthPhy#(Clock mgmt_clk, Clock clk_156_25, Clock clk_644)(EthPhyIfc#(NumPorts));
 
    Reg#(Bit#(32)) cycle <- mkReg(0);
-   Reset rst_50_n <- mkAsyncReset(2, rst_n, mgmt_clk);
-   Reset rst_156_25_n <- mkAsyncReset(2, rst_n, clk_156_25);
+   Reset defaultReset <- exposeCurrentReset;
+   Reset rst_50_n <- mkAsyncReset(2, defaultReset, mgmt_clk);
+   Reset rst_156_25_n <- mkAsyncReset(2, defaultReset, clk_156_25);
 
    Reg#(Bool) loopback_en <- mkReg(False);
    Reg#(Bool) switch_en <- mkReg(False);
 
-   let bypass_dtp = True;
+   let bypass_dtp = False;
 
    Vector#(NumPorts, EthPcsRx) pcs_rx = newVector;
    Vector#(NumPorts, EthPcsTx) pcs_tx = newVector;
@@ -294,7 +297,8 @@ module mkEthPhy#(Clock mgmt_clk, Clock clk_156_25, Clock clk_644, Reset rst_n)(E
 
    interface rx_clkout = pma4.rx_clkout;
    interface tx_clkout = pma4.tx_clkout;
-   interface serial = pma4.pmd;
+   method serial_tx = pma4.serial_tx;
+   method serial_rx = pma4.serial_rx;
    interface rx = vRxPipeOut;
    interface tx = vTxPipeIn;
    interface led_rx_ready = pma4.rx_ready;

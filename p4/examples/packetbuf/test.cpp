@@ -19,8 +19,9 @@
  * DEALINGS IN THE SOFTWARE.
  */
 #include "MemServerIndication.h"
-#include "MatchTestIndication.h"
-#include "MatchTestRequest.h"
+#include "MallocIndication.h"
+#include "TbIndication.h"
+#include "TbRequest.h"
 #include "GeneratedTypes.h"
 #include "lutils.h"
 #include "lpcap.h"
@@ -29,26 +30,23 @@ using namespace std;
 
 #define DATA_WIDTH 128
 
-MatchTestRequestProxy *device = 0;
-static sem_t sem_ctrl;
+static TbRequestProxy *device = 0;
 uint16_t flowid;
 
 void device_writePacketData(uint64_t* data, uint8_t* mask, int sop, int eop) {
     device->writePacketData(data, mask, sop, eop);
 }
 
-class MatchTestIndication : public MatchTestIndicationWrapper
+class TbIndication : public TbIndicationWrapper
 {
 public:
     virtual void read_version_resp(uint32_t a) {
         fprintf(stderr, "version %x\n", a);
     }
-    virtual void add_entry_resp(uint16_t id) {
-        fprintf(stderr, "flow id %d\n", id);
-        flowid = id;
-        sem_post(&sem_ctrl);
+    virtual void malloc_resp(uint32_t addr) {
+        fprintf(stderr, "malloc result %x\n", addr);
     }
-    MatchTestIndication(unsigned int id) : MatchTestIndicationWrapper(id) {}
+    TbIndication(unsigned int id) : TbIndicationWrapper(id) {}
 };
 
 class MemServerIndication : public MemServerIndicationWrapper
@@ -57,7 +55,6 @@ public:
     virtual void error(uint32_t code, uint32_t sglId, uint64_t offset, uint64_t extra) {
         fprintf(stderr, "memServer Indication.error=%d\n", code);
     }
-
     virtual void addrResponse ( const uint64_t physAddr ) {
         fprintf(stderr, "phyaddr=%lx\n", physAddr);
     }
@@ -70,12 +67,22 @@ public:
     MemServerIndication(unsigned int id) : MemServerIndicationWrapper(id) {}
 };
 
-void usage (const char *program_name) {
+class MallocIndication : public MallocIndicationWrapper
+{
+public:
+    virtual void id_resp ( const uint32_t id ) {
+        fprintf(stderr, "***CPP pktId=%x\n", id);
+    }
+    MallocIndication(unsigned int id) : MallocIndicationWrapper(id) {}
+};
+
+static void
+usage (const char *program_name) {
     printf("%s: p4fpga tester\n"
      "usage: %s [OPTIONS] \n",
      program_name, program_name);
     printf("\nOther options:\n"
-    " -m, --match-table=FILE           demo match table\n"
+    " -p, --parser-test=FILE                demo parsing pcap log\n"
     );
 }
 
@@ -85,7 +92,7 @@ parse_options(int argc, char *argv[], char **pcap_file) {
 
     static struct option long_options [] = {
         {"help",                no_argument, 0, 'h'},
-        {"match-table-test",    required_argument, 0, 'm'},
+        {"parser-test",         required_argument, 0, 'p'},
         {0, 0, 0, 0}
     };
 
@@ -102,7 +109,7 @@ parse_options(int argc, char *argv[], char **pcap_file) {
             case 'h':
                 usage(get_exe_name(argv[0]));
                 break;
-            case 'm':
+            case 'p':
                 *pcap_file = optarg;
                 break;
             default:
@@ -113,24 +120,18 @@ parse_options(int argc, char *argv[], char **pcap_file) {
 
 int main(int argc, char **argv)
 {
-    MatchTestIndication echoIndication(IfcNames_MatchTestIndicationH2S);
-    device = new MatchTestRequestProxy(IfcNames_MatchTestRequestS2H);
+    TbIndication echoIndication(IfcNames_TbIndicationH2S);
+    MemServerIndication memServerIndication(IfcNames_MemServerIndicationH2S);
+    MallocIndication mallocIndication(IfcNames_MallocIndicationH2S);
+    device = new TbRequestProxy(IfcNames_TbRequestS2H);
 
-    char *pcap_file=NULL;
-    void *buffer=NULL;
-    long length=0;
+    char *pcap_file = NULL;
+    void *buffer = NULL;
+    long length = 0;
 
     parse_options(argc, argv, &pcap_file);
 
     device->read_version();
-
-    if (pcap_file) {
-        fprintf(stderr, "match table\n");
-        // insert rule to match table
-        MatchInput match_input = { key1: 4, key2: 4};
-        device->add_entry(0, match_input);
-        sem_wait(&sem_ctrl);
-    }
 
     if (pcap_file) {
         fprintf(stderr, "Attempts to read pcap file %s\n", pcap_file);
@@ -145,10 +146,7 @@ int main(int argc, char **argv)
         }
     }
 
-    if (pcap_file) {
-        device->delete_entry(0, flowid);
-    }
-
+    printf("done!");
     while (1) sleep(1);
     return 0;
 }
