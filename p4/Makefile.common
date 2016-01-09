@@ -4,7 +4,7 @@
 CONNECTALFLAGS += --bsvpath=$(SONICDIR)/hw/lib/bsv
 CONNECTALFLAGS += --bsvpath=$(SONICDIR)/hw/bsv
 CONNECTALFLAGS += --bsvpath=$(SONICDIR)/hw/generated
-CONNECTALFLAGS += -I $(SONICDIR)/sw
+CONNECTALFLAGS += -I $(SONICDIR)/sw -I .
 
 CONNECTALFLAGS += -D NicVersion=$(shell printf "%d" 0x`git rev-parse --short=8 HEAD`)
 CONNECTALFLAGS += -D PcieHostIF
