@@ -34,23 +34,7 @@
     fprintf(stderr, GREEN "[INFO]" M RESET , ##__VA_ARGS__)
 
 /* from NOX */
-std::string long_options_to_short_options(const struct option* options)
-{
-    std::string short_options;
-    for (; options->name; options++) {
-        const struct option* o = options;
-        if (o->flag == NULL && o->val > 0 && o->val <= UCHAR_MAX) {
-            short_options.push_back(o->val);
-            if (o->has_arg == required_argument) {
-                short_options.push_back(':');
-            } else if (o->has_arg == optional_argument) {
-                short_options.append("::");
-            }
-        }
-    }
-    return short_options;
-}
-
+std::string long_options_to_short_options(const struct option* options);
 
 #endif
 

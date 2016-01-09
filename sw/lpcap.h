@@ -8,16 +8,17 @@
 #include <sys/types.h>
 #include <sys/uio.h>
 #include <unistd.h>
-#include <stdio.h>
 #include <sys/mman.h>
 #include <stdio.h>
 #include <errno.h>
 #include <sys/ioctl.h>
 #include <sys/time.h>
 #include <getopt.h>
-#include <string>
 #include <errno.h>
 #include <cstring>
+#include <stdint.h>
+
+#include "lutils.h"
 
 #ifndef le32
 #define le32    u_int32_t

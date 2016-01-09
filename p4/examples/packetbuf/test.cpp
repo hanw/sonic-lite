@@ -18,24 +18,19 @@
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
  * DEALINGS IN THE SOFTWARE.
  */
-
-#include "lpcap.h"
 #include "lutils.h"
-
-#include "MemServerIndication.h"
-#include "MallocIndication.h"
-#include "TbIndication.h"
-#include "TbRequest.h"
-#include "GeneratedTypes.h"
+#include "lpcap.h"
+#include "globals.h"
 
 using namespace std;
 
 #define DATA_WIDTH 128
 
-static TbRequestProxy *device = 0;
+TbRequestProxy *device = 0;
 uint16_t flowid;
 
 void mem_copy(const void *buff, int length);
+
 
 class TbIndication : public TbIndicationWrapper
 {
@@ -76,61 +71,19 @@ public:
     MallocIndication(unsigned int id) : MallocIndicationWrapper(id) {}
 };
 
-void mem_copy(const void *buff, int packet_size) {
-
-    int i, sop, eop;
-    uint64_t data[2];
-    int numBeats;
-
-    numBeats = packet_size / 8; // 16 bytes per beat for 128-bit datawidth;
-    if (packet_size % 8) numBeats++;
-    PRINT_INFO("nBeats=%d, packetSize=%d\n", numBeats, packet_size);
-    for (i=0; i<numBeats; i++) {
-        data[i%2] = *(static_cast<const uint64_t *>(buff) + i);
-        sop = (i/2 == 0);
-        eop = (i/2 == (numBeats-1)/2);
-        if (i%2) {
-//            device->writePacketData(data, mask, sop, eop);
-            PRINT_INFO("%016lx %016lx %d %d\n", data[1], data[0], sop, eop);
-        }
-
-        // last beat, padding with zero
-        if ((numBeats%2!=0) && (i==numBeats-1)) {
-            sop = (i/2 == 0) ? 1 : 0;
-            eop = 1;
-            data[1] = 0;
-//            device->writePacketData(data, mask, sop, eop);
-            PRINT_INFO("%016lx %016lx %d %d\n", data[1], data[0], sop, eop);
-        }
-    }
-}
-
-void usage (const char *program_name) {
+static void
+usage (const char *program_name) {
     printf("%s: p4fpga tester\n"
      "usage: %s [OPTIONS] \n",
      program_name, program_name);
     printf("\nOther options:\n"
-    " -p, --parser=FILE                demo parsing pcap log\n"
+    " -p, --parser-test=FILE                demo parsing pcap log\n"
     );
 }
 
-int main(int argc, char **argv)
-{
-    const char *program_name = get_exe_name(argv[0]);
-    const char *pcap_file="";
-    void *buffer;
-    long length;
-    //struct pcap_pkthdr* pcap_hdr;
+static void 
+parse_options(int argc, char *argv[], char **pcap_file) {
     int c, option_index;
-
-    TbIndication echoIndication(IfcNames_TbIndicationH2S);
-    MemServerIndication memServerIndication(IfcNames_MemServerIndicationH2S);
-    MallocIndication mallocIndication(IfcNames_MallocIndicationH2S);
-    device = new TbRequestProxy(IfcNames_TbRequestS2H);
-
-    bool run_basic = true;
-    bool load_pcap = false;
-    bool parser_test = false;
 
     static struct option long_options [] = {
         {"help",                no_argument, 0, 'h'},
@@ -149,26 +102,33 @@ int main(int argc, char **argv)
 
         switch (c) {
             case 'h':
-                usage(program_name);
-                run_basic = false;
+                usage(get_exe_name(argv[0]));
                 break;
             case 'p':
-                load_pcap = true;
-                parser_test = true;
-                pcap_file = optarg;
+                *pcap_file = optarg;
                 break;
             default:
-                run_basic = false;
                 break;
         }
     }
+}
 
-    if (run_basic) {
-        fprintf(stderr, "read version from cpp\n");
-        device->read_version();
-    }
+int main(int argc, char **argv)
+{
+    TbIndication echoIndication(IfcNames_TbIndicationH2S);
+    MemServerIndication memServerIndication(IfcNames_MemServerIndicationH2S);
+    MallocIndication mallocIndication(IfcNames_MallocIndicationH2S);
+    device = new TbRequestProxy(IfcNames_TbRequestS2H);
 
-    if (load_pcap) {
+    char *pcap_file = NULL;
+    void *buffer = NULL;
+    long length = 0;
+
+    parse_options(argc, argv, &pcap_file);
+
+    device->read_version();
+
+    if (pcap_file) {
         fprintf(stderr, "Attempts to read pcap file %s\n", pcap_file);
 
         if (!read_pcap_file(pcap_file, &buffer, &length)) {
@@ -181,15 +141,7 @@ int main(int argc, char **argv)
         }
     }
 
-    if (parser_test) {
-        // load packet
-        // parse
-        // print match result
-    }
-
-    if (run_basic) {
-        printf("done!");
-        while (1) sleep(1);
-    }
+    printf("done!");
+    while (1) sleep(1);
     return 0;
 }

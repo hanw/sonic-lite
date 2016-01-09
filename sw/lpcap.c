@@ -1,4 +1,5 @@
 #include "lpcap.h"
+#include "globals.h"
 
 /**
  * Send packet on quick_tx device
@@ -107,6 +108,24 @@ void mem_copy(const void *buff, int packet_size) {
             PRINT_INFO("%016lx %016lx %0x %0x %d %d\n", data[1], data[0], mask[1], mask[0], sop, eop);
         }
     }
+}
+
+/* from NOX */
+std::string long_options_to_short_options(const struct option* options)
+{
+    std::string short_options;
+    for (; options->name; options++) {
+        const struct option* o = options;
+        if (o->flag == NULL && o->val > 0 && o->val <= UCHAR_MAX) {
+            short_options.push_back(o->val);
+            if (o->has_arg == required_argument) {
+                short_options.push_back(':');
+            } else if (o->has_arg == optional_argument) {
+                short_options.append("::");
+            }
+        }
+    }
+    return short_options;
 }
 
 
