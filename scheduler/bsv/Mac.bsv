@@ -1,5 +1,5 @@
 import FIFO::*;
-import FIFOLevel::*;
+import FIFOF::*;
 import Vector::*;
 import GetPut::*;
 import Clocks::*;
@@ -28,7 +28,7 @@ module mkMac#(Integer host_index,
     Clock defaultClock <- exposeCurrentClock();
     Reset defaultReset <- exposeCurrentReset();
 
-    Vector#(NUM_OF_PORTS, EthMacIfc) mac <- replicateM(mkEthMac(defaultClock,
+    Vector#(NUM_OF_PORTS, EthMacIfc) eth_mac <- replicateM(mkEthMac(defaultClock,
                                                      txClock, rxClock, txReset));
 
 /*------------------------------------------------------------------------------*/
@@ -36,9 +36,14 @@ module mkMac#(Integer host_index,
                                 /* Tx Path */
 
 /*------------------------------------------------------------------------------*/
-    Reg#(Bool) tx_verbose <- mkReg(True, clocked_by txClock, reset_by txReset);
+    Reg#(Bit#(64)) clk_counter <- mkReg(0);
+    rule clk;
+        clk_counter <= clk_counter + 1;
+    endrule
 
-    Vector#(NUM_OF_PORTS, Vector#(2, FIFO#(PacketDataT#(Bit#(64))))) mac_in_buffer
+    Reg#(Bool) tx_verbose <- mkReg(False, clocked_by txClock, reset_by txReset);
+
+    Vector#(NUM_OF_PORTS, Vector#(2, FIFO#(PacketDataT#(64)))) mac_in_buffer
     <- replicateM
                (replicateM(mkSizedFIFO(2, clocked_by txClock, reset_by txReset)));
 
@@ -89,15 +94,17 @@ module mkMac#(Integer host_index,
             end_bit[1] = 1;
         end
 
-        PacketDataT#(Bit#(64)) data1 = PacketDataT {
-                                            d : d.data.payload[63:0],
-                                            sop : start_bit[0],
-                                            eop : end_bit[0]
+        PacketDataT#(64) data1 = PacketDataT {
+                                            data : d.data.payload[63:0],
+                                            mask : 0,
+                                            sop  : start_bit[0],
+                                            eop  : end_bit[0]
                                           };
-        PacketDataT#(Bit#(64)) data2 = PacketDataT {
-                                            d : d.data.payload[127:64],
-                                            sop : start_bit[1],
-                                            eop : end_bit[1]
+        PacketDataT#(64) data2 = PacketDataT {
+                                            data : d.data.payload[127:64],
+                                            mask : 0,
+                                            sop  : start_bit[1],
+                                            eop  : end_bit[1]
                                           };
         (mac_in_buffer[0])[0].enq(data1);
         (mac_in_buffer[0])[1].enq(data2);
@@ -132,15 +139,17 @@ module mkMac#(Integer host_index,
             end_bit[1] = 1;
         end
 
-        PacketDataT#(Bit#(64)) data1 = PacketDataT {
-                                            d : d.data.payload[63:0],
-                                            sop : start_bit[0],
-                                            eop : end_bit[0]
+        PacketDataT#(64) data1 = PacketDataT {
+                                            data : d.data.payload[63:0],
+                                            mask : 0,
+                                            sop  : start_bit[0],
+                                            eop  : end_bit[0]
                                           };
-        PacketDataT#(Bit#(64)) data2 = PacketDataT {
-                                            d : d.data.payload[127:64],
-                                            sop : start_bit[1],
-                                            eop : end_bit[1]
+        PacketDataT#(64) data2 = PacketDataT {
+                                            data : d.data.payload[127:64],
+                                            mask : 0,
+                                            sop  : start_bit[1],
+                                            eop  : end_bit[1]
                                           };
         (mac_in_buffer[1])[0].enq(data1);
         (mac_in_buffer[1])[1].enq(data2);
@@ -175,15 +184,17 @@ module mkMac#(Integer host_index,
             end_bit[1] = 1;
         end
 
-        PacketDataT#(Bit#(64)) data1 = PacketDataT {
-                                            d : d.data.payload[63:0],
-                                            sop : start_bit[0],
-                                            eop : end_bit[0]
+        PacketDataT#(64) data1 = PacketDataT {
+                                            data : d.data.payload[63:0],
+                                            mask : 0,
+                                            sop  : start_bit[0],
+                                            eop  : end_bit[0]
                                           };
-        PacketDataT#(Bit#(64)) data2 = PacketDataT {
-                                            d : d.data.payload[127:64],
-                                            sop : start_bit[1],
-                                            eop : end_bit[1]
+        PacketDataT#(64) data2 = PacketDataT {
+                                            data : d.data.payload[127:64],
+                                            mask : 0,
+                                            sop  : start_bit[1],
+                                            eop  : end_bit[1]
                                           };
         (mac_in_buffer[2])[0].enq(data1);
         (mac_in_buffer[2])[1].enq(data2);
@@ -218,15 +229,17 @@ module mkMac#(Integer host_index,
             end_bit[1] = 1;
         end
 
-        PacketDataT#(Bit#(64)) data1 = PacketDataT {
-                                            d : d.data.payload[63:0],
-                                            sop : start_bit[0],
-                                            eop : end_bit[0]
+        PacketDataT#(64) data1 = PacketDataT {
+                                            data : d.data.payload[63:0],
+                                            mask : 0,
+                                            sop  : start_bit[0],
+                                            eop  : end_bit[0]
                                           };
-        PacketDataT#(Bit#(64)) data2 = PacketDataT {
-                                            d : d.data.payload[127:64],
-                                            sop : start_bit[1],
-                                            eop : end_bit[1]
+        PacketDataT#(64) data2 = PacketDataT {
+                                            data : d.data.payload[127:64],
+                                            mask : 0,
+                                            sop  : start_bit[1],
+                                            eop  : end_bit[1]
                                           };
         (mac_in_buffer[3])[0].enq(data1);
         (mac_in_buffer[3])[1].enq(data2);
@@ -240,11 +253,11 @@ module mkMac#(Integer host_index,
             rule send_to_mac (turn[i] == fromInteger(j));
                 let d <- toGet((mac_in_buffer[i])[j]).get;
 
-                mac[i].packet_tx.put(d);
-
                 if (tx_verbose)
-                    $display("[MAC (%d)] input to mac %d %d %x i = %d",
-                               host_index, d.sop, d.eop, d.d, i);
+                    $display("[MAC (%d)] CLK = %d input to mac %d %d %x i = %d",
+                               host_index, clk_counter, d.sop, d.eop, d.data, i);
+
+                eth_mac[i].packet_tx.put(d);
 
                 turn[i] <= (turn[i] + 1) % 2;
             endrule
@@ -258,9 +271,9 @@ module mkMac#(Integer host_index,
 
 /*------------------------------------------------------------------------------*/
 
-    Reg#(Bool) rx_verbose <- mkReg(True, clocked_by rxClock, reset_by rxReset);
+    Reg#(Bool) rx_verbose <- mkReg(False, clocked_by rxClock, reset_by rxReset);
 
-    Vector#(NUM_OF_PORTS, Reg#(PacketDataT#(Bit#(64)))) mac_out_buffer
+    Vector#(NUM_OF_PORTS, Reg#(PacketDataT#(64))) mac_out_buffer
         <- replicateM(mkReg(defaultValue, clocked_by rxClock, reset_by rxReset));
 
     Vector#(NUM_OF_PORTS, Reg#(Bit#(2))) b_count
@@ -269,11 +282,11 @@ module mkMac#(Integer host_index,
     for (Integer i = 0; i < fromInteger(valueof(NUM_OF_PORTS)); i = i + 1)
     begin
         rule send_blocks_to_dst;
-            let d <- mac[i].packet_rx.get;
+            let d <- eth_mac[i].packet_rx.get;
 
             if (rx_verbose)
                 $display("[MAC (%d)] output from mac layer %d %d %x",
-                           host_index, d.sop, d.eop, d.d);
+                           host_index, d.sop, d.eop, d.data);
 
             if (b_count[i] == 0)
             begin
@@ -285,7 +298,7 @@ module mkMac#(Integer host_index,
             begin
                 b_count[i] <= (b_count[i] + 1) % 2;
 
-                Payload pload = {d.d, mac_out_buffer[i].d};
+                Payload pload = {d.data, mac_out_buffer[i].data};
 
                 Bit#(1) start_bit = 0;
                 Bit#(1) end_bit = 0;
@@ -327,6 +340,105 @@ module mkMac#(Integer host_index,
         endrule
     end
 
+/*------------------------------------------------------------------------------*/
+
+                                /* Loopback Test */
+
+/*------------------------------------------------------------------------------*/
+//
+//    SyncFIFOIfc#(Bit#(72)) syncfifo1
+//                <- mkSyncFIFO(16, txClock, txReset, rxClock);
+//
+//    SyncFIFOIfc#(Bit#(72)) syncfifo2
+//                <- mkSyncFIFO(16, txClock, txReset, rxClock);
+//
+//    rule mac_loopback_tx_1;
+//        syncfifo1.enq(eth_mac[0].tx);
+//    endrule
+//
+//    rule mac_loopback_rx_1;
+//        let v <- toGet(syncfifo1).get;
+//        eth_mac[1].rx(v);
+//    endrule
+//
+//    rule mac_loopback_tx_2;
+//        syncfifo2.enq(eth_mac[1].tx);
+//    endrule
+//
+//    rule mac_loopback_rx_2;
+//        let v <- toGet(syncfifo2).get;
+//        eth_mac[0].rx(v);
+//    endrule
+//
+//    Reg#(Bit#(1)) onnce <- mkReg(0);
+//    rule test (onnce == 0);
+//        $display("[MAC (%d)] CAN REACH HERE", host_index);
+//        onnce <= 1;
+//    endrule
+//
+//    Reg#(Bit#(64)) clk <- mkReg(0, clocked_by txClock, reset_by txReset);
+//    rule clk_counter;
+//        clk <= clk + 1;
+//    endrule
+//
+//    FIFO#(PacketDataT#(64)) pkt_buffer <- mkSizedFIFO(10);
+//
+//    Reg#(Bit#(4)) count <- mkReg(0, clocked_by txClock, reset_by txReset);
+//
+//    rule enq_to_pkt_buffer (count < 9 && clk > 1000);
+//        count <= count + 1;
+//
+//        if (count == 1)
+//        begin
+//            PacketDataT#(64) d = PacketDataT {
+//                                        data : 'h28374fabcce53678,
+//                                        mask : 0,
+//                                        sop  : 1,
+//                                        eop  : 0
+//                                      };
+//            pkt_buffer.enq(d);
+//            //eth_mac[0].packet_tx.put(d);
+//            $display("[MAC (%d)] ENQ DATA %d %d %x", host_index, d.sop, d.eop, d.data);
+//        end
+//
+//        else if (count >= 2 && count < 8)
+//        begin
+//            PacketDataT#(64) d = PacketDataT {
+//                                        data : 'h1a374fabcce53678,
+//                                        mask : 0,
+//                                        sop  : 0,
+//                                        eop  : 0
+//                                      };
+//            pkt_buffer.enq(d);
+//            //eth_mac[0].packet_tx.put(d);
+//            $display("[MAC (%d)] ENQ  DATA %d %d %x", host_index, d.sop, d.eop, d.data);
+//        end
+//
+//        else if (count == 8)
+//        begin
+//            PacketDataT#(64) d = PacketDataT {
+//                                        data : 'hcab47596666bbbab,
+//                                        mask : 0,
+//                                        sop  : 0,
+//                                        eop  : 1
+//                                      };
+//            pkt_buffer.enq(d);
+//            //eth_mac[0].packet_tx.put(d);
+//            $display("[MAC (%d)] ENQ DATA %d %d %x", host_index, d.sop, d.eop, d.data);
+//        end
+//
+//    endrule
+//
+//    rule send_to_tx (clk > 10000);
+//        let d <- toGet(pkt_buffer).get;
+//        $display("[MAC (%d)] CLK = %d SEND DATA %d %d %x", host_index, clk, d.sop, d.eop, d.data);
+//        eth_mac[0].packet_tx.put(d);
+//    endrule
+//
+//    rule get_from_rx;
+//        let d <- eth_mac[1].packet_rx.get;
+//        $display("[MAC (%d)] DATA = %d %d %x", host_index, d.sop, d.eop, d.data);
+//    endrule
 
 /*------------------------------------------------------------------------------*/
 
@@ -335,11 +447,11 @@ module mkMac#(Integer host_index,
 /*------------------------------------------------------------------------------*/
 
     method Bit#(72) mac_tx(Integer port_index);
-        let v = mac[port_index].tx;
+        let v = eth_mac[port_index].tx;
         return v;
     endmethod
 
     method Action mac_rx(Integer port_index, Bit#(72) v);
-        mac[port_index].rx(v);
+        eth_mac[port_index].rx(v);
     endmethod
 endmodule

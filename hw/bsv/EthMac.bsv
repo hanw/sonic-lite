@@ -137,7 +137,7 @@ module mkEthMac#(Clock clk_50, Clock clk_156_25, Clock rx_clk, Reset rst_156_25_
          tx_empty_w <= tx_empty;
          tx_sop_w <= pack(d.sop);
          tx_eop_w <= pack(d.eop);
-         $display("tx_empty %h", tx_empty);
+         //$display("tx_empty %h", tx_empty);
       endmethod
    endinterface
    interface Get packet_rx = toGet(rx_fifo);

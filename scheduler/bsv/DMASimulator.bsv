@@ -70,7 +70,7 @@ module mkDMASimulator#(Integer host_index,
                ReadReqType, ReadResType,
                WriteReqType, WriteResType) scheduler) (DMASimulator);
 
-    Reg#(Bool) verbose <- mkReg(True);
+    Reg#(Bool) verbose <- mkReg(False);
 
     Reg#(Bit#(64)) count <- mkReg(0);
     Reg#(Bit#(1)) start_flag <- mkReg(0);

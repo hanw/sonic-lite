@@ -1,5 +1,5 @@
 import FIFO::*;
-import FIFOLevel::*;
+import FIFOF::*;
 import Vector::*;
 import GetPut::*;
 import DefaultValue::*;
@@ -69,6 +69,12 @@ module mkSchedulerTop#(SchedulerTopIndication indication)(SchedulerTop);
     Reset txReset <- mkSyncReset(2, defaultReset, txClock);
     Clock rxClock <- mkAbsoluteClock(0, 64);
     Reset rxReset <- mkSyncReset(2, defaultReset, rxClock);
+
+    Reg#(Bit#(64)) clk_counter <- mkReg(0, clocked_by txClock, reset_by txReset);
+
+    rule clk_count;
+        clk_counter <= clk_counter + 1;
+    endrule
 
     Vector#(NUM_OF_SERVERS,
             Scheduler#(SchedReqResType, SchedReqResType,
@@ -168,7 +174,7 @@ module mkSchedulerTop#(SchedulerTopIndication indication)(SchedulerTop);
                         (makeSchedReqRes(0, 0, 0, 10, 0, SETINTERVAL, SUCCESS));
         endrule
 
-        rule start_scheduler_dma_mac (once[i] == 0);
+        rule start_scheduler_dma_mac (once[i] == 0 && clk_counter > 10000);
             let res <- scheduler[i].setinterval_response.get;
             scheduler[i].request.put(makeSchedReqRes(0, 0, 0, 0, 0, STARTSCHED, SUCCESS));
             dma_sim[i].start();
@@ -192,7 +198,7 @@ module mkSchedulerTop#(SchedulerTopIndication indication)(SchedulerTop);
         counter <= counter + 1;
         if (counter <= 100000)
             $display("CLK = %d", counter);
-        if (counter == 4)
+        if (counter == 100000)
         begin
             $display("[TOP] Number of cycles DMA ran for = %d", counter);
             for (Integer i = 0; i < fromInteger(valueof(NUM_OF_SERVERS)); i = i + 1)
@@ -205,8 +211,8 @@ module mkSchedulerTop#(SchedulerTopIndication indication)(SchedulerTop);
 
     /* Simulating connection wires via SyncFIFOs */
 
-    Vector#(NUM_OF_SERVERS, Vector#(NUM_OF_PORTS, SyncFIFOLevelIfc#(Bit#(72), 4)))
-    wire_fifo <- replicateM(replicateM(mkSyncFIFOLevel(txClock, txReset, rxClock)));
+    Vector#(NUM_OF_SERVERS, Vector#(NUM_OF_PORTS, SyncFIFOIfc#(Bit#(72))))
+    wire_fifo <- replicateM(replicateM(mkSyncFIFO(16, txClock, txReset, rxClock)));
 
     for (Integer i = 0; i < fromInteger(valueof(NUM_OF_SERVERS)); i = i + 1)
     begin
@@ -339,6 +345,7 @@ module mkSchedulerTop#(SchedulerTopIndication indication)(SchedulerTop);
         mac[4].mac_rx(3, v);
         //$display("Getting from (3, 3) to (4, 3)");
     endrule
+
 `endif
 
 `ifdef DEBUG_SCHEDULER

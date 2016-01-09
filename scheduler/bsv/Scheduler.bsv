@@ -62,7 +62,7 @@ module mkScheduler#(Integer host_index,
                                                     SchedReqResType,
                                                     ReadReqType, ReadResType,
                                                     WriteReqType, WriteResType));
-    Reg#(Bool) verbose <- mkReg(True);
+    Reg#(Bool) verbose <- mkReg(False);
 
     Clock defaultClock <- exposeCurrentClock();
     Reset defaultReset <- exposeCurrentReset();
