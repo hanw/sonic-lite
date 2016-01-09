@@ -19,28 +19,12 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#include <assert.h>
-#include <fcntl.h>
-#include <stdlib.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <sys/uio.h>
-#include <unistd.h>
-#include <stdio.h>
-#include <sys/mman.h>
-#include <stdio.h>
-#include <errno.h>
-#include <sys/ioctl.h>
-#include <sys/time.h>
-#include <getopt.h>
-#include <string>
-
 #include "MemServerIndication.h"
 #include "ParserTestIndication.h"
 #include "ParserTestRequest.h"
 #include "GeneratedTypes.h"
-#include "utils.h"
-#include "sonic_pcap_utils.h"
+#include "lutils.h"
+#include "lpcap.h"
 
 using namespace std;
 

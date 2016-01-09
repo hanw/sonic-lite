@@ -18,34 +18,35 @@
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
  * DEALINGS IN THE SOFTWARE.
  */
-#include "lutils.h"
+
 #include "lpcap.h"
+#include "lutils.h"
+
 #include "MemServerIndication.h"
-#include "MatchTestIndication.h"
-#include "MatchTestRequest.h"
+#include "MallocIndication.h"
+#include "TbIndication.h"
+#include "TbRequest.h"
 #include "GeneratedTypes.h"
+
 using namespace std;
 
 #define DATA_WIDTH 128
 
-static MatchTestRequestProxy *device = 0;
-static sem_t sem_ctrl;
+static TbRequestProxy *device = 0;
 uint16_t flowid;
 
 void mem_copy(const void *buff, int length);
 
-class MatchTestIndication : public MatchTestIndicationWrapper
+class TbIndication : public TbIndicationWrapper
 {
 public:
     virtual void read_version_resp(uint32_t a) {
         fprintf(stderr, "version %x\n", a);
     }
-    virtual void add_entry_resp(uint16_t id) {
-        fprintf(stderr, "flow id %d\n", id);
-        flowid = id;
-        sem_post(&sem_ctrl);
+    virtual void malloc_resp(uint32_t addr) {
+        fprintf(stderr, "malloc result %x\n", addr);
     }
-    MatchTestIndication(unsigned int id) : MatchTestIndicationWrapper(id) {}
+    TbIndication(unsigned int id) : TbIndicationWrapper(id) {}
 };
 
 class MemServerIndication : public MemServerIndicationWrapper
@@ -54,7 +55,6 @@ public:
     virtual void error(uint32_t code, uint32_t sglId, uint64_t offset, uint64_t extra) {
         fprintf(stderr, "memServer Indication.error=%d\n", code);
     }
-
     virtual void addrResponse ( const uint64_t physAddr ) {
         fprintf(stderr, "phyaddr=%lx\n", physAddr);
     }
@@ -65,6 +65,15 @@ public:
         fprintf(stderr, "words %lx\n", words);
     }
     MemServerIndication(unsigned int id) : MemServerIndicationWrapper(id) {}
+};
+
+class MallocIndication : public MallocIndicationWrapper
+{
+public:
+    virtual void id_resp ( const uint32_t id ) {
+        fprintf(stderr, "***CPP pktId=%x\n", id);
+    }
+    MallocIndication(unsigned int id) : MallocIndicationWrapper(id) {}
 };
 
 void mem_copy(const void *buff, int packet_size) {
@@ -81,7 +90,7 @@ void mem_copy(const void *buff, int packet_size) {
         sop = (i/2 == 0);
         eop = (i/2 == (numBeats-1)/2);
         if (i%2) {
-            device->writePacketData(data, sop, eop);
+//            device->writePacketData(data, mask, sop, eop);
             PRINT_INFO("%016lx %016lx %d %d\n", data[1], data[0], sop, eop);
         }
 
@@ -90,17 +99,10 @@ void mem_copy(const void *buff, int packet_size) {
             sop = (i/2 == 0) ? 1 : 0;
             eop = 1;
             data[1] = 0;
-            device->writePacketData(data, sop, eop);
+//            device->writePacketData(data, mask, sop, eop);
             PRINT_INFO("%016lx %016lx %d %d\n", data[1], data[0], sop, eop);
         }
     }
-}
-
-const char* get_exe_name(const char* argv0) {
-    if (const char *last_slash = strrchr(argv0, '/')) {
-        return last_slash + 1;
-    }
-    return argv0;
 }
 
 void usage (const char *program_name) {
@@ -108,7 +110,7 @@ void usage (const char *program_name) {
      "usage: %s [OPTIONS] \n",
      program_name, program_name);
     printf("\nOther options:\n"
-    " -m, --match-table=FILE           demo match table\n"
+    " -p, --parser=FILE                demo parsing pcap log\n"
     );
 }
 
@@ -121,17 +123,18 @@ int main(int argc, char **argv)
     //struct pcap_pkthdr* pcap_hdr;
     int c, option_index;
 
-    MatchTestIndication echoIndication(IfcNames_MatchTestIndicationH2S);
-    //MemServerIndication memServerIndication(IfcNames_MemServerIndicationH2S);
-    device = new MatchTestRequestProxy(IfcNames_MatchTestRequestS2H);
+    TbIndication echoIndication(IfcNames_TbIndicationH2S);
+    MemServerIndication memServerIndication(IfcNames_MemServerIndicationH2S);
+    MallocIndication mallocIndication(IfcNames_MallocIndicationH2S);
+    device = new TbRequestProxy(IfcNames_TbRequestS2H);
 
     bool run_basic = true;
     bool load_pcap = false;
-    bool match_table_test = false;
+    bool parser_test = false;
 
     static struct option long_options [] = {
         {"help",                no_argument, 0, 'h'},
-        {"match-table-test",    required_argument, 0, 'm'},
+        {"parser-test",         required_argument, 0, 'p'},
         {0, 0, 0, 0}
     };
 
@@ -149,10 +152,9 @@ int main(int argc, char **argv)
                 usage(program_name);
                 run_basic = false;
                 break;
-            case 'm':
-                fprintf(stderr, "got m\n");
+            case 'p':
                 load_pcap = true;
-                match_table_test = true;
+                parser_test = true;
                 pcap_file = optarg;
                 break;
             default:
@@ -164,14 +166,6 @@ int main(int argc, char **argv)
     if (run_basic) {
         fprintf(stderr, "read version from cpp\n");
         device->read_version();
-    }
-
-    if (match_table_test) {
-        fprintf(stderr, "match table\n");
-        // insert rule to match table
-        MatchInput match_input = { key1: 4, key2: 4};
-        device->add_entry(0, match_input);
-        sem_wait(&sem_ctrl);
     }
 
     if (load_pcap) {
@@ -187,11 +181,10 @@ int main(int argc, char **argv)
         }
     }
 
-    // parse
-    // print match result
-
-    if (match_table_test) {
-        device->delete_entry(0, flowid);
+    if (parser_test) {
+        // load packet
+        // parse
+        // print match result
     }
 
     if (run_basic) {
