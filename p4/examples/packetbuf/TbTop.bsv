@@ -3,6 +3,7 @@ package TbTop;
 import BuildVector::*;
 import GetPut::*;
 import ClientServer::*;
+import DefaultValue::*;
 import StmtFSM::*;
 import FIFO::*;
 import Pipe::*;
@@ -13,6 +14,8 @@ import MemTypes::*;
 import MemServerIndication::*;
 import MMUIndication::*;
 import SharedBuff::*;
+import Ethernet::*;
+import PacketBuffer::*;
 
 import Malloc::*;
 
@@ -30,6 +33,7 @@ interface TbRequest;
    method Action readPacketBuff(Bit#(16) addr);
    method Action writePacketBuff(Bit#(16) addr, Bit#(64) data);
    method Action freePacketBuff(Bit#(32) id);
+   method Action writePacketData(Vector#(2, Bit#(64)) data, Vector#(2, Bit#(8)) mask, Bit#(1) sop, Bit#(1) eop);
 endinterface
 
 interface TbTop;
@@ -57,6 +61,7 @@ module mkTbTop#(TbIndication indication, ConnectalMemory::MemServerIndication me
    endinterface);
 
    SharedBuffer#(12, 128, 1) buff <- mkSharedBuffer(vec(dmaReadClient), vec(dmaWriteClient), memServerIndication, mallocIndication);
+   PacketBuffer ring_buff <- mkPacketBuffer();
 
    interface TbRequest request;
       method Action read_version();
@@ -89,6 +94,16 @@ module mkTbTop#(TbIndication indication, ConnectalMemory::MemServerIndication me
       method Action freePacketBuff(Bit#(32) id);
 
       endmethod
+
+      method Action writePacketData(Vector#(2, Bit#(64)) data, Vector#(2, Bit#(8)) mask, Bit#(1) sop, Bit#(1) eop);
+         EtherData beat = defaultValue;
+         beat.data = pack(reverse(data));
+         beat.mask = pack(reverse(mask));
+         beat.sop = unpack(sop);
+         beat.eop = unpack(eop);
+         ring_buff.writeServer.writeData.put(beat);
+      endmethod
+
    endinterface
 endmodule: mkTbTop
 
