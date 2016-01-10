@@ -1,7 +1,7 @@
 import SchedulerTypes::*;
 
-function Bit#(2) machineToPortMapping (Integer host_index, MAC mac_addr);
-    Bit#(2) port_index = 0;
+function PortIndex machineToPortMapping (Integer host_index, MAC mac_addr);
+    PortIndex port_index = 0;
 
     if (host_index == 0)
     begin

@@ -14,9 +14,9 @@ import EthMac::*;
 
 interface Mac;
     (* always_ready, always_enabled *)
-    method Bit#(72) mac_tx(Integer port_index);
+    method Bit#(72) tx(Integer port_index);
     (* always_ready, always_enabled *)
-    method Action mac_rx(Integer port_index, Bit#(72) v);
+    method Action rx(Integer port_index, Bit#(72) v);
 endinterface
 
 module mkMac#(Integer host_index,
@@ -36,11 +36,6 @@ module mkMac#(Integer host_index,
                                 /* Tx Path */
 
 /*------------------------------------------------------------------------------*/
-    Reg#(Bit#(64)) clk_counter <- mkReg(0);
-    rule clk;
-        clk_counter <= clk_counter + 1;
-    endrule
-
     Reg#(Bool) tx_verbose <- mkReg(False, clocked_by txClock, reset_by txReset);
 
     Vector#(NUM_OF_PORTS, Vector#(2, FIFO#(PacketDataT#(64)))) mac_in_buffer
@@ -254,8 +249,8 @@ module mkMac#(Integer host_index,
                 let d <- toGet((mac_in_buffer[i])[j]).get;
 
                 if (tx_verbose)
-                    $display("[MAC (%d)] CLK = %d input to mac %d %d %x i = %d",
-                               host_index, clk_counter, d.sop, d.eop, d.data, i);
+                    $display("[MAC (%d)] input to mac %d %d %x i = %d",
+                               host_index, d.sop, d.eop, d.data, i);
 
                 eth_mac[i].packet_tx.put(d);
 
@@ -446,12 +441,12 @@ module mkMac#(Integer host_index,
 
 /*------------------------------------------------------------------------------*/
 
-    method Bit#(72) mac_tx(Integer port_index);
+    method Bit#(72) tx(Integer port_index);
         let v = eth_mac[port_index].tx;
         return v;
     endmethod
 
-    method Action mac_rx(Integer port_index, Bit#(72) v);
+    method Action rx(Integer port_index, Bit#(72) v);
         eth_mac[port_index].rx(v);
     endmethod
 endmodule

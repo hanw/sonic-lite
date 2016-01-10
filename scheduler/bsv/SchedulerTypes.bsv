@@ -3,13 +3,13 @@ import DefaultValue::*;
 typedef 32 IP_ADDR_LEN;
 typedef 48 MAC_ADDR_LEN;
 typedef 5 NUM_OF_SERVERS;
-typedef NUM_OF_SERVERS TABLE_LEN;
 
 typedef 4 NUM_OF_PORTS;
 
 typedef Bit#(IP_ADDR_LEN) IP;
 typedef Bit#(MAC_ADDR_LEN) MAC;
-typedef Bit#(4) AddrIndex; /* log2(TABLE_LEN) */
+typedef Bit#(4) ServerIndex; /* bits to represent num of servers */
+typedef Bit#(3) PortIndex; /* bits to represent num of ports */
 typedef Bit#(32) Address;
 
 typedef 20 RING_BUFFER_SIZE;
@@ -31,7 +31,7 @@ typedef struct {
 typedef struct {
     IP server_ip;
     MAC server_mac;
-    AddrIndex addrIdx;
+    ServerIndex serverIdx;
     TableOp op;
     Outcome op_outcome;
 } TableReqResType deriving(Bits, Eq);
@@ -40,18 +40,18 @@ instance DefaultValue#(TableReqResType);
     defaultValue = TableReqResType {
                                 server_ip  : 0,
                                 server_mac : 0,
-                                addrIdx    : 0,
+                                serverIdx  : 0,
                                 op         : NONE,
                                 op_outcome : FAILURE
                               };
 endinstance
 
 function TableReqResType makeTableReqRes(IP server_ip, MAC server_mac,
-                       AddrIndex addrIdx, TableOp op, Outcome outcome);
+                       ServerIndex serverIdx, TableOp op, Outcome outcome);
     return TableReqResType {
                         server_ip  : server_ip,
                         server_mac : server_mac,
-                        addrIdx    : addrIdx,
+                        serverIdx  : serverIdx,
                         op         : op,
                         op_outcome : outcome
                       };
@@ -62,7 +62,7 @@ typedef struct {
     MAC server_mac;
     Bit#(64) start_time;
     Bit#(64) interval;
-    AddrIndex addrIdx;
+    ServerIndex serverIdx;
     SchedulerOp op;
     Outcome op_outcome;
 } SchedReqResType deriving(Bits, Eq);
@@ -73,21 +73,21 @@ instance DefaultValue#(SchedReqResType);
                                 server_mac : 0,
                                 start_time : 0,
                                 interval   : 0,
-                                addrIdx    : 0,
+                                serverIdx  : 0,
                                 op         : NONE,
                                 op_outcome : FAILURE
                               };
 endinstance
 
 function SchedReqResType makeSchedReqRes(IP server_ip, MAC server_mac,
-            Bit#(64) start_time, Bit#(64) interval, AddrIndex addrIdx,
+            Bit#(64) start_time, Bit#(64) interval, ServerIndex serverIdx,
                                      SchedulerOp op, Outcome outcome);
     return SchedReqResType {
                         server_ip  : server_ip,
                         server_mac : server_mac,
                         start_time : start_time,
                         interval   : interval,
-                        addrIdx    : addrIdx,
+                        serverIdx  : serverIdx,
                         op         : op,
                         op_outcome : outcome
                       };

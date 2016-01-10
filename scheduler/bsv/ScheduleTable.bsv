@@ -27,8 +27,8 @@ module mksched_table (Server#(TableReqResType, TableReqResType));
                             };
     endfunction
 
-    function Address index_to_addr(AddrIndex addrIdx);
-        Address addr = zeroExtend(addrIdx)
+    function Address index_to_addr(ServerIndex serverIdx);
+        Address addr = zeroExtend(serverIdx)
                      * (fromInteger(valueof(IP_ADDR_LEN))
                      + fromInteger(valueof(MAC_ADDR_LEN))
                      + 1);
@@ -36,7 +36,7 @@ module mksched_table (Server#(TableReqResType, TableReqResType));
     endfunction
 
     BRAM_Configure cfg = defaultValue;
-    cfg.memorySize = fromInteger(valueof(TABLE_LEN))
+    cfg.memorySize = fromInteger(valueof(NUM_OF_SERVERS))
                    * (fromInteger(valueof(IP_ADDR_LEN))
                    + fromInteger(valueof(MAC_ADDR_LEN))
                    + 1);  /* total memory size */
@@ -47,10 +47,10 @@ module mksched_table (Server#(TableReqResType, TableReqResType));
     Reg#(Bit#(1)) rem_in_progress <- mkReg(0);
     Reg#(Bit#(1)) put_in_progress <- mkReg(0);
 
-    Reg#(AddrIndex) curr_index <- mkReg(0);
+    Reg#(ServerIndex) curr_index <- mkReg(0);
     Reg#(TableReqResType) curr_req <- mkReg(defaultValue);
 
-    Reg#(AddrIndex) index_itr <- mkReg(0);
+    Reg#(ServerIndex) index_itr <- mkReg(0);
 
 /*-----------------------------------------------------------------------------*/
     FIFOF#(TableReqResType) table_get_req_fifo <- mkFIFOF;
@@ -58,8 +58,8 @@ module mksched_table (Server#(TableReqResType, TableReqResType));
 
     rule table_get_req;
         let req <- toGet(table_get_req_fifo).get;
-        AddrIndex addrIdx = req.addrIdx;
-        Address addr = index_to_addr(addrIdx);
+        ServerIndex serverIdx = req.serverIdx;
+        Address addr = index_to_addr(serverIdx);
         sched_table.portA.request.put(makeBRAMRequest(False, addr, 0, 0, 0));
         table_get_res_fifo.enq(req);
     endrule
@@ -69,7 +69,7 @@ module mksched_table (Server#(TableReqResType, TableReqResType));
         Data d <- sched_table.portA.response.get;
         if (d.is_valid == 1)
             response_fifo.enq
-            (makeTableReqRes(d.server_ip, d.server_mac, req.addrIdx, GET, SUCCESS));
+            (makeTableReqRes(d.server_ip, d.server_mac, req.serverIdx, GET, SUCCESS));
         else
             response_fifo.enq
              (makeTableReqRes(0, 0, 0, GET, FAILURE));
@@ -82,7 +82,7 @@ module mksched_table (Server#(TableReqResType, TableReqResType));
     FIFOF#(TableReqResType) table_put_pipeline_fifo <- mkPipelineFIFOF;
 
     rule table_put_req (put_in_progress == 1);
-        if (found_free_slot == 0 && index_itr < fromInteger(valueOf(TABLE_LEN)))
+        if (found_free_slot == 0 && index_itr < fromInteger(valueOf(NUM_OF_SERVERS)))
         begin
             Address addr = index_to_addr(curr_index);
             sched_table.portA.request.put(makeBRAMRequest(False, addr, 0, 0, 0));
@@ -93,7 +93,7 @@ module mksched_table (Server#(TableReqResType, TableReqResType));
         begin
             put_in_progress <= 0;
             op_in_progress <= 0;
-            if (index_itr >= fromInteger(valueOf(TABLE_LEN)))
+            if (index_itr >= fromInteger(valueOf(NUM_OF_SERVERS)))
                 response_fifo.enq(makeTableReqRes(0, 0, 0, PUT, FAILURE));
         end
     endrule
@@ -102,7 +102,7 @@ module mksched_table (Server#(TableReqResType, TableReqResType));
         let req <- toGet(table_put_pipeline_fifo).get;
         if (found_free_slot == 0)
         begin
-            curr_index <= (curr_index + 1) % fromInteger(valueOf(TABLE_LEN));
+            curr_index <= (curr_index + 1) % fromInteger(valueOf(NUM_OF_SERVERS));
             Data d <- sched_table.portA.response.get;
             if (d.is_valid == 0)
             begin
@@ -120,7 +120,7 @@ module mksched_table (Server#(TableReqResType, TableReqResType));
     FIFOF#(TableReqResType) table_rem_pipeline_fifo <- mkPipelineFIFOF;
 
     rule table_rem_req (rem_in_progress == 1);
-        if(found_item_to_remove==0 && index_itr < fromInteger(valueOf(TABLE_LEN)))
+        if(found_item_to_remove==0 && index_itr < fromInteger(valueOf(NUM_OF_SERVERS)))
         begin
             Address addr = index_to_addr(index_itr);
             sched_table.portA.request.put(makeBRAMRequest(False, addr, 0, 0, 0));
@@ -130,7 +130,7 @@ module mksched_table (Server#(TableReqResType, TableReqResType));
         begin
             rem_in_progress <= 0;
             op_in_progress <= 0;
-            if (index_itr >= fromInteger(valueOf(TABLE_LEN)))
+            if (index_itr >= fromInteger(valueOf(NUM_OF_SERVERS)))
                 response_fifo.enq(makeTableReqRes(0, 0, 0, REMOVE, FAILURE));
         end
     endrule

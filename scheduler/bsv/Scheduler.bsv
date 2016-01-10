@@ -1,17 +1,18 @@
 import Vector::*;
 import FIFO::*;
 import FIFOF::*;
-import FIFOLevel::*;
 import SpecialFIFOs::*;
 import BRAM::*;
 import GetPut::*;
 import DefaultValue::*;
+import Clocks::*;
 
 import SchedulerTypes::*;
 import ScheduleTable::*;
 import RingBufferTypes::*;
 import RingBuffer::*;
 import MachineToPortMapping::*;
+import GlobalClock::*;
 
 interface Scheduler#(type reqType, type resType,
                      type readReqType, type readResType,
@@ -64,6 +65,8 @@ module mkScheduler#(Integer host_index,
                                                     WriteReqType, WriteResType));
     Reg#(Bool) verbose <- mkReg(False);
 
+    GlobalClock clk <- mkGlobalClock;
+
     Clock defaultClock <- exposeCurrentClock();
     Reset defaultReset <- exposeCurrentReset();
 
@@ -76,21 +79,20 @@ module mkScheduler#(Integer host_index,
     FIFOF#(SchedReqResType) delete_response_fifo <- mkFIFOF;
     FIFOF#(SchedReqResType) display_response_fifo <- mkFIFOF;
 
-    Vector#(NUM_OF_PORTS, SyncFIFOLevelIfc#(ReadReqType, 2)) mac_read_request_fifo
-                    <- replicateM(mkSyncFIFOLevel(txClock, txReset, defaultClock));
-    Vector#(NUM_OF_PORTS, SyncFIFOLevelIfc#(ReadResType, 4)) mac_read_response_fifo
-               <- replicateM(mkSyncFIFOLevel(defaultClock, defaultReset, txClock));
-    Vector#(NUM_OF_PORTS, SyncFIFOLevelIfc#(WriteReqType, 2)) mac_write_request_fifo
-                    <- replicateM(mkSyncFIFOLevel(rxClock, rxReset, defaultClock));
-    Vector#(NUM_OF_PORTS, SyncFIFOLevelIfc#(WriteResType, 2))mac_write_response_fifo
-               <- replicateM(mkSyncFIFOLevel(defaultClock, defaultReset, rxClock));
+    Vector#(NUM_OF_PORTS, SyncFIFOIfc#(ReadReqType)) mac_read_request_fifo
+                    <- replicateM(mkSyncFIFO(2, txClock, txReset, defaultClock));
+    Vector#(NUM_OF_PORTS, SyncFIFOIfc#(ReadResType)) mac_read_response_fifo
+               <- replicateM(mkSyncFIFO(4, defaultClock, defaultReset, txClock));
+    Vector#(NUM_OF_PORTS, SyncFIFOIfc#(WriteReqType)) mac_write_request_fifo
+                    <- replicateM(mkSyncFIFO(2, rxClock, rxReset, defaultClock));
+    Vector#(NUM_OF_PORTS, SyncFIFOIfc#(WriteResType)) mac_write_response_fifo
+               <- replicateM(mkSyncFIFO(2, defaultClock, defaultReset, rxClock));
 
     FIFOF#(ReadReqType) dma_read_request_fifo <- mkFIFOF;
     FIFOF#(ReadResType) dma_read_response_fifo <- mkFIFOF;
     FIFOF#(WriteReqType) dma_write_request_fifo <- mkPipelineFIFOF;
     FIFOF#(WriteResType) dma_write_response_fifo <- mkFIFOF;
 
-    Reg#(Bit#(64)) clk <- mkReg(0);
     Reg#(Bit#(64)) start_time <- mkReg(0);
     Reg#(Bit#(64)) interval <- mkReg(0);
 
@@ -198,7 +200,7 @@ module mkScheduler#(Integer host_index,
 /*-------------------------------------------------------------------------------*/
     rule display_req (curr_op == DISPLAY);
         let req <- toGet(sched_req_fifo).get;
-        sched_table.request.put(makeTableReqRes(0, 0, req.addrIdx, GET, SUCCESS));
+        sched_table.request.put(makeTableReqRes(0, 0, req.serverIdx, GET, SUCCESS));
     endrule
 
     rule display_res (curr_op == DISPLAY);
@@ -233,7 +235,7 @@ module mkScheduler#(Integer host_index,
     RingBuffer#(ReadReqType, ReadResType, WriteReqType, WriteResType)
         src_rx_ring_buffer <- mkRingBuffer(fromInteger(valueof(RING_BUFFER_SIZE)));
 
-    Vector#(NUM_OF_SERVERS, Reg#(AddrIndex)) schedule_list <- replicateM(mkReg(0));
+    Vector#(NUM_OF_SERVERS, Reg#(ServerIndex)) schedule_list <- replicateM(mkReg(0));
     Reg#(MAC) host_mac_addr <- mkReg(0);
     Reg#(IP) host_ip_addr <- mkReg(0);
 
@@ -263,8 +265,8 @@ module mkScheduler#(Integer host_index,
     * the table every time we need to know the index of a ring
     * buffer.
     */
-    function AddrIndex ipToIndexMapping (IP ip_addr);
-        AddrIndex index = truncate(ip_addr[7:0]) - 1;
+    function ServerIndex ipToIndexMapping (IP ip_addr);
+        ServerIndex index = truncate(ip_addr[7:0]) - 1;
         if (index < truncate(host_ip_addr[7:0]))
             index = index + 1;
         return index;
@@ -311,7 +313,7 @@ module mkScheduler#(Integer host_index,
 /*------------------------------------------------------------------------------*/
     Vector#(NUM_OF_PORTS, FIFOF#(RingBufferDataT))
                               buffer_fifo <- replicateM(mkSizedFIFOF(8));
-    Vector#(NUM_OF_PORTS, FIFOF#(AddrIndex))
+    Vector#(NUM_OF_PORTS, FIFOF#(ServerIndex))
           ring_buffer_index_fifo <- replicateM
                     (mkSizedFIFOF(fromInteger(valueof(NUM_OF_PORTS))+1));
     Vector#(NUM_OF_PORTS, Reg#(Bit#(1)))
@@ -335,10 +337,10 @@ module mkScheduler#(Integer host_index,
     Vector#(NUM_OF_PORTS, Reg#(Bit#(1))) stop_polling <- replicateM(mkReg(0));
     Vector#(NUM_OF_PORTS, Reg#(Bit#(10))) poll_count <- replicateM(mkReg(0));
 
-    Vector#(NUM_OF_PORTS, Reg#(AddrIndex)) curr_ring_buffer_index
+    Vector#(NUM_OF_PORTS, Reg#(ServerIndex)) curr_ring_buffer_index
                         <- replicateM(mkReg(fromInteger(valueof(NUM_OF_SERVERS))));
 
-    Vector#(NUM_OF_SERVERS, FIFOF#(Bit#(2)))
+    Vector#(NUM_OF_SERVERS, FIFOF#(PortIndex))
     token_queue <- replicateM(mkSizedFIFOF(fromInteger(valueof(NUM_OF_SERVERS))));
 
     for (Integer i = 0; i < fromInteger(valueof(NUM_OF_PORTS)); i = i + 1)
@@ -399,7 +401,7 @@ module mkScheduler#(Integer host_index,
                         ring_buffer_index_fifo[i].enq(0);
                     else
                     begin
-                        AddrIndex index = ipToIndexMapping(dst_ip);
+                        ServerIndex index = ipToIndexMapping(dst_ip);
                         ring_buffer_index_fifo[i].enq(index);
                         if (verbose)
                             $display("[SCHED (%d)] Adding idx = %d to idx fifo %d",
@@ -438,14 +440,14 @@ module mkScheduler#(Integer host_index,
         end
     end
 
-    Vector#(NUM_OF_SERVERS, Reg#(Bit#(3)))
+    Vector#(NUM_OF_SERVERS, Reg#(PortIndex))
          port_idx <- replicateM(mkReg(fromInteger(valueof(NUM_OF_PORTS))));
 
     for (Integer j = 0; j < fromInteger(valueof(NUM_OF_SERVERS)); j = j + 1)
     begin
         rule deq_from_token_queue (curr_state == RUN);
             let port_index <- toGet(token_queue[j]).get;
-            port_idx[j] <= zeroExtend(port_index);
+            port_idx[j] <= port_index;
             if (verbose)
                 $display("[SCHED (%d)] port_idx[%d] = %d",host_index,j,port_index);
             stop_polling[port_index] <= 0;
@@ -472,7 +474,7 @@ module mkScheduler#(Integer host_index,
                     src_rx_ring_buffer.write_request.put
                                     (makeWriteReq(d.sop, d.eop, d.payload));
                 if (verbose)
-                    $display("[SCHED (%d)] CLK = %d buffer index to put data = %d data = %d %d %x", host_index, clk, j, d.sop, d.eop, d.payload);
+                    $display("[SCHED (%d)] CLK = %d buffer index to put data = %d data = %d %d %x", host_index, clk.currTime(), j, d.sop, d.eop, d.payload);
             endrule
         end
     end
@@ -482,7 +484,7 @@ module mkScheduler#(Integer host_index,
     Reg#(MAC) dst_mac_addr <- mkReg(0);
     Reg#(Bit#(1)) wait_for_res <- mkReg(0);
 
-    rule get_dst_addr (curr_state == RUN && clk == start_time);
+    rule get_dst_addr (curr_state == RUN && clk.currTime() == start_time);
         start_time <= start_time + interval;
         curr_slot <= (curr_slot + 1) % (fromInteger(valueof(NUM_OF_SERVERS)) - 1);
 
@@ -490,7 +492,7 @@ module mkScheduler#(Integer host_index,
 
         if (verbose)
             $display("[SCHED (%d)] CLK = %d  schedule_list[%d] = %d", host_index,
-                                         clk, curr_slot, schedule_list[curr_slot]);
+                            clk.currTime(), curr_slot, schedule_list[curr_slot]);
         /* Get the dst mac and ip addr */
         sched_table.request.put
             (makeTableReqRes(0, 0, schedule_list[curr_slot], GET, SUCCESS));
@@ -505,13 +507,13 @@ module mkScheduler#(Integer host_index,
 
         if (verbose)
             $display("[SCHED (%d)] CLK = %d MAC = %x IP = %x", host_index,
-                                              clk, d.server_mac, d.server_ip);
+                                      clk.currTime(), d.server_mac, d.server_ip);
         /* Get the index of the ring buffer to extract from */
-        AddrIndex index = ipToIndexMapping(d.server_ip);
+        ServerIndex index = ipToIndexMapping(d.server_ip);
 
         if (verbose)
             $display("[SCHED (%d)] CLK = %d buffer index to extract from = %d %d",
-                      host_index, clk, index, ring_buffer[index].num_of_elements);
+            host_index, clk.currTime(), index, ring_buffer[index].num_of_elements);
 
         Bool is_empty <- ring_buffer[index].empty;
 
@@ -525,14 +527,14 @@ module mkScheduler#(Integer host_index,
         begin
             if (verbose)
                 $display("[SCHED (%d)] CLK = %d Empty ring; extract from host tx",
-                                                                 host_index, clk);
+                                                      host_index, clk.currTime());
                 ring_buffer[0].read_request.put(makeReadReq(READ));
         end
 
     endrule
 
     Vector#(NUM_OF_SERVERS, FIFO#(ReadResType)) data_to_put <- replicateM(mkFIFO);
-    Vector#(NUM_OF_SERVERS, Reg#(Bit#(2))) tx_index <- replicateM(mkReg(0));
+    Vector#(NUM_OF_SERVERS, Reg#(PortIndex)) tx_port_index <- replicateM(mkReg(0));
 
     for (Integer i = 0; i < fromInteger(valueof(NUM_OF_SERVERS)); i = i + 1)
     begin
@@ -546,7 +548,7 @@ module mkScheduler#(Integer host_index,
                 Bit#(96) zero = 0;
                 Bit#(BUS_WIDTH) temp = {'1, zero};
                 d.data.payload = (d.data.payload & temp) | zeroExtend(new_addr);
-                tx_index[i] <= machineToPortMapping(host_index, dst_mac_addr);
+                tx_port_index[i] <= machineToPortMapping(host_index, dst_mac_addr);
                 if (i == 0)
                     host_pkt_transmitted <= host_pkt_transmitted + 1;
                 else
@@ -555,26 +557,21 @@ module mkScheduler#(Integer host_index,
 
             data_to_put[i].enq(d);
             if (verbose)
-                $display("[SCHED (%d)] CLK = %d", host_index, clk);
+                $display("[SCHED (%d)] CLK = %d", host_index, clk.currTime());
         endrule
 
         for (Integer j = 0; j < fromInteger(valueof(NUM_OF_PORTS)); j = j + 1)
         begin
-            rule add_to_correct_tx (tx_index[i] == fromInteger(j));
+            rule add_to_correct_tx (tx_port_index[i] == fromInteger(j));
                 let d <- toGet(data_to_put[i]).get;
                 tx_ring_buffer[j].write_request.put
                         (makeWriteReq(d.data.sop, d.data.eop, d.data.payload));
             if (verbose)
             $display("[SCHED (%d)] CLK = %d data written to tx %d data %d %d %x",
-                     host_index, clk, j, d.data.sop, d.data.eop, d.data.payload);
+            host_index, clk.currTime(), j, d.data.sop, d.data.eop, d.data.payload);
             endrule
         end
     end
-
-/*-------------------------------------------------------------------------------*/
-    rule clock_simulator (curr_state == RUN);
-        clk <= clk + 1;
-    endrule
 
 /*-------------------------------------------------------------------------------*/
     rule handle_controller_req (table_op_in_progress == 0);
@@ -614,7 +611,7 @@ module mkScheduler#(Integer host_index,
 
             if (verbose)
                 $display("[SCHED (%d)] CLK = %d Putting data into rx port buffer %d %d %x i = %d",
-                host_index, clk, req.data.sop, req.data.eop, req.data.payload, i);
+                host_index, clk.currTime(), req.data.sop, req.data.eop, req.data.payload, i);
 
             rx_ring_buffer[i].write_request.put
                   (makeWriteReq(req.data.sop, req.data.eop, req.data.payload));
@@ -625,7 +622,7 @@ module mkScheduler#(Integer host_index,
             tx_ring_buffer[i].read_request.put(makeReadReq(req.op));
         endrule
 
-        rule handle_tx_buffer_read_res_to_mac;
+        rule send_tx_buffer_read_res_to_mac;
             let d <- tx_ring_buffer[i].read_response.get;
             mac_read_response_fifo[i].enq(makeReadRes(d.data));
         endrule

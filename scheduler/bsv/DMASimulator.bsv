@@ -6,11 +6,12 @@ import GetPut::*;
 import Scheduler::*;
 import SchedulerTypes::*;
 import RingBufferTypes::*;
+import Addresses::*;
 
 typedef struct {
     Bit#(112) payload;
-    Bit#(32) dst_ip;
-    Bit#(32) src_ip;
+    IP dst_ip;
+    IP src_ip;
     Bit#(16) header_checksum;
     Bit#(8) protocol;
     Bit#(8) ttl;
@@ -23,8 +24,8 @@ typedef struct {
     Bit#(4) version;
 
     Bit#(16) ether_type;
-    Bit#(48) src_mac;
-    Bit#(48) dst_mac;
+    MAC src_mac;
+    MAC dst_mac;
 } Header deriving(Bits, Eq);
 
 instance DefaultValue#(Header);
@@ -48,18 +49,6 @@ instance DefaultValue#(Header);
                           };
 endinstance
 
-typedef struct {
-    Bit#(32) ip_addr;
-    Bit#(48) mac_addr;
-} Addresses deriving(Bits, Eq);
-
-instance DefaultValue#(Addresses);
-    defaultValue = Addresses {
-                              ip_addr  : 0,
-                              mac_addr : 0
-                             };
-endinstance
-
 interface DMASimulator;
     method Action start();
     method Action stop();
@@ -79,43 +68,8 @@ module mkDMASimulator#(Integer host_index,
                                     (0, fromInteger(valueof(NUM_OF_SERVERS))-1);
 
 
-    Vector#(NUM_OF_SERVERS, Reg#(Addresses)) address
-                           <- replicateM(mkReg(defaultValue));
-
-    Reg#(Bit#(1)) loaded_ip <- mkReg(0);
-    Reg#(Bit#(1)) loaded_mac <- mkReg(0);
-
-    rule load_ip_addresses_into_register (start_flag == 1 && loaded_ip == 0);
-        loaded_ip <= 1;
-        address[0].ip_addr <= 'hc0a80001;
-        address[1].ip_addr <= 'hc0a80002;
-        address[2].ip_addr <= 'hc0a80003;
-        address[3].ip_addr <= 'hc0a80004;
-        address[4].ip_addr <= 'hc0a80005;
-        //address[5].ip_addr <= 'hc0a80006;
-        //address[6].ip_addr <= 'hc0a80007;
-        //address[7].ip_addr <= 'hc0a80008;
-        //address[8].ip_addr <= 'hc0a80009;
-        //address[9].ip_addr <= 'hc0a8000a;
-    endrule
-
-    rule load_mac_addresses_into_register (start_flag == 1
-                                           && loaded_ip == 1 && loaded_mac == 0);
-        loaded_mac <= 1;
-        address[0].mac_addr <= 'hffab4859fbc4;
-        address[1].mac_addr <= 'hab4673df3647;
-        address[2].mac_addr <= 'h2947baffe64c;
-        address[3].mac_addr <= 'h5bdc664dffee;
-        address[4].mac_addr <= 'h85774bbcfeaa;
-        //address[5].mac_addr <= 'h95babbdfe857;
-        //address[6].mac_addr <= 'h7584bcaafe65;
-        //address[7].mac_addr <= 'h1baeef3647af;
-        //address[8].mac_addr <= 'hbcaffe43562b;
-        //address[9].mac_addr <= 'hc64bafe66381;
-    endrule
-
     Reg#(Header) header <- mkReg(defaultValue);
-    Reg#(AddrIndex) dst_index <- mkReg(0);
+    Reg#(ServerIndex) dst_index <- mkReg(0);
     Reg#(Bit#(7)) block_count <- mkReg(0);
     Reg#(Bit#(7)) num_of_blocks_to_transmit <- mkReg(4);
     Reg#(Bit#(1)) transmission_in_progress <- mkReg(0);
@@ -124,8 +78,7 @@ module mkDMASimulator#(Integer host_index,
     Reg#(Bit#(64)) pkt_count <- mkReg(0);
 
     rule prepare_pkt_transmission
-             (start_flag == 1 && transmission_in_progress == 0 && loaded_ip == 1
-             && loaded_mac == 1);
+             (start_flag == 1 && transmission_in_progress == 0);
 
         count <= count + 1;
 
@@ -160,10 +113,10 @@ module mkDMASimulator#(Integer host_index,
             (transmission_in_progress == 1 && init_header == 1);
         init_header <= 0;
         Header h = defaultValue;
-        h.src_mac = address[host_index].mac_addr;
-        h.src_ip = address[host_index].ip_addr;
-        h.dst_mac = address[dst_index].mac_addr;
-        h.dst_ip = address[dst_index].ip_addr;
+        h.src_mac = mac_address(fromInteger(host_index));
+        h.src_ip = ip_address(fromInteger(host_index));
+        h.dst_mac = mac_address(dst_index);
+        h.dst_ip = ip_address(dst_index);
         header <= h;
     endrule
 
