@@ -76,6 +76,14 @@ public:
     MallocIndication(unsigned int id) : MallocIndicationWrapper(id) {}
 };
 
+void
+test_malloc() {
+    device->allocPacketBuff(1024);
+    device->allocPacketBuff(1024);
+    // pass packet id
+    // dequeue to send ring
+}
+
 static void
 usage (const char *program_name) {
     printf("%s: p4fpga tester\n"
@@ -83,6 +91,7 @@ usage (const char *program_name) {
      program_name, program_name);
     printf("\nOther options:\n"
     " -p, --parser-test=FILE                demo parsing pcap log\n"
+    " -m, --malloc                          test malloc\n"
     );
 }
 
@@ -93,6 +102,7 @@ parse_options(int argc, char *argv[], char **pcap_file) {
     static struct option long_options [] = {
         {"help",                no_argument, 0, 'h'},
         {"parser-test",         required_argument, 0, 'p'},
+        {"malloc",              no_argument, 0, 'm'},
         {0, 0, 0, 0}
     };
 
@@ -111,6 +121,9 @@ parse_options(int argc, char *argv[], char **pcap_file) {
                 break;
             case 'p':
                 *pcap_file = optarg;
+                break;
+            case 'm':
+                test_malloc();
                 break;
             default:
                 break;

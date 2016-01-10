@@ -12,8 +12,9 @@ P4FPGADIR?=$(DEV_ROOT)/sonic-lite/p4
 # Connectal Support
 ########################################################
 S2H_INTERFACES=MemoryTestRequest:MemoryTest.request
-H2S_INTERFACES=MemoryTest:MemoryTestIndication
-BSVFILES=MemoryTest.bsv MemoryAPI.bsv
+H2S_INTERFACES=MemoryTest:MemoryTestIndication,MemServerIndication,MallocIndication
+
+BSVFILES=MemoryTest.bsv MemoryAPI.bsv $(P4FPGADIR)/bsv/Malloc.bsv
 CPPFILES=test.cpp
 
 #######################################################
@@ -45,6 +46,9 @@ CONNECTALFLAGS += --tcl=$(SONICDIR)/boards/de5_extra.qsf
 #######################################################
 run:
 	(cd bluesim; ./bin/ubuntu.exe -p ../udp-small.pcap)
+
+run-burst:
+	(cd bluesim; ./bin/ubuntu.exe -p ../udp-burst.pcap)
 
 include $(SONICDIR)/p4/Makefile.common
 include $(CONNECTALDIR)/Makefile.connectal

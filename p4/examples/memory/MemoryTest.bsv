@@ -34,10 +34,14 @@ import Clocks::*;
 import Gearbox::*;
 import Pipe::*;
 
+import MemServerIndication::*;
+import MMUIndication::*;
 import MemTypes::*;
 import Ethernet::*;
 import MemoryAPI::*;
 import PacketBuffer::*;
+import SharedBuff::*;
+import StoreAndForward::*;
 
 `ifndef SIMULATION
 import DE5Pins::*;
@@ -50,7 +54,7 @@ interface MemoryTest;
    interface `PinType pins;
 endinterface
 
-module mkMemoryTest#(MemoryTestIndication indication)(MemoryTest);
+module mkMemoryTest#(MemoryTestIndication indication, ConnectalMemory::MemServerIndication memServerIndication, Malloc::MallocIndication mallocIndication)(MemoryTest);
    Clock defaultClock <- exposeCurrentClock();
    Reset defaultReset <- exposeCurrentReset();
 
@@ -81,6 +85,15 @@ module mkMemoryTest#(MemoryTestIndication indication)(MemoryTest);
 `endif
 
    PacketBuffer buff <- mkPacketBuffer();
+
+   StoreAndForwardFromRingToMem storeAndForward <- mkStoreAndFwdFromRingToMem();
+
+   SharedBuffer#(12, 128, 1) mem <- mkSharedBuffer(nil, vec(storeAndForward.writeClient), memServerIndication, mallocIndication);
+
+   mkConnection(storeAndForward.readClient, buff.readServer);
+   mkConnection(storeAndForward.mallocReq, mem.mallocReq);
+   mkConnection(mem.mallocDone, storeAndForward.mallocDone);
+   //mkConnection(storeAndForward.memClient, mem.memServer);
 
    MemoryAPI api <- mkMemoryAPI(indication, buff);
 

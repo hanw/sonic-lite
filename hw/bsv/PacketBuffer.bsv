@@ -35,6 +35,16 @@ import Vector::*;
 
 import Ethernet::*;
 
+interface PktWriteClient;
+   interface Get#(EtherData) writeData;
+endinterface
+
+interface PktReadClient;
+   interface Put#(EtherData) readData;
+   interface Put#(Bit#(EtherLen)) readLen;
+   interface Get#(EtherReq) readReq;
+endinterface
+
 interface PktWriteServer;
    interface Put#(EtherData) writeData;
 endinterface
@@ -49,6 +59,20 @@ interface PacketBuffer;
    interface PktWriteServer writeServer;
    interface PktReadServer readServer;
 endinterface
+
+instance Connectable#(PktWriteClient, PktWriteServer);
+   module mkConnection#(PktWriteClient client, PktWriteServer server)(Empty);
+      mkConnection(client.writeData, server.writeData);
+   endmodule
+endinstance
+
+instance Connectable#(PktReadClient, PktReadServer);
+   module mkConnection#(PktReadClient client, PktReadServer server)(Empty);
+      mkConnection(client.readReq, server.readReq);
+      mkConnection(server.readData, client.readData);
+      mkConnection(server.readLen, client.readLen);
+   endmodule
+endinstance
 
 module mkPacketBuffer(PacketBuffer);
    Clock current_clock <- exposeCurrentClock;

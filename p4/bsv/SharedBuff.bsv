@@ -42,8 +42,10 @@ import PhysMemToBram::*;
 
 interface SharedBuffer#(numeric type addrWidth, numeric type busWidth, numeric type nMasters);
    interface MemServerRequest memServerRequest;
-   method Action malloc(Bit#(PacketAddrLen) sz);
-   method Action free(Bit#(32) id);
+   interface Put#(Bit#(PacketAddrLen)) mallocReq;
+   interface Get#(Bool) mallocDone;
+   interface Put#(Bit#(32)) freeReq;
+   interface Get#(Bool) freeDone;
 endinterface
 
 module mkSharedBuffer#(Vector#(numReadClients, MemReadClient#(busWidth)) readClients,
@@ -61,6 +63,7 @@ module mkSharedBuffer#(Vector#(numReadClients, MemReadClient#(busWidth)) readCli
             ,Mul#(TDiv#(busWidth, ByteEnableSize), ByteEnableSize, busWidth)
             ,Add#(`DataBusWidth, 0, busWidth)
 	    );
+   let verbose = True;
 
    Malloc allocator <- mkMalloc(mallocIndication);
    MMU#(addrWidth) mmu <- mkSharedBuffMMU(0, True, allocator.mmuIndication);
@@ -68,10 +71,24 @@ module mkSharedBuffer#(Vector#(numReadClients, MemReadClient#(busWidth)) readCli
 
    BRAM_Configure bramConfig = defaultValue;
    bramConfig.latency = 2;
+`ifdef BYTE_ENABLES
    BRAM1PortBE#(Bit#(addrWidth), Bit#(busWidth), ByteEnableSize) memBuff <- mkBRAM1ServerBE(bramConfig);
    Vector#(nMasters, PhysMemSlave#(addrWidth, busWidth)) memSlaves <- replicateM(mkPhysMemToBramBE(memBuff.portA));
+`else
+   BRAM1Port#(Bit#(addrWidth), Bit#(busWidth)) memBuff <- mkBRAM1Server(bramConfig);
+   Vector#(nMasters, PhysMemSlave#(addrWidth, busWidth)) memSlaves <- replicateM(mkPhysMemToBram(memBuff.portA));
+`endif
 
    mkConnection(dma.masters, memSlaves);
+
+   FIFO#(Bool) mallocDoneFifo <- mkFIFO1;
+   FIFO#(Bool) freeDoneFifo <- mkFIFO1;
+
+   Reg#(Bit#(32)) cycles <- mkReg(0);
+
+   rule every1 if (verbose);
+      cycles <= cycles + 1;
+   endrule
 
    rule program_MMU_sglist;
       let v <- toGet(allocator.pageAllocated).get;
@@ -88,17 +105,25 @@ module mkSharedBuffer#(Vector#(numReadClients, MemReadClient#(busWidth)) readCli
       let barr0 = tpl_2(v);
       // only smallest page size is used
       mmu.request.region(id, 0, 0, 0, 0, 0, 0, barr0, 0);
+      mallocDoneFifo.enq(True);
    endrule
 
    interface MemServerRequest memServerRequest = dma.request;
 
-   method Action malloc(Bit#(PacketAddrLen) sz);
-      mmu.request.idRequest(0);
-      allocator.alloc_mem(sz);
-   endmethod
-   method Action free(Bit#(32) id);
-      mmu.request.idReturn(id);
-      //allocator.free_mem(id);
-   endmethod
+   interface Put mallocReq;
+      method Action put(Bit#(PacketAddrLen) sz);
+         $display("%d: malloc %d", cycles, sz);
+         mmu.request.idRequest(2);
+         allocator.alloc_mem(sz);
+      endmethod
+   endinterface
+   interface Get mallocDone = toGet(mallocDoneFifo);
+   interface Put freeReq;
+      method Action put(Bit#(32) id);
+         mmu.request.idReturn(id);
+         //allocator.free_mem(id);
+      endmethod
+   endinterface
+   interface Get freeDone = toGet(freeDoneFifo);
 endmodule
 

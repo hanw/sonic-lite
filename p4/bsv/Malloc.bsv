@@ -113,7 +113,7 @@ module mkMalloc#(MallocIndication indication)(Malloc);
       method Action idResponse(Bit#(32) sglId);
          $display("malloc %d: sglid=%d", cycle, sglId);
          incomingIds.enq(sglId);
-         indication.id_resp(sglId);
+         //indication.id_resp(sglId); //FIXME: currently no one is consuming this.
       endmethod
 //      method Action configResp(Bit#(32) sglId);
 //
