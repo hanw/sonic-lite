@@ -28,6 +28,7 @@ CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/altera_clkctrl/altera_clkctr
 CONNECTALFLAGS += --verilog=$(PROJTOP)/../hw/verilog/si570/
 CONNECTALFLAGS += --verilog=$(PROJTOP)/../hw/verilog/
 CONNECTALFLAGS += --tcl=$(PROJTOP)/../boards/de5_extra.qsf
+CONNECTALFLAGS += --chipscope=$(PROJTOP)/mkDtpTop.stp
 
 CONNECTALFLAGS += -D DtpVersion=$(shell printf "%d" 0x`git rev-parse --short=8 HEAD`)
 CONNECTALFLAGS += -D PcieHostIF

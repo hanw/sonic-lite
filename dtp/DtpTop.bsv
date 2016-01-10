@@ -68,7 +68,7 @@ module mkDtpTop#(DtpIndication indication)(DtpTop);
    Clock txClock = clocks.clock_156_25;
    Clock phyClock = clocks.clock_644_53;
    Clock clock_50 = clocks.clock_50;
-   Reset txReset <- mkSyncReset(2, defaultReset, txClock);
+   Reset txReset <- mkSyncReset(1, defaultReset, txClock);
    Reset phyReset <- mkSyncReset(2, defaultReset, phyClock);
 
    De5SfpCtrl#(4) sfpctrl <- mkDe5SfpCtrl();

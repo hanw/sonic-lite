@@ -113,9 +113,12 @@ module mkDtpController#(NetToConnectalIfc net, DtpIndication indication, Clock c
       cycle_count <= cycle_count + 1;
    endrule
 
+   Vector#(4, FIFOF#(Bit#(32))) tDelayFifo <- replicateM(mkFIFOF);
+
    // clear all fifo on reset
    rule clearOnReset(dtpResetOut.isAsserted);
       for (Integer i=0; i<4; i=i+1) begin
+         tDelayFifo[i].clear();
          lread_data_cycle1[i].clear();
          lread_data_cycle2[i].clear();
          lread_data_timestamp[i].clear();
@@ -143,7 +146,9 @@ module mkDtpController#(NetToConnectalIfc net, DtpIndication indication, Clock c
    // send delay measurement to host
    Vector#(4, SyncFIFOIfc#(Bit#(32))) delayFifo <- replicateM(mkSyncFIFO(8, clk_156_25, rst_156_n, defaultClock));
    for (Integer i=0; i<4; i=i+1) begin
+//      mkConnection(net.phys[i].delayOut, toPipeIn(delayFifo[i]));
       mkConnection(net.phys[i].delayOut, toPipeIn(delayFifo[i]));
+      mkConnection(toPipeOut(delayFifo[i]), toPipeIn(tDelayFifo[i]));
    end
 
    // send dtp state to host
@@ -194,7 +199,7 @@ module mkDtpController#(NetToConnectalIfc net, DtpIndication indication, Clock c
    Vector#(4, Reg#(Bit#(32))) delay_reg <- replicateM(mkReg(0));
    for (Integer i=0; i<4; i=i+1) begin
       rule snapshot_delay;
-         let v <- toGet(delayFifo[i]).get;
+         let v <- toGet(tDelayFifo[i]).get;
          delay_reg[i] <= v;
       endrule
    end
