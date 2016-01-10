@@ -7,7 +7,6 @@ ROOTDIR=$(realpath .)
 CONNECTALDIR?=$(ROOTDIR)/../../connectal/
 IPDIR?=$(ROOTDIR)/../../fpgamake-cache/$(shell basename `/bin/pwd`)/
 PROJTOP?=$(ROOTDIR)
-CONNECTALFLAGS += --bsvpath=$(PROJTOP)/../hw/lib/bsv
 CONNECTALFLAGS += --bsvpath=$(PROJTOP)/../hw/bsv
 CONNECTALFLAGS += --bsvpath=$(PROJTOP)/../hw/generated
 CONNECTALFLAGS += --bsvpath=$(PROJTOP)/bsv/AsymmetricBRAM

@@ -9,7 +9,7 @@ BSC=bsc
 BSCFLAGS=-keep-fires -cross-info
 SUFFIXES=
 
-BSVPATH=$(CONNECTALDIR)/bsv:$(CONNECTALDIR)/lib/bsv:../AsymmetricBRAM/:bdir:simdir
+BSVPATH=$(CONNECTALDIR)/bsv:../AsymmetricBRAM/:bdir:simdir
 
 TOPMOD = mkTb
 TOPFILE = Tb.bsv

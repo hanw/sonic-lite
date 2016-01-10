@@ -21,5 +21,8 @@ CPPFILES=test.cpp
 run:
 	(cd bluesim; ./bin/ubuntu.exe -p ../udp-small.pcap)
 
+malloc:
+	(cd bluesim; ./bin/ubuntu.exe -m)
+
 include $(SONICDIR)/p4/Makefile.common
 include $(CONNECTALDIR)/Makefile.connectal

@@ -7,7 +7,7 @@ bsv_files= ${sim_top} ${sim_rest}
 v_rules = ${bsv_files:%.bsv=mk%V}
 
 special_compile_flags := -reset-prefix RST_P -D BSV_POSITIVE_RESET
-PSEARCH ?= :../../AsymmetricBRAM/:../../Bcam/:$(CONNECTALDIR)/bsv:$(CONNECTALDIR)/lib/bsv:+
+PSEARCH ?= :../../AsymmetricBRAM/:../../Bcam/:$(CONNECTALDIR)/bsv:
 VERILOG_PATH ?= $(ROOT_DIR)/../../AsymmetricBRAM/
 all: synth
 

@@ -25,7 +25,6 @@ CPPFILES = $(SONIC_DIR)/scheduler/cpp/test.cpp
 
 CONNECTALFLAGS += -D DataBusWidth=128
 CONNECTALFLAGS += --bsvpath=$(CONNECTAL_DIR)/bsv
-CONNECTALFLAGS += --bsvpath=$(SONIC_DIR)/hw/lib/bsv
 CONNECTALFLAGS += --bsvpath=$(SONIC_DIR)/hw/bsv/
 CONNECTALFLAGS += --bsvpath=$(SONIC_DIR)/hw/generated/
 

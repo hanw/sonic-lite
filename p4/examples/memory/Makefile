@@ -25,6 +25,7 @@ CPPFILES=test.cpp
 #PIN_BINDINGS ?= PCIE:PCIE OSC:OSC SFPA:SFPA SFPB:SFPB SFPC:SFPC SFPD:SFPD SFP:SFP LED:LED I2C:CLOCK
 #PINOUT_FILE = de5.json
 
+CONNECTALFLAGS += --bsvpath=$(P4FPGADIR)/bsv
 CONNECTALFLAGS += --verilog=$(SONICDIR)/hw/verilog/si570/
 CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/mac_10gbe.qip
 CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/altera_xcvr_10gbaser_wrapper.qip
@@ -42,5 +43,8 @@ CONNECTALFLAGS += --tcl=$(SONICDIR)/boards/de5_extra.qsf
 #######################################################
 # Default Rules
 #######################################################
+run:
+	(cd bluesim; ./bin/ubuntu.exe -p ../udp-small.pcap)
+
 include $(SONICDIR)/p4/Makefile.common
 include $(CONNECTALDIR)/Makefile.connectal
