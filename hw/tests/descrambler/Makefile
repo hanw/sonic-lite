@@ -8,7 +8,6 @@ CPPFILES = test.cpp
 
 CONNECTALFLAGS += -D DataBusWidth=128
 CONNECTALFLAGS += --bsvpath=$(CONNECTAL_DIR)/bsv
-CONNECTALFLAGS += --bsvpath=$(SONIC_DIR)/hw/lib/bsv
 CONNECTALFLAGS += --bsvpath=$(SONIC_DIR)/hw/bsv/
 
 CONNECTALFLAGS += -I $(SONIC_DIR)/sw/

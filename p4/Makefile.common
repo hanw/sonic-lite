@@ -1,7 +1,6 @@
 ########################################################
 # Common Makefile rules
 ########################################################
-CONNECTALFLAGS += --bsvpath=$(SONICDIR)/hw/lib/bsv
 CONNECTALFLAGS += --bsvpath=$(SONICDIR)/hw/bsv
 CONNECTALFLAGS += --bsvpath=$(SONICDIR)/hw/generated
 CONNECTALFLAGS += -I $(SONICDIR)/sw -I .

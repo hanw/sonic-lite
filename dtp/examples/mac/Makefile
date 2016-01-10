@@ -5,7 +5,6 @@ IPDIR?=$(ROOTDIR)/../../../../fpgamake-cache/$(shell basename `/bin/pwd`)/
 PROJTOP?=$(ROOTDIR)
 
 CONNECTALFLAGS += --bscflags="+RTS -K46777216 -RTS -demote-errors G0066:G0045 -suppress-warnings G0046:G0020:S0015:S0080:S0039 -steps-max-intervals 20"
-CONNECTALFLAGS += --bsvpath=$(PROJTOP)/../../../hw/lib/bsv
 CONNECTALFLAGS += --bsvpath=$(PROJTOP)/../../../hw/bsv
 CONNECTALFLAGS += --bsvpath=$(PROJTOP)/../../../hw/generated
 

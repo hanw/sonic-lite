@@ -11,7 +11,7 @@ BSC=bsc
 BSCFLAGS=-keep-fires -cross-info
 SUFFIXES=
 
-BSVPATH=$(CONNECTALDIR)/bsv:$(CONNECTALDIR)/lib/bsv:$(SONICDIR)/bsv/AsymmetricBRAM/:$(SONICDIR)/bsv/Bcam/:$(SONICDIR)/bsv/MatchTable:bdir:simdir
+BSVPATH=$(CONNECTALDIR)/bsv:$(SONICDIR)/bsv/AsymmetricBRAM/:$(SONICDIR)/bsv/Bcam/:$(SONICDIR)/bsv/MatchTable:bdir:simdir
 
 TOPMOD = mkTb
 TOPFILE = Tb.bsv
