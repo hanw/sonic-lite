@@ -77,11 +77,27 @@ interface DtpIndication;
    method Action dtp_get_mode_resp(Bit#(8) mode);
 endinterface
 
-interface DtpController;
-   interface DtpRequest request;
+interface DtpIfc;
+   interface PipeIn#(Bit#(128)) timestamp; // streaming time counter from NetTop.
+   interface Vector#(4, PipeOut#(Bit#(53))) fromHost;
+   interface Vector#(4, PipeIn#(Bit#(53)))  toHost;
+   interface Vector#(4, PipeIn#(Bit#(32)))  delay;
+   interface Vector#(4, PipeIn#(Bit#(32)))  state;
+   interface Vector#(4, PipeIn#(Bit#(64)))  jumpCount;
+   interface Vector#(4, PipeIn#(Bit#(53)))  cLocal;
+   interface PipeIn#(Bit#(53)) globalOut;
+   interface Vector#(4, PipeOut#(Bit#(32))) interval;
+   interface Vector#(4, PipeIn#(Bit#(32))) dtpErrCnt;
+   interface Reset rst;
+   interface PipeOut#(Bit#(1)) switchMode;
 endinterface
 
-module mkDtpController#(NetToConnectalIfc net, DtpIndication indication, Clock clk_156_25, Reset rst_156_n)(DtpController);
+interface DtpController;
+   interface DtpRequest request;
+   interface DtpIfc     ifc;
+endinterface
+
+module mkDtpController#(DtpIndication indication, Clock clk_156_25, Reset rst_156_n)(DtpController);
    let verbose = False;
    Clock defaultClock <- exposeCurrentClock();
    Reset defaultReset <- exposeCurrentReset();
@@ -126,63 +142,26 @@ module mkDtpController#(NetToConnectalIfc net, DtpIndication indication, Clock c
    endrule
 
    SyncFIFOIfc#(Bit#(128)) cntFifo <- mkSyncFIFO(8, clk_156_25, rst_156_n, defaultClock);
-   mkConnection(net.timestamp, toPipeIn(cntFifo));
-
    // send log data from host to network
    Vector#(4, SyncFIFOIfc#(Bit#(53))) fromHostFifo <- replicateM(mkSyncFIFO(8, defaultClock, defaultReset, clk_156_25));
-   for (Integer i=0; i<4; i=i+1) begin
-      mkConnection(toPipeOut(fromHostFifo[i]), net.phys[i].fromHost);
-   end
-
    // send log data from network to host
    Vector#(4, SyncFIFOIfc#(Bit#(53))) toHostFifo <- replicateM(mkSyncFIFO(8, clk_156_25, rst_156_n, defaultClock));
-   for (Integer i=0; i<4; i=i+1) begin
-      mkConnection(net.phys[i].toHost, toPipeIn(toHostFifo[i]));
-   end
-
    // send delay measurement to host
    Vector#(4, SyncFIFOIfc#(Bit#(32))) delayFifo <- replicateM(mkSyncFIFO(8, clk_156_25, rst_156_n, defaultClock));
-   for (Integer i=0; i<4; i=i+1) begin
-      mkConnection(net.phys[i].delayOut, toPipeIn(delayFifo[i]));
-   end
-
    // send dtp state to host
    Vector#(4, SyncFIFOIfc#(Bit#(32))) stateFifo <- replicateM(mkSyncFIFO(8, clk_156_25, rst_156_n, defaultClock));
-   for (Integer i=0; i<4; i=i+1) begin
-      mkConnection(net.phys[i].stateOut, toPipeIn(stateFifo[i]));
-   end
-
    // send dtp error count to host
    Vector#(4, SyncFIFOIfc#(Bit#(64))) jumpCountFifo <- replicateM(mkSyncFIFO(8, clk_156_25, rst_156_n, defaultClock));
-   for (Integer i=0; i<4; i=i+1) begin
-      mkConnection(net.phys[i].jumpCount, toPipeIn(jumpCountFifo[i]));
-   end
-
    // send dtp clocal to host
    Vector#(4, SyncFIFOIfc#(Bit#(53))) cLocalFifo <- replicateM(mkSyncFIFO(8, clk_156_25, rst_156_n, defaultClock));
-   for (Integer i=0; i<4; i=i+1) begin
-      mkConnection(net.phys[i].cLocalOut, toPipeIn(cLocalFifo[i]));
-   end
-
    // send dtp cglobal to host
    SyncFIFOIfc#(Bit#(53)) cGlobalFifo <- mkSyncFIFO(8, clk_156_25, rst_156_n, defaultClock);
-   mkConnection(net.globalOut, toPipeIn(cGlobalFifo));
-
    // set interval
    Vector#(4, SyncFIFOIfc#(Bit#(32))) intervalFifo <- replicateM(mkSyncFIFO(8, defaultClock, defaultReset, clk_156_25));
-   for (Integer i=0; i<4; i=i+1) begin
-      mkConnection(toPipeOut(intervalFifo[i]), net.phys[i].interval);
-   end
-
    // send dtp rcvd err count
    Vector#(4, SyncFIFOIfc#(Bit#(32))) dtpErrCntFifo <- replicateM(mkSyncFIFO(8, clk_156_25, rst_156_n, defaultClock));
-   for (Integer i=0; i<4; i=i+1) begin
-      mkConnection(net.phys[i].dtpErrCnt, toPipeIn(dtpErrCntFifo[i]));
-   end
-
    // send switch mode
    SyncFIFOIfc#(Bit#(1)) switchModeFifo <- mkSyncFIFO(8, defaultClock, defaultReset, clk_156_25);
-   mkConnection(toPipeOut(switchModeFifo), net.switchMode);
 
    // dtp_read_cnt
    rule snapshot_dtp_timestamp;
@@ -322,6 +301,22 @@ module mkDtpController#(NetToConnectalIfc net, DtpIndication indication, Clock c
       switchModeFifo.enq(switch_mode_reg);
    endrule
 
+   // Interface to external modules.
+   interface DtpIfc ifc = (interface DtpIfc;
+      interface timestamp = toPipeIn(cntFifo);
+      interface delay     = map(toPipeIn, delayFifo);
+      interface state     = map(toPipeIn, stateFifo);
+      interface jumpCount = map(toPipeIn, jumpCountFifo);
+      interface toHost    = map(toPipeIn, toHostFifo);
+      interface fromHost  = map(toPipeOut, fromHostFifo);
+      interface cLocal    = map(toPipeIn, cLocalFifo);
+      interface globalOut = toPipeIn(cGlobalFifo);
+      interface interval  = map(toPipeOut, intervalFifo);
+      interface dtpErrCnt = map(toPipeIn, dtpErrCntFifo);
+      interface rst       = dtpResetOut.new_rst;
+      interface switchMode  = toPipeOut(switchModeFifo);
+   endinterface);
+   
    // API implementation
    interface DtpRequest request;
    method Action dtp_read_version();

@@ -74,9 +74,29 @@ module mkDtpTop#(DtpIndication indication)(DtpTop);
    De5SfpCtrl#(4) sfpctrl <- mkDe5SfpCtrl();
 
 `ifndef SIMULATION
-   NetTopIfc net <- mkNetTop(clock_50, txClock, phyClock, clocked_by txClock, reset_by txReset);
-   DtpController dtp <- mkDtpController(net.api, indication, txClock, txReset, clocked_by defaultClock);
+   DtpController dtp <- mkDtpController(indication, txClock, txReset, clocked_by defaultClock);
+
+   Reset rst_api <- mkSyncReset(0, dtp.ifc.rst, txClock);
+   Reset dtp_rst <- mkResetEither(txReset, rst_api, clocked_by txClock);
+
+   NetTopIfc net <- mkNetTop(clock_50, txClock, phyClock, clocked_by txClock, reset_by dtp_rst);
+
+   // Connecting DTP request/indication and DTP-PHY looks ugly
+   mkConnection(net.api.timestamp, dtp.ifc.timestamp);
+   mkConnection(net.api.globalOut, dtp.ifc.globalOut);
+   mkConnection(dtp.ifc.switchMode, net.api.switchMode);
+   for (Integer i=0; i<4; i=i+1) begin
+      mkConnection(dtp.ifc.fromHost[i], net.api.phys[i].fromHost);
+      mkConnection(net.api.phys[i].toHost, dtp.ifc.toHost[i]);
+      mkConnection(net.api.phys[i].delayOut, dtp.ifc.delay[i]);
+      mkConnection(net.api.phys[i].stateOut, dtp.ifc.state[i]);
+      mkConnection(net.api.phys[i].jumpCount, dtp.ifc.jumpCount[i]);
+      mkConnection(net.api.phys[i].cLocalOut, dtp.ifc.cLocal[i]);
+      mkConnection(dtp.ifc.interval[i], net.api.phys[i].interval);
+      mkConnection(net.api.phys[i].dtpErrCnt, dtp.ifc.dtpErrCnt[i]);
+   end
 `endif // SIMULATION
+
    interface request = dtp.request;
 
    interface `PinType pins;
