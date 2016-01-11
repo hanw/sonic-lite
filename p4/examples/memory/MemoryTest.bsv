@@ -84,18 +84,23 @@ module mkMemoryTest#(MemoryTestIndication indication, ConnectalMemory::MemServer
    Vector#(4, EthMacIfc) mac <- mkEthMac(defaultClock, txClock, rxClock, txReset);
 `endif
 
-   PacketBuffer buff <- mkPacketBuffer();
+   PacketBuffer incoming_buff <- mkPacketBuffer();
+   StoreAndFwdFromRingToMem ringToMem <- mkStoreAndFwdFromRingToMem();
 
-   StoreAndForwardFromRingToMem storeAndForward <- mkStoreAndFwdFromRingToMem();
+   PacketBuffer outgoing_buff <- mkPacketBuffer();
+   StoreAndFwdFromMemToRing memToRing <- mkStoreAndFwdFromMemToRing();
 
-   SharedBuffer#(12, 128, 1) mem <- mkSharedBuffer(nil, vec(storeAndForward.writeClient), memServerIndication, mallocIndication);
+   SharedBuffer#(12, 128, 1) mem <- mkSharedBuffer(vec(memToRing.readClient), vec(ringToMem.writeClient), memServerIndication, mallocIndication);
 
-   mkConnection(storeAndForward.readClient, buff.readServer);
-   mkConnection(storeAndForward.mallocReq, mem.mallocReq);
-   mkConnection(mem.mallocDone, storeAndForward.mallocDone);
-   //mkConnection(storeAndForward.memClient, mem.memServer);
+   mkConnection(ringToMem.readClient, incoming_buff.readServer);
+   mkConnection(ringToMem.mallocReq, mem.mallocReq);
+   mkConnection(mem.mallocDone, ringToMem.mallocDone);
 
-   MemoryAPI api <- mkMemoryAPI(indication, buff);
+   mkConnection(memToRing.writeClient, outgoing_buff.writeServer);
+
+   mkConnection(ringToMem.eventPktCommitted, memToRing.eventPktSend);
+
+   MemoryAPI api <- mkMemoryAPI(indication, incoming_buff);
 
    interface request = api.request;
 `ifndef SIMULATION

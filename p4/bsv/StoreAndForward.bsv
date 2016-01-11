@@ -25,6 +25,7 @@
 // main packet memory. Packets are buffered completely in ring buffer
 // before it is sent to main memory and vice versa.
 
+import Cntrs::*;
 import FIFO::*;
 import GetPut::*;
 import Ethernet::*;
@@ -32,20 +33,24 @@ import SpecialFIFOs::*;
 import SharedBuff::*;
 import PacketBuffer::*;
 import MemTypes::*;
-
 import Malloc::*;
 import MemServer::*;
 import MemServerInternal::*;
 
-interface StoreAndForwardFromRingToMem;
+typedef struct {
+   Bit#(32) id;
+   Bit#(PacketAddrLen) size;
+} PacketInstance deriving(Bits, Eq);
+
+interface StoreAndFwdFromRingToMem;
    interface PktReadClient readClient;
    interface Get#(Bit#(PacketAddrLen)) mallocReq;
    interface Put#(Bool) mallocDone;
-   //interface SharedBufferClient memClient;
    interface MemWriteClient#(`DataBusWidth) writeClient;
+   interface Get#(PacketInstance) eventPktCommitted;
 endinterface
 
-module mkStoreAndFwdFromRingToMem(StoreAndForwardFromRingToMem);
+module mkStoreAndFwdFromRingToMem(StoreAndFwdFromRingToMem);
 
    let verbose = True;
 
@@ -70,6 +75,9 @@ module mkStoreAndFwdFromRingToMem(StoreAndForwardFromRingToMem);
    Reg#(Bool) readStarted <- mkReg(False);
    Reg#(Bool) mallocd <- mkReg(False);
 
+   FIFO#(PacketInstance) eventPktReceivedFifo <- mkFIFO;
+   FIFO#(PacketInstance) eventPktCommittedFifo <- mkFIFO;
+
    Reg#(Bit#(32)) cycle <- mkReg(0);
    rule every1 if (verbose);
       cycle <= cycle + 1;
@@ -89,12 +97,14 @@ module mkStoreAndFwdFromRingToMem(StoreAndForwardFromRingToMem);
       if (done) begin
          mallocd <= True;
          readReqFifo.enq(EtherReq{len: truncate(pktLen)});
-         writeReqFifo.enq(MemRequest {sglId: 0, offset: 0, burstLen: truncate(pktLen), tag:0
-`ifdef BYTE_ENABLES
-                                      , firstbe: 'hff, lastbe: 'hff
-`endif
-});
+         writeReqFifo.enq(MemRequest {sglId: 0, offset: 0,
+                                      burstLen: truncate(pktLen), tag:0
+//`ifdef BYTE_ENABLES
+                                      , firstbe: 'hffff, lastbe: 'hffff
+//`endif
+                                     });
          if (verbose) $display("%d: alloc done", cycle);
+         eventPktReceivedFifo.enq(PacketInstance {id: 0, size: truncate(pktLen)});
       end
    endrule
 
@@ -110,6 +120,13 @@ module mkStoreAndFwdFromRingToMem(StoreAndForwardFromRingToMem);
       writeDataFifo.enq(MemData {data: v.data, tag: 0, last: v.eop});
    endrule
 
+   rule packetReadDone;
+      let v <- toGet(writeDoneFifo).get;
+      let recvd <- toGet(eventPktReceivedFifo).get;
+      $display("%d: packet written to memory %h", cycle, v);
+      eventPktCommittedFifo.enq(recvd);
+   endrule
+
    interface PktReadClient readClient;
       interface readData = toPut(readDataFifo);
       interface readLen = toPut(readLenFifo);
@@ -119,26 +136,67 @@ module mkStoreAndFwdFromRingToMem(StoreAndForwardFromRingToMem);
    interface Get mallocReq = toGet(mallocReqFifo);
    interface Put mallocDone = toPut(mallocDoneFifo);
    interface writeClient = dmaWriteClient;
+   interface Get eventPktCommitted = toGet(eventPktCommittedFifo);
 endmodule
 
 interface StoreAndFwdFromMemToRing;
-   interface PktWriteClient portClient;
-   //interface SharedBufferClient memClient;
+   interface PktWriteClient writeClient;
+   interface MemReadClient#(`DataBusWidth) readClient;
+   interface Put#(PacketInstance) eventPktSend;
 endinterface
 
 module mkStoreAndFwdFromMemToRing(StoreAndFwdFromMemToRing);
 
-   // read data from memory
+   let verbose = True;
+
+   // Ring Buffer Write Client
+   FIFO#(EtherData) writeDataFifo <- mkFIFO;
+
+   // read client interface
+   FIFO#(MemRequest) readReqFifo <-mkSizedFIFO(4);
+   FIFO#(MemData#(`DataBusWidth)) readDataFifo <- mkSizedFIFO(32);
+   MemReadClient#(`DataBusWidth) dmaReadClient = (interface MemReadClient;
+   interface Get readReq = toGet(readReqFifo);
+   interface Put readData = toPut(readDataFifo);
+   endinterface);
+
+   FIFO#(PacketInstance) eventPktSendFifo <- mkFIFO;
+
+   Count#(Bit#(12)) readDataCnt <- mkCount(0);
+   Reg#(Bit#(12)) readDataSize <- mkReg(0);
+
+   Reg#(Bit#(32)) cycle <- mkReg(0);
+   rule every1 if (verbose);
+      cycle <= cycle + 1;
+   endrule
+
    rule packetReadStart;
-      // get size for packet
-      // write to ring
+      let v <- toGet(eventPktSendFifo).get;
+      $display("%d: send a new packet with size %h", cycle, v.size);
+      readReqFifo.enq(MemRequest{sglId: v.id, offset: 0,
+                                  burstLen: truncate(v.size), tag: 0
+//`ifdef BYTE_ENABLES
+                                  , firstbe: 'hffff, lastbe: 'hffff
+//`endif
+                                });
+      readDataCnt <= v.size >> 4;
+      readDataSize <= v.size >> 4;
    endrule
 
-   // free memory
    rule packetReadInProgress;
-
+      let d <- toGet(readDataFifo).get;
+      Bool sop = (readDataCnt == readDataSize) ? True : False;
+      Bool eop = (readDataCnt == 1) ? True : False;
+      readDataCnt.decr(1);
+      if (verbose) $display("%d: readdata %h %h %h %h", cycle, readDataCnt, d.data, sop, eop);
+      writeDataFifo.enq(EtherData{data: d.data, mask: 'hff, sop: sop, eop: eop});
    endrule
 
+   interface PktWriteClient writeClient;
+      interface writeData = toGet(writeDataFifo);
+   endinterface
+   interface readClient = dmaReadClient;
+   interface Put eventPktSend = toPut(eventPktSendFifo);
 endmodule
 
 
