@@ -129,13 +129,13 @@ module mkDe5Leds#(Clock clk0, Clock clk1, Clock clk2, Clock clk3)(De5Leds);
 endmodule
 
 interface De5SfpCtrl#(numeric type nPorts);
-   method Action los (Vector#(nPorts, Bit#(1)) v);
-   method Action mod0_presnt_n (Vector#(nPorts, Bit#(1)) v);
-   method Action txfault (Vector#(nPorts, Bit#(1)) v);
-   // SCL/SDA not implemented
-   method Vector#(nPorts, Bit#(1)) ratesel0;
-   method Vector#(nPorts, Bit#(1)) ratesel1;
-   method Vector#(nPorts, Bit#(1)) txdisable;
+   method Action los ((* port="los" *) Vector#(nPorts, Bit#(1)) v);
+   method Action mod0_presnt_n ((* port="mod0_presnt_n" *) Vector#(nPorts, Bit#(1)) v);
+   method Action txfault ((* port="txfault" *) Vector#(nPorts, Bit#(1)) v);
+// SCL/SDA not implemented
+(* prefix="", result="ratesel0" *)   method Vector#(nPorts, Bit#(1)) ratesel0;
+(* prefix="", result="ratesel1" *)   method Vector#(nPorts, Bit#(1)) ratesel1;
+(* prefix="", result="txdisable" *)   method Vector#(nPorts, Bit#(1)) txdisable;
 endinterface
 
 module mkDe5SfpCtrl(De5SfpCtrl#(nPorts));
@@ -163,8 +163,8 @@ module mkDe5SfpCtrl(De5SfpCtrl#(nPorts));
 endmodule
 
 interface De5Buttons#(numeric type nButtons);
-   method Action pins(Vector#(nButtons, Bit#(1)) v);
-   method Vector#(nButtons, Bool) pressed;
+   method Action pins((* port="pins" *) Vector#(nButtons, Bit#(1)) v);
+(* prefix="", result="pressed" *)   method Vector#(nButtons, Bool) pressed;
 endinterface
 
 module mkDe5Buttons(De5Buttons#(nButtons));
