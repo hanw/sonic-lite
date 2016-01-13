@@ -20,6 +20,7 @@ CPPFILES=$(PROJTOP)/cpp/dpdk.cpp
 CPPFILES2=$(PROJTOP)/t/test-receive-single-packet.cpp
 CONNECTALFLAGS += -l="tins"
 NUMBER_OF_MASTERS=1
+PIN_BINDINGS?=PCIE:PCIE LED:LED OSC:OSC SFPA:SFPA SFPB:SFPB SFPC:SFPC SFPD:SFPD SFP:SFP I2C:I2C BUTTON:BUTTON
 PINOUT_FILE=../boards/de5.json
 #CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/altera_mac/altera_mac.qip # To be removed.
 CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/pll_156/altera_pll_156.qip

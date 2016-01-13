@@ -16,6 +16,7 @@ PIN_TYPE_INCLUDE=DE5Pins
 BSVFILES=$(PROJTOP)/DtpTop.bsv #$(PROJTOP)/../../../hw/bsv/DtpController.bsv
 CPPFILES=$(PROJTOP)/test-dtp.cpp
 PINOUT_FILE=../../../boards/de5.json
+PIN_BINDINGS?=PCIE:PCIE LED:LED OSC:OSC SFPA:SFPA SFPB:SFPB SFPC:SFPC SFPD:SFPD SFP:SFP I2C:I2C BUTTON:BUTTON
 
 #CONNECTALFLAGS += --tcl=$(PROJTOP)/mkDtpTop_old.sdc
 CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/mac_10gbe.qip # To be removed.

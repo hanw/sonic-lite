@@ -22,6 +22,7 @@ CPPFILES=test.cpp
 AUTOTOP = --interface pins:NullTest.pins
 PIN_TYPE = DE5Pins
 PIN_TYPE_INCLUDE = DE5Pins
+PIN_BINDINGS ?= PCIE:PCIE OSC:OSC SFPA:SFPA SFPB:SFPB SFPC:SFPC SFPD:SFPD SFP:SFP LED:LED I2C:I2C
 PINOUT_FILE = ../../../boards/de5.json
 
 CONNECTALFLAGS += --verilog=$(SONICDIR)/hw/verilog/si570/

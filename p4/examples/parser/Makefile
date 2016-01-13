@@ -13,6 +13,7 @@ CONNECTALFLAGS += --bsvpath=$(P4FPGADIR)/bsv/AsymmetricBRAM
 CONNECTALFLAGS += --bsvpath=$(P4FPGADIR)/bsv/Bcam
 CONNECTALFLAGS += --bsvpath=$(P4FPGADIR)/bsv/MatchTable
 #
+PIN_BINDINGS?=PCIE:PCIE LED:LED OSC:OSC SFPA:SFPA SFPB:SFPB SFPC:SFPC SFPD:SFPD SFP:SFP I2C:I2C BUTTON:BUTTON
 PINOUT_FILE=$(P4FPGADIR)/boards/de5.json
 
 ########################################################

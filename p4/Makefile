@@ -14,7 +14,8 @@ CONNECTALFLAGS += --bsvpath=$(PROJTOP)/bsv/Bcam
 CONNECTALFLAGS += --bsvpath=$(PROJTOP)/bsv/MatchTable
 CONNECTALFLAGS += --bsvpath=$(PROJTOP)/bsv/PktBuff
 
-ALTERAPINOUT=$(PROJTOP)/../boards/de5.json
+PIN_BINDINGS?=PCIE:PCIE LED:LED OSC:OSC SFPA:SFPA SFPB:SFPB SFPC:SFPC SFPD:SFPD SFP:SFP I2C:I2C BUTTON:BUTTON
+PINOUT_FILE=$(PROJTOP)/../boards/de5.json
 
 ifeq ($(P4),)
 # compile manual bsv

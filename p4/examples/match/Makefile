@@ -8,6 +8,7 @@ CONNECTALDIR?=$(DEV_ROOT)/connectal
 SONICDIR?=$(DEV_ROOT)/sonic-lite/
 P4FPGADIR?=$(DEV_ROOT)/sonic-lite/p4
 
+PIN_BINDINGS?=PCIE:PCIE LED:LED OSC:OSC SFPA:SFPA SFPB:SFPB SFPC:SFPC SFPD:SFPD SFP:SFP I2C:I2C BUTTON:BUTTON
 PINOUT_FILE=$(P4FPGADIR)/boards/de5.json
 
 ########################################################
