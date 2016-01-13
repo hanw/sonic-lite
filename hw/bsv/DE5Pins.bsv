@@ -129,9 +129,9 @@ module mkDe5Leds#(Clock clk0, Clock clk1, Clock clk2, Clock clk3)(De5Leds);
 endmodule
 
 interface De5SfpCtrl#(numeric type nPorts);
-   method Action los ((* port="" *) Vector#(nPorts, Bit#(1)) v);
-   method Action mod0_presnt_n ((* port="" *) Vector#(nPorts, Bit#(1)) v);
-   method Action txfault ((* port="" *) Vector#(nPorts, Bit#(1)) v);
+   method Action los (Vector#(nPorts, Bit#(1)) v);
+   method Action mod0_presnt_n (Vector#(nPorts, Bit#(1)) v);
+   method Action txfault (Vector#(nPorts, Bit#(1)) v);
 // SCL/SDA not implemented
 (* prefix="", result="ratesel0" *)   method Vector#(nPorts, Bit#(1)) ratesel0;
 (* prefix="", result="ratesel1" *)   method Vector#(nPorts, Bit#(1)) ratesel1;
