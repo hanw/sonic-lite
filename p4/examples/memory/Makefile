@@ -24,7 +24,7 @@ ifeq ($(BOARD), de5)
 AUTOTOP = --interface pins:MemoryTest.pins
 PIN_TYPE = DE5Pins
 PIN_TYPE_INCLUDE = DE5Pins
-PINOUT_FILE = ../../boards/de5.json
+PINOUT_FILE = ../../../boards/de5.json
 endif
 
 CONNECTALFLAGS += --bsvpath=$(P4FPGADIR)/bsv
