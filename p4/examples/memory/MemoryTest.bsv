@@ -48,6 +48,8 @@ import AlteraMacWrap::*;
 import EthMac::*;
 import AlteraEthPhy::*;
 import DE5Pins::*;
+`else
+import Sims::*;
 `endif
 
 interface MemoryTest;
@@ -56,6 +58,8 @@ interface MemoryTest;
 endinterface
 
 module mkMemoryTest#(MemoryTestIndication indication, ConnectalMemory::MemServerIndication memServerIndication, Malloc::MallocIndication mallocIndication)(MemoryTest);
+   let verbose = False;
+
    Clock defaultClock <- exposeCurrentClock();
    Reset defaultReset <- exposeCurrentReset();
 
@@ -64,9 +68,10 @@ module mkMemoryTest#(MemoryTestIndication indication, ConnectalMemory::MemServer
 
 `ifndef SIMULATION
    De5Clocks clocks <- mkDe5Clocks(clk_50_wire, clk_644_wire);
+`else
+   SimClocks clocks <- mkSimClocks();
 `endif
 
-`ifndef SIMULATION
    Clock txClock = clocks.clock_156_25;
    Clock phyClock = clocks.clock_644_53;
    Clock mgmtClock = clocks.clock_50;
@@ -74,6 +79,7 @@ module mkMemoryTest#(MemoryTestIndication indication, ConnectalMemory::MemServer
    Reset phyReset <- mkSyncReset(2, defaultReset, phyClock);
    Reset mgmtReset <- mkSyncReset(2, defaultReset, mgmtClock);
 
+`ifndef SIMULATION
    // DE5 Pins
    De5Leds leds <- mkDe5Leds(defaultClock, txClock, mgmtClock, phyClock);
    De5SfpCtrl#(4) sfpctrl <- mkDe5SfpCtrl();
@@ -83,7 +89,13 @@ module mkMemoryTest#(MemoryTestIndication indication, ConnectalMemory::MemServer
    Clock rxClock = phys.rx_clkout;
    Reset rxReset <- mkSyncReset(2, defaultReset, rxClock);
    Vector#(4, EthMacIfc) mac <- replicateM(mkEthMac(defaultClock, txClock, rxClock, txReset));
+
+   for (Integer i=0; i<4; i=i+1) begin
+      mkConnection(mac[i].tx, phys.tx[i]);
+      mkConnection(phys.rx[i], mac[i].rx);
+   end
 `endif
+
 
    PacketBuffer incoming_buff <- mkPacketBuffer();
    StoreAndFwdFromRingToMem ringToMem <- mkStoreAndFwdFromRingToMem();
@@ -100,6 +112,19 @@ module mkMemoryTest#(MemoryTestIndication indication, ConnectalMemory::MemServer
    mkConnection(memToRing.writeClient, outgoing_buff.writeServer);
 
    mkConnection(ringToMem.eventPktCommitted, memToRing.eventPktSend);
+
+   StoreAndFwdFromRingToMac ringToMac <- mkStoreAndFwdFromRingToMac(txClock, txReset);
+
+   mkConnection(ringToMac.readClient, outgoing_buff.readServer);
+
+`ifndef SIMULATION
+   mkConnection(ringToMac.macTx, mac[0].packet_tx);
+`else
+   rule drain_mac;
+      let v <- ringToMac.macTx.get;
+      if (verbose) $display("tx data %h", v);
+   endrule
+`endif
 
    MemoryAPI api <- mkMemoryAPI(indication, incoming_buff);
 
