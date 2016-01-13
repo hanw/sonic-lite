@@ -9,7 +9,7 @@ CONNECTALFLAGS += -D NicVersion=$(shell printf "%d" 0x`git rev-parse --short=8 H
 CONNECTALFLAGS += -D PcieHostIF
 CONNECTALFLAGS += -D DataBusWidth=128
 CONNECTALFLAGS += -D BYTE_ENABLES
-FPGAMAKE_CONNECTALFLAGS += -P mkPcieHostTop
+#FPGAMAKE_CONNECTALFLAGS += -P mkPcieHostTop
 
 CPPFILES += $(SONICDIR)/sw/lpcap.c
 

@@ -33,6 +33,7 @@ CONNECTALFLAGS += --verilog=$(SONICDIR)/hw/verilog/si570/
 CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/mac_10gbe.qip
 CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/altera_xcvr_10gbaser_wrapper.qip
 CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/pll_156/altera_pll_156.qip
+CONNECTALFLAGS += --tcl=constraint.sdc
 
 #######################################################
 # IP Generation Scripts
