@@ -26,16 +26,29 @@
 // before it is sent to main memory and vice versa.
 
 import Cntrs::*;
-import FIFO::*;
-import GetPut::*;
 import Ethernet::*;
-import SpecialFIFOs::*;
-import SharedBuff::*;
-import PacketBuffer::*;
+import EthMac::*;
+import FIFO::*;
+import FIFOF::*;
+import GetPut::*;
+import Gearbox::*;
 import MemTypes::*;
 import Malloc::*;
 import MemServer::*;
 import MemServerInternal::*;
+import PacketBuffer::*;
+import SharedBuff::*;
+import SpecialFIFOs::*;
+import Vector::*;
+
+import DefaultValue::*;
+import Vector::*;
+import BuildVector::*;
+import ClientServer::*;
+import Connectable::*;
+import Clocks::*;
+import Gearbox::*;
+
 
 typedef struct {
    Bit#(32) id;
@@ -219,8 +232,6 @@ module mkStoreAndFwdFromMemToRing(StoreAndFwdFromMemToRing)
 
       if (eop)
          outPacket <= False;
-
-//      writeDataFifo.enq(EtherData{data: d.data, mask: 'hff, sop: sop, eop: eop});
    endrule
 
    interface PktWriteClient writeClient;
@@ -228,6 +239,74 @@ module mkStoreAndFwdFromMemToRing(StoreAndFwdFromMemToRing)
    endinterface
    interface readClient = dmaReadClient;
    interface Put eventPktSend = toPut(eventPktSendFifo);
+endmodule
+
+interface StoreAndFwdFromRingToMac;
+   interface PktReadClient readClient;
+   interface Get#(PacketDataT#(64)) macTx;
+endinterface
+
+module mkStoreAndFwdFromRingToMac#(Clock txClock, Reset txReset)(StoreAndFwdFromRingToMac);
+   let verbose = True;
+   Clock defaultClock <- exposeCurrentClock();
+   Reset defaultReset <- exposeCurrentReset();
+
+   // RingBuffer Read Client
+   FIFO#(EtherData) readDataFifo <- mkFIFO;
+   FIFO#(Bit#(EtherLen)) readLenFifo <- mkFIFO;
+   FIFO#(EtherReq) readReqFifo <- mkFIFO;
+
+   // Mac Facing Fifo
+   FIFO#(PacketDataT#(64)) writeMacFifo <- mkFIFO(clocked_by txClock, reset_by txReset);
+   Gearbox#(2, 1, PacketDataT#(64)) fifoTxData <- mkNto1Gearbox(txClock, txReset, txClock, txReset);
+   SyncFIFOIfc#(EtherData) tx_fifo <- mkSyncFIFO(5, defaultClock, defaultReset, txClock);
+
+   rule readDataStart;
+      let pktLen <- toGet(readLenFifo).get;
+      if (verbose) $display(fshow(" read packt ") + fshow(pktLen));
+      readReqFifo.enq(EtherReq{len: truncate(pktLen)});
+   endrule
+
+   function Vector#(2, PacketDataT#(64)) split(EtherData in);
+      Vector#(2, PacketDataT#(64)) v = defaultValue;
+      Vector#(8, Bit#(8)) v0_data = unpack(in.data[63:0]);
+      Vector#(8, Bit#(8)) v1_data = unpack(in.data[127:64]);
+      v[0].sop = pack(in.sop);
+      v[0].data = pack(reverse(v0_data));
+      v[0].eop = (in.mask[15:8] == 0) ? pack(in.eop) : 0;
+      v[0].mask = in.mask[7:0];
+      v[1].sop = 0;
+      v[1].data = pack(reverse(v1_data));
+      v[1].eop = pack(in.eop);
+      v[1].mask = in.mask[15:8];
+      return v;
+   endfunction
+
+   rule cross_clocking;
+      let v <- toGet(readDataFifo).get;
+      tx_fifo.enq(v);
+   endrule
+
+   rule process_incoming_packet;
+      let v <- toGet(tx_fifo).get;
+      fifoTxData.enq(split(v));
+   endrule
+
+   rule process_outgoing_packet;
+      let data = fifoTxData.first; fifoTxData.deq;
+      let temp = head(data);
+      if (temp.mask != 0) begin
+         if (verbose) $display("tx data %h", temp.data);
+         writeMacFifo.enq(temp);
+      end
+   endrule
+
+   interface PktReadClient readClient;
+      interface readData = toPut(readDataFifo);
+      interface readLen = toPut(readLenFifo);
+      interface readReq = toGet(readReqFifo);
+   endinterface
+   interface Get macTx = toGet(writeMacFifo);
 endmodule
 
 
