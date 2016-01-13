@@ -163,7 +163,7 @@ module mkDe5SfpCtrl(De5SfpCtrl#(nPorts));
 endmodule
 
 interface De5Buttons#(numeric type nButtons);
-   method Action pins((* port="" *) Vector#(nButtons, Bit#(1)) v);
+   method Action pins(Vector#(nButtons, Bit#(1)) v);
 (* prefix="", result="pressed" *)   method Vector#(nButtons, Bool) pressed;
 endinterface
 
