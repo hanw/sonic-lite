@@ -22,7 +22,7 @@ CPPFILES=test.cpp
 AUTOTOP = --interface pins:NullTest.pins
 PIN_TYPE = DE5Pins
 PIN_TYPE_INCLUDE = DE5Pins
-PINOUT_FILE = ../../boards/de5.json
+PINOUT_FILE = ../../../boards/de5.json
 
 CONNECTALFLAGS += --verilog=$(SONICDIR)/hw/verilog/si570/
 CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/mac_10gbe.qip
