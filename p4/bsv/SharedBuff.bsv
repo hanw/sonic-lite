@@ -39,10 +39,11 @@ import MMU::*;
 import SharedBuffMMU::*;
 import Malloc::*;
 import PhysMemToBram::*;
+import Ethernet::*;
 
 interface SharedBuffer#(numeric type addrWidth, numeric type busWidth, numeric type nMasters);
    interface MemServerRequest memServerRequest;
-   interface Put#(Bit#(PacketAddrLen)) mallocReq;
+   interface Put#(Bit#(PktAddrWidth)) mallocReq;
    interface Get#(Bool) mallocDone;
    interface Put#(Bit#(32)) freeReq;
    interface Get#(Bool) freeDone;
@@ -111,7 +112,7 @@ module mkSharedBuffer#(Vector#(numReadClients, MemReadClient#(busWidth)) readCli
    interface MemServerRequest memServerRequest = dma.request;
 
    interface Put mallocReq;
-      method Action put(Bit#(PacketAddrLen) sz);
+      method Action put(Bit#(PktAddrWidth) sz);
          $display("%d: malloc %d", cycles, sz);
          mmu.request.idRequest(2);
          allocator.alloc_mem(sz);

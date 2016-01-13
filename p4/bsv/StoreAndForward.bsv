@@ -52,12 +52,12 @@ import Gearbox::*;
 
 typedef struct {
    Bit#(32) id;
-   Bit#(PacketAddrLen) size;
+   Bit#(PktAddrWidth) size;
 } PacketInstance deriving(Bits, Eq);
 
 interface StoreAndFwdFromRingToMem;
    interface PktReadClient readClient;
-   interface Get#(Bit#(PacketAddrLen)) mallocReq;
+   interface Get#(Bit#(PktAddrWidth)) mallocReq;
    interface Put#(Bool) mallocDone;
    interface MemWriteClient#(`DataBusWidth) writeClient;
    interface Get#(PacketInstance) eventPktCommitted;
@@ -84,7 +84,7 @@ module mkStoreAndFwdFromRingToMem(StoreAndFwdFromRingToMem)
    interface Put writeDone = toPut(writeDoneFifo);
    endinterface);
 
-   FIFO#(Bit#(PacketAddrLen)) mallocReqFifo <- mkFIFO;
+   FIFO#(Bit#(PktAddrWidth)) mallocReqFifo <- mkFIFO;
    FIFO#(Bit#(EtherLen)) pktLenFifo <- mkFIFO;
    FIFO#(Bool) mallocDoneFifo <- mkFIFO;
    Reg#(Bool) readStarted <- mkReg(False);

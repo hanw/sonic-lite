@@ -36,7 +36,9 @@ import ALTERA_ETH_10GBASER_WRAPPER::*;
 typedef 4 NumPorts;
 
 interface EthPhyIfc;
+   (*always_ready, always_enabled*)
    interface Vector#(NumPorts, Put#(Bit#(72)))  tx;
+   (*always_ready, always_enabled*)
    interface Vector#(NumPorts, Get#(Bit#(72))) rx;
    (*always_ready, always_enabled*)
    method Vector#(NumPorts, Bit#(1)) serial_tx;
@@ -57,7 +59,7 @@ module mkAlteraEthPhy#(Clock clk_50, Clock clk_644, Clock clk_xgmii, Reset rst_5
    Reset xgmii_reset <- mkAsyncReset(2, defaultReset, phy.xgmii_rx_clk);
 
    for (Integer i=0; i<valueOf(NumPorts); i=i+1) begin
-      txFifo[i] <- mkBypassFIFOF(clocked_by clk_xgmii, reset_by noReset);
+      txFifo[i] <- mkUGFIFOF(clocked_by clk_xgmii, reset_by noReset);
       rule tx_mac;
          let v <- toGet(txFifo[i]).get;
          case (i)
@@ -70,7 +72,7 @@ module mkAlteraEthPhy#(Clock clk_50, Clock clk_644, Clock clk_xgmii, Reset rst_5
    end
 
    for (Integer i=0; i<valueOf(NumPorts); i=i+1) begin
-      rxFifo[i] <- mkBypassFIFOF(clocked_by phy.xgmii_rx_clk, reset_by noReset);
+      rxFifo[i] <- mkUGFIFOF(clocked_by phy.xgmii_rx_clk, reset_by noReset);
       rule rx_mac;
          case(i)
             0: rxFifo[0].enq(phy.xgmii_rx.dc_0);

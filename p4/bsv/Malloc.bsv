@@ -9,8 +9,8 @@ import Pipe::*;
 import Vector::*;
 import ConnectalMemory::*;
 import ConfigCounter::*;
+import Ethernet::*;
 
-typedef 12 PacketAddrLen;
 typedef 8  PageAddrLen;
 typedef 16 MemoryAddrLen;
 typedef TExp#(PageAddrLen) PageSize;
@@ -27,7 +27,7 @@ endinterface
 
 interface Malloc;
    method Action init_mem();
-   method Action alloc_mem(Bit#(PacketAddrLen) v);
+   method Action alloc_mem(Bit#(PktAddrWidth) v);
    method Action free_mem(Bit#(PageIdx) v);
    interface PipeOut#(Tuple2#(Bit#(32), Bit#(PageIdx))) pageAllocated;
    interface PipeOut#(Tuple2#(Bit#(32), Bit#(64))) regionAllocated;
@@ -37,7 +37,7 @@ endinterface
 module mkMalloc#(MallocIndication indication)(Malloc);
    Reg#(Bool) started <- mkReg(False);
    Reg#(Bool) inited <- mkReg(False);
-   FIFOF#(Bit#(PacketAddrLen)) mallocReqs <- mkFIFOF;
+   FIFOF#(Bit#(PktAddrWidth)) mallocReqs <- mkFIFOF;
    FIFOF#(Bit#(32)) incomingIds <- mkSizedFIFOF(2);
    FIFOF#(Bit#(PageIdx)) free_list <- mkSizedFIFOF(freeQueueDepth);
    FIFOF#(Tuple2#(Bit#(32), Bit#(PageIdx))) page_fifo <- mkFIFOF;
@@ -69,15 +69,17 @@ module mkMalloc#(MallocIndication indication)(Malloc);
       let v <- toGet(mallocReqs).get;
       let id <- toGet(incomingIds).get;
       $display("Allocating pages for packet id %d packet size %d", id, v);
-      // Mask 'hF00 must be equal to PacketAddrLen
       // Corner case when v is close to 4kb.
-      Bit#(PageIdx) nPages = truncate(((v + 'hFF) & 'hF00) >> valueOf(PageAddrLen));
+      let mask = (1 << valueOf(PageAddrLen)) - 1;
+      $display("Malloc::handle_malloc %h", pack(mask));
+      Bit#(PageIdx) nPages = truncate(((v + mask) & (~mask)) >> valueOf(PageAddrLen));
+      $display("Malloc::handle_malloc allocate nPage=%d", nPages);
       if (pageAvail._read < nPages) begin
          $display("%d: Not enough free pages, %d instead of %d", cycle, pageAvail._read, nPages);
       end
       else begin
          pageRequested.update(nPages);
-         barr0 <= extend(((v+'hFF) & 'hF00) >> valueOf(PageAddrLen));
+         barr0 <= extend(((v+mask) & (~mask)) >> valueOf(PageAddrLen));
          packetId <= id;
       end
    endrule
@@ -98,7 +100,7 @@ module mkMalloc#(MallocIndication indication)(Malloc);
       pageAvail._write(0);
       inited <= False;
    endmethod
-   method Action alloc_mem(Bit#(PacketAddrLen) sz);
+   method Action alloc_mem(Bit#(PktAddrWidth) sz);
       mallocReqs.enq(sz);
       $display("malloc %d: allocate memory available page=%d", cycle, pageAvail._read);
    endmethod

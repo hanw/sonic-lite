@@ -103,7 +103,7 @@ typedef struct {
    Bit#(53) t; //timestamp
 } DtpEvent deriving (Eq, Bits, FShow);
 
-typedef 12   PktAddrWidth;
+typedef 10   PktAddrWidth;
 typedef 128  PktDataWidth;
 typedef 16   EtherLen;
 typedef struct {

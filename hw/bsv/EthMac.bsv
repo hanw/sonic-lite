@@ -37,7 +37,9 @@ import AlteraMacWrap::*;
 import Ethernet::*;
 
 interface EthMacIfc;
+   (* always_ready, always_enabled *)
    interface Get#(Bit#(72)) tx;
+   (* always_ready, always_enabled *)
    interface Put#(Bit#(72)) rx;
    interface Put#(PacketDataT#(64)) packet_tx;
    interface Get#(PacketDataT#(64)) packet_rx;
