@@ -19,6 +19,9 @@
 // ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
+import Vector::*;
+import Ethernet::*;
+import DefaultValue::*;
 
 interface NullTestIndication;
    method Action read_version_resp(Bit#(32) version);
@@ -26,6 +29,7 @@ endinterface
 
 interface NullTestRequest;
    method Action read_version();
+   method Action writePacketData(Vector#(2, Bit#(64)) data, Vector#(2, Bit#(8)) mask, Bit#(1) sop, Bit#(1) eop);
 endinterface
 
 interface NullAPI;
@@ -38,6 +42,13 @@ module mkNullAPI#(NullTestIndication indication)(NullAPI);
       method Action read_version();
          let v= `NicVersion;
          indication.read_version_resp(v);
+      endmethod
+      method Action writePacketData(Vector#(2, Bit#(64)) data, Vector#(2, Bit#(8)) mask, Bit#(1) sop, Bit#(1) eop);
+         EtherData beat = defaultValue;
+         beat.data = pack(reverse(data));
+         beat.mask = pack(reverse(mask));
+         beat.sop = unpack(sop);
+         beat.eop = unpack(eop);
       endmethod
    endinterface
 endmodule

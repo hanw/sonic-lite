@@ -75,16 +75,9 @@ module mkNullTest#(NullTestIndication indication)(NullTest);
    Reset rxReset <- mkSyncReset(2, defaultReset, rxClock);
    Vector#(4, EthMacIfc) mac <- replicateM(mkEthMac(defaultClock, txClock, rxClock, txReset));
 
-   // FIXME
    for (Integer i=0; i<4; i=i+1) begin
-      rule mac_phy_tx;
-         phys.tx[i].put(mac[i].tx);
-      endrule
-
-      rule mac_phy_rx;
-         let v <- phys.rx[i].get;
-         mac[i].rx(v);
-      endrule
+      mkConnection(mac[i].tx, phys.tx[i]);
+      mkConnection(phys.rx[i], mac[i].rx);
    end
 
    NullAPI api <- mkNullAPI(indication);
