@@ -50,7 +50,9 @@ interface StoreAndFwdFromRingToMem;
    interface Get#(PacketInstance) eventPktCommitted;
 endinterface
 
-module mkStoreAndFwdFromRingToMem(StoreAndFwdFromRingToMem);
+module mkStoreAndFwdFromRingToMem(StoreAndFwdFromRingToMem)
+   provisos (Div#(`DataBusWidth, 8, bytesPerBeat)
+            ,Log#(bytesPerBeat, beatShift));
 
    let verbose = True;
 
@@ -94,14 +96,18 @@ module mkStoreAndFwdFromRingToMem(StoreAndFwdFromRingToMem);
    rule allocMemory;
       let pktLen <- toGet(pktLenFifo).get;
       let done <- toGet(mallocDoneFifo).get;
+      let bytesPerBeatMinusOne = fromInteger(valueOf(bytesPerBeat))-1;
+      // roundup to 16 byte boundary
+      let burstLen = ((pktLen + bytesPerBeatMinusOne) & ~(bytesPerBeatMinusOne));
+      let mask = (1<< (pktLen % fromInteger(valueOf(bytesPerBeat))))-1;
       if (done) begin
          mallocd <= True;
          readReqFifo.enq(EtherReq{len: truncate(pktLen)});
          writeReqFifo.enq(MemRequest {sglId: 0, offset: 0,
-                                      burstLen: truncate(pktLen), tag:0
-//`ifdef BYTE_ENABLES
-                                      , firstbe: 'hffff, lastbe: 'hffff
-//`endif
+                                      burstLen: truncate(burstLen), tag:0
+`ifdef BYTE_ENABLES
+                                      , firstbe: 'hffff, lastbe: mask
+`endif
                                      });
          if (verbose) $display("%d: alloc done", cycle);
          eventPktReceivedFifo.enq(PacketInstance {id: 0, size: truncate(pktLen)});
@@ -145,7 +151,9 @@ interface StoreAndFwdFromMemToRing;
    interface Put#(PacketInstance) eventPktSend;
 endinterface
 
-module mkStoreAndFwdFromMemToRing(StoreAndFwdFromMemToRing);
+module mkStoreAndFwdFromMemToRing(StoreAndFwdFromMemToRing)
+   provisos (Div#(`DataBusWidth, 8, bytesPerBeat)
+            ,Log#(bytesPerBeat, beatShift));
 
    let verbose = True;
 
@@ -162,34 +170,57 @@ module mkStoreAndFwdFromMemToRing(StoreAndFwdFromMemToRing);
 
    FIFO#(PacketInstance) eventPktSendFifo <- mkFIFO;
 
-   Count#(Bit#(12)) readDataCnt <- mkCount(0);
-   Reg#(Bit#(12)) readDataSize <- mkReg(0);
+   Reg#(Bool)                 outPacket <- mkReg(False);
+   Reg#(Bit#(PktAddrWidth))   readBurstCount <- mkReg(0);
+   Reg#(Bit#(PktAddrWidth))   readBurstLen <- mkReg(0);
 
    Reg#(Bit#(32)) cycle <- mkReg(0);
    rule every1 if (verbose);
       cycle <= cycle + 1;
    endrule
 
-   rule packetReadStart;
-      let v <- toGet(eventPktSendFifo).get;
-      $display("%d: send a new packet with size %h", cycle, v.size);
-      readReqFifo.enq(MemRequest{sglId: v.id, offset: 0,
-                                  burstLen: truncate(v.size), tag: 0
-//`ifdef BYTE_ENABLES
-                                  , firstbe: 'hffff, lastbe: 'hffff
-//`endif
+   rule packetReadStart (!outPacket);
+      let pkt <- toGet(eventPktSendFifo).get;
+      let bytesPerBeatMinusOne = fromInteger(valueOf(bytesPerBeat))-1;
+      // roundup to 16 byte boundary
+      let burstLen = ((pkt.size + bytesPerBeatMinusOne) & ~(bytesPerBeatMinusOne));
+      let mask = (1<< (pkt.size % fromInteger(valueOf(bytesPerBeat))))-1;
+      readReqFifo.enq(MemRequest{sglId: pkt.id, offset: 0,
+                                 burstLen: truncate(burstLen), tag: 0
+`ifdef BYTE_ENABLES
+                                 , firstbe: 'hffff, lastbe: mask
+`endif
                                 });
-      readDataCnt <= v.size >> 4;
-      readDataSize <= v.size >> 4;
+      $display("%d: send a new packet with size %h %h", cycle, burstLen, pack(mask));
+      outPacket <= True;
+      readBurstLen <= pkt.size;
+      readBurstCount <= pkt.size;
    endrule
 
-   rule packetReadInProgress;
+   rule packetReadInProgress (outPacket);
       let d <- toGet(readDataFifo).get;
-      Bool sop = (readDataCnt == readDataSize) ? True : False;
-      Bool eop = (readDataCnt == 1) ? True : False;
-      readDataCnt.decr(1);
-      if (verbose) $display("%d: readdata %h %h %h %h", cycle, readDataCnt, d.data, sop, eop);
-      writeDataFifo.enq(EtherData{data: d.data, mask: 'hff, sop: sop, eop: eop});
+      let _bytesPerBeat= fromInteger(valueOf(bytesPerBeat));
+
+      let sop = (readBurstLen == readBurstCount) ? True : False;
+      let eop = (readBurstCount <= _bytesPerBeat) ? True : False;
+
+      Bit#(bytesPerBeat) mask;
+      if (readBurstCount <= _bytesPerBeat)
+         mask = (1<<readBurstCount)-1;
+      else
+         mask = (1<<_bytesPerBeat)-1;
+
+      writeDataFifo.enq(EtherData{data: d.data, mask: mask, sop: sop, eop: eop});
+
+      if (verbose) $display("StoreAndForward::readdata %d: %h %h %h %h %h", cycle, readBurstCount, d.data, pack(mask), sop, eop);
+
+      if (readBurstCount > _bytesPerBeat)
+         readBurstCount <= readBurstCount - _bytesPerBeat;
+
+      if (eop)
+         outPacket <= False;
+
+//      writeDataFifo.enq(EtherData{data: d.data, mask: 'hff, sop: sop, eop: eop});
    endrule
 
    interface PktWriteClient writeClient;

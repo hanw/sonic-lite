@@ -20,11 +20,13 @@ CPPFILES=test.cpp
 #######################################################
 # DE5 Specific Settings
 #######################################################
-#AUTOTOP = --interface pins:MemoryTest.pins
-#PIN_TYPE = DE5Pins
-#PIN_TYPE_INCLUDE = DE5Pins
-#PIN_BINDINGS ?= PCIE:PCIE OSC:OSC SFPA:SFPA SFPB:SFPB SFPC:SFPC SFPD:SFPD SFP:SFP LED:LED I2C:CLOCK
-#PINOUT_FILE = de5.json
+ifeq ($(BOARD), de5)
+AUTOTOP = --interface pins:MemoryTest.pins
+PIN_TYPE = DE5Pins
+PIN_TYPE_INCLUDE = DE5Pins
+PIN_BINDINGS ?= PCIE:PCIE OSC:OSC SFPA:SFPA SFPB:SFPB SFPC:SFPC SFPD:SFPD SFP:SFP LED:LED I2C:CLOCK
+PINOUT_FILE = de5.json
+endif
 
 CONNECTALFLAGS += --bsvpath=$(P4FPGADIR)/bsv
 CONNECTALFLAGS += --verilog=$(SONICDIR)/hw/verilog/si570/
@@ -36,10 +38,12 @@ CONNECTALFLAGS += --tcl=$(SONICDIR)/boards/de5_extra.qsf
 #######################################################
 # IP Generation Scripts
 #######################################################
-#prebuild::
-#	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) quartus_sh -t $(SONICDIR)/hw/scripts/generate-mac.tcl)
-#	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) quartus_sh -t $(SONICDIR)/hw/scripts/connectal-synth-phy.tcl)
-#	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) quartus_sh -t $(CONNECTALDIR)/scripts/connectal-synth-pll.tcl)
+ifeq ($(BOARD), de5)
+prebuild::
+	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) quartus_sh -t $(SONICDIR)/hw/scripts/generate-mac.tcl)
+	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) quartus_sh -t $(SONICDIR)/hw/scripts/connectal-synth-phy.tcl)
+	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) quartus_sh -t $(CONNECTALDIR)/scripts/connectal-synth-pll.tcl)
+endif
 
 #######################################################
 # Default Rules

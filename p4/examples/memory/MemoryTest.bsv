@@ -44,9 +44,10 @@ import SharedBuff::*;
 import StoreAndForward::*;
 
 `ifndef SIMULATION
+import AlteraMacWrap::*;
+import EthMac::*;
+import AlteraEthPhy::*;
 import DE5Pins::*;
-`else
-import Sims::*;
 `endif
 
 interface MemoryTest;
@@ -61,7 +62,7 @@ module mkMemoryTest#(MemoryTestIndication indication, ConnectalMemory::MemServer
    Wire#(Bit#(1)) clk_644_wire <- mkDWire(0);
    Wire#(Bit#(1)) clk_50_wire <- mkDWire(0);
 
-`ifndef SIMULATION`
+`ifndef SIMULATION
    De5Clocks clocks <- mkDe5Clocks(clk_50_wire, clk_644_wire);
 `endif
 
@@ -81,7 +82,7 @@ module mkMemoryTest#(MemoryTestIndication indication, ConnectalMemory::MemServer
    EthPhyIfc phys <- mkAlteraEthPhy(defaultClock, phyClock, txClock, defaultReset);
    Clock rxClock = phys.rx_clkout;
    Reset rxReset <- mkSyncReset(2, defaultReset, rxClock);
-   Vector#(4, EthMacIfc) mac <- mkEthMac(defaultClock, txClock, rxClock, txReset);
+   Vector#(4, EthMacIfc) mac <- replicateM(mkEthMac(defaultClock, txClock, rxClock, txReset));
 `endif
 
    PacketBuffer incoming_buff <- mkPacketBuffer();

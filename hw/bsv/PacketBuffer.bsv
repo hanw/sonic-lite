@@ -118,7 +118,7 @@ module mkPacketBuffer(PacketBuffer);
       EtherData d <- toGet(fifoWriteData).get;
       incomingReqs.enq(AddrTransRequest{addr: wrCurrPtr, data:d});
       wrCurrPtr <= wrCurrPtr + 1;
-      Bit#(EtherLen) newPacketLen = packetLen + 1;
+      let newPacketLen = packetLen + zeroExtend(pack(countOnes(d.mask)));
       if (d.eop) begin
          fifoEop.enq(newPacketLen);
          packetLen <= 0;
@@ -149,7 +149,7 @@ module mkPacketBuffer(PacketBuffer);
       memBuffer.portA.request.put(BRAMRequest{write:True, responseOnWrite:False,
          address:req.addr, datain:req.data});
       let v <- toGet(fifoEop).get;
-      fifoLen.enq(v << 4); // beats to bytes
+      fifoLen.enq(v);
       inPacket <= False;
    endrule
 
