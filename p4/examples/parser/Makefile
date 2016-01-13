@@ -13,7 +13,7 @@ CONNECTALFLAGS += --bsvpath=$(P4FPGADIR)/bsv/AsymmetricBRAM
 CONNECTALFLAGS += --bsvpath=$(P4FPGADIR)/bsv/Bcam
 CONNECTALFLAGS += --bsvpath=$(P4FPGADIR)/bsv/MatchTable
 #
-ALTERAPINOUT=$(P4FPGADIR)/boards/de5.json
+PINOUT_FILE=$(P4FPGADIR)/boards/de5.json
 
 ########################################################
 # Connectal Support

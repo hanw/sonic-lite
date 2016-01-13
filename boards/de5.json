@@ -103,19 +103,19 @@
 		"PIO_DIRECTION": "INPUT",
 		"OSC": "OSC_50_B8D"
 	},
-	"led0": {
+	"led[0]": {
 		"PIO_DIRECTION": "OUTPUT",
 		"LED": "LED[0]"
 	},
-	"led1": {
+	"led[1]": {
 		"PIO_DIRECTION": "OUTPUT",
 		"LED": "LED[1]"
 	},
-	"led2": {
+	"led[2]": {
 		"PIO_DIRECTION": "OUTPUT",
 		"LED": "LED[2]"
 	},
-	"led3": {
+	"led[3]": {
 		"PIO_DIRECTION": "OUTPUT",
 		"LED": "LED[3]"
 	},
@@ -137,10 +137,17 @@
 	},
 	"serial_rx_data[0]": {
 		"PIO_DIRECTION": "INPUT",
+		"XCVR_RX_DC_GAIN": "4",
+		"XCVR_RX_LINEAR_EQUALIZER_CONTROL": "5",
 		"SFPA": "SFPA_RX_p"
 	},
 	"serial_tx_data[0]": {
 		"PIO_DIRECTION": "OUTPUT",
+		"XCVR_TX_VOD": "55",
+		"XCVR_TX_PRE_EMP_1ST_POST_TAP": "10",
+		"XCVR_TX_PRE_EMP_PRE_TAP": "10",
+		"XCVR_TX_PRE_EMP_INV_PRE_TAP": "ON",
+		"XCVR_TX_PRE_EMP_2ND_POST_TAP": "0",
 		"SFPA": "SFPA_TX_p"
 	},
 	"sfpctrl_los_v[0]": {
@@ -169,10 +176,17 @@
 	},
 	"serial_rx_data[1]": {
 		"PIO_DIRECTION": "INPUT",
+		"XCVR_RX_DC_GAIN": "4",
+		"XCVR_RX_LINEAR_EQUALIZER_CONTROL": "5",
 		"SFPB": "SFPB_RX_p"
 	},
 	"serial_tx_data[1]": {
 		"PIO_DIRECTION": "OUTPUT",
+		"XCVR_TX_VOD": "55",
+		"XCVR_TX_PRE_EMP_1ST_POST_TAP": "10",
+		"XCVR_TX_PRE_EMP_PRE_TAP": "10",
+		"XCVR_TX_PRE_EMP_INV_PRE_TAP": "ON",
+		"XCVR_TX_PRE_EMP_2ND_POST_TAP": "0",
 		"SFPB": "SFPB_TX_p"
 	},
 	"sfpctrl_los_v[1]": {
@@ -201,10 +215,17 @@
 	},
 	"serial_rx_data[2]": {
 		"PIO_DIRECTION": "INPUT",
+		"XCVR_RX_DC_GAIN": "4",
+		"XCVR_RX_LINEAR_EQUALIZER_CONTROL": "5",
 		"SFPC": "SFPC_RX_p"
 	},
 	"serial_tx_data[2]": {
 		"PIO_DIRECTION": "OUTPUT",
+		"XCVR_TX_VOD": "55",
+		"XCVR_TX_PRE_EMP_1ST_POST_TAP": "10",
+		"XCVR_TX_PRE_EMP_PRE_TAP": "10",
+		"XCVR_TX_PRE_EMP_INV_PRE_TAP": "ON",
+		"XCVR_TX_PRE_EMP_2ND_POST_TAP": "0",
 		"SFPC": "SFPC_TX_p"
 	},
 	"sfpctrl_los_v[2]": {
@@ -233,10 +254,17 @@
 	},
 	"serial_rx_data[3]": {
 		"PIO_DIRECTION": "INPUT",
+		"XCVR_RX_DC_GAIN": "4",
+		"XCVR_RX_LINEAR_EQUALIZER_CONTROL": "5",
 		"SFPD": "SFPD_RX_p"
 	},
 	"serial_tx_data[3]": {
 		"PIO_DIRECTION": "OUTPUT",
+		"XCVR_TX_VOD": "55",
+		"XCVR_TX_PRE_EMP_1ST_POST_TAP": "10",
+		"XCVR_TX_PRE_EMP_PRE_TAP": "10",
+		"XCVR_TX_PRE_EMP_INV_PRE_TAP": "ON",
+		"XCVR_TX_PRE_EMP_2ND_POST_TAP": "0",
 		"SFPD": "SFPD_TX_p"
 	},
 	"sfpctrl_los_v[3]": {

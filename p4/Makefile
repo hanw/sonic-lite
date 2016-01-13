@@ -70,7 +70,6 @@ CONNECTALFLAGS += --bscflags="-show-range-conflict +RTS -K46777216 -RTS -demote-
 FPGAMAKE_CONNECTALFLAGS += -P mkPcieHostTop
 
 CONNECTALFLAGS += --verilog=$(PROJTOP)/../hw/verilog/si570/
-CONNECTALFLAGS += --tcl=$(PROJTOP)/../boards/de5_extra.qsf
 CONNECTALFLAGS += --floorplan=$(PROJTOP)/floorplan/p4fpga.qsf
 #CONNECTALFLAGS += --tcl=$(PROJTOP)/../boards/quartus_advanced_settings.qsf
 endif #CONFIG_PCIE

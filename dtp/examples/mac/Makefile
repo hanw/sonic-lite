@@ -17,9 +17,6 @@ BSVFILES=$(PROJTOP)/DtpTop.bsv #$(PROJTOP)/../../../hw/bsv/DtpController.bsv
 CPPFILES=$(PROJTOP)/test-dtp.cpp
 PINOUT_FILE=../../../boards/de5.json
 
-PIN_BINDINGS?=PCIE:PCIE LED:LED OSC:OSC SFPA:SFPA SFPB:SFPB SFPC:SFPC SFPD:SFPD SFP:SFP I2C:CLOCK BUTTON:BUTTON
-#PIN_BINDINGS?=PCIE:PCIE LED:LED OSC:OSC I2C:CLOCK BUTTON:BUTTON
-
 #CONNECTALFLAGS += --tcl=$(PROJTOP)/mkDtpTop_old.sdc
 CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/mac_10gbe.qip # To be removed.
 CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/pll_156/altera_pll_156.qip
@@ -27,7 +24,6 @@ CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/sv_10g_pma/sv_10g_pma.qip
 CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/altera_clkctrl/altera_clkctrl.qip
 CONNECTALFLAGS += --verilog=$(PROJTOP)/../../../hw/verilog/si570/
 CONNECTALFLAGS += --verilog=$(PROJTOP)/../../../hw/verilog/
-CONNECTALFLAGS += --tcl=$(PROJTOP)/../../../boards/de5_extra.qsf
 
 CONNECTALFLAGS += -D DtpVersion=$(shell printf "%d" 0x`git rev-parse --short=8 HEAD`)
 CONNECTALFLAGS += -D PcieHostIF

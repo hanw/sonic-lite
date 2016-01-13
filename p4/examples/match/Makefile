@@ -8,7 +8,7 @@ CONNECTALDIR?=$(DEV_ROOT)/connectal
 SONICDIR?=$(DEV_ROOT)/sonic-lite/
 P4FPGADIR?=$(DEV_ROOT)/sonic-lite/p4
 
-ALTERAPINOUT=$(P4FPGADIR)/boards/de5.json
+PINOUT_FILE=$(P4FPGADIR)/boards/de5.json
 
 ########################################################
 # Connectal Support
