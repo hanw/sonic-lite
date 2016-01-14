@@ -80,8 +80,8 @@ module mkEthPhy#(Clock mgmt_clk, Clock clk_156_25, Clock clk_644)(EthPhyIfc#(Num
 
    Reg#(Bit#(32)) cycle <- mkReg(0);
    Reset defaultReset <- exposeCurrentReset;
-   Reset rst_50_n <- mkSyncReset(1, defaultReset, mgmt_clk);
-   Reset rst_156_25_n <- mkSyncReset(1, defaultReset, clk_156_25);
+   Reset rst_50_n <- mkSyncReset(2, defaultReset, mgmt_clk);
+   Reset rst_156_25_n <- mkSyncReset(2, defaultReset, clk_156_25);
    //let rst_156_25_n = defaultReset;
 
    Reg#(Bool) loopback_en <- mkReg(False);
