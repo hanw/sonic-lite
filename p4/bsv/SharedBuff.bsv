@@ -76,7 +76,7 @@ module mkSharedBuffer#(Vector#(numReadClients, MemReadClient#(busWidth)) readCli
    BRAM1PortBE#(Bit#(addrWidth), Bit#(busWidth), ByteEnableSize) memBuff <- mkBRAM1ServerBE(bramConfig);
    Vector#(nMasters, PhysMemSlave#(addrWidth, busWidth)) memSlaves <- replicateM(mkPhysMemToBramBE(memBuff.portA));
 `else
-   BRAM1Port#(Bit#(addrWidth), Bit#(busWidth)) memBuff <- mkBRAM1Server(bramConfig);
+   BRAM1Port#(Bit#(addrWidth), Bit#(busWidth)) memBuff <- ConnectalBram::mkBRAM1Server(bramConfig);
    Vector#(nMasters, PhysMemSlave#(addrWidth, busWidth)) memSlaves <- replicateM(mkPhysMemToBram(memBuff.portA));
 `endif
 

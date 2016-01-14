@@ -35,6 +35,8 @@ CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/altera_xcvr_10gbaser_wrapper
 CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/pll_156/altera_pll_156.qip
 CONNECTALFLAGS += --tcl=constraint.sdc
 
+CONNECTALFLAGS += -D BYTE_ENABLES
+
 #######################################################
 # IP Generation Scripts
 #######################################################
