@@ -90,12 +90,11 @@ module mkMemoryTest#(MemoryTestIndication indication, ConnectalMemory::MemServer
    Reset rxReset <- mkSyncReset(2, defaultReset, rxClock);
    Vector#(4, EthMacIfc) mac <- replicateM(mkEthMac(defaultClock, txClock, rxClock, txReset));
 
-   for (Integer i=0; i<4; i=i+1) begin
-      mkConnection(mac[i].tx, phys.tx[i]);
-      mkConnection(phys.rx[i], mac[i].rx);
-   end
+   function Get#(Bit#(72)) getTx(EthMacIfc _mac); return _mac.tx; endfunction
+   function Put#(Bit#(72)) getRx(EthMacIfc _mac); return _mac.rx; endfunction
+   mapM(uncurry(mkConnection), zip(map(getTx, mac), phys.tx));
+   mapM(uncurry(mkConnection), zip(phys.rx, map(getRx, mac)));
 `endif
-
 
    PacketBuffer incoming_buff <- mkPacketBuffer();
    StoreAndFwdFromRingToMem ringToMem <- mkStoreAndFwdFromRingToMem();

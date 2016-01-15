@@ -38,6 +38,12 @@ def gen_udp_pkts():
                             IP(src="10.0.0.1", dst="10.0.0.2") /   \
                             UDP(sport=6000, dport=20000) / Raw(data)
 
+    data = bytearray(os.urandom(500))
+    all_pkts['udp-mid'] = Ether(src="01:02:03:04:05:06", dst="11:12:13:14:15:16") / \
+                            IP(src="10.0.0.1", dst="10.0.0.2") /   \
+                            UDP(sport=6000, dport=20000) / Raw(data)
+
+
     # ETH|IP|UDP|PAYLOAD X 10
     udp_10 = PacketList()
     for i in range(10):

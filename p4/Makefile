@@ -19,7 +19,7 @@ PINOUT_FILE=$(PROJTOP)/../boards/de5.json
 
 ifeq ($(P4),)
 # compile manual bsv
-BSVFILES=$(PROJTOP)/bsv/P4Top.bsv $(PROJTOP)/bsv/P4Types.bsv $(PROJTOP)/bsv/PktBuff/Malloc.bsv
+BSVFILES=$(PROJTOP)/bsv/P4Top.bsv $(PROJTOP)/bsv/P4Types.bsv $(PROJTOP)/bsv/Malloc.bsv
 CONNECTALFLAGS += --bsvpath=$(PROJTOP)/bsv
 CONNECTALFLAGS += --bsvpath=$(CONNECTALDIR)/bsv
 else

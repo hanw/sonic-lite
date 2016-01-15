@@ -27,17 +27,18 @@ endinterface
 
 interface Malloc;
    method Action init_mem();
-   method Action alloc_mem(Bit#(PktAddrWidth) v);
+   method Action alloc_mem(Bit#(EtherLen) v);
    method Action free_mem(Bit#(PageIdx) v);
    interface PipeOut#(Tuple2#(Bit#(32), Bit#(PageIdx))) pageAllocated;
    interface PipeOut#(Tuple2#(Bit#(32), Bit#(64))) regionAllocated;
    interface MMUIndication mmuIndication;
+   interface MemServerIndication memServerIndication;
 endinterface
 
-module mkMalloc#(MallocIndication indication)(Malloc);
+module mkMalloc#(MemServerIndication memInd, MallocIndication mallocInd)(Malloc);
    Reg#(Bool) started <- mkReg(False);
    Reg#(Bool) inited <- mkReg(False);
-   FIFOF#(Bit#(PktAddrWidth)) mallocReqs <- mkFIFOF;
+   FIFOF#(Bit#(EtherLen)) mallocReqs <- mkFIFOF;
    FIFOF#(Bit#(32)) incomingIds <- mkSizedFIFOF(2);
    FIFOF#(Bit#(PageIdx)) free_list <- mkSizedFIFOF(freeQueueDepth);
    FIFOF#(Tuple2#(Bit#(32), Bit#(PageIdx))) page_fifo <- mkFIFOF;
@@ -100,7 +101,7 @@ module mkMalloc#(MallocIndication indication)(Malloc);
       pageAvail._write(0);
       inited <= False;
    endmethod
-   method Action alloc_mem(Bit#(PktAddrWidth) sz);
+   method Action alloc_mem(Bit#(EtherLen) sz);
       mallocReqs.enq(sz);
       $display("malloc %d: allocate memory available page=%d", cycle, pageAvail._read);
    endmethod
@@ -117,11 +118,24 @@ module mkMalloc#(MallocIndication indication)(Malloc);
          incomingIds.enq(sglId);
          //indication.id_resp(sglId); //FIXME: currently no one is consuming this.
       endmethod
-//      method Action configResp(Bit#(32) sglId);
-//
-//      endmethod
-//      method Action error(Bit#(32) code, Bit#(32) sglId, Bit#(64) offset, Bit#(64) extra);
-//
-//      endmethod
+      method Action configResp(Bit#(32) sglId);
+
+      endmethod
+      method Action error(Bit#(32) code, Bit#(32) sglId, Bit#(64) offset, Bit#(64) extra);
+
+      endmethod
+   endinterface
+   interface MemServerIndication memServerIndication;
+      method Action addrResponse(Bit#(64) physAddr);
+         $display("Malloc:: physAddr %h", physAddr);
+      endmethod
+      method Action reportStateDbg(DmaDbgRec rec);
+
+      endmethod
+      method Action reportMemoryTraffic(Bit#(64) words);
+
+      endmethod
+      method Action error(Bit#(32) code, Bit#(32) sglId, Bit#(64) offset, Bit#(64) extra);
+      endmethod
    endinterface
 endmodule

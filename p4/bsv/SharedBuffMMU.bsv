@@ -283,7 +283,7 @@ module mkSharedBuffMMU#(Integer iid, Bool hostMapped, MMUIndication mmuIndicatio
 	  interface Put request;
 	     method Action put(AddrTransRequest req);
 		incomingReqs[i].enq(req);
-                $display("%d: incomingReq", cycle, fshow(req));
+                $display("SharedBuffMMU:: %d: incomingReq ", cycle, fshow(req));
 	     endmethod
 	  endinterface
 	  interface Get response;
@@ -292,6 +292,7 @@ module mkSharedBuffMMU#(Integer iid, Bool hostMapped, MMUIndication mmuIndicatio
 `ifdef SIMULATION
 		rv = rv | (fromInteger(iid)<<valueOf(addrWidth)-3);
 `endif
+                $display("SharedBuffMMU:: %d: pageResponse ", cycle, fshow(rv));
 		return rv;
 	     endmethod
 	  endinterface

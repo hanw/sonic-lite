@@ -34,8 +34,12 @@ CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/mac_10gbe.qip
 CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/altera_xcvr_10gbaser_wrapper.qip
 CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/pll_156/altera_pll_156.qip
 CONNECTALFLAGS += --tcl=constraint.sdc
+CONNECTALFLAGS += --constraint=constraint.sdc
+CONNECTALFLAGS += --implconstraint=constraint.sdc
 
 CONNECTALFLAGS += -D BYTE_ENABLES
+
+BURST_LEN_SIZE=12
 
 #######################################################
 # IP Generation Scripts
@@ -50,8 +54,14 @@ endif
 #######################################################
 # Default Rules
 #######################################################
-run:
+run-small:
 	(cd bluesim; ./bin/ubuntu.exe -p ../udp-small.pcap)
+
+run-large:
+	(cd bluesim; ./bin/ubuntu.exe -p ../udp-large.pcap)
+
+run-mid:
+	(cd bluesim; ./bin/ubuntu.exe -p ../udp-mid.pcap)
 
 run-burst:
 	(cd bluesim; ./bin/ubuntu.exe -p ../udp-burst.pcap)

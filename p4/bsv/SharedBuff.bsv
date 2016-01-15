@@ -43,7 +43,7 @@ import Ethernet::*;
 
 interface SharedBuffer#(numeric type addrWidth, numeric type busWidth, numeric type nMasters);
    interface MemServerRequest memServerRequest;
-   interface Put#(Bit#(PktAddrWidth)) mallocReq;
+   interface Put#(Bit#(EtherLen)) mallocReq;
    interface Get#(Bool) mallocDone;
    interface Put#(Bit#(32)) freeReq;
    interface Get#(Bool) freeDone;
@@ -66,10 +66,13 @@ module mkSharedBuffer#(Vector#(numReadClients, MemReadClient#(busWidth)) readCli
 	    );
    let verbose = True;
 
-   Malloc allocator <- mkMalloc(mallocIndication);
-   MMU#(addrWidth) mmu <- mkSharedBuffMMU(0, True, allocator.mmuIndication);
-   MemServer#(addrWidth, busWidth, nMasters) dma <- mkMemServer(readClients, writeClients, cons(mmu, nil), indication);
+   Malloc allocator <- mkMalloc(indication, mallocIndication);
 
+   // Shared Buffer with MMU
+   MMU#(addrWidth) mmu <- mkSharedBuffMMU(0, True, allocator.mmuIndication);
+   MemServer#(addrWidth, busWidth, nMasters) dma <- mkMemServer(readClients, writeClients, cons(mmu, nil), allocator.memServerIndication);
+
+   // BRAM backend
    BRAM_Configure bramConfig = defaultValue;
    bramConfig.latency = 2;
 `ifdef BYTE_ENABLES
@@ -95,7 +98,7 @@ module mkSharedBuffer#(Vector#(numReadClients, MemReadClient#(busWidth)) readCli
       let v <- toGet(allocator.pageAllocated).get;
       let id = tpl_1(v);
       let segment = tpl_2(v);
-      $display("sharedBuff: id=%d, segmentIdx=%x", id, segment);
+      $display("SharedBuff: id=%d, segmentIdx=%x", id, segment);
       // NOTE: all segments have the same size, hence segmentIdx == addr.
       mmu.request.sglist(id, extend(segment), extend(segment), 256);
    endrule
@@ -112,8 +115,8 @@ module mkSharedBuffer#(Vector#(numReadClients, MemReadClient#(busWidth)) readCli
    interface MemServerRequest memServerRequest = dma.request;
 
    interface Put mallocReq;
-      method Action put(Bit#(PktAddrWidth) sz);
-         $display("%d: malloc %d", cycles, sz);
+      method Action put(Bit#(EtherLen) sz);
+         $display("SharedBuff %d: malloc %d", cycles, sz);
          mmu.request.idRequest(2);
          allocator.alloc_mem(sz);
       endmethod
