@@ -47,24 +47,6 @@ public:
     MemoryTestIndication(unsigned int id) : MemoryTestIndicationWrapper(id) {}
 };
 
-class MemServerIndication : public MemServerIndicationWrapper
-{
-public:
-    virtual void error(uint32_t code, uint32_t sglId, uint64_t offset, uint64_t extra) {
-        fprintf(stderr, "memServer Indication.error=%d\n", code);
-    }
-    virtual void addrResponse ( const uint64_t physAddr ) {
-        fprintf(stderr, "phyaddr=%lx\n", physAddr);
-    }
-    virtual void reportStateDbg ( const DmaDbgRec rec ) {
-        fprintf(stderr, "rec\n");
-    }
-    virtual void reportMemoryTraffic ( const uint64_t words ) {
-        fprintf(stderr, "words %lx\n", words);
-    }
-    MemServerIndication(unsigned int id) : MemServerIndicationWrapper(id) {}
-};
-
 class MallocIndication : public MallocIndicationWrapper
 {
 public:

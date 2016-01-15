@@ -7,6 +7,7 @@ endif
 CONNECTALDIR?=$(DEV_ROOT)/connectal
 SONICDIR?=$(DEV_ROOT)/sonic-lite/
 P4FPGADIR?=$(DEV_ROOT)/sonic-lite/p4
+SCHEDDIR?=$(DEV_ROOT)/sonic-lite/scheduler
 
 ########################################################
 # Connectal Support

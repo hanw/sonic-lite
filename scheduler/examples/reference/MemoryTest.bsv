@@ -113,15 +113,18 @@ module mkMemoryTest#(MemoryTestIndication indication, ConnectalMemory::MemServer
    mkConnection(ringToMem.eventPktCommitted, memToRing.eventPktSend);
 
    StoreAndFwdFromRingToMac ringToMac <- mkStoreAndFwdFromRingToMac(txClock, txReset);
-
+   StoreAndFwdFromMacToRing macToRing <- mkStoreAndFwdFromMacToRing(txClock, txReset);
    mkConnection(ringToMac.readClient, outgoing_buff.readServer);
+
+   //FIXME: remove after debug
+   mkConnection(ringToMac.macTx, macToRing.macRx);
 
 `ifndef SIMULATION
    mkConnection(ringToMac.macTx, mac[0].packet_tx);
 `else
    rule drain_mac;
-      let v <- ringToMac.macTx.get;
-      if (verbose) $display("tx data %h", v);
+      let v <- toGet(macToRing.writeClient.writeData).get;
+      $display("rx data %h", fshow(v));
    endrule
 `endif
 
