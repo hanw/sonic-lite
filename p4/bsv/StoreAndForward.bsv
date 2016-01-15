@@ -310,4 +310,78 @@ module mkStoreAndFwdFromRingToMac#(Clock txClock, Reset txReset)(StoreAndFwdFrom
    interface Get macTx = toGet(writeMacFifo);
 endmodule
 
+interface StoreAndFwdFromMacToRing;
+   interface PktWriteClient writeClient;
+   interface Put#(PacketDataT#(64)) macRx;
+endinterface
 
+module mkStoreAndFwdFromMacToRing#(Clock rxClock, Reset rxReset)(StoreAndFwdFromMacToRing);
+   let verbose = False;
+   Clock defaultClock <- exposeCurrentClock();
+   Reset defaultReset <- exposeCurrentReset();
+
+   // Ring Buffer WriteClient
+   FIFO#(EtherData) writeDataFifo <- mkFIFO;
+
+   // Mac facing fifos
+   Reg#(Bool) inProgress <- mkReg(False, clocked_by rxClock, reset_by rxReset);
+   Reg#(Bool) oddBeat    <- mkReg(True, clocked_by rxClock, reset_by rxReset);
+   Reg#(PacketDataT#(64)) v_prev <- mkReg(defaultValue, clocked_by rxClock, reset_by rxReset);
+
+   FIFO#(PacketDataT#(64)) readMacFifo <- mkFIFO(clocked_by rxClock, reset_by rxReset);
+   SyncFIFOIfc#(EtherData) rx_fifo <- mkSyncFIFO(5, rxClock, rxReset, defaultClock);
+
+   function EtherData combine(Vector#(2, PacketDataT#(64)) v);
+      EtherData data = defaultValue;
+      Vector#(8, Bit#(8)) v0_data = unpack(v[0].data);
+      Vector#(8, Bit#(8)) v1_data = unpack(v[1].data);
+      data.data = {pack(reverse(v1_data)), pack(reverse(v0_data))};
+      data.mask = {v[1].mask, v[0].mask};
+      data.sop = unpack(v[0].sop);
+      data.eop = unpack(v[0].eop) || unpack(v[1].eop);
+      return data;
+   endfunction
+
+   rule startOfPacket if (!inProgress);
+      let v = readMacFifo.first;
+      inProgress <= unpack(v.sop);
+      if (v.sop == 0)
+         readMacFifo.deq;
+      if (verbose) $display("macToRing:: start");
+   endrule
+
+   rule readPacketOdd if (inProgress && oddBeat);
+      let v <- toGet(readMacFifo).get;
+      if (verbose) $display("macToRing:: read odd beat %h", v.data);
+      if (unpack(v.eop)) begin
+         PacketDataT#(64) vo = defaultValue;
+         rx_fifo.enq(combine(vec(v, vo)));
+         if (verbose) $display("macToRing:: odd eop %h %h", v.data, v.mask);
+         inProgress <= False;
+      end
+      v_prev <= v;
+      oddBeat <= !oddBeat;
+   endrule
+
+   rule readPacketEven if (inProgress && !oddBeat);
+      let v <- toGet(readMacFifo).get;
+      rx_fifo.enq(combine(vec(v_prev, v)));
+      if (verbose) $display("macToRing:: read even beat %h", v.data);
+      if (unpack(v.eop)) begin
+         inProgress <= False;
+         if (verbose) $display("macToRing:: even eop %h %h %h %h", v.data, v.mask, v_prev.data, v_prev.mask);
+      end
+      oddBeat <= !oddBeat;
+   endrule
+
+   rule write_data;
+      let v <- toGet(rx_fifo).get;
+      writeDataFifo.enq(v);
+      if (verbose) $display("macToRing:: writeToFifo");
+   endrule
+
+   interface PktWriteClient writeClient;
+      interface writeData = toGet(writeDataFifo);
+   endinterface
+   interface Put macRx = toPut(readMacFifo);
+endmodule

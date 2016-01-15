@@ -124,7 +124,7 @@ module mkMemoryTest#(MemoryTestIndication indication, ConnectalMemory::MemServer
 `else
    rule drain_mac;
       let v <- toGet(macToRing.writeClient.writeData).get;
-      $display("rx data %h", fshow(v));
+      $display("rx data", fshow(v));
    endrule
 `endif
 

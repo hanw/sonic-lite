@@ -116,6 +116,7 @@ instance FShow#(EtherData);
    function Fmt fshow (EtherData v);
       return ($format("sop=%x ", v.sop)
               + $format("eop=%x ", v.eop)
+              + $format("mask=%x ", v.mask)
               + $format("data=%x", v.data));
    endfunction
 endinstance
