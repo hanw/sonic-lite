@@ -55,20 +55,9 @@ void usage (const char *program_name) {
     );
 }
 
-int main(int argc, char **argv)
-{
-    const char *program_name = get_exe_name(argv[0]);
-    const char *pcap_file="";
-    void *buffer;
-    long length;
+static void 
+parse_options(int argc, char *argv[], char **pcap_file) {
     int c, option_index;
-
-    NullTestIndication echoIndication(IfcNames_NullTestIndicationH2S);
-    device = new NullTestRequestProxy(IfcNames_NullTestRequestS2H);
-
-    bool run_basic = true;
-    bool load_pcap = false;
-    bool parser_test = false;
 
     static struct option long_options [] = {
         {"help",                no_argument, 0, 'h'},
@@ -87,47 +76,34 @@ int main(int argc, char **argv)
 
         switch (c) {
             case 'h':
-                usage(program_name);
-                run_basic = false;
+                usage(get_exe_name(argv[0]));
                 break;
             case 'p':
-                load_pcap = true;
-                parser_test = true;
-                pcap_file = optarg;
+                *pcap_file = optarg;
                 break;
             default:
-                run_basic = false;
                 break;
         }
     }
+}
 
-    if (run_basic) {
-        fprintf(stderr, "read version from cpp\n");
-        device->read_version();
-    }
+int main(int argc, char **argv)
+{
+    char *pcap_file=NULL;
+    struct pcap_trace_info pcap_info = {0, 0};
 
-    if (load_pcap) {
+    NullTestIndication echoIndication(IfcNames_NullTestIndicationH2S);
+    device = new NullTestRequestProxy(IfcNames_NullTestRequestS2H);
+
+    parse_options(argc, argv, &pcap_file);
+
+    device->read_version();
+
+    if (pcap_file) {
         fprintf(stderr, "Attempts to read pcap file %s\n", pcap_file);
-
-        if (!read_pcap_file(pcap_file, &buffer, &length)) {
-            perror("Failed to read file!");
-            exit(-1);
-        }
-
-        if (int err = load_pcap_file(buffer, length)) {
-            fprintf(stderr, "Error: %s\n", strerror(err));
-        }
+        load_pcap_file(pcap_file, &pcap_info);
     }
 
-    if (parser_test) {
-        // load packet
-        // parse
-        // print match result
-    }
-
-    if (run_basic) {
-        printf("done!");
-        while (1) sleep(1);
-    }
+    while (1) sleep(1);
     return 0;
 }
