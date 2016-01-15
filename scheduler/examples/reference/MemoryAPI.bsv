@@ -29,6 +29,7 @@ import Vector::*;
 
 import Ethernet::*;
 import PacketBuffer::*;
+import PktGen::*;
 
 interface MemoryTestIndication;
    method Action read_version_resp(Bit#(32) version);
@@ -37,13 +38,16 @@ endinterface
 interface MemoryTestRequest;
    method Action read_version();
    method Action writePacketData(Vector#(2, Bit#(64)) data, Vector#(2, Bit#(8)) mask, Bit#(1) sop, Bit#(1) eop);
+   method Action start(Bit#(32) iter, Bit#(32) ipg);
+   method Action stop();
+   method Action clear();
 endinterface
 
 interface MemoryAPI;
    interface MemoryTestRequest request;
 endinterface
 
-module mkMemoryAPI#(MemoryTestIndication indication, PacketBuffer buff)(MemoryAPI);
+module mkMemoryAPI#(MemoryTestIndication indication, PktGen pktgen)(MemoryAPI);
 
    interface MemoryTestRequest request;
       method Action read_version();
@@ -56,7 +60,10 @@ module mkMemoryAPI#(MemoryTestIndication indication, PacketBuffer buff)(MemoryAP
          beat.mask = pack(reverse(mask));
          beat.sop = unpack(sop);
          beat.eop = unpack(eop);
-         buff.writeServer.writeData.put(beat);
+         pktgen.writeServer.writeData.put(beat);
       endmethod
+      method start = pktgen.start;
+      method stop = pktgen.stop;
+      method clear = pktgen.clear;
    endinterface
 endmodule

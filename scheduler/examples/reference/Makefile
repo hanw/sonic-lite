@@ -56,13 +56,13 @@ endif
 # Default Rules
 #######################################################
 run-small:
-	(cd bluesim; ./bin/ubuntu.exe -p ../udp-small.pcap)
+	(cd bluesim; ./bin/ubuntu.exe -p ../udp-small.pcap -r 5.8 -n 10)
 
 run-large:
-	(cd bluesim; ./bin/ubuntu.exe -p ../udp-large.pcap)
+	(cd bluesim; ./bin/ubuntu.exe -p ../udp-large.pcap -r 5.8 -n 10)
 
 run-mid:
-	(cd bluesim; ./bin/ubuntu.exe -p ../udp-mid.pcap)
+	(cd bluesim; ./bin/ubuntu.exe -p ../udp-mid.pcap -r 5.8 -n 10)
 
 run-burst:
 	(cd bluesim; ./bin/ubuntu.exe -p ../udp-burst.pcap)

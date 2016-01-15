@@ -42,6 +42,7 @@ import MemoryAPI::*;
 import PacketBuffer::*;
 import SharedBuff::*;
 import StoreAndForward::*;
+import PktGen::*;
 
 `ifndef SIMULATION
 import AlteraMacWrap::*;
@@ -96,15 +97,21 @@ module mkMemoryTest#(MemoryTestIndication indication, ConnectalMemory::MemServer
    mapM(uncurry(mkConnection), zip(phys.rx, map(getRx, mac)));
 `endif
 
-   PacketBuffer incoming_buff <- mkPacketBuffer();
+   PktGen pktgen <- mkPktGen();
+
+   rule drain;
+      let v <- pktgen.writeClient.writeData.get;
+      $display("tx data ", fshow(v));
+   endrule
+
+   /*
    StoreAndFwdFromRingToMem ringToMem <- mkStoreAndFwdFromRingToMem();
 
    PacketBuffer outgoing_buff <- mkPacketBuffer();
    StoreAndFwdFromMemToRing memToRing <- mkStoreAndFwdFromMemToRing();
 
    SharedBuffer#(12, 128, 1) mem <- mkSharedBuffer(vec(memToRing.readClient), vec(ringToMem.writeClient), memServerIndication, mallocIndication);
-
-   mkConnection(ringToMem.readClient, incoming_buff.readServer);
+   mkConnection(ringToMem.readClient, pktgen.readServer);
    mkConnection(ringToMem.mallocReq, mem.mallocReq);
    mkConnection(mem.mallocDone, ringToMem.mallocDone);
 
@@ -113,11 +120,8 @@ module mkMemoryTest#(MemoryTestIndication indication, ConnectalMemory::MemServer
    mkConnection(ringToMem.eventPktCommitted, memToRing.eventPktSend);
 
    StoreAndFwdFromRingToMac ringToMac <- mkStoreAndFwdFromRingToMac(txClock, txReset);
-   StoreAndFwdFromMacToRing macToRing <- mkStoreAndFwdFromMacToRing(txClock, txReset);
+   //StoreAndFwdFromMacToRing macToRing <- mkStoreAndFwdFromMacToRing(txClock, txReset);
    mkConnection(ringToMac.readClient, outgoing_buff.readServer);
-
-   //FIXME: remove after debug
-   mkConnection(ringToMac.macTx, macToRing.macRx);
 
 `ifndef SIMULATION
    mkConnection(ringToMac.macTx, mac[0].packet_tx);
@@ -127,8 +131,9 @@ module mkMemoryTest#(MemoryTestIndication indication, ConnectalMemory::MemServer
       $display("rx data", fshow(v));
    endrule
 `endif
+   */
 
-   MemoryAPI api <- mkMemoryAPI(indication, incoming_buff);
+   MemoryAPI api <- mkMemoryAPI(indication, pktgen);
 
    interface request = api.request;
 `ifndef SIMULATION

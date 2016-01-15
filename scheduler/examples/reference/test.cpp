@@ -26,10 +26,14 @@
 #include "GeneratedTypes.h"
 #include "lutils.h"
 #include "lpcap.h"
+#include <cstdlib>
+#include <stdio.h>
+#include <stdlib.h>
 
 using namespace std;
 
 #define DATA_WIDTH 128
+#define LINK_SPEED 10
 
 static MemoryTestRequestProxy *device = 0;
 uint16_t flowid;
@@ -66,12 +70,14 @@ void usage (const char *program_name) {
 }
 
 static void 
-parse_options(int argc, char *argv[], char **pcap_file) {
+parse_options(int argc, char *argv[], char **pcap_file, double* rate, long* count) {
     int c, option_index;
 
     static struct option long_options [] = {
         {"help",                no_argument, 0, 'h'},
         {"parser-test",         required_argument, 0, 'p'},
+        {"pktgen-rate",         required_argument, 0, 'r'},
+        {"pktgen-count",        required_argument, 0, 'n'},
         {0, 0, 0, 0}
     };
 
@@ -91,23 +97,38 @@ parse_options(int argc, char *argv[], char **pcap_file) {
             case 'p':
                 *pcap_file = optarg;
                 break;
+            case 'r':
+                *rate = strtod(optarg, NULL);
+                break;
+            case 'n':
+                *count = strtol(optarg, NULL, 0);
+                break;
             default:
                 break;
         }
     }
 }
 
+/* compute idle character in bytes (round to closest 16) */
+int
+compute_idle (double rate, int pkt_len, int link_speed) {
+    double idle = (link_speed - rate) * pkt_len / rate;
+    fprintf(stderr, "idle = %d", (int)idle);
+    return idle;
+}
 
 int main(int argc, char **argv)
 {
     char *pcap_file=NULL;
     void *buffer=NULL;
     long length=0;
+    double rate=0.0;
+    long count = 0;
 
     MemoryTestIndication echoIndication(IfcNames_MemoryTestIndicationH2S);
     device = new MemoryTestRequestProxy(IfcNames_MemoryTestRequestS2H);
 
-    parse_options(argc, argv, &pcap_file);
+    parse_options(argc, argv, &pcap_file, &rate, &count);
 
     device->read_version();
 
@@ -123,6 +144,10 @@ int main(int argc, char **argv)
             fprintf(stderr, "Error: %s\n", strerror(err));
         }
     }
+
+    fprintf(stderr, "Idle: %d\n", compute_idle(rate, length, LINK_SPEED));
+
+    device->start(count, compute_idle(rate, length, LINK_SPEED));
 
     while (1) sleep(1);
     return 0;
