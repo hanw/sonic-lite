@@ -25,7 +25,7 @@ AUTOTOP = --interface pins:MemoryTest.pins
 PIN_TYPE = DE5Pins
 PIN_TYPE_INCLUDE = DE5Pins
 PIN_BINDINGS ?= PCIE:PCIE OSC:OSC SFPA:SFPA SFPB:SFPB SFPC:SFPC SFPD:SFPD SFP:SFP LED:LED I2C:I2C
-PINOUT_FILE = ../../../boards/de5.json
+PINOUT_FILE = $(SONICDIR)/boards/de5.json
 endif
 
 CONNECTALFLAGS += --bsvpath=$(P4FPGADIR)/bsv
