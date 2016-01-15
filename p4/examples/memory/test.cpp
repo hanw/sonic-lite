@@ -119,8 +119,7 @@ parse_options(int argc, char *argv[], char **pcap_file) {
 int main(int argc, char **argv)
 {
     char *pcap_file=NULL;
-    void *buffer=NULL;
-    long length=0;
+    struct pcap_trace_info pcap_info = {0, 0};
 
     MemoryTestIndication echoIndication(IfcNames_MemoryTestIndicationH2S);
     device = new MemoryTestRequestProxy(IfcNames_MemoryTestRequestS2H);
@@ -131,15 +130,7 @@ int main(int argc, char **argv)
 
     if (pcap_file) {
         fprintf(stderr, "Attempts to read pcap file %s\n", pcap_file);
-
-        if (!read_pcap_file(pcap_file, &buffer, &length)) {
-            perror("Failed to read file!");
-            exit(-1);
-        }
-
-        if (int err = load_pcap_file(buffer, length)) {
-            fprintf(stderr, "Error: %s\n", strerror(err));
-        }
+        load_pcap_file(pcap_file, &pcap_info);
     }
 
     while (1) sleep(1);

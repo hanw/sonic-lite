@@ -69,8 +69,13 @@ void usage (const char *program_name) {
     );
 }
 
+struct arg_info {
+    double rate;
+    int tracelen;
+};
+
 static void 
-parse_options(int argc, char *argv[], char **pcap_file, double* rate, long* count) {
+parse_options(int argc, char *argv[], char **pcap_file, struct arg_info* info) {
     int c, option_index;
 
     static struct option long_options [] = {
@@ -98,10 +103,10 @@ parse_options(int argc, char *argv[], char **pcap_file, double* rate, long* coun
                 *pcap_file = optarg;
                 break;
             case 'r':
-                *rate = strtod(optarg, NULL);
+                info->rate = strtod(optarg, NULL);
                 break;
             case 'n':
-                *count = strtol(optarg, NULL, 0);
+                info->tracelen = strtol(optarg, NULL, 0);
                 break;
             default:
                 break;
@@ -111,43 +116,37 @@ parse_options(int argc, char *argv[], char **pcap_file, double* rate, long* coun
 
 /* compute idle character in bytes (round to closest 16) */
 int
-compute_idle (double rate, int pkt_len, int link_speed) {
-    double idle = (link_speed - rate) * pkt_len / rate;
-    fprintf(stderr, "idle = %d", (int)idle);
+compute_idle (const struct pcap_trace_info *info, double rate, double link_speed) {
+
+    double idle_count = (link_speed - rate) * info->byte_count / rate;
+    int idle = idle_count / info->packet_count;
+    int average_packet_len = info->byte_count / info->packet_count;
+    fprintf(stderr, "idle = %d, link_speed=%f, rate=%f, average packet len = %d\n", idle, link_speed, rate, average_packet_len);
     return idle;
 }
 
 int main(int argc, char **argv)
 {
     char *pcap_file=NULL;
-    void *buffer=NULL;
-    long length=0;
-    double rate=0.0;
-    long count = 0;
+    struct arg_info arguments = {0, 0};
+    struct pcap_trace_info pcap_info = {0, 0};
 
     MemoryTestIndication echoIndication(IfcNames_MemoryTestIndicationH2S);
     device = new MemoryTestRequestProxy(IfcNames_MemoryTestRequestS2H);
 
-    parse_options(argc, argv, &pcap_file, &rate, &count);
+    parse_options(argc, argv, &pcap_file, &arguments);
 
     device->read_version();
 
     if (pcap_file) {
         fprintf(stderr, "Attempts to read pcap file %s\n", pcap_file);
-
-        if (!read_pcap_file(pcap_file, &buffer, &length)) {
-            perror("Failed to read file!");
-            exit(-1);
-        }
-
-        if (int err = load_pcap_file(buffer, length)) {
-            fprintf(stderr, "Error: %s\n", strerror(err));
-        }
+        load_pcap_file(pcap_file, &pcap_info);
     }
 
-    fprintf(stderr, "Idle: %d\n", compute_idle(rate, length, LINK_SPEED));
-
-    device->start(count, compute_idle(rate, length, LINK_SPEED));
+    if (arguments.rate && arguments.tracelen) {
+        int idle = compute_idle(&pcap_info, arguments.rate, LINK_SPEED);
+        device->start(arguments.tracelen, idle);
+    }
 
     while (1) sleep(1);
     return 0;

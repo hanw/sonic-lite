@@ -59,10 +59,10 @@ run-small:
 	(cd bluesim; ./bin/ubuntu.exe -p ../udp-small.pcap -r 5.8 -n 10)
 
 run-large:
-	(cd bluesim; ./bin/ubuntu.exe -p ../udp-large.pcap -r 5.8 -n 10)
+	(cd bluesim; ./bin/ubuntu.exe -p ../udp-large.pcap -r 5.8 -n 2)
 
 run-mid:
-	(cd bluesim; ./bin/ubuntu.exe -p ../udp-mid.pcap -r 5.8 -n 10)
+	(cd bluesim; ./bin/ubuntu.exe -p ../udp-mid.pcap -r 5.8 -n 2)
 
 run-burst:
 	(cd bluesim; ./bin/ubuntu.exe -p ../udp-burst.pcap)
