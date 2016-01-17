@@ -64,7 +64,7 @@ module mkPktGen(PktGen)
     rule fetch_packet if (started && !halt && !idle);
         let pktLen <- buff.readServer.readLen.get;
         buff.readServer.readReq.put(EtherReq{len:pktLen});
-        $display("fetch packet");
+        $display("Pktgen:: fetch_packet");
     endrule
 
     rule enqueue_packet if (started && !halt && !idle);
@@ -75,17 +75,17 @@ module mkPktGen(PktGen)
             count <= count + 1;
             idle <= True;
             curr_ipg <= 0;
-            $display("eop %h %h %h %h %h", halt, idle, started, curr_ipg, total_ipg);
+            $display("Pktgen:: eop %h %h %h %h %h", halt, idle, started, curr_ipg, total_ipg);
         end
     endrule
 
-    rule terminate if (started && (count > iteration));
+    rule terminate if (started && (count >= iteration));
         halt <= True;
     endrule
 
     rule gen_ipg if ((curr_ipg < total_ipg + fromInteger(valueOf(BaseIdle))) && idle);
         curr_ipg <= curr_ipg + fromInteger(valueOf(bytesPerBeat));
-        $display("ipg = %d", curr_ipg);
+        $display("Pktgen:: ipg = %d", curr_ipg);
     endrule
 
     rule next_packet if ((curr_ipg >= total_ipg + fromInteger(valueOf(BaseIdle))));
@@ -114,7 +114,7 @@ module mkPktGen(PktGen)
         halt <= False;
         total_ipg <= ipg;
         iteration <= iter;
-        $display("start %h %h", iter, ipg);
+        $display("Pktgen:: start %h %h", iter, ipg);
     endmethod
     method Action stop() if (started);
         started <= False;

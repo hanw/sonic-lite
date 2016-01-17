@@ -20,6 +20,7 @@
  */
 
 #include "MemServerIndication.h"
+#include "MemMgmtIndication.h"
 #include "MemoryTestIndication.h"
 #include "MemoryTestRequest.h"
 #include "GeneratedTypes.h"
@@ -28,6 +29,7 @@
 #include <cstdlib>
 #include <stdio.h>
 #include <stdlib.h>
+#include <semaphore.h>
 
 using namespace std;
 
@@ -36,6 +38,8 @@ using namespace std;
 
 static MemoryTestRequestProxy *device = 0;
 uint16_t flowid;
+sem_t alloc_sem;
+sem_t free_sem;
 
 void device_writePacketData(uint64_t* data, uint8_t* mask, int sop, int eop) {
     device->writePacketData(data, mask, sop, eop);
@@ -48,6 +52,26 @@ public:
         fprintf(stderr, "version %x\n", a);
     }
     MemoryTestIndication(unsigned int id) : MemoryTestIndicationWrapper(id) {}
+};
+
+class MemMgmtIndication : public MemMgmtIndicationWrapper
+{
+public:
+    virtual void memory_allocated(uint32_t a) {
+        fprintf(stderr, "allocated id %x\n", a);
+        sem_post(&alloc_sem);
+    }
+    virtual void packet_committed(uint32_t a) {
+        fprintf(stderr, "committed tag %x\n", a);
+        sem_post(&free_sem);
+    }
+    virtual void packet_freed(uint32_t a) {
+        fprintf(stderr, "packet freed %x\n", a);
+    }
+    virtual void error(uint32_t errorType, uint32_t id) {
+        fprintf(stderr, "error: %x %x\n", errorType, id);
+    }
+    MemMgmtIndication(unsigned int id) : MemMgmtIndicationWrapper(id) {}
 };
 
 void usage (const char *program_name) {
@@ -64,7 +88,7 @@ struct arg_info {
     int tracelen;
 };
 
-static void 
+static void
 parse_options(int argc, char *argv[], char **pcap_file, struct arg_info* info) {
     int c, option_index;
 
@@ -99,7 +123,7 @@ parse_options(int argc, char *argv[], char **pcap_file, struct arg_info* info) {
                 info->tracelen = strtol(optarg, NULL, 0);
                 break;
             default:
-                break;
+                exit(EXIT_FAILURE);
         }
     }
 }
@@ -122,6 +146,8 @@ int main(int argc, char **argv)
     struct pcap_trace_info pcap_info = {0, 0};
 
     MemoryTestIndication echoIndication(IfcNames_MemoryTestIndicationH2S);
+    MemMgmtIndication memMgmtIndication(IfcNames_MemMgmtIndicationH2S);
+
     device = new MemoryTestRequestProxy(IfcNames_MemoryTestRequestS2H);
 
     parse_options(argc, argv, &pcap_file, &arguments);
@@ -138,6 +164,12 @@ int main(int argc, char **argv)
         device->start(arguments.tracelen, idle);
     }
 
-    while (1) sleep(1);
+    sem_wait(&alloc_sem);
+
+    device->free(0);
+    sem_wait(&free_sem);
+
+    device->free(1);
+    while(1) sleep(1);
     return 0;
 }

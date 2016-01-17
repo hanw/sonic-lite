@@ -42,6 +42,7 @@ import MemoryAPI::*;
 import PacketBuffer::*;
 import SharedBuff::*;
 import StoreAndForward::*;
+import TDM::*;
 
 `ifndef SIMULATION
 import AlteraMacWrap::*;
@@ -57,7 +58,7 @@ interface MemoryTest;
    interface `PinType pins;
 endinterface
 
-module mkMemoryTest#(MemoryTestIndication indication, ConnectalMemory::MemServerIndication memServerIndication, Malloc::MallocIndication mallocIndication)(MemoryTest);
+module mkMemoryTest#(MemoryTestIndication indication, ConnectalMemory::MemServerIndication memServerIndication)(MemoryTest);
    let verbose = False;
 
    Clock defaultClock <- exposeCurrentClock();
@@ -102,7 +103,7 @@ module mkMemoryTest#(MemoryTestIndication indication, ConnectalMemory::MemServer
    PacketBuffer outgoing_buff <- mkPacketBuffer();
    StoreAndFwdFromMemToRing memToRing <- mkStoreAndFwdFromMemToRing();
 
-   SharedBuffer#(12, 128, 1) mem <- mkSharedBuffer(vec(memToRing.readClient), vec(ringToMem.writeClient), memServerIndication, mallocIndication);
+   SharedBuffer#(12, 128, 1) mem <- mkSharedBuffer(vec(memToRing.readClient), vec(ringToMem.writeClient), memServerIndication);
 
    mkConnection(ringToMem.readClient, incoming_buff.readServer);
    mkConnection(ringToMem.mallocReq, mem.mallocReq);
@@ -121,7 +122,7 @@ module mkMemoryTest#(MemoryTestIndication indication, ConnectalMemory::MemServer
 `else
    rule drain_mac;
       let v <- ringToMac.macTx.get;
-      if (verbose) $display("tx data %h", v);
+      if (verbose) $display("memory::MemoryTest:: tx data %h", v);
    endrule
 `endif
 

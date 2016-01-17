@@ -25,7 +25,12 @@
 // main packet memory. Packets are buffered completely in ring buffer
 // before it is sent to main memory and vice versa.
 
+import BuildVector::*;
+import Connectable::*;
+import Clocks::*;
 import Cntrs::*;
+import ClientServer::*;
+import DefaultValue::*;
 import Ethernet::*;
 import EthMac::*;
 import FIFO::*;
@@ -33,22 +38,13 @@ import FIFOF::*;
 import GetPut::*;
 import Gearbox::*;
 import MemTypes::*;
-import Malloc::*;
 import MemServer::*;
 import MemServerInternal::*;
+import MemMgmt::*;
 import PacketBuffer::*;
 import SharedBuff::*;
 import SpecialFIFOs::*;
 import Vector::*;
-
-import DefaultValue::*;
-import Vector::*;
-import BuildVector::*;
-import ClientServer::*;
-import Connectable::*;
-import Clocks::*;
-import Gearbox::*;
-
 
 typedef struct {
    Bit#(32) id;
@@ -58,12 +54,12 @@ typedef struct {
 interface StoreAndFwdFromRingToMem;
    interface PktReadClient readClient;
    interface Get#(Bit#(EtherLen)) mallocReq;
-   interface Put#(Bool) mallocDone;
+   interface Put#(Maybe#(Bit#(32))) mallocDone;
    interface MemWriteClient#(`DataBusWidth) writeClient;
    interface Get#(PacketInstance) eventPktCommitted;
 endinterface
 
-module mkStoreAndFwdFromRingToMem(StoreAndFwdFromRingToMem)
+module mkStoreAndFwdFromRingToMem#(MemMgmtIndication memTestInd)(StoreAndFwdFromRingToMem)
    provisos (Div#(`DataBusWidth, 8, bytesPerBeat)
             ,Log#(bytesPerBeat, beatShift));
 
@@ -86,7 +82,7 @@ module mkStoreAndFwdFromRingToMem(StoreAndFwdFromRingToMem)
 
    FIFO#(Bit#(EtherLen)) mallocReqFifo <- mkFIFO;
    FIFO#(Bit#(EtherLen)) pktLenFifo <- mkFIFO;
-   FIFO#(Bool) mallocDoneFifo <- mkFIFO;
+   FIFO#(Maybe#(Bit#(32))) mallocDoneFifo <- mkFIFO;
    Reg#(Bool) readStarted <- mkReg(False);
    Reg#(Bool) mallocd <- mkReg(False);
 
@@ -108,28 +104,28 @@ module mkStoreAndFwdFromRingToMem(StoreAndFwdFromRingToMem)
 
    rule allocMemory;
       let pktLen <- toGet(pktLenFifo).get;
-      let done <- toGet(mallocDoneFifo).get;
+      let allocId <- toGet(mallocDoneFifo).get;
       let bytesPerBeatMinusOne = fromInteger(valueOf(bytesPerBeat))-1;
       // roundup to 16 byte boundary
       let burstLen = ((pktLen + bytesPerBeatMinusOne) & ~(bytesPerBeatMinusOne));
       let mask = (1<< (pktLen % fromInteger(valueOf(bytesPerBeat))))-1;
-      if (done) begin
+      if (isValid(allocId)) begin
          mallocd <= True;
          readReqFifo.enq(EtherReq{len: truncate(pktLen)});
-         writeReqFifo.enq(MemRequest {sglId: 0, offset: 0,
+         //FIXME use correct sglId
+         writeReqFifo.enq(MemRequest {sglId: fromMaybe(?, allocId), offset: 0,
                                       burstLen: truncate(burstLen), tag:0
 `ifdef BYTE_ENABLES
                                       , firstbe: 'hffff, lastbe: mask
 `endif
                                      });
          if (verbose) $display("StoreAndForward::allocMemory %d: alloc done", cycle);
-         eventPktReceivedFifo.enq(PacketInstance {id: 0, size: pktLen});
+         //eventPktReceivedFifo.enq(PacketInstance {id: 0, size: pktLen});
       end
    endrule
 
    rule packetReadInProgress if (readStarted && mallocd);
       let v <- toGet(readDataFifo).get;
-      //if (verbose) $display(fshow(" packet ") + fshow(v));
       if (v.eop) begin
          readStarted <= False;
          mallocd <= False;
@@ -141,9 +137,10 @@ module mkStoreAndFwdFromRingToMem(StoreAndFwdFromRingToMem)
 
    rule packetReadDone;
       let v <- toGet(writeDoneFifo).get;
-      let recvd <- toGet(eventPktReceivedFifo).get;
-      $display("StoreAndForward::packetReadDone %d: packet written to memory %h %d", cycle, v, recvd.size);
-      eventPktCommittedFifo.enq(recvd);
+      //let recvd <- toGet(eventPktReceivedFifo).get;
+      memTestInd.packet_committed(0);
+      //eventPktCommittedFifo.enq(recvd);
+      $display("StoreAndForward::packetReadDone %d: packet written to memory %h", cycle, v);
    endrule
 
    interface PktReadClient readClient;
@@ -297,7 +294,7 @@ module mkStoreAndFwdFromRingToMac#(Clock txClock, Reset txReset)(StoreAndFwdFrom
       let data = fifoTxData.first; fifoTxData.deq;
       let temp = head(data);
       if (temp.mask != 0) begin
-         if (verbose) $display("tx data %h", temp.data);
+         if (verbose) $display("StoreAndForward:: tx data %h", temp.data);
          writeMacFifo.enq(temp);
       end
    endrule

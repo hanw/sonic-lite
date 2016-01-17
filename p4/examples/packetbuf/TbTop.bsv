@@ -39,7 +39,7 @@ endinterface
 interface TbTop;
    interface TbRequest request;
 endinterface
-module mkTbTop#(TbIndication indication, ConnectalMemory::MemServerIndication memServerIndication, Malloc::MallocIndication mallocIndication)(TbTop);
+module mkTbTop#(TbIndication indication, ConnectalMemory::MemServerIndication memServerIndication)(TbTop);
 
    let verbose = True;
    // read client interface
@@ -60,7 +60,7 @@ module mkTbTop#(TbIndication indication, ConnectalMemory::MemServerIndication me
    interface Put writeDone = toPut(writeDoneFifo);
    endinterface);
 
-   SharedBuffer#(12, 128, 1) buff <- mkSharedBuffer(vec(dmaReadClient), vec(dmaWriteClient), memServerIndication, mallocIndication);
+   SharedBuffer#(12, 128, 1) buff <- mkSharedBuffer(vec(dmaReadClient), vec(dmaWriteClient), memServerIndication);
    PacketBuffer ring_buff <- mkPacketBuffer();
 
    interface TbRequest request;

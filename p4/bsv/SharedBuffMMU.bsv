@@ -37,7 +37,6 @@ import StmtFSM::*;
 import ClientServer::*;
 import ConnectalMemory::*;
 import ConnectalCompletionBuffer::*;
-import SimDma::*;
 import MMU::*;
 
 `include "ConnectalProjectConfig.bsv"
@@ -94,7 +93,7 @@ typedef struct {
    } Stage4Params deriving (Bits);
 
 // the address translation servers (addr[0], addr[1]) have a latency of 8 and are fully pipelined
-module mkSharedBuffMMU#(Integer iid, Bool hostMapped, MMUIndication mmuIndication)(MMU#(addrWidth))
+module mkSharedBuffMMU#(Integer iid, MMUIndication mmuIndication)(MMU#(addrWidth))
    provisos(Log#(MaxNumPkts, listIdxSize),
 	    Add#(listIdxSize,8, entryIdxSize),
 	    Add#(a__,addrWidth,MemOffsetSize));
@@ -110,9 +109,6 @@ module mkSharedBuffMMU#(Integer iid, Bool hostMapped, MMUIndication mmuIndicatio
    rule every1 if (verbose);
       cycle <= cycle + 1;
    endrule
-
-   // for simulators
-   SimDma#(32) simDma <- mkSimDma();
 
    // stage 0 (latency == 1)
    Vector#(2, FIFO#(AddrTransRequest)) incomingReqs <- replicateM(mkFIFO);
@@ -304,13 +300,10 @@ module mkSharedBuffMMU#(Integer iid, Bool hostMapped, MMUIndication mmuIndicatio
       let nextId <- sglId_gen.getTag;
       let resp = (fromInteger(iid) << 16) | extend(nextId);
       if (verbose) $display("mkMMU::idRequest %d", fd);
-      let va <- simDma.initfd(resp, fd);
       mmuIndication.idResponse(resp);
    endmethod
    method Action idReturn(Bit#(32) sglId);
       idReturnFifo.enq(sglId);
-      if (hostMapped)
-	 simDma.idreturn(sglId);
    endmethod
    method Action region(Bit#(32) pointer, Bit#(64) barr12, Bit#(32) index12, Bit#(64) barr8, Bit#(32) index8, Bit#(64) barr4, Bit#(32) index4, Bit#(64) barr0, Bit#(32) index0);
       portsel(regall, 1).request.put(BRAMRequest{write:True, responseOnWrite:False,
@@ -328,8 +321,6 @@ module mkSharedBuffMMU#(Integer iid, Bool hostMapped, MMUIndication mmuIndicatio
 	    $display("mkMMU::sglist ERROR");
 	    $finish();
 	 end
-	 if(hostMapped)
-	    let va <- simDma.init({0,pointer[31:16]}, {0,pointer[15:0]}, len);
          Bit#(IndexWidth) ind = truncate(pointerIndex);
 	 portsel(pages, 0).request.put(BRAMRequest{write:True, responseOnWrite:False,
              address:{truncate(pointer),ind}, datain:truncate(addr)});

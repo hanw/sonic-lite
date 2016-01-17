@@ -43,10 +43,13 @@ import PacketBuffer::*;
 import SharedBuff::*;
 import StoreAndForward::*;
 import PktGen::*;
+import TDM::*;
+import EthMac::*;
+import MMU::*;
+import MemMgmt::*;
 
 `ifndef SIMULATION
 import AlteraMacWrap::*;
-import EthMac::*;
 import AlteraEthPhy::*;
 import DE5Pins::*;
 `else
@@ -58,7 +61,7 @@ interface MemoryTest;
    interface `PinType pins;
 endinterface
 
-module mkMemoryTest#(MemoryTestIndication indication, ConnectalMemory::MemServerIndication memServerIndication)(MemoryTest);
+module mkMemoryTest#(MemoryTestIndication indication, MemMgmtIndication memTestInd, ConnectalMemory::MemServerIndication memServerInd, ConnectalMemory::MMUIndication mmuInd)(MemoryTest);
    let verbose = False;
 
    Clock defaultClock <- exposeCurrentClock();
@@ -97,25 +100,37 @@ module mkMemoryTest#(MemoryTestIndication indication, ConnectalMemory::MemServer
    mapM(uncurry(mkConnection), zip(phys.rx, map(getRx, mac)));
 `endif
 
+   // Port One
    PktGen pktgen <- mkPktGen();
+   PacketBuffer incoming_buff <- mkPacketBuffer();
+   PacketBuffer outgoing_buff <- mkPacketBuffer();
+   StoreAndFwdFromRingToMem ringToMem <- mkStoreAndFwdFromRingToMem(memTestInd);
+   StoreAndFwdFromMemToRing memToRing <- mkStoreAndFwdFromMemToRing();
+   StoreAndFwdFromRingToMac ringToMac <- mkStoreAndFwdFromRingToMac(txClock, txReset);
+   SharedBuffer#(12, 128, 1) mem <- mkSharedBuffer(vec(memToRing.readClient), vec(ringToMem.writeClient),
+                                                   memTestInd, memServerInd, mmuInd);
+
+   mkConnection(pktgen.writeClient, incoming_buff.writeServer);
+   mkConnection(ringToMem.readClient, incoming_buff.readServer);
+   mkConnection(ringToMem.mallocReq, mem.mallocReq);
+   mkConnection(mem.mallocDone, ringToMem.mallocDone);
+//   mkConnection(memToRing.writeClient, outgoing_buff.writeServer);
+//   mkConnection(ringToMac.readClient, outgoing_buff.readServer);
+//
+//   mkConnection(ringToMem.eventPktCommitted, memToRing.eventPktSend);
+
+   TDM sched <- mkTDM(mem);
 
 `ifndef SIMULATION
-   PacketBuffer outgoing_buff <- mkPacketBuffer();
-   StoreAndFwdFromMemToRing memToRing <- mkStoreAndFwdFromMemToRing();
-
-   mkConnection(memToRing.writeClient, outgoing_buff.writeServer);
-
-   StoreAndFwdFromRingToMac ringToMac <- mkStoreAndFwdFromRingToMac(txClock, txReset);
-   mkConnection(ringToMac.readClient, outgoing_buff.readServer);
    mkConnection(ringToMac.macTx, mac[0].packet_tx);
 `else
-   rule drain_pktgen;
-      let v <- pktgen.writeClient.writeData.get;
-      if (verbose) $display("pktgen::MemoryTest:: tx data", fshow(v));
+   rule drainMac;
+      let v <- ringToMac.macTx.get;
+      $display("tx data %h", v.data);
    endrule
 `endif
 
-   MemoryAPI api <- mkMemoryAPI(indication, pktgen);
+   MemoryAPI api <- mkMemoryAPI(indication, pktgen, mem);
 
    interface request = api.request;
 `ifndef SIMULATION
