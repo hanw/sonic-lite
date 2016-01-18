@@ -73,16 +73,21 @@ endinstance
 
 module mkInitialState#(Reg#(ParserState) state, FIFOF#(EtherData) datain, Wire#(Bool) start_fsm)(Empty);
    let verbose = True;
+   Reg#(Cycle_t) cycle <- mkReg(defaultValue);
+   rule every if (verbose);
+      cycle.cnt <= cycle.cnt + 1;
+   endrule
 
    rule load_packet_in if (state == S0);
       let v = datain.first;
       if (v.sop) begin
          state <= S1;
-         if (verbose) $display("Parser:: ", fshow("Done with") + fshow(state));
+         if (verbose) $display("Parser:: ", fshow(cycle) + fshow("Done with") + fshow(state) + fshow(v));
          start_fsm <= True;
       end
       else begin
          datain.deq;
+         if (verbose) $display("Parser:: ", fshow(cycle) + fshow("in") + fshow(state));
          start_fsm <= False;
       end
    endrule
@@ -154,7 +159,7 @@ module mkParseEthernet#(Reg#(ParserState) state, FIFOF#(EtherData) datain)(Parse
    endaction
    endseq;
 
-   FSM fsm_parse_ethernet <- mkFSMWithPred(parse_ethernet, state==S1);
+   FSM fsm_parse_ethernet <- mkFSM(parse_ethernet);
 
    method Action start();
       fsm_parse_ethernet.start;
@@ -244,7 +249,7 @@ module mkParseVlan#(Reg#(ParserState) state, FIFOF#(EtherData) datain)(ParseVlan
    endaction
    endseq;
 
-   FSM fsm_parse_vlan_0 <- mkFSMWithPred(parse_vlan_0, state==S2);
+   FSM fsm_parse_vlan_0 <- mkFSM(parse_vlan_0);
 
    method Action start;
       fsm_parse_vlan_0.start;
@@ -324,7 +329,7 @@ module mkParseIpv4#(Reg#(ParserState) state, FIFOF#(EtherData) datain)(ParseIpv4
    endaction
    endseq;
 
-   FSM fsm_parse_ipv4_0 <- mkFSMWithPred(parse_ipv4_0, state==S3);
+   FSM fsm_parse_ipv4_0 <- mkFSM(parse_ipv4_0);
 
    method Action start();
       fsm_parse_ipv4_0.start;
@@ -349,11 +354,18 @@ module mkParser(Parser);
    ParseVlan parse_vlan <- mkParseVlan(curr_state, data_in_fifo);
    ParseIpv4 parse_ipv4 <- mkParseIpv4(curr_state, data_in_fifo);
 
+
    List#(Reg#(Vlan_tag_t)) vlan_tag_stack <- List::replicateM(2, mkReg(defaultValue));
 
    mkConnection(parse_ethernet.unparsedOutIpv4, parse_ipv4.unparsedIn);
    mkConnection(parse_ethernet.unparsedOutVlan, parse_vlan.unparsedIn);
    mkConnection(parse_vlan.unparsedOutVlan0, parse_ipv4.unparsedInVlan0);
+
+   let verbose = True;
+   Reg#(Cycle_t) cycle <- mkReg(defaultValue);
+   rule every if (verbose);
+      cycle.cnt <= cycle.cnt + 1;
+   endrule
 
    rule start_parser_fsm if (start_fsm);
       if (!started) begin
@@ -361,15 +373,17 @@ module mkParser(Parser);
          parse_vlan.start;
          parse_ipv4.start;
          started <= True;
+         $display("Parser:: start fsm", fshow(cycle));
       end
    endrule
 
-   rule reset_parser_fsm if (!start_fsm);
+   rule reset_parser_fsm if (!start_fsm && curr_state==S0);
       if (started) begin
          parse_ethernet.clear;
          parse_ipv4.clear;
          parse_vlan.clear;
          started <= False;
+         $display("Parser:: reset fsm", fshow(cycle));
       end
    endrule
 

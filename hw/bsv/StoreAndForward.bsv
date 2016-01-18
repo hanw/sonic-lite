@@ -45,7 +45,6 @@ import PacketBuffer::*;
 import SharedBuff::*;
 import SpecialFIFOs::*;
 import Vector::*;
-import IPv4Parser::*;
 import Pipe::*;
 
 typedef struct {
@@ -61,7 +60,7 @@ interface StoreAndFwdFromRingToMem;
    interface Get#(PacketInstance) eventPktCommitted;
 endinterface
 
-module mkStoreAndFwdFromRingToMem#(Parser parser, MemMgmtIndication memTestInd)(StoreAndFwdFromRingToMem)
+module mkStoreAndFwdFromRingToMem#(MemMgmtIndication memTestInd)(StoreAndFwdFromRingToMem)
    provisos (Div#(`DataBusWidth, 8, bytesPerBeat)
             ,Log#(bytesPerBeat, beatShift));
 
@@ -135,7 +134,6 @@ module mkStoreAndFwdFromRingToMem#(Parser parser, MemMgmtIndication memTestInd)(
       end
       $display("StoreAndForward::writeData: %d: data:%h, tag:%h, last:%h", cycle, v.data, 0, v.eop);
       writeDataFifo.enq(MemData {data: v.data, tag: 0, last: v.eop});
-      parser.frameIn.enq(v);
    endrule
 
    rule packetReadDone;

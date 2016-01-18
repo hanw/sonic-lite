@@ -48,6 +48,7 @@ import EthMac::*;
 import MMU::*;
 import MemMgmt::*;
 import IPv4Parser::*;
+import Tap::*;
 
 `ifndef SIMULATION
 import AlteraMacWrap::*;
@@ -105,17 +106,27 @@ module mkMemoryTest#(MemoryTestIndication indication, MemMgmtIndication memTestI
    PktGen pktgen <- mkPktGen();
    PacketBuffer incoming_buff <- mkPacketBuffer();
    PacketBuffer outgoing_buff <- mkPacketBuffer();
+
+   TapPktRead tap <- mkTapPktRead();
    Parser ipv4Parser <- mkParser();
-   StoreAndFwdFromRingToMem ingress <- mkStoreAndFwdFromRingToMem(ipv4Parser, memTestInd);
+   StoreAndFwdFromRingToMem ingress <- mkStoreAndFwdFromRingToMem(memTestInd);
    StoreAndFwdFromMemToRing egress <- mkStoreAndFwdFromMemToRing();
    StoreAndFwdFromRingToMac ringToMac <- mkStoreAndFwdFromRingToMac(txClock, txReset);
    SharedBuffer#(12, 128, 1) mem <- mkSharedBuffer(vec(egress.readClient), vec(ingress.writeClient), memTestInd, memServerInd, mmuInd);
 
-
    mkConnection(pktgen.writeClient, incoming_buff.writeServer);
-   mkConnection(ingress.readClient, incoming_buff.readServer);
+   //mkConnection(ingress.readClient, incoming_buff.readServer);
+   mkConnection(tap.readClient, incoming_buff.readServer);
+   mkConnection(ingress.readClient, tap.readServer);
+   mkConnection(tap.tap_out, toPut(ipv4Parser.frameIn));
+
    mkConnection(ingress.mallocReq, mem.mallocReq);
    mkConnection(mem.mallocDone, ingress.mallocDone);
+
+   rule get_ipv4;
+      let v <- toGet(ipv4Parser.parsedOut_ipv4_dstAddr).get;
+      $display("MemoryTest:: get ipv4 %h", v);
+   endrule
 //   mkConnection(egress.writeClient, outgoing_buff.writeServer);
 //   mkConnection(ringToMac.readClient, outgoing_buff.readServer);
 //   mkConnection(ingress.eventPktCommitted, egress.eventPktSend);
