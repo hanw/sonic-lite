@@ -35,7 +35,7 @@ import Pipe::*;
 import Ethernet::*;
 import PacketBuffer::*;
 
-typedef 1 BaseIdle;
+typedef 1 MinimumIPG; // 1 beat == 16 bytes.
 
 interface PktGen;
     interface PktWriteServer writeServer;
@@ -83,12 +83,12 @@ module mkPktGen(PktGen)
         halt <= True;
     endrule
 
-    rule gen_ipg if ((curr_ipg < total_ipg + fromInteger(valueOf(BaseIdle))) && idle);
+    rule gen_ipg if ((curr_ipg < total_ipg + fromInteger(valueOf(MinimumIPG))) && idle);
         curr_ipg <= curr_ipg + fromInteger(valueOf(bytesPerBeat));
         $display("Pktgen:: ipg = %d", curr_ipg);
     endrule
 
-    rule next_packet if ((curr_ipg >= total_ipg + fromInteger(valueOf(BaseIdle))));
+    rule next_packet if ((curr_ipg >= total_ipg + fromInteger(valueOf(MinimumIPG))));
         EtherData v = defaultValue;
         idle <= False;
         curr_ipg <= 0;

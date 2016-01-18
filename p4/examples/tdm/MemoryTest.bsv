@@ -47,6 +47,7 @@ import TDM::*;
 import EthMac::*;
 import MMU::*;
 import MemMgmt::*;
+import IPv4Parser::*;
 
 `ifndef SIMULATION
 import AlteraMacWrap::*;
@@ -104,22 +105,22 @@ module mkMemoryTest#(MemoryTestIndication indication, MemMgmtIndication memTestI
    PktGen pktgen <- mkPktGen();
    PacketBuffer incoming_buff <- mkPacketBuffer();
    PacketBuffer outgoing_buff <- mkPacketBuffer();
-   StoreAndFwdFromRingToMem ringToMem <- mkStoreAndFwdFromRingToMem(memTestInd);
-   StoreAndFwdFromMemToRing memToRing <- mkStoreAndFwdFromMemToRing();
+   Parser ipv4Parser <- mkParser();
+   StoreAndFwdFromRingToMem ingress <- mkStoreAndFwdFromRingToMem(ipv4Parser, memTestInd);
+   StoreAndFwdFromMemToRing egress <- mkStoreAndFwdFromMemToRing();
    StoreAndFwdFromRingToMac ringToMac <- mkStoreAndFwdFromRingToMac(txClock, txReset);
-   SharedBuffer#(12, 128, 1) mem <- mkSharedBuffer(vec(memToRing.readClient), vec(ringToMem.writeClient),
-                                                   memTestInd, memServerInd, mmuInd);
+   SharedBuffer#(12, 128, 1) mem <- mkSharedBuffer(vec(egress.readClient), vec(ingress.writeClient), memTestInd, memServerInd, mmuInd);
+
 
    mkConnection(pktgen.writeClient, incoming_buff.writeServer);
-   mkConnection(ringToMem.readClient, incoming_buff.readServer);
-   mkConnection(ringToMem.mallocReq, mem.mallocReq);
-   mkConnection(mem.mallocDone, ringToMem.mallocDone);
-//   mkConnection(memToRing.writeClient, outgoing_buff.writeServer);
+   mkConnection(ingress.readClient, incoming_buff.readServer);
+   mkConnection(ingress.mallocReq, mem.mallocReq);
+   mkConnection(mem.mallocDone, ingress.mallocDone);
+//   mkConnection(egress.writeClient, outgoing_buff.writeServer);
 //   mkConnection(ringToMac.readClient, outgoing_buff.readServer);
-//
-//   mkConnection(ringToMem.eventPktCommitted, memToRing.eventPktSend);
+//   mkConnection(ingress.eventPktCommitted, egress.eventPktSend);
 
-   TDM sched <- mkTDM(mem);
+   TDM sched <- mkTDM(ingress, egress);
 
 `ifndef SIMULATION
    mkConnection(ringToMac.macTx, mac[0].packet_tx);

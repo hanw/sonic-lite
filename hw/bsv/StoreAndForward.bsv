@@ -45,6 +45,8 @@ import PacketBuffer::*;
 import SharedBuff::*;
 import SpecialFIFOs::*;
 import Vector::*;
+import IPv4Parser::*;
+import Pipe::*;
 
 typedef struct {
    Bit#(32) id;
@@ -59,7 +61,7 @@ interface StoreAndFwdFromRingToMem;
    interface Get#(PacketInstance) eventPktCommitted;
 endinterface
 
-module mkStoreAndFwdFromRingToMem#(MemMgmtIndication memTestInd)(StoreAndFwdFromRingToMem)
+module mkStoreAndFwdFromRingToMem#(Parser parser, MemMgmtIndication memTestInd)(StoreAndFwdFromRingToMem)
    provisos (Div#(`DataBusWidth, 8, bytesPerBeat)
             ,Log#(bytesPerBeat, beatShift));
 
@@ -120,7 +122,7 @@ module mkStoreAndFwdFromRingToMem#(MemMgmtIndication memTestInd)(StoreAndFwdFrom
 `endif
                                      });
          if (verbose) $display("StoreAndForward::allocMemory %d: alloc done", cycle);
-         //eventPktReceivedFifo.enq(PacketInstance {id: 0, size: pktLen});
+         eventPktReceivedFifo.enq(PacketInstance {id: fromMaybe(?, allocId), size: pktLen});
       end
    endrule
 
@@ -133,13 +135,14 @@ module mkStoreAndFwdFromRingToMem#(MemMgmtIndication memTestInd)(StoreAndFwdFrom
       end
       $display("StoreAndForward::writeData: %d: data:%h, tag:%h, last:%h", cycle, v.data, 0, v.eop);
       writeDataFifo.enq(MemData {data: v.data, tag: 0, last: v.eop});
+      parser.frameIn.enq(v);
    endrule
 
    rule packetReadDone;
       let v <- toGet(writeDoneFifo).get;
-      //let recvd <- toGet(eventPktReceivedFifo).get;
-      memTestInd.packet_committed(0);
-      //eventPktCommittedFifo.enq(recvd);
+      let recvd <- toGet(eventPktReceivedFifo).get;
+      memTestInd.packet_committed(recvd.id);
+      eventPktCommittedFifo.enq(recvd);
       $display("StoreAndForward::packetReadDone %d: packet written to memory %h", cycle, v);
    endrule
 

@@ -67,6 +67,8 @@ endinterface
 
 module mkTimeSlot(TimeSlot);
    Reg#(Bit#(32)) global_count <- mkReg(0);
+   Reg#(Bit#(TLog#(NumOfHosts))) last_slot <- mkReg(0);
+   FIFO#(Bit#(TLog#(NumOfHosts))) slot_fifo <- mkFIFO;
 
    rule increment;
       global_count <= global_count + 1;
@@ -78,13 +80,19 @@ module mkTimeSlot(TimeSlot);
       return pack(slot);
    endfunction
 
-   interface Get currSlot;
-      method ActionValue#(Bit#(TLog#(NumOfHosts))) get;
-         return get_slot(global_count);
-      endmethod
-   endinterface
+   rule genNewSlot;
+      let v = get_slot(global_count);
+      if (v != last_slot) begin
+         slot_fifo.enq(v);
+         last_slot <= v;
+      end
+   endrule
+
+   interface Get currSlot = toGet(slot_fifo);
 endmodule
 
+// Write stores packet id to per-host queue for scheduling
+// Read returns packet id to be transmitted immediately
 interface ForwardQ;
    interface Put#(FQWriteRequest) req_w;
    interface Put#(FQReadRequest) req_r;
@@ -120,24 +128,59 @@ module mkForwardQ(ForwardQ);
 endmodule
 
 interface TDM;
+   // To Rings, doubt if we need these.
    interface Vector#(4, PktWriteClient) writeClients;
+   // From Rings, doubt if we need these.
    interface Vector#(4, PktReadServer) readServers;
+
+   // Enqueue PacketInstance and fifo index
+   interface Put#(PacketInstance) enqueuePacket;
+
 endinterface
 
-module mkTDM#(SharedBuffer#(12, 128, 1) buff)(TDM);
+module mkTDM#(StoreAndFwdFromRingToMem ingress, StoreAndFwdFromMemToRing egress)(TDM);
 
-   // Control Registers
+   let verbose = True;
+   Reg#(Bit#(32)) cycle <- mkReg(0);
+   rule cycleRule if (verbose);
+      cycle <= cycle + 1;
+   endrule
 
+   TimeSlot timeSlot <- mkTimeSlot();
+   ForwardQ fwdq <- mkForwardQ();
+
+   rule slotRequest;
+      let slot <- timeSlot.currSlot.get;
+      fwdq.req_r.put(FQReadRequest{host:slot});
+   endrule
    //! Schedule Table: support insert and lookup
    //! Mac Table: support insert and lookup
 
    //! Function: ipToIndex
 
-   TimeSlot slot <- mkTimeSlot();
-   ForwardQ fwdq <- mkForwardQ();
+   // Ingress Pipeline
+   // Save packet to Memory
+   // return PacketInstance
 
-   //! poll rx, read packet if any
-   //! let v <- id_fifo.get;
+   rule enqueuePacketInstance;
+      let v <- ingress.eventPktCommitted.get;
+      if (verbose) $display("TDM:: enqueuePkt: %h %h", v.id, v.size);
+      // read dstip
+   endrule
+
+   rule extract_dstip;
+      // extract ip
+      //fwdq.req_w.put(FQWriteRequest{host:, id: v.id});
+   endrule
+
+   rule dequeuePacketInstance;
+      let resp <- fwdq.resp_r.get;
+      PacketInstance pkt = PacketInstance{id: resp.id, size: 0};
+      egress.eventPktSend.put(pkt);
+   endrule
+
+   // fwdq.id to mem
+   // PacketInstance
 
    // Packet Processing Pipeline
    // extract ip header

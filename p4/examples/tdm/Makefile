@@ -15,7 +15,7 @@ SCHEDDIR?=$(DEV_ROOT)/sonic-lite/scheduler
 S2H_INTERFACES=MemoryTestRequest:MemoryTest.request
 H2S_INTERFACES=MemoryTest:MemoryTestIndication,MemMgmtIndication,MemServerIndication,MMUIndication
 
-BSVFILES=MemoryTest.bsv MemoryAPI.bsv $(P4FPGADIR)/bsv/MemMgmt.bsv
+BSVFILES=MemoryTest.bsv MemoryAPI.bsv $(SONICDIR)/hw/bsv/MemMgmt.bsv
 CPPFILES=test.cpp
 
 #######################################################
@@ -66,6 +66,9 @@ run-mid:
 
 run-burst:
 	(cd bluesim; ./bin/ubuntu.exe -p ../udp-burst.pcap)
+
+run-sweep:
+	(cd bluesim; ./bin/ubuntu.exe -p ../udp-sweep-small.pcap -r 5 -n $(N))
 
 include $(SONICDIR)/p4/Makefile.common
 include $(CONNECTALDIR)/Makefile.connectal
