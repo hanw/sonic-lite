@@ -57,8 +57,8 @@ proc create_altera_10gber_phy {core_version ip_name channels mode} {
 
 regexp {[\.0-9]+} $quartus(version) core_version
 
-if {[info exists AlteraPhyPortCount]} {
-    set portCount $AlteraPhyPortCount
+if {[info exists NUMBER_OF_ALTERA_PORTS]} {
+    set portCount $NUMBER_OF_ALTERA_PORTS
 } else {
     set portCount 4
 }
