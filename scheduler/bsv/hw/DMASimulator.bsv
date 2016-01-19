@@ -12,23 +12,22 @@ import RingBufferTypes::*;
 import Addresses::*;
 
 typedef struct {
-    Bit#(112) payload;
-    IP dst_ip;
-    IP src_ip;
-    Bit#(16) header_checksum;
-    Bit#(8) protocol;
-    Bit#(8) ttl;
-    Bit#(13) frag_offset;
-    Bit#(3) flags;
-    Bit#(16) identification;
-    Bit#(16) total_len;
-    Bit#(8) diffserv;
-    Bit#(4) ihl;
-    Bit#(4) version;
-
-    Bit#(16) ether_type;
-    MAC src_mac;
     MAC dst_mac;
+    MAC src_mac;
+    Bit#(16) ether_type;
+    Bit#(4) version;
+    Bit#(4) ihl;
+    Bit#(8) diffserv;
+    Bit#(16) total_len;
+    Bit#(16) identification;
+    Bit#(3) flags;
+    Bit#(13) frag_offset;
+    Bit#(8) ttl;
+    Bit#(8) protocol;
+    Bit#(16) header_checksum;
+    IP src_ip;
+    IP dst_ip;
+    Bit#(112) payload;
 } Header deriving(Bits, Eq);
 
 instance DefaultValue#(Header);
@@ -64,15 +63,14 @@ endinstance
 
 interface DMASimulator;
 	interface Get#(DMAStatsT) dma_stats_response;
-	interface Get#(ServerIndex) debug_sending_pkt;
+//	interface Get#(ServerIndex) debug_sending_pkt;
     method Action start(ServerIndex idx, Bit#(32) rate);
     method Action stop();
 	method Action getDMAStats();
 endinterface
 
-module mkDMASimulator#(Scheduler#(SchedReqResType, SchedReqResType,
-               ReadReqType, ReadResType,
-               WriteReqType, WriteResType) scheduler,
+module mkDMASimulator#(Scheduler#(ReadReqType, ReadResType,
+                                  WriteReqType, WriteResType) scheduler,
 	Clock pcieClock, Reset pcieReset) (DMASimulator);
 
     Clock defaultClock <- exposeCurrentClock();
@@ -86,8 +84,8 @@ module mkDMASimulator#(Scheduler#(SchedReqResType, SchedReqResType,
 	         <- mkSyncFIFO(1, defaultClock, defaultReset, pcieClock);
 	Reg#(DMAStatsT) stats <- mkReg(defaultValue);
 
-	SyncFIFOIfc#(ServerIndex) debug_sending_pkt_fifo
-	         <- mkSyncFIFO(10, defaultClock, defaultReset, pcieClock);
+//	SyncFIFOIfc#(ServerIndex) debug_sending_pkt_fifo
+//	         <- mkSyncFIFO(10, defaultClock, defaultReset, pcieClock);
 
     Reg#(Bit#(32)) count <- mkReg(0);
 	Reg#(Bit#(32)) num_of_cycles_to_wait <- mkReg(3);
@@ -97,7 +95,7 @@ module mkDMASimulator#(Scheduler#(SchedReqResType, SchedReqResType,
 	Reg#(Bit#(1)) wait_for_pkt_trans_to_complete <- mkReg(0);
 	Reg#(Bit#(1)) start_sending_new_pkt <- mkReg(0);
 
-	Random rand_dst_index <- mkRandom; // will return a 32-bit random number
+//	Random rand_dst_index <- mkRandom; // will return a 32-bit random number
 
     Reg#(Header) header <- mkReg(defaultValue);
     Reg#(ServerIndex) dst_index <- mkReg(0);
@@ -144,8 +142,12 @@ module mkDMASimulator#(Scheduler#(SchedReqResType, SchedReqResType,
 //                dst_index <= r;
 //				debug_sending_pkt_fifo.enq(r);
 //            end
-		dst_index <= 1;
-		debug_sending_pkt_fifo.enq(1);
+//
+		if (host_index != (fromInteger(valueof(NUM_OF_SERVERS))-1))
+			dst_index <= host_index + 1;
+		else
+			dst_index <= 0;
+//		debug_sending_pkt_fifo.enq(1);
 
 		num_of_blocks_to_transmit <= 4; /* 64 byte packets */
 
@@ -170,7 +172,7 @@ module mkDMASimulator#(Scheduler#(SchedReqResType, SchedReqResType,
         if (block_count == 0)
         begin
             scheduler.dma_write_request.put
-                    (makeWriteReq(1, 0, header_data[127:0]));
+                    (makeWriteReq(1, 0, header_data[383:256]));
         end
         else if (block_count == 1)
         begin
@@ -180,7 +182,7 @@ module mkDMASimulator#(Scheduler#(SchedReqResType, SchedReqResType,
         else if (block_count == 2)
         begin
             scheduler.dma_write_request.put
-                    (makeWriteReq(0, 0, header_data[383:256]));
+                    (makeWriteReq(0, 0, header_data[127:0]));
         end
         else if (block_count == num_of_blocks_to_transmit - 1)
         begin
@@ -272,5 +274,5 @@ module mkDMASimulator#(Scheduler#(SchedReqResType, SchedReqResType,
 	endmethod
 
 	interface dma_stats_response = toGet(dma_stats_fifo);
-	interface debug_sending_pkt = toGet(debug_sending_pkt_fifo);
+//	interface debug_sending_pkt = toGet(debug_sending_pkt_fifo);
 endmodule

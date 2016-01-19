@@ -135,7 +135,7 @@ module mkSchedulerTop#(SchedulerTopIndication indication)(SchedulerTop);
         rule set_start_interval;
             let res <- scheduler[i].settime_response.get;
             scheduler[i].request.put
-                        (makeSchedReqRes(0, 0, 0, 16, 0, SETINTERVAL, SUCCESS));
+                        (makeSchedReqRes(0, 0, 0, 8, 0, SETINTERVAL, SUCCESS));
         endrule
 
         /* Wait for 10,000 cycles to let the MAC initialize */
@@ -143,8 +143,7 @@ module mkSchedulerTop#(SchedulerTopIndication indication)(SchedulerTop);
             let res <- scheduler[i].setinterval_response.get;
             scheduler[i].request.put
                  (makeSchedReqRes(0, 0, 0, 0, 0, STARTSCHED, SUCCESS));
-			if (i < 5)
-				dma_sim[i].start();
+			dma_sim[i].start();
             fire_once[i] <= 1;
         endrule
 
@@ -160,20 +159,21 @@ module mkSchedulerTop#(SchedulerTopIndication indication)(SchedulerTop);
     Reg#(Bit#(64)) counter <- mkReg(0, clocked_by txClock, reset_by txReset);
     rule count_cycles (fire_once[0] == 1
              && fire_once[1] == 1
-             //&& fire_once[2] == 1
-             //&& fire_once[3] == 1
-             //&& fire_once[4] == 1
+             && fire_once[2] == 1
+             && fire_once[3] == 1
+             && fire_once[4] == 1
              && counter <= 1000000);
         counter <= counter + 1;
-        if (counter <= 64)
+        if (counter <= 100000)
             $display("CLK = %d", counter);
-        if (counter == 64)
+        if (counter == 100000)
         begin
             $display("[TOP] Number of cycles DMA ran for = %d", counter);
             for (Integer i = 0; i < fromInteger(valueof(NUM_OF_SERVERS)); i = i + 1)
             begin
                 stop[i] <= 1;
                 scheduler[i].print_stats();
+				scheduler[i].print_queue_stats();
             end
         end
     endrule
@@ -187,8 +187,8 @@ module mkSchedulerTop#(SchedulerTopIndication indication)(SchedulerTop);
     begin
         for (Integer j = 0; j < fromInteger(valueof(NUM_OF_PORTS)); j = j + 1)
         begin
-            rule tx_rule;
-                let v = mac[i].tx(j);
+		rule tx_rule;
+		    	let v = mac[i].tx(j);
                 (wire_fifo[i])[j].enq(v);
                 //$display("[%d %d] MAC tx data = %d", i, j, v);
             endrule
@@ -201,7 +201,7 @@ module mkSchedulerTop#(SchedulerTopIndication indication)(SchedulerTop);
         //$display("Getting from (1, 0) to (0, 0)");
     endrule
 
-/*    rule rx_rule_0_1;
+    rule rx_rule_0_1;
         let v <- toGet((wire_fifo[2])[0]).get;
         mac[0].rx(1, v);
         //$display("Getting from (2, 0) to (0, 1)");
@@ -218,14 +218,14 @@ module mkSchedulerTop#(SchedulerTopIndication indication)(SchedulerTop);
         mac[0].rx(3, v);
         //$display("Getting from (4, 0) to (0, 3)");
     endrule
-*/
+
     rule rx_rule_1_0;
         let v <- toGet((wire_fifo[0])[0]).get;
         mac[1].rx(0, v);
         //$display("Getting from (0, 0) to (1, 0)");
     endrule
 
-/*    rule rx_rule_1_1;
+    rule rx_rule_1_1;
         let v <- toGet((wire_fifo[2])[1]).get;
         mac[1].rx(1, v);
         //$display("Getting from (2, 1) to (1, 1)");
@@ -314,7 +314,7 @@ module mkSchedulerTop#(SchedulerTopIndication indication)(SchedulerTop);
         mac[4].rx(3, v);
         //$display("Getting from (3, 3) to (4, 3)");
     endrule
-*/
+
 `endif
 
 `ifdef DEBUG_SCHEDULER

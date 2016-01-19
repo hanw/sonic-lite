@@ -8,21 +8,22 @@ import DefaultValue::*;
 import SchedulerTypes::*;
 import Scheduler::*;
 import RingBufferTypes::*;
+import Addresses::*;
 
 import AlteraMacWrap::*;
 import EthMac::*;
 
 interface Mac;
-	interface Get#(PacketDataT#(64)) debug_sending_to_phy;
-	interface Get#(PacketDataT#(64)) debug_received_from_phy;
+//	interface Get#(PacketDataT#(64)) debug_sending_to_phy;
+//	interface Get#(PacketDataT#(64)) debug_received_from_phy;
     (* always_ready, always_enabled *)
     method Bit#(72) tx(Integer port_index);
     (* always_ready, always_enabled *)
     method Action rx(Integer port_index, Bit#(72) v);
+	method Action start_mac_rx(ServerIndex host_index);
 endinterface
 
-module mkMac#(Scheduler#(SchedReqResType, SchedReqResType,
-                         ReadReqType, ReadResType,
+module mkMac#(Scheduler#(ReadReqType, ReadResType,
                          WriteReqType, WriteResType) scheduler,
               Clock txClock, Reset txReset, Clock rxClock, Reset rxReset) (Mac);
 
@@ -40,14 +41,14 @@ module mkMac#(Scheduler#(SchedReqResType, SchedReqResType,
     Reg#(Bool) tx_verbose <- mkReg(False, clocked_by txClock, reset_by txReset);
 
     Vector#(NUM_OF_PORTS, Vector#(2, FIFO#(PacketDataT#(64)))) mac_in_buffer
-    <- replicateM
-               (replicateM(mkSizedFIFO(2, clocked_by txClock, reset_by txReset)));
+       <- replicateM(replicateM(mkSizedFIFO(fromInteger(valueof(DEFAULT_FIFO_LEN)),
+		              clocked_by txClock, reset_by txReset)));
 
     Vector#(NUM_OF_PORTS, Reg#(Bit#(2))) turn
                     <- replicateM(mkReg(0, clocked_by txClock, reset_by txReset));
 
-	SyncFIFOIfc#(PacketDataT#(64)) debug_sending_to_phy_fifo
-	               <- mkSyncFIFO(16, txClock, txReset, defaultClock);
+//	SyncFIFOIfc#(PacketDataT#(64)) debug_sending_to_phy_fifo
+//	               <- mkSyncFIFO(16, txClock, txReset, defaultClock);
 
     rule start_polling_tx_buffer_port_1;
         scheduler.mac_read_request_port_1.put(makeReadReq(READ));
@@ -94,13 +95,13 @@ module mkMac#(Scheduler#(SchedReqResType, SchedReqResType,
         end
 
         PacketDataT#(64) data1 = PacketDataT {
-                                            data : d.data.payload[63:0],
+                                            data : d.data.payload[127:64],
                                             mask : 0,
                                             sop  : start_bit[0],
                                             eop  : end_bit[0]
                                           };
         PacketDataT#(64) data2 = PacketDataT {
-                                            data : d.data.payload[127:64],
+                                            data : d.data.payload[63:0],
                                             mask : 0,
                                             sop  : start_bit[1],
                                             eop  : end_bit[1]
@@ -139,13 +140,13 @@ module mkMac#(Scheduler#(SchedReqResType, SchedReqResType,
         end
 
         PacketDataT#(64) data1 = PacketDataT {
-                                            data : d.data.payload[63:0],
+                                            data : d.data.payload[127:64],
                                             mask : 0,
                                             sop  : start_bit[0],
                                             eop  : end_bit[0]
                                           };
         PacketDataT#(64) data2 = PacketDataT {
-                                            data : d.data.payload[127:64],
+                                            data : d.data.payload[63:0],
                                             mask : 0,
                                             sop  : start_bit[1],
                                             eop  : end_bit[1]
@@ -184,13 +185,13 @@ module mkMac#(Scheduler#(SchedReqResType, SchedReqResType,
         end
 
         PacketDataT#(64) data1 = PacketDataT {
-                                            data : d.data.payload[63:0],
+                                            data : d.data.payload[127:64],
                                             mask : 0,
                                             sop  : start_bit[0],
                                             eop  : end_bit[0]
                                           };
         PacketDataT#(64) data2 = PacketDataT {
-                                            data : d.data.payload[127:64],
+                                            data : d.data.payload[63:0],
                                             mask : 0,
                                             sop  : start_bit[1],
                                             eop  : end_bit[1]
@@ -229,13 +230,13 @@ module mkMac#(Scheduler#(SchedReqResType, SchedReqResType,
         end
 
         PacketDataT#(64) data1 = PacketDataT {
-                                            data : d.data.payload[63:0],
+                                            data : d.data.payload[127:64],
                                             mask : 0,
                                             sop  : start_bit[0],
                                             eop  : end_bit[0]
                                           };
         PacketDataT#(64) data2 = PacketDataT {
-                                            data : d.data.payload[127:64],
+                                            data : d.data.payload[63:0],
                                             mask : 0,
                                             sop  : start_bit[1],
                                             eop  : end_bit[1]
@@ -280,19 +281,40 @@ module mkMac#(Scheduler#(SchedReqResType, SchedReqResType,
     Vector#(NUM_OF_PORTS, Reg#(Bit#(2))) b_count
                    <- replicateM(mkReg(0, clocked_by rxClock, reset_by rxReset));
 
-	SyncFIFOIfc#(PacketDataT#(64)) debug_received_from_phy_fifo
-	               <- mkSyncFIFO(16, rxClock, rxReset, defaultClock);
+	Vector#(NUM_OF_PORTS, Reg#(Bit#(1))) drop_pkt
+                   <- replicateM(mkReg(0, clocked_by rxClock, reset_by rxReset));
+
+	Reg#(ServerIndex) host_index <- mkReg(0, clocked_by rxClock, reset_by rxReset);
+
+	Reg#(Bit#(1)) start_rx <- mkReg(0, clocked_by rxClock, reset_by rxReset);
+
+//	SyncFIFOIfc#(PacketDataT#(64)) debug_received_from_phy_fifo
+//	               <- mkSyncFIFO(16, rxClock, rxReset, defaultClock);
 
     for (Integer i = 0; i < fromInteger(valueof(NUM_OF_PORTS)); i = i + 1)
     begin
-        rule send_blocks_to_dst;
+        rule send_blocks_to_dst (start_rx == 1);
             let d <- eth_mac[i].packet_rx.get;
 
+			Bit#(1) drop = drop_pkt[i];
 			//debug_received_from_phy_fifo.enq(d);
 
             if (rx_verbose)
                 $display("[MAC] output from mac layer %d %d %x",
                            d.sop, d.eop, d.data);
+
+			if (d.sop == 1 && d.eop == 0)
+			begin
+				MAC dst_mac_addr = d.data[63:16];
+				if (dst_mac_addr != mac_address(host_index))
+				begin
+					drop_pkt[i] <= 1;
+					drop = 1;
+				end
+			end
+
+			else if (d.sop == 0 && d.eop == 1)
+				drop_pkt[i] <= 0;
 
             if (b_count[i] == 0)
             begin
@@ -304,7 +326,7 @@ module mkMac#(Scheduler#(SchedReqResType, SchedReqResType,
             begin
                 b_count[i] <= (b_count[i] + 1) & 1; //same as mod 2
 
-                Payload pload = {d.data, mac_out_buffer[i].data};
+                Payload pload = {mac_out_buffer[i].data, d.data};
 
                 Bit#(1) start_bit = 0;
                 Bit#(1) end_bit = 0;
@@ -328,6 +350,8 @@ module mkMac#(Scheduler#(SchedReqResType, SchedReqResType,
                     end_bit = 1;
                 end
 
+				if (drop == 0)
+				begin
                 case (i)
                     0 : scheduler.mac_write_request_port_1.put
                                       (makeWriteReq(start_bit, end_bit, pload));
@@ -338,6 +362,7 @@ module mkMac#(Scheduler#(SchedReqResType, SchedReqResType,
                     3 : scheduler.mac_write_request_port_4.put
                                       (makeWriteReq(start_bit, end_bit, pload));
                 endcase
+				end
 
                 if (rx_verbose)
                     $display("[MAC] data = %d %d %x i = %d",
@@ -361,6 +386,11 @@ module mkMac#(Scheduler#(SchedReqResType, SchedReqResType,
         eth_mac[port_index].rx(v);
     endmethod
 
-	interface Get debug_sending_to_phy = toGet(debug_sending_to_phy_fifo);
-	interface Get debug_received_from_phy = toGet(debug_received_from_phy_fifo);
+	method Action start_mac_rx(ServerIndex index);
+		host_index <= index;
+		start_rx <= 1;
+	endmethod
+
+//	interface Get debug_sending_to_phy = toGet(debug_sending_to_phy_fifo);
+//	interface Get debug_received_from_phy = toGet(debug_received_from_phy_fifo);
 endmodule

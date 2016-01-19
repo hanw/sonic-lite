@@ -5,6 +5,7 @@ import GetPut::*;
 import DefaultValue::*;
 
 import RingBufferTypes::*;
+import GlobalClock::*;
 
 interface RingBuffer#(type readReqType, type readResType,
                       type writeReqType, type writeResType);
@@ -65,6 +66,7 @@ module mkRingBuffer#(Integer size)
     FIFO#(WriteReqType) write_request_fifo <- mkFIFO;
     FIFO#(WriteResType) write_response_fifo <- mkFIFO;
 
+	GlobalClock clk <- mkGlobalClock;
 /*-------------------------------------------------------------------------------*/
     Reg#(Bit#(1)) write_in_progress <- mkReg(0);
     Reg#(Address) w_offset <- mkReg(0);
@@ -140,6 +142,7 @@ module mkRingBuffer#(Integer size)
 /*-------------------------------------------------------------------------------*/
     Reg#(Bit#(1)) read_in_progress <- mkReg(0);
     Reg#(Address) r_offset <- mkReg(0);
+    Reg#(Address) r_offset_1 <- mkReg(0);
     Reg#(Address) r_max_offset <- mkReg(0);
     Reg#(Bit#(1)) next_round <- mkReg(1);
 
@@ -149,6 +152,9 @@ module mkRingBuffer#(Integer size)
         if (!is_empty)
         begin
             read_in_progress <= 1;
+			r_offset <= 0;
+			r_offset_1 <= 1;
+			r_max_offset <= 0;
             Address addr = (truncate(tail) & (fromInteger(size)-1)) << 5;
             len_buffer.portB.request.put(makeBRAMLenRequest(False, addr, 0));
         end
@@ -165,8 +171,7 @@ module mkRingBuffer#(Integer size)
             r_max_offset <= (len >> fromInteger(valueof(BUS_WIDTH_POW_OF_2))) + 1;
     endrule
 
-    rule read_data_req (r_offset < r_max_offset && next_round == 1);
-        next_round <= 0;
+    rule read_data_req (r_offset < r_max_offset);
         Address addr = ((truncate(tail) & (fromInteger(size)-1))
                      << fromInteger(valueof(MAX_PKT_LEN_POW_OF_2)))
                      + (r_offset << fromInteger(valueof(BUS_WIDTH_POW_OF_2)));
@@ -177,9 +182,9 @@ module mkRingBuffer#(Integer size)
     rule read_data_res;
         let d <- ring_buffer.portB.response.get;
 
-        next_round <= 1;
+		r_offset_1 <= r_offset_1 + 1;
 
-        if (r_offset - 1 == 0 && r_offset < r_max_offset)
+        if (r_offset_1 - 1 == 0 && r_offset_1 < r_max_offset)
         begin
             RingBufferDataT data = RingBufferDataT {
                               sop : 1,
@@ -189,7 +194,7 @@ module mkRingBuffer#(Integer size)
             read_response_fifo.enq(makeReadRes(data));
         end
 
-        else if (r_offset - 1 > 0 && r_offset < r_max_offset)
+        else if (r_offset_1 - 1 > 0 && r_offset_1 < r_max_offset)
         begin
             RingBufferDataT data = RingBufferDataT {
                               sop : 0,
@@ -199,7 +204,7 @@ module mkRingBuffer#(Integer size)
             read_response_fifo.enq(makeReadRes(data));
         end
 
-        else if (r_offset - 1 > 0 && r_offset == r_max_offset)
+        else if (r_offset_1 - 1 > 0 && r_offset_1 == r_max_offset)
         begin
             RingBufferDataT data = RingBufferDataT {
                               sop : 0,
@@ -208,12 +213,10 @@ module mkRingBuffer#(Integer size)
                              };
             read_response_fifo.enq(makeReadRes(data));
             read_in_progress <= 0;
-            r_offset <= 0;
-            r_max_offset <= 0;
             tail <= tail + 1;
         end
 
-        else if (r_offset - 1 == 0 && r_offset == r_max_offset)
+        else if (r_offset_1 - 1 == 0 && r_offset_1 == r_max_offset)
         begin
             RingBufferDataT data = RingBufferDataT {
                               sop : 1,
@@ -222,8 +225,6 @@ module mkRingBuffer#(Integer size)
                              };
             read_response_fifo.enq(makeReadRes(data));
             read_in_progress <= 0;
-            r_offset <= 0;
-            r_max_offset <= 0;
             tail <= tail + 1;
         end
     endrule

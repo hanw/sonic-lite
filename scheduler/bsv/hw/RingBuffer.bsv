@@ -34,6 +34,7 @@ module mkRingBuffer#(Integer size)
     BRAM_Configure cfg = defaultValue;
     cfg.memorySize = fromInteger(size)
                    * fromInteger(valueof(MAX_PKT_LEN));
+	cfg.outFIFODepth = 8;
 
     BRAM2Port#(Address, Payload) ring_buffer <- mkBRAM2Server(cfg);
 
@@ -50,6 +51,7 @@ module mkRingBuffer#(Integer size)
 
     BRAM_Configure cfg1 = defaultValue;
     cfg1.memorySize = fromInteger(size) * 32;
+	cfg1.outFIFODepth = 8;
 
     BRAM2Port#(Address, Bit#(32)) len_buffer <- mkBRAM2Server(cfg1);
 
@@ -58,12 +60,12 @@ module mkRingBuffer#(Integer size)
     Reg#(Bit#(64)) tail <- mkReg(0);
 
     Bool is_empty = (head == tail);
-    Bool is_full = (head == tail + fromInteger(size));
+    Bool is_full = (head == (tail + fromInteger(size)));
 
-    FIFO#(ReadReqType) read_request_fifo <- mkFIFO;
-    FIFO#(ReadResType) read_response_fifo <- mkFIFO;
-    FIFO#(WriteReqType) write_request_fifo <- mkFIFO;
-    FIFO#(WriteResType) write_response_fifo <- mkFIFO;
+    FIFO#(ReadReqType) read_request_fifo <- mkSizedFIFO(8);
+    FIFO#(ReadResType) read_response_fifo <- mkSizedFIFO(8);
+    FIFO#(WriteReqType) write_request_fifo <- mkSizedFIFO(8);
+    FIFO#(WriteResType) write_response_fifo <- mkSizedFIFO(8);
 
 /*-------------------------------------------------------------------------------*/
     Reg#(Bit#(1)) write_in_progress <- mkReg(0);
@@ -89,9 +91,20 @@ module mkRingBuffer#(Integer size)
             else if ((w_req.data.sop == 0 && w_req.data.eop == 0)
                     && write_in_progress == 1)
             begin
-                write_flag = True;
-                w_offset <= w_offset + 1;
-                length <= length + fromInteger(valueof(BUS_WIDTH));
+				if (length == ((fromInteger(valueof(MAX_PKT_LEN)) >>
+				                fromInteger(valueof(BUS_WIDTH_POW_OF_2)))-1))
+				begin
+					w_offset <= 0;
+					write_in_progress <= 0;
+					length <= 0;
+					write_flag = False;
+				end
+				else
+				begin
+					write_flag = True;
+					w_offset <= w_offset + 1;
+					length <= length + fromInteger(valueof(BUS_WIDTH));
+				end
             end
 
             else if ((w_req.data.sop == 0 && w_req.data.eop == 1)
@@ -130,7 +143,7 @@ module mkRingBuffer#(Integer size)
 					     << fromInteger(valueof(MAX_PKT_LEN_POW_OF_2)))
                          + (w_offset << fromInteger(valueof(BUS_WIDTH_POW_OF_2)));
             ring_buffer.portA.request.put(makeBRAMDataRequest(True, addr,
-                                                               w_req.data.payload));
+                                                             w_req.data.payload));
             end
         end
         //else
@@ -140,8 +153,8 @@ module mkRingBuffer#(Integer size)
 /*-------------------------------------------------------------------------------*/
     Reg#(Bit#(1)) read_in_progress <- mkReg(0);
     Reg#(Address) r_offset <- mkReg(0);
+    Reg#(Address) r_offset_1 <- mkReg(0);
     Reg#(Address) r_max_offset <- mkReg(0);
-    Reg#(Bit#(1)) next_round <- mkReg(1);
 
     rule read_req (read_in_progress == 0);
         let r_req <- toGet(read_request_fifo).get;
@@ -149,6 +162,9 @@ module mkRingBuffer#(Integer size)
         if (!is_empty)
         begin
             read_in_progress <= 1;
+			r_offset <= 0;
+			r_offset_1 <= 1;
+			r_max_offset <= 0;
             Address addr = (truncate(tail) & (fromInteger(size)-1)) << 5;
             len_buffer.portB.request.put(makeBRAMLenRequest(False, addr, 0));
         end
@@ -165,8 +181,7 @@ module mkRingBuffer#(Integer size)
             r_max_offset <= (len >> fromInteger(valueof(BUS_WIDTH_POW_OF_2))) + 1;
     endrule
 
-    rule read_data_req (r_offset < r_max_offset && next_round == 1);
-        next_round <= 0;
+    rule read_data_req (r_offset < r_max_offset);
         Address addr = ((truncate(tail) & (fromInteger(size)-1))
                      << fromInteger(valueof(MAX_PKT_LEN_POW_OF_2)))
                      + (r_offset << fromInteger(valueof(BUS_WIDTH_POW_OF_2)));
@@ -177,9 +192,9 @@ module mkRingBuffer#(Integer size)
     rule read_data_res;
         let d <- ring_buffer.portB.response.get;
 
-        next_round <= 1;
+		r_offset_1 <= r_offset_1 + 1;
 
-        if (r_offset - 1 == 0 && r_offset < r_max_offset)
+        if (r_offset_1 - 1 == 0 && r_offset_1 < r_max_offset)
         begin
             RingBufferDataT data = RingBufferDataT {
                               sop : 1,
@@ -189,7 +204,7 @@ module mkRingBuffer#(Integer size)
             read_response_fifo.enq(makeReadRes(data));
         end
 
-        else if (r_offset - 1 > 0 && r_offset < r_max_offset)
+        else if (r_offset_1 - 1 > 0 && r_offset_1 < r_max_offset)
         begin
             RingBufferDataT data = RingBufferDataT {
                               sop : 0,
@@ -199,7 +214,7 @@ module mkRingBuffer#(Integer size)
             read_response_fifo.enq(makeReadRes(data));
         end
 
-        else if (r_offset - 1 > 0 && r_offset == r_max_offset)
+        else if (r_offset_1 - 1 > 0 && r_offset_1 == r_max_offset)
         begin
             RingBufferDataT data = RingBufferDataT {
                               sop : 0,
@@ -208,12 +223,10 @@ module mkRingBuffer#(Integer size)
                              };
             read_response_fifo.enq(makeReadRes(data));
             read_in_progress <= 0;
-            r_offset <= 0;
-            r_max_offset <= 0;
             tail <= tail + 1;
         end
 
-        else if (r_offset - 1 == 0 && r_offset == r_max_offset)
+        else if (r_offset_1 - 1 == 0 && r_offset_1 == r_max_offset)
         begin
             RingBufferDataT data = RingBufferDataT {
                               sop : 1,
@@ -222,8 +235,6 @@ module mkRingBuffer#(Integer size)
                              };
             read_response_fifo.enq(makeReadRes(data));
             read_in_progress <= 0;
-            r_offset <= 0;
-            r_max_offset <= 0;
             tail <= tail + 1;
         end
     endrule

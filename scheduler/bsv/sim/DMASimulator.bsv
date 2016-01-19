@@ -8,26 +8,23 @@ import SchedulerTypes::*;
 import RingBufferTypes::*;
 import Addresses::*;
 
-typedef 5 NUM_OF_SERVERS_1;
-
 typedef struct {
-    Bit#(112) payload;
-    IP dst_ip;
-    IP src_ip;
-    Bit#(16) header_checksum;
-    Bit#(8) protocol;
-    Bit#(8) ttl;
-    Bit#(13) frag_offset;
-    Bit#(3) flags;
-    Bit#(16) identification;
-    Bit#(16) total_len;
-    Bit#(8) diffserv;
-    Bit#(4) ihl;
-    Bit#(4) version;
-
-    Bit#(16) ether_type;
-    MAC src_mac;
     MAC dst_mac;
+    MAC src_mac;
+    Bit#(16) ether_type;
+    Bit#(4) version;
+    Bit#(4) ihl;
+    Bit#(8) diffserv;
+    Bit#(16) total_len;
+    Bit#(16) identification;
+    Bit#(3) flags;
+    Bit#(13) frag_offset;
+    Bit#(8) ttl;
+    Bit#(8) protocol;
+    Bit#(16) header_checksum;
+    IP src_ip;
+    IP dst_ip;
+    Bit#(112) payload;
 } Header deriving(Bits, Eq);
 
 instance DefaultValue#(Header);
@@ -56,6 +53,8 @@ interface DMASimulator;
     method Action stop();
 endinterface
 
+// 1 2 3 4 6 9 13 20 34 74
+
 module mkDMASimulator#(Integer host_index,
     Scheduler#(SchedReqResType, SchedReqResType,
                ReadReqType, ReadResType,
@@ -63,7 +62,7 @@ module mkDMASimulator#(Integer host_index,
 
     Reg#(Bool) verbose <- mkReg(False);
 
-    Reg#(Bit#(32)) count <- mkReg(3);
+    Reg#(Bit#(32)) count <- mkReg(9);
     Reg#(Bit#(1)) start_flag <- mkReg(0);
 
 	Reg#(Bit#(1)) wait_for_pkt_trans_to_complete <- mkReg(0);
@@ -80,9 +79,11 @@ module mkDMASimulator#(Integer host_index,
 
     Reg#(Bit#(64)) pkt_count <- mkReg(0);
 
+	Vector#(NUM_OF_SERVERS, Reg#(Bit#(32))) counter <- replicateM(mkReg(0));
+
 	rule counter_increment (start_flag == 1
 		                    && wait_for_pkt_trans_to_complete == 0);
-		if (count == 3)
+		if (count == 9)
 		begin
 			count <= 0;
 			start_sending_new_pkt <= 1;
@@ -102,23 +103,29 @@ module mkDMASimulator#(Integer host_index,
             init_header <= 1;
             block_count <= 0;
 
-            let rand_num <- rand_dst_index.next();
-			ServerIndex r = truncate(rand_num %
-			                fromInteger(valueof(NUM_OF_SERVERS_1)));
-            if (r == fromInteger(host_index))
-            begin
-                dst_index <= (r + 1) % fromInteger(valueof(NUM_OF_SERVERS_1));
-                if (verbose)
-                    $display("[DMA (%d)] dst index = %d", host_index,
-                                  (r + 1) % fromInteger(valueof(NUM_OF_SERVERS_1)));
-            end
-            else
-            begin
-                dst_index <= r;
-                if (verbose)
-                    $display("[DMA (%d)] dst index = %d", host_index, r);
-            end
-
+//            let rand_num <- rand_dst_index.next();
+//			ServerIndex r = truncate(rand_num %
+//			                fromInteger(valueof(NUM_OF_SERVERS)));
+//            if (r == fromInteger(host_index))
+//            begin
+//                dst_index <= (r + 1) % fromInteger(valueof(NUM_OF_SERVERS));
+//                if (verbose)
+//                    $display("[DMA (%d)] dst index = %d", host_index,
+//                                  (r + 1) % fromInteger(valueof(NUM_OF_SERVERS)));
+//				counter[((r+1) % fromInteger(valueof(NUM_OF_SERVERS)))] <=
+//				     counter[((r+1) % fromInteger(valueof(NUM_OF_SERVERS)))] + 1;
+//
+//            end
+//            else
+//            begin
+//                dst_index <= r;
+//                if (verbose)
+//                    $display("[DMA (%d)] dst index = %d", host_index, r);
+//				counter[r] <= counter[r] + 1;
+//            end
+			dst_index <= (fromInteger(host_index) + 1) % fromInteger(valueof(NUM_OF_SERVERS));
+				counter[((fromInteger(host_index)+1) % fromInteger(valueof(NUM_OF_SERVERS)))] <=
+				     counter[((fromInteger(host_index)+1) % fromInteger(valueof(NUM_OF_SERVERS)))] + 1;
             num_of_blocks_to_transmit <= 4; /* 64 byte packets */
 
     endrule
@@ -142,7 +149,7 @@ module mkDMASimulator#(Integer host_index,
         if (block_count == 0)
         begin
             scheduler.dma_write_request.put
-                    (makeWriteReq(1, 0, header_data[127:0]));
+                    (makeWriteReq(1, 0, header_data[383:256]));
         end
         else if (block_count == 1)
         begin
@@ -152,7 +159,7 @@ module mkDMASimulator#(Integer host_index,
         else if (block_count == 2)
         begin
             scheduler.dma_write_request.put
-                    (makeWriteReq(0, 0, header_data[383:256]));
+                    (makeWriteReq(0, 0, header_data[127:0]));
         end
         else if (block_count == num_of_blocks_to_transmit - 1)
         begin
@@ -186,5 +193,9 @@ module mkDMASimulator#(Integer host_index,
             $display("[DMA (%d)] Stopping..........................", host_index);
         start_flag <= 0;
         $display("[DMA (%d)] Packets transmitted = %d", host_index, pkt_count);
+		for (Integer i = 0; i < fromInteger(valueof(NUM_OF_SERVERS)); i = i + 1)
+		begin
+			$display("[DMA (%d)] DST %d COUNT %d", host_index, i, counter[i]);
+		end
     endmethod
 endmodule

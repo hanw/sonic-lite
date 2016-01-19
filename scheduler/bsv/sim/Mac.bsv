@@ -90,13 +90,13 @@ module mkMac#(Integer host_index,
         end
 
         PacketDataT#(64) data1 = PacketDataT {
-                                            data : d.data.payload[63:0],
+                                            data : d.data.payload[127:64],
                                             mask : 0,
                                             sop  : start_bit[0],
                                             eop  : end_bit[0]
                                           };
         PacketDataT#(64) data2 = PacketDataT {
-                                            data : d.data.payload[127:64],
+                                            data : d.data.payload[63:0],
                                             mask : 0,
                                             sop  : start_bit[1],
                                             eop  : end_bit[1]
@@ -135,13 +135,13 @@ module mkMac#(Integer host_index,
         end
 
         PacketDataT#(64) data1 = PacketDataT {
-                                            data : d.data.payload[63:0],
+                                            data : d.data.payload[127:64],
                                             mask : 0,
                                             sop  : start_bit[0],
                                             eop  : end_bit[0]
                                           };
         PacketDataT#(64) data2 = PacketDataT {
-                                            data : d.data.payload[127:64],
+                                            data : d.data.payload[63:0],
                                             mask : 0,
                                             sop  : start_bit[1],
                                             eop  : end_bit[1]
@@ -180,13 +180,13 @@ module mkMac#(Integer host_index,
         end
 
         PacketDataT#(64) data1 = PacketDataT {
-                                            data : d.data.payload[63:0],
+                                            data : d.data.payload[127:64],
                                             mask : 0,
                                             sop  : start_bit[0],
                                             eop  : end_bit[0]
                                           };
         PacketDataT#(64) data2 = PacketDataT {
-                                            data : d.data.payload[127:64],
+                                            data : d.data.payload[63:0],
                                             mask : 0,
                                             sop  : start_bit[1],
                                             eop  : end_bit[1]
@@ -225,13 +225,13 @@ module mkMac#(Integer host_index,
         end
 
         PacketDataT#(64) data1 = PacketDataT {
-                                            data : d.data.payload[63:0],
+                                            data : d.data.payload[127:64],
                                             mask : 0,
                                             sop  : start_bit[0],
                                             eop  : end_bit[0]
                                           };
         PacketDataT#(64) data2 = PacketDataT {
-                                            data : d.data.payload[127:64],
+                                            data : d.data.payload[63:0],
                                             mask : 0,
                                             sop  : start_bit[1],
                                             eop  : end_bit[1]
@@ -293,7 +293,7 @@ module mkMac#(Integer host_index,
             begin
                 b_count[i] <= (b_count[i] + 1) & 1; //same as mod 2
 
-                Payload pload = {d.data, mac_out_buffer[i].data};
+                Payload pload = {mac_out_buffer[i].data, d.data};
 
                 Bit#(1) start_bit = 0;
                 Bit#(1) end_bit = 0;
