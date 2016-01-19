@@ -31,7 +31,11 @@ import SpecialFIFOs::*;
 import Connectable::*;
 import GetPut::*;
 import Pipe::*;
+`ifdef NUMBER_OF_ALTERA_PORTS
+import Altera10GPhy3::*;
+`else
 import ALTERA_ETH_10GBASER_WRAPPER::*;
+`endif
 
 `ifdef NUMBER_OF_ALTERA_PORTS
 typedef `NUMBER_OF_ALTERA_PORTS NumPorts;
