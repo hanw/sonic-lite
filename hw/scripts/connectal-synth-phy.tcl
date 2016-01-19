@@ -57,12 +57,18 @@ proc create_altera_10gber_phy {core_version ip_name channels mode} {
 
 regexp {[\.0-9]+} $quartus(version) core_version
 
+if {[info exists AlteraPhyPortCount]} {
+    set portCount $AlteraPhyPortCount
+} else {
+    set portCount 4
+}
+
 if {[info exists SYNTHESIS]} {
     puts "Genereate synthesis model.."
-    create_altera_10gber_phy $core_version altera_xcvr_10gbaser_wrapper 4 synthesis
+    create_altera_10gber_phy $core_version altera_xcvr_10gbaser_wrapper $portCount synthesis
 }
 
 if {[info exists SIMULATION]} {
     puts "Genereate simulation model.."
-    create_altera_10gber_phy $core_version altera_xcvr_10gbaser_wrapper 4 simulation
+    create_altera_10gber_phy $core_version altera_xcvr_10gbaser_wrapper $portCount simulation
 }
