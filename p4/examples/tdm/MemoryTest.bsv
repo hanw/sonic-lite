@@ -49,6 +49,7 @@ import MMU::*;
 import MemMgmt::*;
 import IPv4Parser::*;
 import Tap::*;
+import GenericMatchTable::*;
 
 `ifndef SIMULATION
 import AlteraMacWrap::*;
@@ -109,12 +110,21 @@ module mkMemoryTest#(MemoryTestIndication indication, MemMgmtIndication memTestI
 
    TapPktRead tap <- mkTapPktRead();
    Parser ipv4Parser <- mkParser();
+
+   // Ingress Pipeline
+   MatchTable matchTable <- mkMatchTable();
+
+   // Egress Pipeline
+   ModifyMac modMac <- mkModifyMac();
+
    StoreAndFwdFromRingToMem ingress <- mkStoreAndFwdFromRingToMem(memTestInd);
    StoreAndFwdFromMemToRing egress <- mkStoreAndFwdFromMemToRing();
    StoreAndFwdFromRingToMac ringToMac <- mkStoreAndFwdFromRingToMac(txClock, txReset);
-   SharedBuffer#(12, 128, 1) mem <- mkSharedBuffer(vec(egress.readClient), vec(ingress.writeClient), memTestInd, memServerInd, mmuInd);
+
+   SharedBuffer#(12, 128, 1) mem <- mkSharedBuffer(vec(egress.readClient), vec(ingress.writeClient, modMac.writeClient), memTestInd, memServerInd, mmuInd);
 
    mkConnection(pktgen.writeClient, incoming_buff.writeServer);
+
    //mkConnection(ingress.readClient, incoming_buff.readServer);
    mkConnection(tap.readClient, incoming_buff.readServer);
    mkConnection(ingress.readClient, tap.readServer);
@@ -123,15 +133,11 @@ module mkMemoryTest#(MemoryTestIndication indication, MemMgmtIndication memTestI
    mkConnection(ingress.mallocReq, mem.mallocReq);
    mkConnection(mem.mallocDone, ingress.mallocDone);
 
-   rule get_ipv4;
-      let v <- toGet(ipv4Parser.parsedOut_ipv4_dstAddr).get;
-      $display("MemoryTest:: get ipv4 %h", v);
-   endrule
 //   mkConnection(egress.writeClient, outgoing_buff.writeServer);
 //   mkConnection(ringToMac.readClient, outgoing_buff.readServer);
 //   mkConnection(ingress.eventPktCommitted, egress.eventPktSend);
 
-   TDM sched <- mkTDM(ingress, egress);
+   TDM sched <- mkTDM(ingress, egress, ipv4Parser, modMac);
 
 `ifndef SIMULATION
    mkConnection(ringToMac.macTx, mac[0].packet_tx);
@@ -142,7 +148,12 @@ module mkMemoryTest#(MemoryTestIndication indication, MemMgmtIndication memTestI
    endrule
 `endif
 
-   MemoryAPI api <- mkMemoryAPI(indication, pktgen, mem);
+   rule read_flow_id;
+      let v <- toGet(matchTable.entry_added).get;
+      indication.addEntryResp(v);
+   endrule
+
+   MemoryAPI api <- mkMemoryAPI(indication, pktgen, mem, matchTable);
 
    interface request = api.request;
 `ifndef SIMULATION

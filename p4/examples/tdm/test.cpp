@@ -40,6 +40,7 @@ static MemoryTestRequestProxy *device = 0;
 uint16_t flowid;
 sem_t alloc_sem;
 sem_t free_sem;
+sem_t flow_sem;
 
 void device_writePacketData(uint64_t* data, uint8_t* mask, int sop, int eop) {
     device->writePacketData(data, mask, sop, eop);
@@ -50,6 +51,10 @@ class MemoryTestIndication : public MemoryTestIndicationWrapper
 public:
     virtual void read_version_resp(uint32_t a) {
         fprintf(stderr, "version %x\n", a);
+    }
+    virtual void addEntryResp(uint16_t a) {
+        fprintf(stderr, "add flow id %x\n", a);
+        sem_post(&flow_sem);
     }
     MemoryTestIndication(unsigned int id) : MemoryTestIndicationWrapper(id) {}
 };
@@ -86,6 +91,8 @@ void usage (const char *program_name) {
 struct arg_info {
     double rate;
     int tracelen;
+    bool tableadd;
+    bool tabledel;
 };
 
 static void
@@ -97,6 +104,9 @@ parse_options(int argc, char *argv[], char **pcap_file, struct arg_info* info) {
         {"parser-test",         required_argument, 0, 'p'},
         {"pktgen-rate",         required_argument, 0, 'r'},
         {"pktgen-count",        required_argument, 0, 'n'},
+        {"table-add",           required_argument, 0, 'a'},
+        {"table-del",           required_argument, 0, 'd'},
+        {"table-mod",           required_argument, 0, 'm'},
         {0, 0, 0, 0}
     };
 
@@ -121,6 +131,12 @@ parse_options(int argc, char *argv[], char **pcap_file, struct arg_info* info) {
                 break;
             case 'n':
                 info->tracelen = strtol(optarg, NULL, 0);
+                break;
+            case 'a':
+                info->tableadd = true;
+                break;
+            case 'd':
+                info->tabledel = true;
                 break;
             default:
                 exit(EXIT_FAILURE);
@@ -162,14 +178,22 @@ int main(int argc, char **argv)
     if (arguments.rate && arguments.tracelen) {
         int idle = compute_idle(&pcap_info, arguments.rate, LINK_SPEED);
         device->start(arguments.tracelen, idle);
+        sem_wait(&alloc_sem);
+        device->free(0);
+        sem_wait(&free_sem);
+        device->free(1);
     }
 
-    sem_wait(&alloc_sem);
+    if (arguments.tableadd) {
+        MatchField fields = {dstip: 0x0200000a};
+        device->addEntry(0, fields);
+        sem_wait(&flow_sem);
+    }
 
-    device->free(0);
-    sem_wait(&free_sem);
+    if (arguments.tabledel) {
+        device->deleteEntry(0, flowid);
+    }
 
-    device->free(1);
     while(1) sleep(1);
     return 0;
 }

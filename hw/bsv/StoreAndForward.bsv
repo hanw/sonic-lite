@@ -194,8 +194,8 @@ module mkStoreAndFwdFromMemToRing(StoreAndFwdFromMemToRing)
       let pkt <- toGet(eventPktSendFifo).get;
       let bytesPerBeatMinusOne = fromInteger(valueOf(bytesPerBeat))-1;
       // roundup to 16 byte boundary
-      $display("StoreAndForward:: packetReadStart: %d", pkt.size);
       let burstLen = ((pkt.size + bytesPerBeatMinusOne) & ~(bytesPerBeatMinusOne));
+      $display("StoreAndForward:: packetReadStart: %h, burstLen = %h", pkt.size, burstLen);
       let mask = (1<< (pkt.size % fromInteger(valueOf(bytesPerBeat))))-1;
       readReqFifo.enq(MemRequest{sglId: pkt.id, offset: 0,
                                  burstLen: truncate(burstLen), tag: 0

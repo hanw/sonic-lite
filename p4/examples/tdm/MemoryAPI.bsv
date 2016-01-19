@@ -31,9 +31,11 @@ import Ethernet::*;
 import PacketBuffer::*;
 import PktGen::*;
 import SharedBuff::*;
+import GenericMatchTable::*;
 
 interface MemoryTestIndication;
    method Action read_version_resp(Bit#(32) version);
+   method Action addEntryResp(FlowId id);
 endinterface
 
 interface MemoryTestRequest;
@@ -43,14 +45,16 @@ interface MemoryTestRequest;
    method Action start(Bit#(32) iter, Bit#(32) ipg);
    method Action stop();
    method Action clear();
+   method Action addEntry(Bit#(32) name, MatchField fields);
+   method Action deleteEntry(Bit#(32) name, FlowId flow_id);
+   method Action modifyEntry(Bit#(32) name, FlowId flow_id, ActionArg actions);
 endinterface
 
 interface MemoryAPI;
    interface MemoryTestRequest request;
 endinterface
 
-module mkMemoryAPI#(MemoryTestIndication indication, PktGen pktgen, SharedBuffer#(12, 128, 1) mem)(MemoryAPI);
-
+module mkMemoryAPI#(MemoryTestIndication indication, PktGen pktgen, SharedBuffer#(12, 128, 1) mem, MatchTable match_table)(MemoryAPI);
    interface MemoryTestRequest request;
       method Action read_version();
          let v= `NicVersion;
@@ -70,5 +74,22 @@ module mkMemoryAPI#(MemoryTestIndication indication, PktGen pktgen, SharedBuffer
       method start = pktgen.start;
       method stop = pktgen.stop;
       method clear = pktgen.clear;
+      method Action addEntry(Bit#(32) table_name, MatchField fields);
+         $display("MemoryAPI:: added entry ", fshow(fields));
+         ActionArg args = ActionArg{egress_index: 4};
+         TableEntry entry = TableEntry{field: fields, argument: args };
+         match_table.add_entry.put(entry);
+      endmethod
+
+      method Action deleteEntry(Bit#(32) table_name, FlowId id);
+         $display("MemoryAPI:: delete entry flow id ", fshow(id));
+         match_table.delete_entry.put(id);
+      endmethod
+
+      method Action modifyEntry(Bit#(32) table_name, FlowId id, ActionArg args);
+         $display("MemoryAPI:: modify entry flow id ", fshow(id), " action ", fshow(args));
+         match_table.modify_entry.put(tuple2(id, args));
+      endmethod
+
    endinterface
 endmodule

@@ -35,6 +35,7 @@ import Ethernet::*;
 import MemoryAPI::*;
 import SharedBuff::*;
 import StoreAndForward::*;
+import IPv4Parser::*;
 
 `ifndef SIMULATION
 import AlteraMacWrap::*;
@@ -51,6 +52,8 @@ typedef 8 SlotLen;
 typedef struct {
    Bit#(TLog#(NumOfHosts)) host;
    Bit#(32) id;
+   Bit#(32) dstip;
+   Bit#(EtherLen) size;
 } FQWriteRequest deriving(Bits, Eq);
 
 typedef struct {
@@ -59,7 +62,19 @@ typedef struct {
 
 typedef struct {
    Bit#(32) id;
+   Bit#(32) dstip;
+   Bit#(EtherLen) size;
 } FQReadResp deriving(Bits, Eq);
+
+typedef struct {
+   Bit#(32) id;
+   Bool ready;
+} FQReady deriving(Bits, Eq);
+
+typedef struct {
+   Bit#(32) id;
+   Bit#(48) data;
+} ModifyMacReq deriving(Bits, Eq);
 
 interface TimeSlot;
    interface Get#(Bit#(TLog#(NumOfHosts))) currSlot;
@@ -100,25 +115,31 @@ interface ForwardQ;
 endinterface
 
 module mkForwardQ(ForwardQ);
-   Vector#(NumOfHosts, FIFOF#(Bit#(32))) fwdFifo <- replicateM(mkSizedFIFOF(16));
+   // Forward queue as name implies
+   Vector#(NumOfHosts, FIFOF#(FQReadResp)) fwdFifo <- replicateM(mkSizedFIFOF(16));
+   // ReadyFifo marks fwdFifo as ready to dequeue
+   // It serves as synchronization between queueing and packet modification pipeline
+   Vector#(NumOfHosts, FIFOF#(FQReady)) readyFifo <- replicateM(mkSizedFIFOF(16));
    FIFO#(FQReadResp) resp_fifo <- mkFIFO;
 
    interface Put req_w;
       method Action put(FQWriteRequest req);
          let hostIdx = req.host;
-         fwdFifo[hostIdx].enq(req.id);
+         fwdFifo[hostIdx].enq(FQReadResp{id: req.id, dstip: req.dstip, size: req.size});
       endmethod
    endinterface
    interface Put req_r;
       method Action put(FQReadRequest req);
          let hostIdx = req.host;
          if (fwdFifo[hostIdx].notEmpty) begin
-            resp_fifo.enq(FQReadResp{id:fwdFifo[hostIdx].first});
+            let v = fwdFifo[hostIdx].first;
+            resp_fifo.enq(FQReadResp{id: v.id, dstip: v.dstip, size: v.size});
             fwdFifo[hostIdx].deq;
          end
          else begin
             if (fwdFifo[0].notEmpty) begin
-               resp_fifo.enq(FQReadResp{id:fwdFifo[hostIdx].first});
+               let v = fwdFifo[0].first;
+               resp_fifo.enq(FQReadResp{id: v.id, dstip: v.dstip, size: v.size});
                fwdFifo[0].deq;
             end
          end
@@ -127,18 +148,51 @@ module mkForwardQ(ForwardQ);
    interface Get resp_r = toGet(resp_fifo);
 endmodule
 
+interface ModifyMac;
+   interface Put#(ModifyMacReq) modifyMacReq;
+   interface MemWriteClient#(`DataBusWidth) writeClient;
+endinterface
+module mkModifyMac(ModifyMac);
+   FIFO#(ModifyMacReq) modifyMacReqFifo <- mkFIFO;
+
+   // Memory Client
+   FIFO#(MemRequest) writeReqFifo <- mkSizedFIFO(4);
+   FIFO#(MemData#(`DataBusWidth)) writeDataFifo <- mkSizedFIFO(16);
+   FIFO#(Bit#(MemTagSize)) writeDoneFifo <- mkSizedFIFO(4);
+   MemWriteClient#(`DataBusWidth) dmaWriteClient = (interface MemWriteClient;
+   interface Get writeReq = toGet(writeReqFifo);
+   interface Get writeData = toGet(writeDataFifo);
+   interface Put writeDone = toPut(writeDoneFifo);
+   endinterface);
+
+   rule modifyMacAddress;
+      let req <- toGet(modifyMacReqFifo).get;
+      // FIXME: offset and mask
+      writeReqFifo.enq(MemRequest {sglId: req.id, offset: 0, 
+                                   burstLen: 1, tag: 0
+`ifdef BYTE_ENABLES
+                                   , firstbe: 'hffff, lastbe: 'hffff
+`endif
+                                  });
+      writeDataFifo.enq(MemData{data: extend(req.data), tag:0, last: True});
+   endrule
+
+   rule modifyMacDone;
+      let done <- toGet(writeDoneFifo).get;
+      $display("TDM:: modify mac done!");
+   endrule
+   interface Put modifyMacReq = toPut(modifyMacReqFifo);
+   interface writeClient = dmaWriteClient;
+endmodule
+
 interface TDM;
    // To Rings, doubt if we need these.
    interface Vector#(4, PktWriteClient) writeClients;
    // From Rings, doubt if we need these.
    interface Vector#(4, PktReadServer) readServers;
-
-   // Enqueue PacketInstance and fifo index
-   interface Put#(PacketInstance) enqueuePacket;
-
 endinterface
 
-module mkTDM#(StoreAndFwdFromRingToMem ingress, StoreAndFwdFromMemToRing egress)(TDM);
+module mkTDM#(StoreAndFwdFromRingToMem ingress, StoreAndFwdFromMemToRing egress, Parser parser, ModifyMac modMac)(TDM);
 
    let verbose = True;
    Reg#(Bit#(32)) cycle <- mkReg(0);
@@ -149,57 +203,32 @@ module mkTDM#(StoreAndFwdFromRingToMem ingress, StoreAndFwdFromMemToRing egress)
    TimeSlot timeSlot <- mkTimeSlot();
    ForwardQ fwdq <- mkForwardQ();
 
+   //! Schedule Table: support insert and lookup
+   //! Mac Table: support insert and lookup
+   // map(ipToIndex, ip)
+   // index = TableLookup(table, ip)
+
+   //! Function: ipToIndex
+   //! Currently, take low-order bits as indices
+   rule enqueuePacketInstance;
+      let v <- ingress.eventPktCommitted.get;
+      let ipv4 <- toGet(parser.parsedOut_ipv4_dstAddr).get;
+      fwdq.req_w.put(FQWriteRequest{host: truncate(ipv4), id: v.id,
+                                    dstip: ipv4, size: v.size});
+      if (verbose) $display("TDM:: %d enqueuePkt: %h %h %h", cycle, v.id, v.size, ipv4);
+   endrule
+
    rule slotRequest;
       let slot <- timeSlot.currSlot.get;
       fwdq.req_r.put(FQReadRequest{host:slot});
    endrule
-   //! Schedule Table: support insert and lookup
-   //! Mac Table: support insert and lookup
-
-   //! Function: ipToIndex
-
-   // Ingress Pipeline
-   // Save packet to Memory
-   // return PacketInstance
-
-   rule enqueuePacketInstance;
-      let v <- ingress.eventPktCommitted.get;
-      if (verbose) $display("TDM:: enqueuePkt: %h %h", v.id, v.size);
-      // read dstip
-   endrule
-
-   rule extract_dstip;
-      // extract ip
-      //fwdq.req_w.put(FQWriteRequest{host:, id: v.id});
-   endrule
 
    rule dequeuePacketInstance;
       let resp <- fwdq.resp_r.get;
-      PacketInstance pkt = PacketInstance{id: resp.id, size: 0};
-      egress.eventPktSend.put(pkt);
+      egress.eventPktSend.put(PacketInstance{id: resp.id, size: resp.size});
+      if (verbose) $display("TDM:: %d dequeuePkt: %h %h", cycle, resp.id, resp.size);
+      if (verbose) $display("TDM:: %d dequeuePkt: %h", cycle, resp.dstip);
    endrule
-
-   // fwdq.id to mem
-   // PacketInstance
-
-   // Packet Processing Pipeline
-   // extract ip header
-   // header = ExtractIP(id, offset, length)
-
-   // map(ipToIndex, ip)
-   // index = TableLookup(table, ip)
-
-   // modify_mac
-   // ModifyMac(id, offset, value)
-
-   //! tx to mac
-   //! TransmitPacket(id, slot, port);
-
 endmodule
 
-interface P4;
 
-endinterface
-module mkP4();
-
-endmodule
