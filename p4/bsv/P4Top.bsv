@@ -129,7 +129,7 @@ interface P4Top;
 endinterface
 
 //module mkP4Top#(Clock derivedClock, Reset derivedReset, P4TopIndication indication)(P4Top);
-module mkP4Top#(P4TopIndication indication, ConnectalMemory::MemServerIndication memServerIndication, MallocIndication mallocIndication)(P4Top);
+module mkP4Top#(P4TopIndication indication, ConnectalMemory::MemServerIndication memServerIndication)(P4Top);
 //module mkP4Top#(P4TopIndication indication)(P4Top);
    Clock defaultClock <- exposeCurrentClock();
    Reset defaultReset <- exposeCurrentReset();
@@ -242,7 +242,7 @@ module mkP4Top#(P4TopIndication indication, ConnectalMemory::MemServerIndication
       interface Put writeDone = toPut(writeDoneFifo);
    endinterface);
 
-   SharedBuffer#(12, 128, 1) buff <- mkSharedBuffer(vec(dmaClient), vec(dmaWriteClient), memServerIndication, mallocIndication);
+   SharedBuffer#(12, 128, 1) buff <- mkSharedBuffer(vec(dmaClient), vec(dmaWriteClient), memServerIndication);
 
 `ifdef DEBUG_BCAM
    BinaryCam#(1024, 9) bcam <- mkBinaryCam_1024_9();

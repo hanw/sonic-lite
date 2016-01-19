@@ -23,14 +23,14 @@ int quick_tx_send_packet(const void* buffer, int length) {
     return length;
 }
 
-bool read_pcap_file(const char* filename, void** buffer, long *length) {
+int read_pcap_file(const char* filename, void** buffer, long *length) {
     FILE *infile;
     long length_read;
 
     infile = fopen(filename, "r");
     if(infile == NULL) {
         printf("File does not exist!\n");
-        return false;
+        exit(-1);
     }
 
     fseek(infile, 0L, SEEK_END);
@@ -41,18 +41,20 @@ bool read_pcap_file(const char* filename, void** buffer, long *length) {
     /* memory error */
     if(*buffer == NULL) {
         printf("Could not allocate %ld bytes of memory!\n", *length);
-        return false;
+        exit(-1);
     }
 
     length_read = fread(*buffer, sizeof(char), *length, infile);
     *length = length_read;
     fclose(infile);
 
-    return true;
+    return 0;
 }
 
-int load_pcap_file(void *buffer, long length) {
+int parse_pcap_file(void *buffer, long length, struct pcap_trace_info *info) {
     struct pcap_pkthdr* pcap_hdr;
+    unsigned long packet_count = 0;
+    unsigned long long byte_count = 0;
     void* offset = static_cast<char *>(buffer) + sizeof(struct pcap_file_header);
     while(offset < static_cast<char *>(buffer) + length) {
         pcap_hdr = (struct pcap_pkthdr*) offset;
@@ -62,8 +64,20 @@ int load_pcap_file(void *buffer, long length) {
             exit(-1);
         }
         offset = static_cast<char *>(offset) + pcap_hdr->caplen;
+        packet_count ++;
+        byte_count += pcap_hdr->caplen;
     }
+
+    info->packet_count = packet_count;
+    info->byte_count = byte_count;
     return 0;
+}
+
+void load_pcap_file(const char *filename, struct pcap_trace_info *info) {
+    long length=0;
+    void *buffer=NULL;
+    read_pcap_file(filename, &buffer, &length);
+    parse_pcap_file(buffer, length, info);
 }
 
 const char* get_exe_name(const char* argv0) {

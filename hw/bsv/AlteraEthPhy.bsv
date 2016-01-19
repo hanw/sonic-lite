@@ -33,7 +33,11 @@ import GetPut::*;
 import Pipe::*;
 import ALTERA_ETH_10GBASER_WRAPPER::*;
 
+`ifdef NUMBER_OF_ALTERA_PORTS
+typedef `NUMBER_OF_ALTERA_PORTS NumPorts;
+`else
 typedef 4 NumPorts;
+`endif
 
 interface EthPhyIfc;
    (*always_ready, always_enabled*)
@@ -66,7 +70,9 @@ module mkAlteraEthPhy#(Clock clk_50, Clock clk_644, Clock clk_xgmii, Reset rst_5
            0: phy.xgmii_tx.dc_0(v);
            1: phy.xgmii_tx.dc_1(v);
            2: phy.xgmii_tx.dc_2(v);
+`ifdef NUMBER_OF_ALTERA_PORTS
            3: phy.xgmii_tx.dc_3(v);
+`endif
          endcase
       endrule
    end
@@ -78,7 +84,9 @@ module mkAlteraEthPhy#(Clock clk_50, Clock clk_644, Clock clk_xgmii, Reset rst_5
             0: rxFifo[0].enq(phy.xgmii_rx.dc_0);
             1: rxFifo[1].enq(phy.xgmii_rx.dc_1);
             2: rxFifo[2].enq(phy.xgmii_rx.dc_2);
+`ifdef NUMBER_OF_ALTERA_PORTS
             3: rxFifo[3].enq(phy.xgmii_rx.dc_3);
+`endif
          endcase
       endrule
    end
@@ -93,9 +101,11 @@ module mkAlteraEthPhy#(Clock clk_50, Clock clk_644, Clock clk_xgmii, Reset rst_5
    rule tx_serial2;
       tx_serial[2] <= phy.tx_serial.data_2;
    endrule
+`ifdef NUMBER_OF_ALTERA_PORTS
    rule tx_serial3;
       tx_serial[3] <= phy.tx_serial.data_3;
    endrule
+`endif
 
    Vector#(NumPorts, Wire#(Bit#(1))) rx_serial_wire <- replicateM(mkDWire(0));
 
@@ -108,9 +118,11 @@ module mkAlteraEthPhy#(Clock clk_50, Clock clk_644, Clock clk_xgmii, Reset rst_5
    rule rx_serial2;
       phy.rx_serial.data_2(rx_serial_wire[2]);
    endrule
+`ifdef NUMBER_OF_ALTERA_PORTS
    rule rx_serial3;
       phy.rx_serial.data_3(rx_serial_wire[3]);
    endrule
+`endif
 
    interface tx = map(toPut, txFifo);
    interface rx = map(toGet, rxFifo);

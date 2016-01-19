@@ -42,11 +42,17 @@ import MemoryAPI::*;
 import PacketBuffer::*;
 import SharedBuff::*;
 import StoreAndForward::*;
+import PktGen::*;
 import TDM::*;
+import EthMac::*;
+import MMU::*;
+import MemMgmt::*;
+import IPv4Parser::*;
+import Tap::*;
+import GenericMatchTable::*;
 
 `ifndef SIMULATION
 import AlteraMacWrap::*;
-import EthMac::*;
 import AlteraEthPhy::*;
 import DE5Pins::*;
 `else
@@ -58,7 +64,7 @@ interface MemoryTest;
    interface `PinType pins;
 endinterface
 
-module mkMemoryTest#(MemoryTestIndication indication, ConnectalMemory::MemServerIndication memServerIndication)(MemoryTest);
+module mkMemoryTest#(MemoryTestIndication indication, MemMgmtIndication memTestInd, ConnectalMemory::MemServerIndication memServerInd, ConnectalMemory::MMUIndication mmuInd)(MemoryTest);
    let verbose = False;
 
    Clock defaultClock <- exposeCurrentClock();
@@ -97,36 +103,57 @@ module mkMemoryTest#(MemoryTestIndication indication, ConnectalMemory::MemServer
    mapM(uncurry(mkConnection), zip(phys.rx, map(getRx, mac)));
 `endif
 
+   // Port One
+   PktGen pktgen <- mkPktGen();
    PacketBuffer incoming_buff <- mkPacketBuffer();
-   StoreAndFwdFromRingToMem ringToMem <- mkStoreAndFwdFromRingToMem();
-
    PacketBuffer outgoing_buff <- mkPacketBuffer();
-   StoreAndFwdFromMemToRing memToRing <- mkStoreAndFwdFromMemToRing();
 
-   SharedBuffer#(12, 128, 1) mem <- mkSharedBuffer(vec(memToRing.readClient), vec(ringToMem.writeClient), memServerIndication);
+   TapPktRead tap <- mkTapPktRead();
+   Parser ipv4Parser <- mkParser();
 
-   mkConnection(ringToMem.readClient, incoming_buff.readServer);
-   mkConnection(ringToMem.mallocReq, mem.mallocReq);
-   mkConnection(mem.mallocDone, ringToMem.mallocDone);
+   // Ingress Pipeline
+   MatchTable matchTable <- mkMatchTable();
 
-   mkConnection(memToRing.writeClient, outgoing_buff.writeServer);
+   // Egress Pipeline
+   ModifyMac modMac <- mkModifyMac();
 
-   mkConnection(ringToMem.eventPktCommitted, memToRing.eventPktSend);
-
+   StoreAndFwdFromRingToMem ingress <- mkStoreAndFwdFromRingToMem(memTestInd);
+   StoreAndFwdFromMemToRing egress <- mkStoreAndFwdFromMemToRing();
    StoreAndFwdFromRingToMac ringToMac <- mkStoreAndFwdFromRingToMac(txClock, txReset);
 
-   mkConnection(ringToMac.readClient, outgoing_buff.readServer);
+   SharedBuffer#(12, 128, 1) mem <- mkSharedBuffer(vec(egress.readClient), vec(ingress.writeClient, modMac.writeClient), memTestInd, memServerInd, mmuInd);
+
+   mkConnection(pktgen.writeClient, incoming_buff.writeServer);
+
+   //mkConnection(ingress.readClient, incoming_buff.readServer);
+   mkConnection(tap.readClient, incoming_buff.readServer);
+   mkConnection(ingress.readClient, tap.readServer);
+   mkConnection(tap.tap_out, toPut(ipv4Parser.frameIn));
+
+   mkConnection(ingress.mallocReq, mem.mallocReq);
+   mkConnection(mem.mallocDone, ingress.mallocDone);
+
+//   mkConnection(egress.writeClient, outgoing_buff.writeServer);
+//   mkConnection(ringToMac.readClient, outgoing_buff.readServer);
+//   mkConnection(ingress.eventPktCommitted, egress.eventPktSend);
+
+   TDM sched <- mkTDM(ingress, egress, ipv4Parser, modMac);
 
 `ifndef SIMULATION
    mkConnection(ringToMac.macTx, mac[0].packet_tx);
 `else
-   rule drain_mac;
+   rule drainMac;
       let v <- ringToMac.macTx.get;
-      if (verbose) $display("memory::MemoryTest:: tx data %h", v);
+      $display("tx data %h", v.data);
    endrule
 `endif
 
-   MemoryAPI api <- mkMemoryAPI(indication, incoming_buff);
+   rule read_flow_id;
+      let v <- toGet(matchTable.entry_added).get;
+      indication.addEntryResp(v);
+   endrule
+
+   MemoryAPI api <- mkMemoryAPI(indication, pktgen, mem, matchTable);
 
    interface request = api.request;
 `ifndef SIMULATION

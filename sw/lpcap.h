@@ -57,11 +57,17 @@ struct pcap_pkthdr {
     le32 length;                  /* length this packet (off wire) */
 }  __attribute__((packed));
 
+struct pcap_trace_info {
+    unsigned long packet_count;
+    unsigned long long byte_count;
+};
+
 /* mem_copy must be provided by each test */
 void mem_copy(const void *buff, int length);
 int quick_tx_send_packet(const void* buffer, int length);
-bool read_pcap_file(const char* filename, void** buffer, long *length);
-int load_pcap_file(void *buffer, long length);
+int read_pcap_file(const char* filename, void** buffer, long *length);
+int parse_pcap_file(void *buffer, long length);
+void load_pcap_file(const char *filename, struct pcap_trace_info *);
 const char* get_exe_name(const char* argv0);
 
 #endif

@@ -35,7 +35,6 @@
 #include <sys/time.h>
 
 #include "MemServerIndication.h"
-#include "MallocIndication.h"
 #include "TbIndication.h"
 #include "TbRequest.h"
 #include "GeneratedTypes.h"
@@ -114,30 +113,6 @@ public:
     }
     MemServerIndication(unsigned int id) : MemServerIndicationWrapper(id) {}
 };
-
-class MallocIndication : public MallocIndicationWrapper
-{
-public:
-    virtual void id_resp ( const uint32_t id ) {
-        fprintf(stderr, "***CPP pktId=%x\n", id);
-    }
-    MallocIndication(unsigned int id) : MallocIndicationWrapper(id) {}
-};
-//class MMUIndication : public MMUIndicationWrapper
-//{
-//public:
-//    virtual void idResponse ( const uint32_t sglId ) {
-//        fprintf(stderr, "id response=%d\n", sglId);
-//    }
-//    virtual void configResp ( const uint32_t sglId ) {
-//        fprintf(stderr, "configResp=%d\n", sglId);
-//    }
-//    virtual void error (const uint32_t code, const uint32_t sglId,
-//                        const uint64_t offset, const uint64_t extra) {
-//        fprintf(stderr, "error=%d\n", code);
-//    }
-//    MMUIndication(unsigned int id) : MMUIndicationWrapper(id) {}
-//};
 
 void mem_copy(const void *buff, int packet_size) {
 

@@ -20,19 +20,27 @@
  */
 
 #include "MemServerIndication.h"
-#include "MallocIndication.h"
+#include "MemMgmtIndication.h"
 #include "MemoryTestIndication.h"
 #include "MemoryTestRequest.h"
 #include "GeneratedTypes.h"
 #include "lutils.h"
 #include "lpcap.h"
+#include <cstdlib>
+#include <stdio.h>
+#include <stdlib.h>
+#include <semaphore.h>
 
 using namespace std;
 
 #define DATA_WIDTH 128
+#define LINK_SPEED 10
 
 static MemoryTestRequestProxy *device = 0;
 uint16_t flowid;
+sem_t alloc_sem;
+sem_t free_sem;
+sem_t flow_sem;
 
 void device_writePacketData(uint64_t* data, uint8_t* mask, int sop, int eop) {
     device->writePacketData(data, mask, sop, eop);
@@ -44,34 +52,31 @@ public:
     virtual void read_version_resp(uint32_t a) {
         fprintf(stderr, "version %x\n", a);
     }
+    virtual void addEntryResp(uint16_t a) {
+        fprintf(stderr, "add flow id %x\n", a);
+        sem_post(&flow_sem);
+    }
     MemoryTestIndication(unsigned int id) : MemoryTestIndicationWrapper(id) {}
 };
 
-class MemServerIndication : public MemServerIndicationWrapper
+class MemMgmtIndication : public MemMgmtIndicationWrapper
 {
 public:
-    virtual void error(uint32_t code, uint32_t sglId, uint64_t offset, uint64_t extra) {
-        fprintf(stderr, "memServer Indication.error=%d\n", code);
+    virtual void memory_allocated(uint32_t a) {
+        fprintf(stderr, "allocated id %x\n", a);
+        sem_post(&alloc_sem);
     }
-    virtual void addrResponse ( const uint64_t physAddr ) {
-        fprintf(stderr, "phyaddr=%lx\n", physAddr);
+    virtual void packet_committed(uint32_t a) {
+        fprintf(stderr, "committed tag %x\n", a);
+        sem_post(&free_sem);
     }
-    virtual void reportStateDbg ( const DmaDbgRec rec ) {
-        fprintf(stderr, "rec\n");
+    virtual void packet_freed(uint32_t a) {
+        fprintf(stderr, "packet freed %x\n", a);
     }
-    virtual void reportMemoryTraffic ( const uint64_t words ) {
-        fprintf(stderr, "words %lx\n", words);
+    virtual void error(uint32_t errorType, uint32_t id) {
+        fprintf(stderr, "error: %x %x\n", errorType, id);
     }
-    MemServerIndication(unsigned int id) : MemServerIndicationWrapper(id) {}
-};
-
-class MallocIndication : public MallocIndicationWrapper
-{
-public:
-    virtual void id_resp ( const uint32_t id ) {
-        fprintf(stderr, "***CPP pktId=%x\n", id);
-    }
-    MallocIndication(unsigned int id) : MallocIndicationWrapper(id) {}
+    MemMgmtIndication(unsigned int id) : MemMgmtIndicationWrapper(id) {}
 };
 
 void usage (const char *program_name) {
@@ -83,13 +88,25 @@ void usage (const char *program_name) {
     );
 }
 
-static void 
-parse_options(int argc, char *argv[], char **pcap_file) {
+struct arg_info {
+    double rate;
+    int tracelen;
+    bool tableadd;
+    bool tabledel;
+};
+
+static void
+parse_options(int argc, char *argv[], char **pcap_file, struct arg_info* info) {
     int c, option_index;
 
     static struct option long_options [] = {
         {"help",                no_argument, 0, 'h'},
         {"parser-test",         required_argument, 0, 'p'},
+        {"pktgen-rate",         required_argument, 0, 'r'},
+        {"pktgen-count",        required_argument, 0, 'n'},
+        {"table-add",           required_argument, 0, 'a'},
+        {"table-del",           required_argument, 0, 'd'},
+        {"table-mod",           required_argument, 0, 'm'},
         {0, 0, 0, 0}
     };
 
@@ -109,22 +126,47 @@ parse_options(int argc, char *argv[], char **pcap_file) {
             case 'p':
                 *pcap_file = optarg;
                 break;
-            default:
+            case 'r':
+                info->rate = strtod(optarg, NULL);
                 break;
+            case 'n':
+                info->tracelen = strtol(optarg, NULL, 0);
+                break;
+            case 'a':
+                info->tableadd = true;
+                break;
+            case 'd':
+                info->tabledel = true;
+                break;
+            default:
+                exit(EXIT_FAILURE);
         }
     }
 }
 
+/* compute idle character in bytes (round to closest 16) */
+int
+compute_idle (const struct pcap_trace_info *info, double rate, double link_speed) {
+
+    double idle_count = (link_speed - rate) * info->byte_count / rate;
+    int idle = idle_count / info->packet_count;
+    int average_packet_len = info->byte_count / info->packet_count;
+    fprintf(stderr, "idle = %d, link_speed=%f, rate=%f, average packet len = %d\n", idle, link_speed, rate, average_packet_len);
+    return idle;
+}
 
 int main(int argc, char **argv)
 {
     char *pcap_file=NULL;
+    struct arg_info arguments = {0, 0};
     struct pcap_trace_info pcap_info = {0, 0};
 
     MemoryTestIndication echoIndication(IfcNames_MemoryTestIndicationH2S);
+    MemMgmtIndication memMgmtIndication(IfcNames_MemMgmtIndicationH2S);
+
     device = new MemoryTestRequestProxy(IfcNames_MemoryTestRequestS2H);
 
-    parse_options(argc, argv, &pcap_file);
+    parse_options(argc, argv, &pcap_file, &arguments);
 
     device->read_version();
 
@@ -133,6 +175,25 @@ int main(int argc, char **argv)
         load_pcap_file(pcap_file, &pcap_info);
     }
 
-    while (1) sleep(1);
+    if (arguments.rate && arguments.tracelen) {
+        int idle = compute_idle(&pcap_info, arguments.rate, LINK_SPEED);
+        device->start(arguments.tracelen, idle);
+        sem_wait(&alloc_sem);
+        device->free(0);
+        sem_wait(&free_sem);
+        device->free(1);
+    }
+
+    if (arguments.tableadd) {
+        MatchField fields = {dstip: 0x0200000a};
+        device->addEntry(0, fields);
+        sem_wait(&flow_sem);
+    }
+
+    if (arguments.tabledel) {
+        device->deleteEntry(0, flowid);
+    }
+
+    while(1) sleep(1);
     return 0;
 }

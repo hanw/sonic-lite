@@ -13,9 +13,9 @@ SCHEDDIR?=$(DEV_ROOT)/sonic-lite/scheduler
 # Connectal Support
 ########################################################
 S2H_INTERFACES=MemoryTestRequest:MemoryTest.request
-H2S_INTERFACES=MemoryTest:MemoryTestIndication,MemServerIndication,MallocIndication
+H2S_INTERFACES=MemoryTest:MemoryTestIndication,MemMgmtIndication,MemServerIndication,MMUIndication
 
-BSVFILES=MemoryTest.bsv MemoryAPI.bsv $(P4FPGADIR)/bsv/Malloc.bsv
+BSVFILES=MemoryTest.bsv MemoryAPI.bsv $(SONICDIR)/hw/bsv/MemMgmt.bsv GenericMatchTable.bsv
 CPPFILES=test.cpp
 
 #######################################################
@@ -30,13 +30,17 @@ PINOUT_FILE = ../../../boards/de5.json
 endif
 
 CONNECTALFLAGS += --bsvpath=$(P4FPGADIR)/bsv
+CONNECTALFLAGS += --bsvpath=$(P4FPGADIR)/bsv/Bcam
+CONNECTALFLAGS += --bsvpath=$(P4FPGADIR)/bsv/AsymmetricBRAM
 CONNECTALFLAGS += --verilog=$(SONICDIR)/hw/verilog/si570/
+CONNECTALFLAGS += --verilog=$(P4FPGADIR)/bsv/AsymmetricBRAM/
 CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/mac_10gbe.qip
 CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/altera_xcvr_10gbaser_wrapper.qip
 CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/pll_156/altera_pll_156.qip
 CONNECTALFLAGS += --tcl=constraint.sdc
 CONNECTALFLAGS += --constraint=constraint.sdc
 CONNECTALFLAGS += --implconstraint=constraint.sdc
+CONNECTALFLAGS += -m $(P4FPGADIR)/bsv/AsymmetricBRAM/mem_model.c
 
 CONNECTALFLAGS += -D BYTE_ENABLES
 
@@ -56,16 +60,22 @@ endif
 # Default Rules
 #######################################################
 run-small:
-	(cd bluesim; ./bin/ubuntu.exe -p ../udp-small.pcap)
+	(cd bluesim; ./bin/ubuntu.exe -p ../udp-small.pcap -r 5.8 -n $(N))
 
 run-large:
-	(cd bluesim; ./bin/ubuntu.exe -p ../udp-large.pcap)
+	(cd bluesim; ./bin/ubuntu.exe -p ../udp-large.pcap -r 5.8 -n $(N))
 
 run-mid:
-	(cd bluesim; ./bin/ubuntu.exe -p ../udp-mid.pcap)
+	(cd bluesim; ./bin/ubuntu.exe -p ../udp-mid.pcap -r 5.8 -n $(N))
 
 run-burst:
 	(cd bluesim; ./bin/ubuntu.exe -p ../udp-burst.pcap)
+
+run-sweep:
+	(cd bluesim; ./bin/ubuntu.exe -p ../udp-sweep-small.pcap -r 5 -n $(N))
+
+run-match:
+	(cd bluesim; ./bin/ubuntu.exe -a 0 -d 0)
 
 include $(SONICDIR)/p4/Makefile.common
 include $(CONNECTALDIR)/Makefile.connectal
