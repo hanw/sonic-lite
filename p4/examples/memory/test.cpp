@@ -20,7 +20,6 @@
  */
 
 #include "MemServerIndication.h"
-#include "MallocIndication.h"
 #include "MemoryTestIndication.h"
 #include "MemoryTestRequest.h"
 #include "GeneratedTypes.h"

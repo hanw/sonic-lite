@@ -80,16 +80,10 @@ module mkTest#(TestIndication indication) (Test);
       phy_led.setPeriod(led_off, 500, led_on_max, 500);
    endrule
 
-   for (Integer i=0; i<4; i=i+1) begin
-      rule connectMacToPhy;
-         let v = mac[i].tx;
-         phys.tx[i].put(v);
-      endrule
-      rule connectPhyToMac;
-         let v <- phys.rx[i].get;
-         mac[i].rx(v);
-      endrule
-   end
+   function Get#(Bit#(72)) getTx(EthMacIfc _mac); return _mac.tx; endfunction
+   function Put#(Bit#(72)) getRx(EthMacIfc _mac); return _mac.rx; endfunction
+   mapM(uncurry(mkConnection), zip(map(getTx, mac), phys.tx));
+   mapM(uncurry(mkConnection), zip(phys.rx, map(getRx, mac)));
 
    rule readDataStart;
       let pktLen <- buff.readServer.readLen.get;
