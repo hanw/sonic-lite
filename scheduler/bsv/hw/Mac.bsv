@@ -296,25 +296,25 @@ module mkMac#(Scheduler#(ReadReqType, ReadResType,
         rule send_blocks_to_dst (start_rx == 1);
             let d <- eth_mac[i].packet_rx.get;
 
-			Bit#(1) drop = drop_pkt[i];
+//			Bit#(1) drop = drop_pkt[i];
 			//debug_received_from_phy_fifo.enq(d);
 
             if (rx_verbose)
                 $display("[MAC] output from mac layer %d %d %x",
                            d.sop, d.eop, d.data);
 
-			if (d.sop == 1 && d.eop == 0)
-			begin
-				MAC dst_mac_addr = d.data[63:16];
-				if (dst_mac_addr != mac_address(host_index))
-				begin
-					drop_pkt[i] <= 1;
-					drop = 1;
-				end
-			end
-
-			else if (d.sop == 0 && d.eop == 1)
-				drop_pkt[i] <= 0;
+//			if (d.sop == 1 && d.eop == 0)
+//			begin
+//				MAC dst_mac_addr = d.data[63:16];
+//				if (dst_mac_addr != mac_address(host_index))
+//				begin
+//					drop_pkt[i] <= 1;
+//					drop = 1;
+//				end
+//			end
+//
+//			else if (d.sop == 0 && d.eop == 1)
+//				drop_pkt[i] <= 0;
 
             if (b_count[i] == 0)
             begin
@@ -350,8 +350,8 @@ module mkMac#(Scheduler#(ReadReqType, ReadResType,
                     end_bit = 1;
                 end
 
-				if (drop == 0)
-				begin
+				//if (drop == 0)
+				//begin
                 case (i)
                     0 : scheduler.mac_write_request_port_1.put
                                       (makeWriteReq(start_bit, end_bit, pload));
@@ -362,7 +362,7 @@ module mkMac#(Scheduler#(ReadReqType, ReadResType,
                     3 : scheduler.mac_write_request_port_4.put
                                       (makeWriteReq(start_bit, end_bit, pload));
                 endcase
-				end
+				//end
 
                 if (rx_verbose)
                     $display("[MAC] data = %d %d %x i = %d",

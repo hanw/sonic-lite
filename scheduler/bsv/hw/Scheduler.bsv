@@ -12,6 +12,7 @@ import RingBufferTypes::*;
 import RingBuffer::*;
 import MachineToPortMapping::*;
 import GlobalClock::*;
+import Addresses::*;
 
 typedef struct {
 	ReadResType data;
@@ -183,7 +184,7 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
 		if (msb == 'hc0a800)
 		begin
 			index = truncate(ip_addr[7:0]) - 1;
-			if (index < truncate(host_ip_addr[7:0]))
+			if (index < truncate((ip_address(host_index))[7:0]))
 				index = index + 1;
 		end
 		if (index >= fromInteger(valueof(NUM_OF_SERVERS)))
@@ -300,7 +301,7 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
 
                     /* Find the index of the ring buffer to insert to. */
                     Bit#(32) dst_ip = (buffered_data[i])[143:112]; /* dst IP */
-                    if (dst_ip == host_ip_addr)
+                    if (dst_ip == ip_address(host_index))
                         ring_buffer_index_fifo[i].enq(0);
                     else
                     begin
@@ -467,7 +468,7 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
             if (d.data.sop == 1 && d.data.eop == 0)
             begin
                 /* Update MAC header */
-                Bit#(96) new_addr = {dst_mac_addr, host_mac_addr};
+                Bit#(96) new_addr = {dst_mac_addr, mac_address(host_index)};
                 Bit#(96) zero = 0;
                 Bit#(BUS_WIDTH) temp = {zero, '1};
 				Bit#(BUS_WIDTH) new_addr_temp = {new_addr, '0};
