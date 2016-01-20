@@ -6,7 +6,7 @@ import StmtFSM::*;
 import FIFO::*;
 import Pipe::*;
 
-import PriorityEncoder1::*;
+import PriorityEncoder2::*;
 import Ram9b::*;
 import BcamTypes::*;
 import Bcam::*;

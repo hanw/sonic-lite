@@ -33,9 +33,7 @@ import Pipe::*;
 import AsymmetricBRAM::*;
 
 import BcamTypes::*;
-import PriorityEncoder::*;
 import Ram9b::*;
-import PriorityEncoder1::*;
 import PriorityEncoder2::*;
 
 typedef struct {
