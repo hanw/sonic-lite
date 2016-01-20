@@ -20,9 +20,11 @@
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+import Arith::*;
+import FIFO::*;
+import FIFOF::*;
 import GetPut::*;
 import Vector::*;
-import Arith::*;
 
 interface PE#(numeric type n);
    interface Put#(Bit#(n)) oht;
@@ -242,14 +244,18 @@ endinstance
 
 instance PEncoder#(1024);
    module mkPEncoder(PE#(1024));
+      FIFOF#(void) reqfifo <- mkFIFOF;
       Reg#(Bit#(1024)) input_wire <- mkReg(0);
+
       interface Put oht;
          method Action put(Bit#(1024) v);
             input_wire <= v;
+            reqfifo.enq(?);
          endmethod
       endinterface
       interface Get bin;
-         method ActionValue#(Maybe#(Bit#(10))) get;
+         method ActionValue#(Maybe#(Bit#(10))) get if (reqfifo.notEmpty);
+            reqfifo.deq;
             return mkPE1024(input_wire);
          endmethod
       endinterface
