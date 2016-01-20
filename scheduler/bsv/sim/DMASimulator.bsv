@@ -62,7 +62,7 @@ module mkDMASimulator#(Integer host_index,
 
     Reg#(Bool) verbose <- mkReg(False);
 
-    Reg#(Bit#(32)) count <- mkReg(9);
+    Reg#(Bit#(32)) count <- mkReg(1);
     Reg#(Bit#(1)) start_flag <- mkReg(0);
 
 	Reg#(Bit#(1)) wait_for_pkt_trans_to_complete <- mkReg(0);
@@ -83,7 +83,7 @@ module mkDMASimulator#(Integer host_index,
 
 	rule counter_increment (start_flag == 1
 		                    && wait_for_pkt_trans_to_complete == 0);
-		if (count == 9)
+		if (count == 1)
 		begin
 			count <= 0;
 			start_sending_new_pkt <= 1;

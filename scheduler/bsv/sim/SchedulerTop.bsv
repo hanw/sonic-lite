@@ -143,7 +143,8 @@ module mkSchedulerTop#(SchedulerTopIndication indication)(SchedulerTop);
             let res <- scheduler[i].setinterval_response.get;
             scheduler[i].request.put
                  (makeSchedReqRes(0, 0, 0, 0, 0, STARTSCHED, SUCCESS));
-			dma_sim[i].start();
+            if (i < 2)
+			    dma_sim[i].start();
             fire_once[i] <= 1;
         endrule
 

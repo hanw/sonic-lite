@@ -65,7 +65,7 @@ public:
 };
 
 void configure_scheduler(SchedulerTopRequestProxy* device) {
-	device->start_scheduler_and_dma(server_index, 7, 10000000000);
+	device->start_scheduler_and_dma(server_index, 3, 10000000000);
 }
 
 int main(int argc, char **argv)

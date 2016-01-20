@@ -4,7 +4,7 @@ function IP ip_address (ServerIndex index);
     IP addr = 'h00000000;
     case (index)
         0 : addr = 'hc0a80001;
-        1 : addr = 'hc0a80002;
+        1 : addr = 'hc0a80001;
         2 : addr = 'hc0a80003;
         3 : addr = 'hc0a80004;
         4 : addr = 'hc0a80005;
@@ -21,7 +21,7 @@ function MAC mac_address (ServerIndex index);
     MAC addr = 'h000000000000;
     case (index)
         0 : addr = 'h3417eb96df1f;
-        1 : addr = 'h3417eb96df1e;
+        1 : addr = 'h3417eb96df1f;
         2 : addr = 'h3417eb96df1d;
         3 : addr = 'h3417eb96df1c;
         4 : addr = 'h3417eb96df1b;
