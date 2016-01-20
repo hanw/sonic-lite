@@ -36,6 +36,7 @@ import BcamTypes::*;
 import PriorityEncoder::*;
 import Ram9b::*;
 import PriorityEncoder1::*;
+import PriorityEncoder2::*;
 
 typedef struct {
    Vector#(4, Maybe#(Bit#(9))) rpatt;
@@ -96,7 +97,7 @@ module mkBcam9b(Bcam9b#(camDepth))
             ,Add#(idxReadDepthSz, 0, wAddrHWidth)
          );
 
-   let verbose = False;
+   let verbose = True;
    let verbose_setram = verbose && True;
    let verbose_idxram = verbose && True;
    let verbose_vacram = verbose && True;
@@ -155,8 +156,8 @@ module mkBcam9b(Bcam9b#(camDepth))
    Reg#(Bool) oldEqNewPatt_reg <- mkReg(False);
    // END IVRAM STATES
 
-   PEnc32 pe_multiOcc <- mkPriorityEncoder32();
-   PEnc32 pe_vac <- mkPriorityEncoder32();
+   PE#(32) pe_multiOcc <- mkPEncoder();
+   PE#(32) pe_vac <- mkPEncoder();
 
    Ram9b#(cdep) ram9b <- mkRam9b();
 
@@ -285,11 +286,10 @@ module mkBcam9b(Bcam9b#(camDepth))
 
    rule pe_vac_out;
       let bin <- toGet(pe_vac.bin).get;
-      let vld <- toGet(pe_vac.vld).get;
-      vacFLocR <= bin;
+      vacFLocR <= fromMaybe(?, bin);
       bcam_fsm_start.enq(?);
       ram9b_wIndx_start.enq(?);
-      if (verbose) $display("vacram %d: bin=%x vld=%x vacFLoc=%x", cycle, bin, vld, bin);
+      if (verbose) $display("vacram %d: bin=%x vld=%x vacFLoc=%x", cycle, fromMaybe(?, bin), isValid(bin), fromMaybe(?, bin));
    endrule
 
    // IdxRAM
@@ -447,12 +447,12 @@ module mkBcam9b(Bcam9b#(camDepth))
 
    rule setram_encoder;
       let bin <- toGet(pe_multiOcc.bin).get;
-      let vld <- toGet(pe_multiOcc.vld).get;
-      newPattOccFLoc_fifo.enq(bin);
-      newPattOccFLoc_reg <= bin;
-      newPattMultiOccR <= vld;
-      if (verbose) $display("setram %d: bin=%x, vld=%x", cycle, bin, vld);
-      if (verbose) $display("setram %d: newPattMultiOcc=%x, newPattOccFLoc=%x", cycle, vld, bin);
+      //let vld <- toGet(pe_multiOcc.vld).get;
+      newPattOccFLoc_fifo.enq(fromMaybe(?, bin));
+      newPattOccFLoc_reg <= fromMaybe(?, bin);
+      newPattMultiOccR <= isValid(bin);
+      //if (verbose) $display("setram %d: bin=%x, vld=%x", cycle, bin, vld);
+      //if (verbose) $display("setram %d: newPattMultiOcc=%x, newPattOccFLoc=%x", cycle, vld, bin);
    endrule
 
    interface Put writeServer;
