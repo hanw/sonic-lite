@@ -35,6 +35,10 @@ static size_t test_sz  = numWords*sizeof(unsigned int);
 static size_t alloc_sz = test_sz;
 static int mismatchCount = 0;
 
+void device_writePacketData(uint64_t* data, uint8_t* mask, int sop, int eop) {
+    device->writePacketData(data, mask, sop, eop);
+}
+
 class SonicTopIndication : public SonicTopIndicationWrapper
 {
     public:
@@ -59,6 +63,48 @@ class SonicTopIndication : public SonicTopIndicationWrapper
         SonicTopIndication(unsigned int id) : SonicTopIndicationWrapper(id){}
 };
 
+void usage (const char *program_name) {
+    printf("%s: p4fpga tester\n"
+     "usage: %s [OPTIONS] \n",
+     program_name, program_name);
+    printf("\nOther options:\n"
+    " -p, --parser=FILE                demo parsing pcap log\n"
+    );
+}
+
+static void 
+parse_options(int argc, char *argv[], char **pcap_file) {
+    int c, option_index;
+
+    static struct option long_options [] = {
+        {"help",                no_argument, 0, 'h'},
+        {"parser-test",         required_argument, 0, 'p'},
+        {0, 0, 0, 0}
+    };
+
+    static string short_options
+        (long_options_to_short_options(long_options));
+
+    for (;;) {
+        c = getopt_long(argc, argv, short_options.c_str(), long_options, &option_index);
+
+        if (c == -1)
+            break;
+
+        switch (c) {
+            case 'h':
+                usage(get_exe_name(argv[0]));
+                break;
+            case 'p':
+                *pcap_file = optarg;
+                break;
+            default:
+                break;
+        }
+    }
+}
+
+
 int main(int argc, const char **argv)
 {
     if (sem_init(&test_sem, 1, 0)) {
@@ -75,27 +121,12 @@ int main(int argc, const char **argv)
     unsigned int *dstBuffer = (unsigned int *)portalMmap(dstAlloc, alloc_sz);
     unsigned int ref_dstAlloc = dma->reference(dstAlloc);
 
-    int i,j;
-    int dataWidth = 128; // 16 bytes per beat
-    int numBeats = 13; // number of beats
-    int wordsPerBeat = dataWidth / 16;
-    int wordsPerBeat2 = wordsPerBeat / 2;
-    unsigned long long data_hi;
-    unsigned long long data_lo;
-    for (i=0; i< numBeats; i++) {
-        data_hi = 0;
-        data_lo = 0;
-        for (j=0; j < wordsPerBeat2; j++) {
-            data_hi = (data_hi << 16) + (i*8 + j + 4);
-            data_lo = (data_lo << 16) + (i*8 + j);
-        }
-        if (i==0) {
-            device->writePacketData(data_hi, data_lo, 1, 0);
-        } else if (i==numBeats-1) {
-            device->writePacketData(data_hi, data_lo, 0, 1);
-        } else {
-            device->writePacketData(data_hi, data_lo, 0, 0);
-        }
+    char *pcap_file=NULL;
+    struct pcap_trace_info pcap_info = {0, 0};
+    parse_options(argc, argv, &pcap_file);
+    if (pcap_file) {
+        fprintf(stderr, "Attempts to read pcap file %s\n", pcap_file);
+        load_pcap_file(pcap_file, &pcap_info);
     }
 
     for (int i = 0; i < numWords; i++)
