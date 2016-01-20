@@ -73,14 +73,14 @@ interface EthSonicPma#(numeric type numPorts);
    interface Vector#(numPorts, Bool)  tx_ready;
 endinterface
 
-(* always_ready, always_enabled *)
-interface EthSonicPmaTopIfc;
-   interface Vector#(NumPorts, SerialIfc) serial;
-   interface Clock clk_phy;
-endinterface
+//(* always_ready, always_enabled *)
+//interface EthSonicPmaTopIfc#(numeric type numPorts);
+//   interface Vector#(numPorts, SerialIfc) serial;
+//   interface Clock clk_phy;
+//endinterface
 
 //(* no_default_reset *)
-module mkEthSonicPma#(Clock mgmt_clk, Clock pll_ref_clk, Clock clk_156_25, Reset rst_n)(EthSonicPma#(NumPorts) intf);
+module mkEthSonicPma#(Clock mgmt_clk, Clock pll_ref_clk, Clock clk_156_25, Reset rst_n)(EthSonicPma#(numPorts) intf);
    Clock defaultClock <- exposeCurrentClock();
    Reset invertedReset <- mkResetInverter(rst_n, clocked_by defaultClock);
 
@@ -89,48 +89,56 @@ module mkEthSonicPma#(Clock mgmt_clk, Clock pll_ref_clk, Clock clk_156_25, Reset
    // Megawiz generated pma uses active-high reset
    //EthSonicPmaWrap phy10g <- mkEthSonicPmaWrap(mgmt_clk, pll_ref_clk, invertedReset);
 
-   Vector#(NumPorts, Bool) rxReady = newVector;//unpack(phy10g.rx.ready0);
-   Vector#(NumPorts, Bool) txReady = newVector;//unpack(phy10g.tx.ready0);
-   Vector#(NumPorts, Reset) rxFifo_rst = newVector;
-   Vector#(NumPorts, Reset) txFifo_rst = newVector;
-   Vector#(NumPorts, Clock) rxFifo_clk = newVector;
-   Vector#(NumPorts, Clock) txFifo_clk = newVector;
-   Vector#(NumPorts, FIFOF#(Bit#(66))) rxFifo = newVector;
-   Vector#(NumPorts, FIFOF#(Bit#(66))) txFifo = newVector;
+   Vector#(numPorts, Bool) rxReady = newVector;//unpack(phy10g.rx.ready0);
+   Vector#(numPorts, Bool) txReady = newVector;//unpack(phy10g.tx.ready0);
+   Vector#(numPorts, Reset) rxFifo_rst = newVector;
+   Vector#(numPorts, Reset) txFifo_rst = newVector;
+   Vector#(numPorts, Clock) rxFifo_clk = newVector;
+   Vector#(numPorts, Clock) txFifo_clk = newVector;
+   Vector#(numPorts, FIFOF#(Bit#(66))) rxFifo = newVector;
+   Vector#(numPorts, FIFOF#(Bit#(66))) txFifo = newVector;
 
    // Rx Ready
    rxReady[0] = unpack(phy10g.rx.ready0);
+`ifndef NUMBER_OF_10G_PORTS
    rxReady[1] = unpack(phy10g.rx.ready1);
    rxReady[2] = unpack(phy10g.rx.ready2);
    rxReady[3] = unpack(phy10g.rx.ready3);
+`endif
 
    // Tx Ready
    txReady[0] = unpack(phy10g.tx.ready0);
+`ifndef NUMBER_OF_10G_PORTS
    txReady[1] = unpack(phy10g.tx.ready1);
    txReady[2] = unpack(phy10g.tx.ready2);
    txReady[3] = unpack(phy10g.tx.ready3);
+`endif
 
    // Tx Clock
    txFifo_clk[0] = phy10g.tx_clkout0;
+`ifndef NUMBER_OF_10G_PORTS
    txFifo_clk[1] = phy10g.tx_clkout1;
    txFifo_clk[2] = phy10g.tx_clkout2;
    txFifo_clk[3] = phy10g.tx_clkout3;
+`endif
 
    // Rx Clock
    rxFifo_clk[0] = phy10g.rx_clkout0;
+`ifndef NUMBER_OF_10G_PORTS
    rxFifo_clk[1] = phy10g.rx_clkout1;
    rxFifo_clk[2] = phy10g.rx_clkout2;
    rxFifo_clk[3] = phy10g.rx_clkout3;
+`endif
 
-   for (Integer i=0; i<valueOf(NumPorts); i=i+1) begin
+   for (Integer i=0; i<valueOf(numPorts); i=i+1) begin
       rxFifo_rst[i] <- mkAsyncReset(2, rst_n, rxFifo_clk[i]);
       txFifo_rst[i] <- mkAsyncReset(2, rst_n, clk_156_25);
       rxFifo[i] <- mkFIFOF(clocked_by rxFifo_clk[i], reset_by noReset);
       txFifo[i] <- mkFIFOF(clocked_by clk_156_25, reset_by noReset);
    end
-   Vector#(NumPorts, PipeOut#(Bit#(66))) vRxPipe = newVector;
-   Vector#(NumPorts, PipeIn#(Bit#(66))) vTxPipe = newVector;
-   for (Integer i=0; i<valueOf(NumPorts); i=i+1) begin
+   Vector#(numPorts, PipeOut#(Bit#(66))) vRxPipe = newVector;
+   Vector#(numPorts, PipeIn#(Bit#(66))) vTxPipe = newVector;
+   for (Integer i=0; i<valueOf(numPorts); i=i+1) begin
       vRxPipe[i] = toPipeOut(rxFifo[i]);
       vTxPipe[i] = toPipeIn(txFifo[i]);
    end
@@ -138,6 +146,7 @@ module mkEthSonicPma#(Clock mgmt_clk, Clock pll_ref_clk, Clock clk_156_25, Reset
    rule receive0;
       rxFifo[0].enq(phy10g.rx.parallel_data0);
    endrule
+`ifndef NUMBER_OF_10G_PORTS
    rule receive1;
       rxFifo[1].enq(phy10g.rx.parallel_data1);
    endrule
@@ -147,6 +156,7 @@ module mkEthSonicPma#(Clock mgmt_clk, Clock pll_ref_clk, Clock clk_156_25, Reset
    rule receive3;
       rxFifo[3].enq(phy10g.rx.parallel_data3);
    endrule
+`endif
 
    Wire#(Bit#(66)) tx_data0 <- mkDWire(0, clocked_by clk_156_25, reset_by noReset);
    rule getTxFifo0;
@@ -157,6 +167,7 @@ module mkEthSonicPma#(Clock mgmt_clk, Clock pll_ref_clk, Clock clk_156_25, Reset
       phy10g.tx.parallel_data0(pack(tx_data0));
    endrule
 
+`ifndef NUMBER_OF_10G_PORTS
    Wire#(Bit#(66)) tx_data1 <- mkDWire(0, clocked_by clk_156_25, reset_by noReset);
    rule getTxFifo1;
       let v <- toGet(txFifo[1]).get;
@@ -183,11 +194,13 @@ module mkEthSonicPma#(Clock mgmt_clk, Clock pll_ref_clk, Clock clk_156_25, Reset
    rule sendTxFifo3;
       phy10g.tx.parallel_data3(pack(tx_data3));
    endrule
+`endif
 
-   Vector#(NumPorts, Wire#(Bit#(1))) tx_serial <- replicateM(mkDWire(0));
+   Vector#(numPorts, Wire#(Bit#(1))) tx_serial <- replicateM(mkDWire(0));
    rule tx_serial0;
       tx_serial[0] <= phy10g.tx.serial_data0;
    endrule
+`ifndef NUMBER_OF_10G_PORTS
    rule tx_serial1;
       tx_serial[1] <= phy10g.tx.serial_data1;
    endrule
@@ -197,11 +210,13 @@ module mkEthSonicPma#(Clock mgmt_clk, Clock pll_ref_clk, Clock clk_156_25, Reset
    rule tx_serial3;
       tx_serial[3] <= phy10g.tx.serial_data3;
    endrule
+`endif
 
-   Vector#(NumPorts, Wire#(Bit#(1))) rx_serial_wire <- replicateM(mkDWire(0));
+   Vector#(numPorts, Wire#(Bit#(1))) rx_serial_wire <- replicateM(mkDWire(0));
    rule rx_serial0;
       phy10g.rx.serial_data0(rx_serial_wire[0]);
    endrule
+`ifndef NUMBER_OF_10G_PORTS
    rule rx_serial1;
       phy10g.rx.serial_data1(rx_serial_wire[1]);
    endrule
@@ -211,9 +226,10 @@ module mkEthSonicPma#(Clock mgmt_clk, Clock pll_ref_clk, Clock clk_156_25, Reset
    rule rx_serial3;
       phy10g.rx.serial_data3(rx_serial_wire[3]);
    endrule
+`endif
 
    // Status
-   Vector#(NumPorts, Status) status_ifcs;
+   Vector#(numPorts, Status) status_ifcs;
    status_ifcs[0] = interface Status;
        method Bit#(1) pll_locked;
           return phy10g.pll.locked0;
@@ -225,6 +241,7 @@ module mkEthSonicPma#(Clock mgmt_clk, Clock pll_ref_clk, Clock clk_156_25, Reset
           return phy10g.rx.is_lockedtoref0;
        endmethod
    endinterface;
+`ifndef NUMBER_OF_10G_PORTS
    status_ifcs[1] = interface Status;
        method Bit#(1) pll_locked;
           return phy10g.pll.locked1;
@@ -258,6 +275,7 @@ module mkEthSonicPma#(Clock mgmt_clk, Clock pll_ref_clk, Clock clk_156_25, Reset
           return phy10g.rx.is_lockedtoref3;
        endmethod
    endinterface;
+`endif
 
    interface tx_clkout = txFifo_clk;
    interface rx_clkout = rxFifo_clk;

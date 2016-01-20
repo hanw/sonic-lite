@@ -83,7 +83,7 @@ module mkDtpTop#(DummyIndication indication)(DtpTop);
 
    De5SfpCtrl#(4) sfpctrl <- mkDe5SfpCtrl();
 
-   EthPhyIfc#(NumPorts) phys <- mkEthPhy(clock_50, txClock, phyClock, clocked_by txClock, reset_by txReset);
+   DtpPhyIfc#(NumPorts) phys <- mkEthPhy(clock_50, txClock, phyClock, clocked_by txClock, reset_by txReset);
 
    Clock rxClock = phys.rx_clkout[0];
 

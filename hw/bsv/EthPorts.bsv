@@ -69,7 +69,7 @@ module mkEthPorts#(Clock clk_50, Clock clk_156_25, Clock clk_644)(EthPortIfc);
 
 //   Vector#(NumPorts, EthPktCtrlIfc) pktctrls <- replicateM(mkEthPktCtrl(clk_156_25, rst_156_25, clocked_by clk_156_25, reset_by rst_156_25));
 //
-   EthPhyIfc#(NumPorts) phys <- mkEthPhy(clk_50, clk_156_25, clk_644, clocked_by defaultClock, reset_by defaultReset);
+   DtpPhyIfc#(NumPorts) phys <- mkEthPhy(clk_50, clk_156_25, clk_644, clocked_by defaultClock, reset_by defaultReset);
 
    if (use_mac) begin
 /*      EthMacIfc macs <- mkEthMac(clk_50, clk_156_25, phys.rx_clkout, rst_156_25_n, clocked_by clk_156_25, reset_by rst_156_25_n);
