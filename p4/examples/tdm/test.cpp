@@ -181,7 +181,7 @@ int main(int argc, char **argv)
         sem_wait(&alloc_sem);
         device->free(0);
         sem_wait(&free_sem);
-        device->free(1);
+        //device->free(1);
     }
 
     if (arguments.tableadd) {

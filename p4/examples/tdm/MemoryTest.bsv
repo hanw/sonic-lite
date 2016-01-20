@@ -133,18 +133,21 @@ module mkMemoryTest#(MemoryTestIndication indication, MemMgmtIndication memTestI
    mkConnection(ingress.mallocReq, mem.mallocReq);
    mkConnection(mem.mallocDone, ingress.mallocDone);
 
-//   mkConnection(egress.writeClient, outgoing_buff.writeServer);
-//   mkConnection(ringToMac.readClient, outgoing_buff.readServer);
-//   mkConnection(ingress.eventPktCommitted, egress.eventPktSend);
+   mkConnection(egress.writeClient, outgoing_buff.writeServer);
+   mkConnection(ringToMac.readClient, outgoing_buff.readServer);
 
-   TDM sched <- mkTDM(ingress, egress, ipv4Parser, modMac);
+   // Null Forwarding bypass pipeline
+   mkConnection(ingress.eventPktCommitted, egress.eventPktSend);
+
+
+   TDM sched <- mkTDM(ingress, egress, ipv4Parser, matchTable, modMac);
 
 `ifndef SIMULATION
    mkConnection(ringToMac.macTx, mac[0].packet_tx);
 `else
    rule drainMac;
       let v <- ringToMac.macTx.get;
-      $display("tx data %h", v.data);
+      if (verbose) $display("tx data %h", v.data);
    endrule
 `endif
 

@@ -36,6 +36,7 @@ import MemoryAPI::*;
 import SharedBuff::*;
 import StoreAndForward::*;
 import IPv4Parser::*;
+import GenericMatchTable::*;
 
 `ifndef SIMULATION
 import AlteraMacWrap::*;
@@ -192,7 +193,7 @@ interface TDM;
    interface Vector#(4, PktReadServer) readServers;
 endinterface
 
-module mkTDM#(StoreAndFwdFromRingToMem ingress, StoreAndFwdFromMemToRing egress, Parser parser, ModifyMac modMac)(TDM);
+module mkTDM#(StoreAndFwdFromRingToMem ingress, StoreAndFwdFromMemToRing egress, Parser parser, MatchTable matchTable, ModifyMac modMac)(TDM);
 
    let verbose = True;
    Reg#(Bit#(32)) cycle <- mkReg(0);
@@ -204,9 +205,10 @@ module mkTDM#(StoreAndFwdFromRingToMem ingress, StoreAndFwdFromMemToRing egress,
    ForwardQ fwdq <- mkForwardQ();
 
    //! Schedule Table: support insert and lookup
-   //! Mac Table: support insert and lookup
-   // map(ipToIndex, ip)
-   // index = TableLookup(table, ip)
+   rule tableLookupResp;
+      let v <- matchTable.lookupPort.response.get;
+      $display("TDM:: table lookup %h", v);
+   endrule
 
    //! Function: ipToIndex
    //! Currently, take low-order bits as indices
@@ -216,6 +218,7 @@ module mkTDM#(StoreAndFwdFromRingToMem ingress, StoreAndFwdFromMemToRing egress,
       fwdq.req_w.put(FQWriteRequest{host: truncate(ipv4), id: v.id,
                                     dstip: ipv4, size: v.size});
       if (verbose) $display("TDM:: %d enqueuePkt: %h %h %h", cycle, v.id, v.size, ipv4);
+      //matchTable.lookupPort.request.put(MatchField{dstip:ipv4});
    endrule
 
    rule slotRequest;
