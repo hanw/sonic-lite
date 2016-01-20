@@ -42,7 +42,6 @@ import MemoryAPI::*;
 import PacketBuffer::*;
 import SharedBuff::*;
 import StoreAndForward::*;
-import TDM::*;
 
 `ifndef SIMULATION
 import AlteraMacWrap::*;

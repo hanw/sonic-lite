@@ -64,15 +64,6 @@ public:
     MemServerIndication(unsigned int id) : MemServerIndicationWrapper(id) {}
 };
 
-class MallocIndication : public MallocIndicationWrapper
-{
-public:
-    virtual void id_resp ( const uint32_t id ) {
-        fprintf(stderr, "***CPP pktId=%x\n", id);
-    }
-    MallocIndication(unsigned int id) : MallocIndicationWrapper(id) {}
-};
-
 void usage (const char *program_name) {
     printf("%s: p4fpga tester\n"
      "usage: %s [OPTIONS] \n",
