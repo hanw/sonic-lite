@@ -64,7 +64,7 @@ module mkStoreAndFwdFromRingToMem#(MemMgmtIndication memTestInd)(StoreAndFwdFrom
    provisos (Div#(`DataBusWidth, 8, bytesPerBeat)
             ,Log#(bytesPerBeat, beatShift));
 
-   let verbose = True;
+   let verbose = False;
 
    // RingBuffer Read Client
    FIFO#(EtherData) readDataFifo <- mkFIFO;
@@ -130,9 +130,9 @@ module mkStoreAndFwdFromRingToMem#(MemMgmtIndication memTestInd)(StoreAndFwdFrom
       if (v.eop) begin
          readStarted <= False;
          mallocd <= False;
-         $display("StoreAndForward:: %d: packet finished", cycle);
+         if (verbose) $display("StoreAndForward:: %d: packet finished", cycle);
       end
-      $display("StoreAndForward::writeData: %d: data:%h, tag:%h, last:%h", cycle, v.data, 0, v.eop);
+      if (verbose) $display("StoreAndForward::writeData: %d: data:%h, tag:%h, last:%h", cycle, v.data, 0, v.eop);
       writeDataFifo.enq(MemData {data: v.data, tag: 0, last: v.eop});
    endrule
 
@@ -141,7 +141,7 @@ module mkStoreAndFwdFromRingToMem#(MemMgmtIndication memTestInd)(StoreAndFwdFrom
       let recvd <- toGet(eventPktReceivedFifo).get;
       memTestInd.packet_committed(recvd.id);
       eventPktCommittedFifo.enq(recvd);
-      $display("StoreAndForward::packetReadDone %d: packet written to memory %h", cycle, v);
+      if (verbose) $display("StoreAndForward::packetReadDone %d: packet written to memory %h", cycle, v);
    endrule
 
    interface PktReadClient readClient;
@@ -166,7 +166,7 @@ module mkStoreAndFwdFromMemToRing(StoreAndFwdFromMemToRing)
    provisos (Div#(`DataBusWidth, 8, bytesPerBeat)
             ,Log#(bytesPerBeat, beatShift));
 
-   let verbose = True;
+   let verbose = False;
 
    // Ring Buffer Write Client
    FIFO#(EtherData) writeDataFifo <- mkFIFO;
@@ -195,7 +195,7 @@ module mkStoreAndFwdFromMemToRing(StoreAndFwdFromMemToRing)
       let bytesPerBeatMinusOne = fromInteger(valueOf(bytesPerBeat))-1;
       // roundup to 16 byte boundary
       let burstLen = ((pkt.size + bytesPerBeatMinusOne) & ~(bytesPerBeatMinusOne));
-      $display("StoreAndForward:: packetReadStart: %h, burstLen = %h", pkt.size, burstLen);
+      if (verbose) $display("StoreAndForward:: packetReadStart: %h, burstLen = %h", pkt.size, burstLen);
       let mask = (1<< (pkt.size % fromInteger(valueOf(bytesPerBeat))))-1;
       readReqFifo.enq(MemRequest{sglId: pkt.id, offset: 0,
                                  burstLen: truncate(burstLen), tag: 0
@@ -203,7 +203,7 @@ module mkStoreAndFwdFromMemToRing(StoreAndFwdFromMemToRing)
                                  , firstbe: 'hffff, lastbe: mask
 `endif
                                 });
-      $display("StoreAndForward::packetReadStart %d: send a new packet with size %h %h", cycle, burstLen, pack(mask));
+      if (verbose) $display("StoreAndForward::packetReadStart %d: send a new packet with size %h %h", cycle, burstLen, pack(mask));
       outPacket <= True;
       readBurstLen <= pkt.size;
       readBurstCount <= pkt.size;
@@ -246,7 +246,7 @@ interface StoreAndFwdFromRingToMac;
 endinterface
 
 module mkStoreAndFwdFromRingToMac#(Clock txClock, Reset txReset)(StoreAndFwdFromRingToMac);
-   let verbose = True;
+   let verbose = False;
    Clock defaultClock <- exposeCurrentClock();
    Reset defaultReset <- exposeCurrentReset();
 
