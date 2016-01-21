@@ -8,6 +8,8 @@ import SchedulerTypes::*;
 import RingBufferTypes::*;
 import Addresses::*;
 
+typedef 2 NUM_OF_SERVERS_1;
+
 typedef struct {
     MAC dst_mac;
     MAC src_mac;
@@ -123,9 +125,9 @@ module mkDMASimulator#(Integer host_index,
 //                    $display("[DMA (%d)] dst index = %d", host_index, r);
 //				counter[r] <= counter[r] + 1;
 //            end
-			dst_index <= (fromInteger(host_index) + 1) % fromInteger(valueof(NUM_OF_SERVERS));
-				counter[((fromInteger(host_index)+1) % fromInteger(valueof(NUM_OF_SERVERS)))] <=
-				     counter[((fromInteger(host_index)+1) % fromInteger(valueof(NUM_OF_SERVERS)))] + 1;
+			dst_index <= (fromInteger(host_index) + 1) % fromInteger(valueof(NUM_OF_SERVERS_1));
+				counter[((fromInteger(host_index)+1) % fromInteger(valueof(NUM_OF_SERVERS_1)))] <=
+				     counter[((fromInteger(host_index)+1) % fromInteger(valueof(NUM_OF_SERVERS_1)))] + 1;
             num_of_blocks_to_transmit <= 4; /* 64 byte packets */
 
     endrule

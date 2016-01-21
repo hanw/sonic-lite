@@ -24,6 +24,8 @@ interface SchedulerTopIndication;
 	method Action display_received_pkt_count(Bit#(64) num_of_received_pkt);
 	method Action display_unknown_pkt_count(Bit#(64) num_of_unknown_pkt);
 	method Action display_dma_stats(Bit#(64) num_of_pkt_generated);
+    method Action display_sop_count_from_mac_rx(Bit#(64) count);
+    method Action display_eop_count_from_mac_rx(Bit#(64) count);
 //	method Action debug_dma(Bit#(32) dst_index);
 //	method Action debug_sched(Bit#(8) sop, Bit#(8) eop, Bit#(64) data_high,
 //	                          Bit#(64) data_low);
@@ -113,7 +115,12 @@ module mkSchedulerTop#(SchedulerTopIndication indication)(SchedulerTop);
 	                    <- mkReg(0, clocked_by txClock, reset_by txReset);
 	Reg#(Bit#(1)) get_unknown_pkt_flag
 	                    <- mkReg(0, clocked_by txClock, reset_by txReset);
-
+	Reg#(Bit#(1)) get_sop_count_flag
+	                    <- mkReg(0, clocked_by rxClock, reset_by rxReset);
+	Reg#(Bit#(1)) get_eop_count_flag
+	                    <- mkReg(0, clocked_by rxClock, reset_by rxReset);
+    SyncFIFOIfc#(Bit#(1)) mac_rx_debug_fifo
+                        <- mkSyncFIFO(1, txClock, txReset, rxClock);
     /* This rule is to configure when to stop the DMA and collect stats */
     rule count_cycles (start_counting == 1);
         counter <= counter + 1;
@@ -159,20 +166,37 @@ module mkSchedulerTop#(SchedulerTopIndication indication)(SchedulerTop);
 	rule get_unknown_pkt_statistics (get_unknown_pkt_flag == 1);
 		scheduler.unknownPktCount();
 		get_unknown_pkt_flag <= 0;
+        mac_rx_debug_fifo.enq(1);
 	endrule
+
+    rule deq_from_mac_rx_debug_fifo;
+        let res <- toGet(mac_rx_debug_fifo).get;
+        get_sop_count_flag <= 1;
+    endrule
+
+    rule get_sop_count (get_sop_count_flag == 1);
+        mac.getSOPCount();
+        get_sop_count_flag <= 0;
+        get_eop_count_flag <= 1;
+    endrule
+
+    rule get_eop_count (get_eop_count_flag == 1);
+        mac.getEOPCount();
+        get_eop_count_flag <= 0;
+    endrule
 
 /*------------------------------------------------------------------------------*/
 	// Start MAC rx
 
-	SyncFIFOIfc#(ServerIndex) host_index_fifo_mac
-	         <- mkSyncFIFO(1, defaultClock, defaultReset, rxClock);
-
-	Reg#(Bit#(1)) fire_once_1 <- mkReg(0, clocked_by rxClock, reset_by rxReset);
-	rule deq_from_host_index_fifo_mac (fire_once_1 == 0);
-		let x <- toGet(host_index_fifo_mac).get;
-		mac.start_mac_rx(x);
-		fire_once_1 <= 1;
-	endrule
+//	SyncFIFOIfc#(ServerIndex) host_index_fifo_mac
+//	         <- mkSyncFIFO(1, defaultClock, defaultReset, rxClock);
+//
+//	Reg#(Bit#(1)) fire_once_1 <- mkReg(0, clocked_by rxClock, reset_by rxReset);
+//	rule deq_from_host_index_fifo_mac (fire_once_1 == 0);
+//		let x <- toGet(host_index_fifo_mac).get;
+//		mac.start_mac_rx(x);
+//		fire_once_1 <= 1;
+//	endrule
 
 /*------------------------------------------------------------------------------*/
 	// Start DMA and Scheduler
@@ -388,7 +412,33 @@ module mkSchedulerTop#(SchedulerTopIndication indication)(SchedulerTop);
 //		                        zeroExtend(res.eop),
 //		                        res.data);
 //	endrule
+/*-----------------------------------------------------------------------------*/
+	Reg#(Bit#(64)) sop_count_reg <- mkReg(0);
+	Reg#(Bit#(1)) fire_sop_counter_res <- mkReg(0);
+	rule sop_counter_rule (debug_flag == 1);
+		let res <- mac.sop_count.get;
+		sop_count_reg <= res;
+        fire_sop_counter_res <= 1;
+	endrule
 
+	rule sop_counter_res (debug_flag == 1 && fire_sop_counter_res == 1);
+		fire_sop_counter_res <= 0;
+		indication.display_sop_count_from_mac_rx(sop_count_reg);
+	endrule
+
+/*-----------------------------------------------------------------------------*/
+	Reg#(Bit#(64)) eop_count_reg <- mkReg(0);
+	Reg#(Bit#(1)) fire_eop_counter_res <- mkReg(0);
+	rule eop_counter_rule (debug_flag == 1);
+		let res <- mac.eop_count.get;
+		eop_count_reg <= res;
+        fire_eop_counter_res <= 1;
+	endrule
+
+	rule eop_counter_res (debug_flag == 1 && fire_eop_counter_res == 1);
+		fire_eop_counter_res <= 0;
+		indication.display_eop_count_from_mac_rx(eop_count_reg);
+	endrule
 
 /* ------------------------------------------------------------------------------
 *                               INTERFACE METHODS
@@ -404,7 +454,7 @@ module mkSchedulerTop#(SchedulerTopIndication indication)(SchedulerTop);
 		dma_transmission_rate_fifo.enq(dma_transmission_rate_reg);
 		num_of_cycles_to_run_dma_for_fifo.enq(cycles_reg);
 		host_index_fifo.enq(host_index_reg);
-		host_index_fifo_mac.enq(host_index_reg);
+		//host_index_fifo_mac.enq(host_index_reg);
 	endrule
 
 
