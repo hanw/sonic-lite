@@ -35,39 +35,40 @@ import ConnectalBram::*;
 
 import BcamTypes::*;
 
-interface Ram9bx1k;
-   interface PipeIn#(Bool) wEnb_iVld;
-   interface PipeIn#(Bool) wEnb_indx;
-   interface PipeIn#(Bool) wEnb_indc;
-   interface PipeIn#(Bit#(9)) mPatt;
-   interface Put#(Bit#(9)) wPatt;
-   interface Put#(Bit#(5)) wAddr_indx;
-   interface PipeIn#(Bit#(5)) wAddr_indc;
-   interface PipeIn#(Bit#(5)) wIndx;
-   interface PipeIn#(Bit#(32)) wIndc;
-   interface PipeIn#(Bool) wIVld;
-   interface PipeOut#(Bit#(1024)) mIndc;
+typedef struct {
+   Bit#(9) wPatt;
+   Bit#(5) wIndx;
+   Bit#(32) wIndc; // sqrt(256)
+   Bit#(5) wAddr_indx; // log(depth)/2
+   Bit#(5) wAddr_indc; // log(depth)/2
+   Bit#(1) wIVld;
+   Bit#(1) wEnb_iVld;
+   Bit#(1) wEnb_indx;
+   Bit#(1) wEnb_indc;
+} Ram9bWriteRequest deriving (Bits, Eq);
+
+typedef struct {
+   Bit#(9) mPatt;
+} Ram9bReadRequest deriving (Bits, Eq);
+
+typedef struct {
+   Bit#(1024) mIndc;
+} Ram9bReadResponse deriving (Bits, Eq);
+
+interface Ram9bx1024;
+   interface Put#(Ram9bWriteRequest) writeReq;
+   interface Put#(Ram9bReadRequest) readReq;
+   interface Get#(Ram9bReadResponse) readResp;
 endinterface
-module mkRam9bx1k(Ram9bx1k);
-   FIFOF#(Bool) wEnb_iVld_fifo <- mkFIFOF();
-   FIFOF#(Bool) wEnb_indx_fifo <- mkFIFOF();
-   FIFOF#(Bool) wEnb_indc_fifo <- mkFIFOF();
-   FIFOF#(Bit#(9)) mPatt_fifo <- mkFIFOF();
-   FIFOF#(Bit#(9)) wPatt_fifo <- mkFIFOF();
-   FIFOF#(Bit#(5)) wAddr_indx_fifo <- mkFIFOF();
-   FIFOF#(Bit#(5)) wAddr_indc_fifo <- mkFIFOF();
-   FIFOF#(Bit#(5)) wIndx_fifo <- mkFIFOF();
-   FIFOF#(Bit#(32)) wIndc_fifo <- mkFIFOF();
-   FIFOF#(Bool) wIVld_fifo <- mkFIFOF();
-   FIFOF#(Bit#(1024)) mIndc_fifo <- mkBypassFIFOF();
-
-   FIFOF#(Bit#(32)) iVld_fifo <- mkFIFOF;
-
+module mkRam9bx1024(Ram9bx1024);
    let verbose = False;
    Reg#(Bit#(32)) cycle <- mkReg(0);
    rule every1 if (verbose);
       cycle <= cycle + 1;
    endrule
+
+   FIFOF#(Bit#(32)) iVld_fifo <- mkFIFOF;
+   FIFOF#(Bit#(1024)) mIndc_fifo <- mkBypassFIFOF();
 
    // WWID = 1, RWID = 32, WDEP = 16384, OREG = 1, INIT = 1
 `define VLDRAM AsymmetricBRAM#(Bit#(9), Bit#(32), Bit#(14), Bit#(1))
@@ -76,7 +77,6 @@ module mkRam9bx1k(Ram9bx1k);
    // WWID = 5, RWID = 40, WDEP = 4096, OREG = 0, INIT = 1
 `define INDXRAM AsymmetricBRAM#(Bit#(9), Bit#(40), Bit#(12), Bit#(5))
    Vector#(4, `INDXRAM) indxram <- replicateM(mkAsymmetricBRAM(True, False, "indxRam"));
-
    // DWID = 32, DDEP = 32, MRDW = "DONT_CARE", RREG=ALL, INIT=1
    BRAM_Configure bramCfg = defaultValue;
    bramCfg.memorySize = 32;
@@ -84,59 +84,6 @@ module mkRam9bx1k(Ram9bx1k);
    Vector#(32, BRAM2Port#(Bit#(5), Bit#(32))) dpmlab <- replicateM(ConnectalBram::mkBRAM2Server(bramCfg));
 
    Vector#(4, Wire#(Bit#(40))) indx <- replicateM(mkDWire(0));
-
-   // change the following to registers..
-   Reg#(Bit#(9)) wPatt_reg <- mkReg(0);
-   Reg#(Bit#(5)) wAddr_indx_reg <- mkReg(0);
-
-   rule vldram_write;
-      let wIVld <- toGet(wIVld_fifo).get;
-      let wEnb_iVld <- toGet(wEnb_iVld_fifo).get;
-      if (wEnb_iVld) begin
-         Bit#(14) wAddr = {wPatt_reg, wAddr_indx_reg};
-         vldram.writeServer.put(tuple2(wAddr, pack(wIVld)));
-         if (verbose) $display("vldram %d: write to vldram wAddr=%x, data=%x", cycle, wAddr, pack(wIVld));
-      end
-   endrule
-
-   rule ram_read;
-      let mPatt <- toGet(mPatt_fifo).get;
-      vldram.readServer.request.put(mPatt);
-      for (Integer i=0; i<4; i=i+1) begin
-         indxram[i].readServer.request.put(mPatt);
-      end
-   endrule
-
-   rule indxram_write;
-      let wIndx <- toGet(wIndx_fifo).get;
-      let wEnb_indx <- toGet(wEnb_indx_fifo).get;
-      if (wEnb_indx) begin
-         for (Integer i=0; i<4; i=i+1) begin
-            if (wAddr_indx_reg[4:3] == fromInteger(i)) begin
-               Bit#(12) wAddr = {wPatt_reg, wAddr_indx_reg[2:0]};
-               indxram[i].writeServer.put(tuple2(wAddr, wIndx));
-               if (verbose) $display("indxram %d: write i=%x wAddr=%x, wIndx=%x", cycle, i, wAddr, wIndx);
-            end
-         end
-      end
-   endrule
-
-   rule dpmlab_write;
-      let wAddr_indc <- toGet(wAddr_indc_fifo).get;
-      let wIndc <- toGet(wIndc_fifo).get;
-      let wEnb_indc <- toGet(wEnb_indc_fifo).get;
-      if (wEnb_indc) begin
-         for (Integer i=0; i<4; i=i+1) begin
-            for (Integer j=0; j<8; j=j+1) begin
-               if ((wAddr_indx_reg[4:3] == fromInteger(i)) && wAddr_indx_reg[2:0] == fromInteger(j)) begin
-                  if (verbose) $display("dpmlab %d: write i=%d, j=%d index=%d, wIndc=%x", cycle, i, j, i*8+j, wIndc);
-                  //dpmlab[i*8+j].writeServer.put(tuple2(wAddr_indc, wIndc));
-                  dpmlab[i*8+j].portA.request.put(BRAMRequest{write:True, responseOnWrite:False, address: wAddr_indc, datain: wIndc});
-               end
-            end
-         end
-      end
-   endrule
 
    rule vldram_output;
       let v <- vldram.readServer.response.get;
@@ -173,41 +120,85 @@ module mkRam9bx1k(Ram9bx1k);
       if (verbose) $display("dpmlab %d: mIndc=%x", cycle, pack(mIndc));
    endrule
 
-   interface PipeIn wEnb_iVld = toPipeIn(wEnb_iVld_fifo);
-   interface PipeIn wEnb_indx = toPipeIn(wEnb_indx_fifo);
-   interface PipeIn wEnb_indc = toPipeIn(wEnb_indc_fifo);
-   interface PipeIn mPatt = toPipeIn(mPatt_fifo);
-   interface Put wPatt;
-      method Action put (Bit#(9) v);
-         wPatt_reg <= v;
-         if (verbose) $display("ram9b %d: wPatt_reg = %x", cycle, v);
+   interface Put writeReq;
+      method Action put(Ram9bWriteRequest req);
+         let wIVld  = req.wIVld;
+         let wEnb_iVld = req.wEnb_iVld;
+         let wEnb_indx = req.wEnb_indx;
+         if (wEnb_iVld == 1) begin
+            Bit#(14) wAddr = {req.wPatt, req.wAddr_indx};
+            vldram.writeServer.put(tuple2(wAddr, pack(wIVld)));
+            if (verbose) $display("vldram %d: write to vldram wAddr=%x, data=%x", cycle, wAddr, pack(wIVld));
+         end
+
+         if (wEnb_indx == 1) begin
+            for (Integer i=0; i<4; i=i+1) begin
+               if (req.wAddr_indx[4:3] == fromInteger(i)) begin
+                  Bit#(12) wAddr = {req.wPatt, req.wAddr_indx[2:0]};
+                  indxram[i].writeServer.put(tuple2(wAddr, req.wIndx));
+                  if (verbose) $display("indxram %d: write i=%x wAddr=%x, wIndx=%x", cycle, i, wAddr, req.wIndx);
+               end
+            end
+         end
+
+         let wAddr_indc = req.wAddr_indc;
+         let wIndc = req.wIndc;
+         let wEnb_indc = req.wEnb_indc;
+         if (wEnb_indc == 1) begin
+            for (Integer i=0; i<4; i=i+1) begin
+               for (Integer j=0; j<8; j=j+1) begin
+                  if ((req.wAddr_indx[4:3] == fromInteger(i)) && req.wAddr_indx[2:0] == fromInteger(j)) begin
+                     if (verbose) $display("dpmlab %d: write i=%d, j=%d index=%d, wIndc=%x", cycle, i, j, i*8+j, wIndc);
+                     //dpmlab[i*8+j].writeServer.put(tuple2(wAddr_indc, wIndc));
+                     dpmlab[i*8+j].portA.request.put(BRAMRequest{write:True, responseOnWrite:False, address: wAddr_indc, datain: wIndc});
+                  end
+               end
+            end
+         end
       endmethod
    endinterface
-   interface Put wAddr_indx;
-      method Action put (Bit#(5) v);
-         wAddr_indx_reg <= v;
-         if (verbose) $display("ram9b %d: wAddr_indx_reg = %x", cycle, v);
+   interface Put readReq;
+      method Action put(Ram9bReadRequest req);
+         // put
+         let mPatt = req.mPatt;
+         vldram.readServer.request.put(mPatt);
+         for (Integer i=0; i<4; i=i+1) begin
+            indxram[i].readServer.request.put(mPatt);
+         end
       endmethod
    endinterface
-   interface PipeIn wAddr_indc = toPipeIn(wAddr_indc_fifo);
-   interface PipeIn wIndx = toPipeIn(wIndx_fifo);
-   interface PipeIn wIndc = toPipeIn(wIndc_fifo);
-   interface PipeIn wIVld = toPipeIn(wIVld_fifo);
-   interface PipeOut mIndc = toPipeOut(mIndc_fifo);
+   interface Get readResp;
+      method ActionValue#(Ram9bReadResponse) get();
+         let _mIndc <- toGet(mIndc_fifo).get;
+         return Ram9bReadResponse{mIndc: _mIndc};
+      endmethod
+   endinterface
 endmodule
 
+typedef struct {
+   Bit#(9) wPatt;
+   Bit#(5) wIndx;
+   Bit#(32) wIndc; // sqrt(256)
+   Bit#(TAdd#(TLog#(cdep), 5)) wAddr_indx; // log(depth)/2
+   Bit#(5) wAddr_indc; // log(depth)/2
+   Bit#(1) wIVld;
+   Bit#(1) wEnb_iVld;
+   Bit#(1) wEnb_indx;
+   Bit#(1) wEnb_indc;
+} WriteRequest#(numeric type cdep) deriving (Bits, Eq);
+
+typedef struct {
+   Bit#(9) mPatt;
+} ReadRequest deriving (Bits, Eq);
+
+typedef struct {
+   Bit#(TMul#(cdep, 1024)) mIndc;
+} ReadResponse#(numeric type cdep) deriving (Bits, Eq);
+
 interface Ram9b#(numeric type cdep);
-   interface Put#(Bool) wEnb_iVld;
-   interface Put#(Bool) wEnb_indx;
-   interface Put#(Bool) wEnb_indc;
-   interface Put#(Bit#(9)) mPatt;
-   interface Put#(Bit#(9)) wPatt;
-   interface Put#(Bit#(TAdd#(TLog#(cdep), 5))) wAddr_indx;
-   interface Put#(Bit#(5)) wAddr_indc;
-   interface Put#(Bit#(5)) wIndx;
-   interface Put#(Bit#(32)) wIndc;
-   interface Put#(Bool) wIVld;
-   interface PipeOut#(Bit#(TMul#(cdep, 1024))) mIndc;
+   interface Put#(WriteRequest#(cdep)) writeRequest;
+   interface Put#(ReadRequest) readRequest;
+   interface Get#(ReadResponse#(cdep)) readResponse;
 endinterface
 module mkRam9b(Ram9b#(cdep))
    provisos(Mul#(cdep, 1024, indcWidth)
@@ -219,102 +210,48 @@ module mkRam9b(Ram9b#(cdep))
       cycle <= cycle + 1;
    endrule
 
-   Reg#(Bit#(TAdd#(TLog#(cdep), 5))) wAddr_indx_reg <- mkReg(0);
-   FIFOF#(Bit#(indcWidth)) mIndc_fifo <- mkBypassFIFOF();
+   Vector#(cdep, Ram9bx1024) ram <- replicateM(mkRam9bx1024());
 
-   Vector#(cdep, Ram9bx1k) ram <- replicateM(mkRam9bx1k());
-
-   function PipeOut#(Bit#(1024)) to_mIndc(Ram9bx1k a);
-      return a.mIndc;
-   endfunction
-   PipeOut#(Bit#(TMul#(cdep, 1024))) mIndcPipe <- mkJoinVector(pack, map(to_mIndc, ram));
-
-   interface Put wEnb_iVld;
-      method Action put (Bool v);
+   interface Put writeRequest;
+      method Action put(WriteRequest#(cdep) req);
          Vector#(cdep, Bool) wEnb = replicate(False);
+         Vector#(cdep, Ram9bWriteRequest) requests;
          for (Integer i=0; i < valueOf(cdep); i=i+1) begin
-            wEnb[i] = ((wAddr_indx_reg >> 5) == fromInteger(i));
-            ram[i].wEnb_iVld.enq(v && wEnb[i]);
+            wEnb[i] = ((req.wAddr_indx >> 5) == fromInteger(i));
+            requests[i] = Ram9bWriteRequest { wPatt: req.wPatt,
+               wIndx: req.wIndx,
+               wIndc: req.wIndc,
+               wAddr_indx: req.wAddr_indx[4:0],
+               wAddr_indc: req.wAddr_indc,
+               wIVld: req.wIVld,
+               wEnb_iVld: pack(unpack(req.wEnb_iVld) && wEnb[i]),
+               wEnb_indx: pack(unpack(req.wEnb_indx) && wEnb[i]),
+               wEnb_indc: pack(unpack(req.wEnb_indc) && wEnb[i])
+            };
+            ram[i].writeReq.put(requests[i]);
          end
-         if (verbose) $display("ram9b %d: wEnb_ivld=%x", cycle, v);
       endmethod
    endinterface
-   interface Put wEnb_indx;
-      method Action put (Bool v);
-         Vector#(cdep, Bool) wEnb = replicate(False);
+   interface Put readRequest;
+      method Action put (ReadRequest req);
+         Vector#(cdep, Ram9bReadRequest) requests;
          for (Integer i=0; i < valueOf(cdep); i=i+1) begin
-            wEnb[i] = ((wAddr_indx_reg >> 5) == fromInteger(i));
-            ram[i].wEnb_indx.enq(v && wEnb[i]);
+            requests[i] = Ram9bReadRequest{mPatt: req.mPatt};
+            ram[i].readReq.put(requests[i]);
          end
-         if (verbose) $display("ram9b %d: wEnb_indx=%x", cycle, v);
+         if (verbose) $display("ram9b %d: mPatt=%x", cycle, req.mPatt);
       endmethod
    endinterface
-   interface Put wEnb_indc;
-      method Action put (Bool v);
-         Vector#(cdep, Bool) wEnb = replicate(False);
+   interface Get readResponse;
+      method ActionValue#(ReadResponse#(cdep)) get();
+         Vector#(cdep, Bit#(1024)) _mIndc;
          for (Integer i=0; i < valueOf(cdep); i=i+1) begin
-            wEnb[i] = ((wAddr_indx_reg >> 5) == fromInteger(i));
-            ram[i].wEnb_indc.enq(v && wEnb[i]);
+            let v <- toGet(ram[i].readResp).get;
+            _mIndc[i] = v.mIndc;
          end
-         if (verbose) $display("ram9b %d: wEnb_indc=%x", cycle, v);
-      endmethod
-   endinterface 
-   interface Put mPatt;
-      method Action put (Bit#(9) v);
-         for (Integer i=0; i < valueOf(cdep); i=i+1) begin
-            ram[i].mPatt.enq(v);
-         end
-         if (verbose) $display("ram9b %d: mPatt=%x", cycle, v);
+         return ReadResponse{mIndc: pack(_mIndc)};
       endmethod
    endinterface
-   interface Put wPatt;
-      method Action put (Bit#(9) v);
-         for (Integer i=0; i < valueOf(cdep); i=i+1) begin
-            ram[i].wPatt.put(v);
-         end
-         if (verbose) $display("ram9b %d: wPatt=%x", cycle, v);
-      endmethod
-   endinterface
-   interface Put wAddr_indx;
-      method Action put (Bit#(wAddrHWidth) v);
-         for (Integer i=0; i < valueOf(cdep); i=i+1) begin
-            ram[i].wAddr_indx.put(v[4:0]);
-            wAddr_indx_reg <= v;
-         end
-         if (verbose) $display("ram9b %d: write wEnb to all ram blocks", cycle);
-      endmethod
-   endinterface 
-   interface Put wAddr_indc;
-      method Action put (Bit#(5) v);
-         for (Integer i=0; i < valueOf(cdep); i=i+1) begin
-            ram[i].wAddr_indc.enq(v);
-         end
-         if (verbose) $display("ram9b %d: wAddr_indc=%x", cycle, v);
-      endmethod
-   endinterface
-   interface Put wIndx;
-      method Action put (Bit#(5) v);
-         for (Integer i=0; i < valueOf(cdep); i=i+1) begin
-            ram[i].wIndx.enq(v);
-         end
-         if (verbose) $display("ram9b %d: wIndx=%x", cycle, v);
-      endmethod
-   endinterface
-   interface Put wIndc;
-      method Action put (Bit#(32) v);
-         for (Integer i=0; i < valueOf(cdep); i=i+1) begin
-            ram[i].wIndc.enq(v);
-         end
-         if (verbose) $display("ram9b %d: wIndc=%x", cycle, v);
-      endmethod
-   endinterface
-   interface Put wIVld;
-      method Action put (Bool v);
-         for (Integer i=0; i < valueOf(cdep); i=i+1) begin
-            ram[i].wIVld.enq(v);
-         end
-         if (verbose) $display("ram9b %d: wIVld=%x", cycle, v);
-      endmethod
-   endinterface
-   interface PipeOut mIndc = mIndcPipe;
 endmodule
+
+
