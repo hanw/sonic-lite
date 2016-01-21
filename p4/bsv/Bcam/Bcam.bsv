@@ -105,43 +105,32 @@ module mkBcam9b(Bcam9b#(camDepth))
       cycle <= cycle + 1;
    endrule
 
-   Reg#(Bool) oldNewbPattWr_reg <- mkReg(False);
+   // setram fifo, remove later.
+   FIFO#(Bit#(32)) oldPattIndc_fifo <- mkFIFO;
+   FIFO#(Bit#(32)) newPattIndc_fifo <- mkFIFO;
+   FIFO#(void) setram_read <- mkFIFO;
+   FIFO#(void) vacram_read <- mkFIFO;
+   FIFO#(void) idxram_read <- mkFIFO;
+   FIFO#(void) bcam_fsm_start <- mkFIFO;
+   FIFO#(void) ram9b_wIndx_start <- mkFIFO;
+   FIFO#(Bool) wEnb_setram_fifo <- mkFIFO;
+   FIFO#(Bool) wEnb_vacram_fifo <- mkFIFO;
+   FIFO#(Bool) wEnb_idxram_fifo <- mkFIFO;
 
+   Reg#(Bool) oldNewbPattWrR <- mkReg(False);
    Reg#(Bit#(9)) oldPattR <- mkReg(0);
    Reg#(Bool) oldPattVR <- mkReg(False);
-
-   // setram fifo, remove later.
-   FIFO#(Bit#(32)) oldPattIndc_fifo <- mkFIFO1();
-   FIFO#(Bit#(32)) newPattIndc_fifo <- mkFIFO1();
-
    Reg#(Bit#(9)) wPatt_bcam <- mkReg(0);
    Reg#(Bit#(camSz)) wAddr_bcam <- mkReg(0);
-   FIFO#(void) setram_read <- mkFIFO1;
-   FIFO#(void) vacram_read <- mkFIFO1;
-   FIFO#(void) idxram_read <- mkFIFO1;
-   FIFO#(void) bcam_fsm_start <- mkFIFO1;
-   FIFO#(void) ram9b_wIndx_start <- mkFIFO1;
-
-   Wire#(Bit#(5)) newPattOccFLoc_wire <- mkDWire(0);
-
-   FIFO#(Bool) wEnb_setram_fifo <- mkFIFO1;
-   FIFO#(Bool) wEnb_vacram_fifo <- mkFIFO1;
-   FIFO#(Bool) wEnb_idxram_fifo <- mkFIFO1;
-
    Reg#(Bit#(5)) vacFLocR <- mkReg(0);
-
    Reg#(Bit#(32)) cVacR <- mkReg(maxBound);
    Reg#(Bool) oldPattMultiOccR <- mkReg(False);
    Reg#(Bool) newPattMultiOccR <- mkReg(False);
    Reg#(Bit#(5)) oldIdxR <- mkReg(0);
    Reg#(Bit#(5)) newIdxR <- mkReg(0);
-
-   FIFOF#(Bit#(5)) wIndx_fifo <- mkFIFOF();
-   FIFOF#(Bit#(5)) wAddrL_fifo <- mkFIFOF();
-   FIFOF#(Bit#(160)) data_oldPatt_fifo <- mkFIFOF();
-   FIFOF#(Bit#(160)) data_newPatt_fifo <- mkFIFOF();
-
    Reg#(Bool) oldEqNewPattR <- mkReg(False);
+
+   Wire#(Bit#(5)) newPattOccFLoc_wire <- mkDWire(0);
 
    PE#(32) pe_multiOcc <- mkPEncoder();
    PE#(32) pe_vac <- mkPEncoder();
@@ -167,10 +156,10 @@ module mkBcam9b(Bcam9b#(camDepth))
       Bool wEnb_indc = !(oldEqNewPatt && oldPattVR) && oldPattVR && oldPattMultiOccR;
       Bool wEnb_iVld = !(oldEqNewPatt && oldPattVR) && oldPattVR && !oldPattMultiOccR;
       if (wEnb_indc) //Need a closer look
-      ram9b.wEnb_indc.put(wEnb_indc);
+         ram9b.wEnb_indc.put(wEnb_indc);
       ram9b.wEnb_iVld.put(wEnb_iVld);
       ram9b.wIVld.put(False);
-      oldNewbPattWr_reg <= oldPattVR;
+      oldNewbPattWrR <= oldPattVR;
       Bit#(9) patt = oldPattVR ? oldPattR : wPatt_bcam;
       ram9b.wPatt.put(patt);
       curr_state <= S1;
@@ -198,7 +187,7 @@ module mkBcam9b(Bcam9b#(camDepth))
       ram9b.wEnb_iVld.put(wEnb_iVld);
       ram9b.wEnb_indx.put(wEnb_indx);
       ram9b.wEnb_indc.put(wEnb_indc);
-      oldNewbPattWr_reg <= False;
+      oldNewbPattWrR <= False;
       ram9b.wPatt.put(wPatt_bcam);
       ram9b.wIVld.put(True);
       if (verbose) $display("camctrl %d: write new pattern to iitram", cycle);
@@ -209,9 +198,9 @@ module mkBcam9b(Bcam9b#(camDepth))
    rule wIndc_to_all;
       let oldPattIndc <- toGet(oldPattIndc_fifo).get;
       let newPattIndc <- toGet(newPattIndc_fifo).get;
-      Bit#(32) wIndc = oldNewbPattWr_reg ? oldPattIndc : newPattIndc;
+      Bit#(32) wIndc = oldNewbPattWrR ? oldPattIndc : newPattIndc;
       if(verbose) $display("cam9b %d: oldPattIndc=%x, newPattIndc=%x", cycle, oldPattIndc, newPattIndc);
-      if(verbose) $display("cam9b %d: oldNewbPattwr=%x, wIndc=", cycle, oldNewbPattWr_reg, fshow(wIndc));
+      if(verbose) $display("cam9b %d: oldNewbPattwr=%x, wIndc=", cycle, oldNewbPattWrR, fshow(wIndc));
       ram9b.wIndc.put(wIndc);
    endrule
 
@@ -259,8 +248,8 @@ module mkBcam9b(Bcam9b#(camDepth))
       let v <- toGet(ram9b_wIndx_start).get;
       Bit#(5) _oldIdx = oldPattMultiOccR ? oldIdxR : 0;
       Bit#(5) _newIdx = newPattMultiOccR ? newIdxR : vacFLocR;
-      Bit#(5) wIndx = oldNewbPattWr_reg ? _oldIdx : _newIdx;
-      if (verbose) $display("vacram %d: oldPattMultiOccR=%x, newPattMultiOcc=%x, oldNewbPattWr_reg=%x", cycle, oldPattMultiOccR, newPattMultiOccR, oldNewbPattWr_reg);
+      Bit#(5) wIndx = oldNewbPattWrR ? _oldIdx : _newIdx;
+      if (verbose) $display("vacram %d: oldPattMultiOccR=%x, newPattMultiOcc=%x, oldNewbPattWrR=%x", cycle, oldPattMultiOccR, newPattMultiOccR, oldNewbPattWrR);
       if (verbose) $display("vacram %d: compute oldIdx_=%x, newIdx_=%x wIndx=%x", cycle, _oldIdx, _newIdx, wIndx);
       ram9b.wIndx.put(wIndx);
       ram9b.wAddr_indc.put(wIndx);
