@@ -247,24 +247,24 @@ module mkScheduler#(Integer host_index,
     rx_ring_buffer <- replicateM
                       (mkRingBuffer(fromInteger(valueof(RING_BUFFER_SIZE))));
 
-//	Vector#(NUM_OF_PORTS, Reg#(QueueStats)) rx_ring_buffer_queue_stats
-//	                                       <- replicateM(mkReg(defaultValue));
+	Vector#(NUM_OF_PORTS, Reg#(QueueStats)) rx_ring_buffer_queue_stats
+	                                       <- replicateM(mkReg(defaultValue));
 
     Vector#(NUM_OF_PORTS,
             RingBuffer#(ReadReqType, ReadResType, WriteReqType, WriteResType))
     tx_ring_buffer <- replicateM
                       (mkRingBuffer(fromInteger(valueof(RING_BUFFER_SIZE))));
 
-//	Vector#(NUM_OF_PORTS, Reg#(QueueStats)) tx_ring_buffer_queue_stats
-//	                                       <- replicateM(mkReg(defaultValue));
+	Vector#(NUM_OF_PORTS, Reg#(QueueStats)) tx_ring_buffer_queue_stats
+	                                       <- replicateM(mkReg(defaultValue));
 
     Vector#(NUM_OF_SERVERS,
             RingBuffer#(ReadReqType, ReadResType, WriteReqType, WriteResType))
     ring_buffer <- replicateM
                    (mkRingBuffer(fromInteger(valueof(RING_BUFFER_SIZE))));
 
-//	Vector#(NUM_OF_SERVERS, Reg#(QueueStats)) ring_buffer_queue_stats
-//	                                       <- replicateM(mkReg(defaultValue));
+	Vector#(NUM_OF_SERVERS, Reg#(QueueStats)) ring_buffer_queue_stats
+	                                       <- replicateM(mkReg(defaultValue));
 
     RingBuffer#(ReadReqType, ReadResType, WriteReqType, WriteResType)
         src_rx_ring_buffer <- mkRingBuffer(fromInteger(valueof(RING_BUFFER_SIZE)));
@@ -276,54 +276,54 @@ module mkScheduler#(Integer host_index,
 	Reg#(ServerIndex) measure3 <- mkReg(fromInteger(valueof(NUM_OF_SERVERS)));
 
 /*-------------------------------------------------------------------------------*/
-//	rule monitor_rx_ring_buffers (curr_state == RUN && measure1 == 1);
-//		for (Integer i = 0; i < fromInteger(valueof(NUM_OF_PORTS)); i = i + 1)
-//		begin
-//			let len <- rx_ring_buffer[i].elements;
-//			if (len <= fromInteger(valueof(RING_BUFFER_SIZE)))
-//				(rx_ring_buffer_queue_stats[i]).count[len] <=
-//				             (rx_ring_buffer_queue_stats[i]).count[len] + 1;
-//			else
-//				(rx_ring_buffer_queue_stats[i]).count[fromInteger(valueof(RING_BUFFER_SIZE))+1] <=
-//						(rx_ring_buffer_queue_stats[i]).count[fromInteger(valueof(RING_BUFFER_SIZE))+1] + 1;
-//		end
-//		measure1 <= 0;
-//	endrule
-//
-//	rule monitor_tx_ring_buffers (curr_state == RUN && measure2 == 1);
-//		for (Integer i = 0; i < fromInteger(valueof(NUM_OF_PORTS)); i = i + 1)
-//		begin
-//			let len <- tx_ring_buffer[i].elements;
-//			if (len <= fromInteger(valueof(RING_BUFFER_SIZE)))
-//				(tx_ring_buffer_queue_stats[i]).count[len] <=
-//				             (tx_ring_buffer_queue_stats[i]).count[len] + 1;
-//			else
-//				(tx_ring_buffer_queue_stats[i]).count[fromInteger(valueof(RING_BUFFER_SIZE))+1] <=
-//						(tx_ring_buffer_queue_stats[i]).count[fromInteger(valueof(RING_BUFFER_SIZE))+1] + 1;
-//		end
-//		measure2 <= 0;
-//	endrule
-//
-//    for (Integer i = 0; i < fromInteger(valueof(NUM_OF_SERVERS)); i = i + 1)
-//    begin
-//        rule monitor_ring_buffers (curr_state == RUN && measure3 == fromInteger(i));
-//            let len <- ring_buffer[i].elements;
-//            //if (i != 0 && len == 2)
-//            //begin
-//            //    found = True;
-//            //    $display("[SCHED (%d)] ring_buffer[%d].elements = 2", host_index, i);
-//            //end
-//            if (len <= fromInteger(valueof(RING_BUFFER_SIZE)))
-//                (ring_buffer_queue_stats[i]).count[len] <=
-//                             (ring_buffer_queue_stats[i]).count[len] + 1;
-//            else
-//                (ring_buffer_queue_stats[i]).count[fromInteger(valueof(RING_BUFFER_SIZE))+1] <=
-//                        (ring_buffer_queue_stats[i]).count[fromInteger(valueof(RING_BUFFER_SIZE))+1] + 1;
-//            //if (found == True)
-//            //    curr_state <= CONFIG;
-//            measure3 <= fromInteger(valueof(NUM_OF_SERVERS));
-//        endrule
-//    end
+	rule monitor_rx_ring_buffers (curr_state == RUN && measure1 == 1);
+		for (Integer i = 0; i < fromInteger(valueof(NUM_OF_PORTS)); i = i + 1)
+		begin
+			let len <- rx_ring_buffer[i].elements;
+			if (len <= fromInteger(valueof(RING_BUFFER_SIZE)))
+				(rx_ring_buffer_queue_stats[i]).count[len] <=
+				             (rx_ring_buffer_queue_stats[i]).count[len] + 1;
+			else
+				(rx_ring_buffer_queue_stats[i]).count[fromInteger(valueof(RING_BUFFER_SIZE))+1] <=
+						(rx_ring_buffer_queue_stats[i]).count[fromInteger(valueof(RING_BUFFER_SIZE))+1] + 1;
+		end
+		measure1 <= 0;
+	endrule
+
+	rule monitor_tx_ring_buffers (curr_state == RUN && measure2 == 1);
+		for (Integer i = 0; i < fromInteger(valueof(NUM_OF_PORTS)); i = i + 1)
+		begin
+			let len <- tx_ring_buffer[i].elements;
+			if (len <= fromInteger(valueof(RING_BUFFER_SIZE)))
+				(tx_ring_buffer_queue_stats[i]).count[len] <=
+				             (tx_ring_buffer_queue_stats[i]).count[len] + 1;
+			else
+				(tx_ring_buffer_queue_stats[i]).count[fromInteger(valueof(RING_BUFFER_SIZE))+1] <=
+						(tx_ring_buffer_queue_stats[i]).count[fromInteger(valueof(RING_BUFFER_SIZE))+1] + 1;
+		end
+		measure2 <= 0;
+	endrule
+
+    for (Integer i = 0; i < fromInteger(valueof(NUM_OF_SERVERS)); i = i + 1)
+    begin
+        rule monitor_ring_buffers (curr_state == RUN && measure3 == fromInteger(i));
+            let len <- ring_buffer[i].elements;
+            //if (i != 0 && len == 2)
+            //begin
+            //    found = True;
+            //    $display("[SCHED (%d)] ring_buffer[%d].elements = 2", host_index, i);
+            //end
+            if (len <= fromInteger(valueof(RING_BUFFER_SIZE)))
+                (ring_buffer_queue_stats[i]).count[len] <=
+                             (ring_buffer_queue_stats[i]).count[len] + 1;
+            else
+                (ring_buffer_queue_stats[i]).count[fromInteger(valueof(RING_BUFFER_SIZE))+1] <=
+                        (ring_buffer_queue_stats[i]).count[fromInteger(valueof(RING_BUFFER_SIZE))+1] + 1;
+            //if (found == True)
+            //    curr_state <= CONFIG;
+            measure3 <= fromInteger(valueof(NUM_OF_SERVERS));
+        endrule
+    end
 /*-------------------------------------------------------------------------------*/
 
     Vector#(NUM_OF_SERVERS, Reg#(ServerIndex)) schedule_list <- replicateM(mkReg(0));
@@ -811,23 +811,23 @@ module mkScheduler#(Integer host_index,
     endmethod
 
 	method Action print_queue_stats();
-//		for (Integer i = 0; i < fromInteger(valueof(NUM_OF_PORTS)); i = i + 1)
-//		begin
-//			for (Integer j = 0; j < fromInteger(valueof(RING_BUFFER_SIZE_PLUS_TWO)); j = j + 1)
-//				$display("[SCHED (%d)] PORT RX %d LEN %d COUNT %d", host_index, i, j, (rx_ring_buffer_queue_stats[i]).count[j]);
-//		end
-//
-//		for (Integer i = 0; i < fromInteger(valueof(NUM_OF_PORTS)); i = i + 1)
-//		begin
-//			for (Integer j = 0; j < fromInteger(valueof(RING_BUFFER_SIZE_PLUS_TWO)); j = j + 1)
-//				$display("[SCHED (%d)] PORT TX %d LEN %d COUNT %d", host_index, i, j, (tx_ring_buffer_queue_stats[i]).count[j]);
-//		end
-//
-//		for (Integer i = 0; i < fromInteger(valueof(NUM_OF_SERVERS)); i = i + 1)
-//		begin
-//			for (Integer j = 0; j < fromInteger(valueof(RING_BUFFER_SIZE_PLUS_TWO)); j = j + 1)
-//				$display("[SCHED (%d)] FORWARDING RX %d LEN %d COUNT %d", host_index, i, j, (ring_buffer_queue_stats[i]).count[j]);
-//		end
+		for (Integer i = 0; i < fromInteger(valueof(NUM_OF_PORTS)); i = i + 1)
+		begin
+			for (Integer j = 0; j < fromInteger(valueof(RING_BUFFER_SIZE_PLUS_TWO)); j = j + 1)
+				$display("[SCHED (%d)] PORT RX %d LEN %d COUNT %d", host_index, i, j, (rx_ring_buffer_queue_stats[i]).count[j]);
+		end
+
+		for (Integer i = 0; i < fromInteger(valueof(NUM_OF_PORTS)); i = i + 1)
+		begin
+			for (Integer j = 0; j < fromInteger(valueof(RING_BUFFER_SIZE_PLUS_TWO)); j = j + 1)
+				$display("[SCHED (%d)] PORT TX %d LEN %d COUNT %d", host_index, i, j, (tx_ring_buffer_queue_stats[i]).count[j]);
+		end
+
+		for (Integer i = 0; i < fromInteger(valueof(NUM_OF_SERVERS)); i = i + 1)
+		begin
+			for (Integer j = 0; j < fromInteger(valueof(RING_BUFFER_SIZE_PLUS_TWO)); j = j + 1)
+				$display("[SCHED (%d)] FORWARDING RX %d LEN %d COUNT %d", host_index, i, j, (ring_buffer_queue_stats[i]).count[j]);
+		end
 
 		$display("[SCHED (%d)] SOURCE DROP = %d", host_index, (src_tx_ring_buffer_drop_count >> 2));
 	endmethod
