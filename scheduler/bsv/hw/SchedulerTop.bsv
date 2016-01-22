@@ -74,7 +74,7 @@ module mkSchedulerTop#(SchedulerTopIndication indication)(SchedulerTop);
     De5Buttons#(4) buttons <- mkDe5Buttons(clocked_by mgmtClock, reset_by mgmtReset);
 
     // Phy
-    //EthPhyIfc phys <- mkAlteraEthPhy(defaultClock, phyClock, txClock, defaultReset);
+//    EthPhyIfc phys <- mkAlteraEthPhy(defaultClock, phyClock, txClock, defaultReset);
     EthPhyIfc phys <- mkAlteraEthPhy(mgmtClock, phyClock, txClock, defaultReset, clocked_by mgmtClock, reset_by mgmtReset);
     DtpPhyIfc#(1) dtpPhy <- mkEthPhy(mgmtClock, txClock, phyClock, clocked_by mgmtClock, reset_by mgmtReset);
 
@@ -262,7 +262,7 @@ module mkSchedulerTop#(SchedulerTopIndication indication)(SchedulerTop);
 /*------------------------------------------------------------------------------*/
     // PHY port to MAC port mapping
 
-    for (Integer i = 0; i < fromInteger(valueof(NUM_OF_PORTS)); i = i + 1)
+    for (Integer i = 0; i < fromInteger(valueof(NUM_OF_PORTS))-1; i = i + 1)
     begin
         rule mac_phy_tx;
             phys.tx[i].put(mac.tx(i));

@@ -395,13 +395,15 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
     rule get_dst_addr (curr_state == RUN && start_tx_scheduling == 1);
 		Bit#(64) curr_time = clk.currTime();
 
-		Bit#(3) clock_lsb_four_bits = curr_time[2:0];
-		if (clock_lsb_four_bits == 0)
+		Bit#(3) clock_lsb_three_bits = curr_time[2:0];
+		if (clock_lsb_three_bits == 0)
 		begin
-			ServerIndex slot = 0;
-			//TODO Assumes NUM_OF_SERVERS < 16
-			//ServerIndex slot = curr_time[7:4] %
-			//                   (fromInteger(valueof(NUM_OF_SERVERS))-1);
+            ServerIndex slot = 0;
+            if (fromInteger(valueof(NUM_OF_SERVERS)) == 2)
+			    slot = 0;
+            else
+			    slot = curr_time[6:3] %
+			                   (fromInteger(valueof(NUM_OF_SERVERS))-1);
 
 			if (verbose)
             $display("[SCHED (%d)] CLK = %d  schedule_list[%d] = %d", host_index,
