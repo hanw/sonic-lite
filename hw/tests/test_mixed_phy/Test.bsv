@@ -55,11 +55,12 @@ module mkTest#(TestIndication indication) (Test);
 
    PacketBuffer buff <- mkPacketBuffer();
    EthPhyIfc phys <- mkAlteraEthPhy(mgmtClock, phyClock, txClock, defaultReset, clocked_by mgmtClock, reset_by mgmtReset);
-   DtpPhyIfc#(1) dtp_phy <- mkEthPhy(mgmtClock, txClock, phyClock, clocked_by mgmtClock, reset_by mgmtReset);
+   DtpPhyIfc#(1) dtpPhy <- mkEthPhy(mgmtClock, txClock, phyClock, clocked_by mgmtClock, reset_by mgmtReset);
 
    Clock rxClock = phys.rx_clkout;
    Reset rxReset <- mkSyncReset(2, defaultReset, rxClock);
    Vector#(3, EthMacIfc) mac <- replicateM(mkEthMac(defaultClock, txClock, rxClock, txReset));
+   EthMacIfc dtpMac <- mkEthMac(defaultClock, txClock, rxClock, txReset);
 
    SyncFIFOIfc#(EtherData) tx_fifo <- mkSyncFIFO(5, defaultClock, defaultReset, txClock);
 
@@ -72,6 +73,9 @@ module mkTest#(TestIndication indication) (Test);
    function Put#(Bit#(72)) getRx(EthMacIfc _mac); return _mac.rx; endfunction
    mapM(uncurry(mkConnection), zip(map(getTx, mac), phys.tx));
    mapM(uncurry(mkConnection), zip(phys.rx, map(getRx, mac)));
+
+   mkConnection(dtpMac.tx, toPut(dtpPhy.tx[0]));
+   mkConnection(toGet(dtpPhy.rx[0]), dtpMac.rx);
 
    rule readDataStart;
       let pktLen <- buff.readServer.readLen.get;
@@ -133,12 +137,12 @@ module mkTest#(TestIndication indication) (Test);
          clk_50_wire <= b4a;
       endmethod
       method Vector#(4, Bit#(1)) serial_tx_data;
-         let v = append(dtp_phy.serial_tx, phys.serial_tx);
+         let v = append(dtpPhy.serial_tx, phys.serial_tx);
          return v;
       endmethod
       method Action serial_rx (Vector#(4, Bit#(1)) v);
          phys.serial_rx(takeAt(0, v));
-         dtp_phy.serial_rx(takeAt(3, v));
+         dtpPhy.serial_rx(takeAt(3, v));
       endmethod
       method Action sfp(Bit#(1) refclk);
          clk_644_wire <= refclk;
