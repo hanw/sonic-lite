@@ -59,8 +59,8 @@ module mkTest#(TestIndication indication) (Test);
 
    Clock rxClock = phys.rx_clkout;
    Reset rxReset <- mkSyncReset(2, defaultReset, rxClock);
-   Vector#(3, EthMacIfc) mac <- replicateM(mkEthMac(defaultClock, txClock, rxClock, txReset));
-   EthMacIfc dtpMac <- mkEthMac(defaultClock, txClock, rxClock, txReset);
+   Vector#(3, EthMacIfc) mac <- replicateM(mkEthMac(mgmtClock, txClock, rxClock, txReset));
+   EthMacIfc dtpMac <- mkEthMac(mgmtClock, txClock, dtpPhy.rx_clkout[0], txReset);
 
    SyncFIFOIfc#(EtherData) tx_fifo <- mkSyncFIFO(5, defaultClock, defaultReset, txClock);
 
