@@ -170,12 +170,12 @@ module mkModifyMac(ModifyMac);
 
    rule modifyMacAddress;
       let req <- toGet(modifyMacReqFifo).get;
-      // FIXME: offset and mask
-      if(verbose) $display("TDM:: modifyMac %h", req.id);
+      // FIXME: busrtLen must be multiple of 16..
+      if(verbose) $display("TDM:: modifyMac %h ", req.id);
       writeReqFifo.enq(MemRequest {sglId: req.id, offset: 0, 
-                                   burstLen: 1, tag: 0
+                                   burstLen: 'h10, tag: 0
 `ifdef BYTE_ENABLES
-                                   , firstbe: 'hffff, lastbe: 'hffff
+                                   , firstbe: 'hffff, lastbe: 'h003f
 `endif
                                   });
       writeDataFifo.enq(MemData{data: extend(req.data), tag:0, last: True});
@@ -213,7 +213,7 @@ module mkTDM#(StoreAndFwdFromRingToMem ingress, StoreAndFwdFromMemToRing egress,
       $display("TDM:: bcam matches %h", v);
       let req <- toGet(ingress_fifo).get;
       // assume logic is table match implies forward
-      modMac.request.put(ModifyMacReq{id: req.id, data:'h123456789abc });
+      modMac.request.put(ModifyMacReq{id: req.id, data:'h123456789abc});
       egress_fifo.enq(req);
    endrule
 
