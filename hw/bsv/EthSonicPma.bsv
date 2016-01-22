@@ -85,7 +85,11 @@ module mkEthSonicPma#(Clock mgmt_clk, Clock pll_ref_clk, Clock clk_156_25, Reset
    Reset invertedReset <- mkResetInverter(rst_n, clocked_by defaultClock);
 
    // Qsys version of sv_10g_pma, uses reset_n, bit-reversed inside
+`ifndef NUMBER_OF_ALTERA_PORTS // 4Port PMA
    EthSonicPmaWrap phy10g <- mkEthSonicPmaWrap(mgmt_clk, pll_ref_clk, clk_156_25, clk_156_25, clk_156_25, clk_156_25, rst_n, rst_n);
+`else // 1PORT PMA
+   EthSonicPmaWrap phy10g <- mkEthSonicPmaWrap(mgmt_clk, pll_ref_clk, clk_156_25, rst_n, rst_n);
+`endif
    // Megawiz generated pma uses active-high reset
    //EthSonicPmaWrap phy10g <- mkEthSonicPmaWrap(mgmt_clk, pll_ref_clk, invertedReset);
 
