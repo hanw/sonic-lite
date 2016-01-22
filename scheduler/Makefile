@@ -38,7 +38,7 @@ CONNECTALFLAGS += --implconstraint=constraint.sdc
 #CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/sv_10g_pma/sv_10g_pma.qip
 #CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/altera_clkctrl/altera_clkctrl.qip
 
-CONNECTALFLAGS += --chipscope=$(SONICDIR)/scheduler/debug.stp
+#CONNECTALFLAGS += --chipscope=$(SONICDIR)/scheduler/debug.stp
 
 CONNECTALFLAGS += -D HW_DE5
 
