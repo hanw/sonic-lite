@@ -88,7 +88,7 @@ module mkDMASimulator#(Scheduler#(ReadReqType, ReadResType,
 //	         <- mkSyncFIFO(10, defaultClock, defaultReset, pcieClock);
 
     Reg#(Bit#(32)) count <- mkReg(0);
-	Reg#(Bit#(32)) num_of_cycles_to_wait <- mkReg(3);
+	Reg#(Bit#(32)) num_of_cycles_to_wait <- mkReg(0);
 
     Reg#(Bit#(1)) start_flag <- mkReg(0);
 
@@ -100,7 +100,7 @@ module mkDMASimulator#(Scheduler#(ReadReqType, ReadResType,
     Reg#(Header) header <- mkReg(defaultValue);
     Reg#(ServerIndex) dst_index <- mkReg(0);
     Reg#(Bit#(7)) block_count <- mkReg(0);
-    Reg#(Bit#(7)) num_of_blocks_to_transmit <- mkReg(4);
+    Reg#(Bit#(7)) num_of_blocks_to_transmit <- mkReg(0);
     Reg#(Bit#(1)) transmission_in_progress <- mkReg(0);
     Reg#(Bit#(1)) init_header <- mkReg(0);
 

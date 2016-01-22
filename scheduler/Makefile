@@ -7,7 +7,7 @@ BSVFILES = $(SONICDIR)/scheduler/bsv/hw/SchedulerTop.bsv
 CPPFILES = $(SONICDIR)/scheduler/cpp/test_hw.cpp
 
 CONNECTALFLAGS += -D DataBusWidth=128
-CONNECTALFLAGS += -D NUMBER_OF_ALTERA_PORTS=3
+#CONNECTALFLAGS += -D NUMBER_OF_ALTERA_PORTS=3
 CONNECTALFLAGS += --bsvpath=$(CONNECTALDIR)/bsv
 CONNECTALFLAGS += --bsvpath=$(SONICDIR)/hw/bsv/
 CONNECTALFLAGS += --bsvpath=$(SONICDIR)/hw/generated/
@@ -20,23 +20,23 @@ CONNECTALFLAGS += -I $(SONICDIR)/sw/
 #######################################################
 # DE5 Specific Settings
 # #######################################################
- AUTOTOP = --interface pins:SchedulerTop.pins
- PIN_TYPE = DE5Pins
- PIN_TYPE_INCLUDE = DE5Pins
- PIN_BINDINGS ?= PCIE:PCIE OSC:OSC SFPA:SFPA SFPB:SFPB SFPC:SFPC SFPD:SFPD SFP:SFP LED:LED I2C:CLOCK
- PINOUT_FILE = de5.json
+AUTOTOP = --interface pins:SchedulerTop.pins
+PIN_TYPE = DE5Pins
+PIN_TYPE_INCLUDE = DE5Pins
+PIN_BINDINGS ?= PCIE:PCIE OSC:OSC SFPA:SFPA SFPB:SFPB SFPC:SFPC SFPD:SFPD SFP:SFP LED:LED I2C:I2C
+PINOUT_FILE = de5.json
 
- CONNECTALFLAGS += --verilog=$(SONICDIR)/hw/verilog/si570/
- CONNECTALFLAGS += --verilog=$(SONICDIR)/hw/verilog/
- CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/mac_10gbe.qip
- CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/altera_xcvr_10gbaser_wrapper.qip
- CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/pll_156/altera_pll_156.qip
- CONNECTALFLAGS += --tcl=$(SONICDIR)/boards/de5_extra.qsf
- CONNECTALFLAGS += --tcl=constraint.sdc
- CONNECTALFLAGS += --constraint=constraint.sdc
- CONNECTALFLAGS += --implconstraint=constraint.sdc
- CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/sv_10g_pma/sv_10g_pma.qip
- CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/altera_clkctrl/altera_clkctrl.qip
+CONNECTALFLAGS += --verilog=$(SONICDIR)/hw/verilog/si570/
+CONNECTALFLAGS += --verilog=$(SONICDIR)/hw/verilog/
+CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/mac_10gbe.qip
+CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/altera_xcvr_10gbaser_wrapper.qip
+CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/pll_156/altera_pll_156.qip
+CONNECTALFLAGS += --tcl=$(SONICDIR)/boards/de5_extra.qsf
+CONNECTALFLAGS += --tcl=constraint.sdc
+CONNECTALFLAGS += --constraint=constraint.sdc
+CONNECTALFLAGS += --implconstraint=constraint.sdc
+#CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/sv_10g_pma/sv_10g_pma.qip
+#CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/altera_clkctrl/altera_clkctrl.qip
 
 CONNECTALFLAGS += --chipscope=$(SONICDIR)/scheduler/debug.stp
 
@@ -52,8 +52,8 @@ prebuild::
 	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) quartus_sh -t $(SONICDIR)/hw/scripts/generate-mac.tcl)
 	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) quartus_sh -t $(SONICDIR)/hw/scripts/connectal-synth-phy.tcl)
 	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) quartus_sh -t $(CONNECTALDIR)/scripts/connectal-synth-pll.tcl)
-	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) $(QUARTUS_SH) -t $(SONICDIR)/hw/scripts/connectal-synth-pma.tcl)
-	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) $(QUARTUS_SH) -t $(SONICDIR)/hw/scripts/connectal-synth-misc.tcl)
+#	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) $(QUARTUS_SH) -t $(SONICDIR)/hw/scripts/connectal-synth-pma.tcl)
+#	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) $(QUARTUS_SH) -t $(SONICDIR)/hw/scripts/connectal-synth-misc.tcl)
 
-include $(SONICDIR)/p4/Makefile.common
+#include $(SONICDIR)/p4/Makefile.common
 include $(CONNECTALDIR)/Makefile.connectal

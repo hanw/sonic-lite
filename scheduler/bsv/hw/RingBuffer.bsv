@@ -142,7 +142,6 @@ module mkRingBuffer#(Integer size)
     Reg#(Address) r_offset <- mkReg(0);
     Reg#(Address) r_offset_1 <- mkReg(0);
     Reg#(Address) r_max_offset <- mkReg(0);
-    Reg#(Bit#(1)) next_round <- mkReg(1);
 
     rule read_req (read_in_progress == 0);
         let r_req <- toGet(read_request_fifo).get;

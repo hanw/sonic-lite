@@ -79,7 +79,7 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
                     Clock rxClock, Reset rxReset)
 				(Scheduler#(ReadReqType, ReadResType, WriteReqType, WriteResType));
 
-    Reg#(Bool) verbose <- mkReg(False);
+    Reg#(Bool) verbose <- mkReg(True);
 
     GlobalClock clk <- mkGlobalClock;
 

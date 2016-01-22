@@ -15,7 +15,7 @@ import Addresses::*;
 
 import AlteraMacWrap::*;
 import EthMac::*;
-import EthPhy::*;
+//import EthPhy::*;
 import AlteraEthPhy::*;
 import DE5Pins::*;
 
@@ -74,9 +74,9 @@ module mkSchedulerTop#(SchedulerTopIndication indication)(SchedulerTop);
     De5Buttons#(4) buttons <- mkDe5Buttons(clocked_by mgmtClock, reset_by mgmtReset);
 
     // Phy
-//    EthPhyIfc phys <- mkAlteraEthPhy(defaultClock, phyClock, txClock, defaultReset);
-    EthPhyIfc phys <- mkAlteraEthPhy(mgmtClock, phyClock, txClock, defaultReset, clocked_by mgmtClock, reset_by mgmtReset);
-    DtpPhyIfc#(1) dtpPhy <- mkEthPhy(mgmtClock, txClock, phyClock, clocked_by mgmtClock, reset_by mgmtReset);
+    EthPhyIfc phys <- mkAlteraEthPhy(defaultClock, phyClock, txClock, defaultReset);
+//    EthPhyIfc phys <- mkAlteraEthPhy(mgmtClock, phyClock, txClock, defaultReset, clocked_by mgmtClock, reset_by mgmtReset);
+//    DtpPhyIfc#(1) dtpPhy <- mkEthPhy(mgmtClock, txClock, phyClock, clocked_by mgmtClock, reset_by mgmtReset);
 
     Clock rxClock = phys.rx_clkout;
     Reset rxReset <- mkSyncReset(2, defaultReset, rxClock);
@@ -191,19 +191,6 @@ module mkSchedulerTop#(SchedulerTopIndication indication)(SchedulerTop);
     endrule
 
 /*------------------------------------------------------------------------------*/
-	// Start MAC rx
-
-//	SyncFIFOIfc#(ServerIndex) host_index_fifo_mac
-//	         <- mkSyncFIFO(1, defaultClock, defaultReset, rxClock);
-//
-//	Reg#(Bit#(1)) fire_once_1 <- mkReg(0, clocked_by rxClock, reset_by rxReset);
-//	rule deq_from_host_index_fifo_mac (fire_once_1 == 0);
-//		let x <- toGet(host_index_fifo_mac).get;
-//		mac.start_mac_rx(x);
-//		fire_once_1 <= 1;
-//	endrule
-
-/*------------------------------------------------------------------------------*/
 	// Start DMA and Scheduler
 
 	SyncFIFOIfc#(Bit#(32)) dma_transmission_rate_fifo
@@ -262,7 +249,7 @@ module mkSchedulerTop#(SchedulerTopIndication indication)(SchedulerTop);
 /*------------------------------------------------------------------------------*/
     // PHY port to MAC port mapping
 
-    for (Integer i = 0; i < fromInteger(valueof(NUM_OF_PORTS))-1; i = i + 1)
+    for (Integer i = 0; i < fromInteger(valueof(NUM_OF_PORTS)); i = i + 1)
     begin
         rule mac_phy_tx;
             phys.tx[i].put(mac.tx(i));
@@ -483,16 +470,16 @@ module mkSchedulerTop#(SchedulerTopIndication indication)(SchedulerTop);
                               Bit#(1) b7d, Bit#(1) b8a, Bit#(1) b8d);
 			clk_50_wire <= b4a;
         endmethod
-        method Vector#(4, Bit#(1)) serial_tx_data;
-            let v = append(dtpPhy.serial_tx, phys.serial_tx);
-            return v;
-        endmethod
-        method Action serial_rx (Vector#(4, Bit#(1)) v);
-            phys.serial_rx(takeAt(0, v));
-            dtpPhy.serial_rx(takeAt(3, v));
-        endmethod
-//        method serial_tx_data = phys.serial_tx;
-//        method serial_rx = phys.serial_rx;
+//        method Vector#(4, Bit#(1)) serial_tx_data;
+//            let v = append(dtpPhy.serial_tx, phys.serial_tx);
+//            return v;
+//        endmethod
+//        method Action serial_rx (Vector#(4, Bit#(1)) v);
+//            phys.serial_rx(takeAt(0, v));
+//            dtpPhy.serial_rx(takeAt(3, v));
+//        endmethod
+        method serial_tx_data = phys.serial_tx;
+        method serial_rx = phys.serial_rx;
         method Action sfp(Bit#(1) refclk);
 			clk_644_wire <= refclk;
         endmethod
