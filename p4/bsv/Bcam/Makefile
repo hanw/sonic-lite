@@ -9,7 +9,7 @@ BSC=bsc
 BSCFLAGS=-keep-fires -cross-info
 SUFFIXES=
 
-BSVPATH=$(CONNECTALDIR)/bsv:../AsymmetricBRAM/:bdir:simdir
+BSVPATH=$(CONNECTALDIR)/bsv:$(CONNECTALDIR)/lib/bsv:../AsymmetricBRAM/:bdir:simdir
 
 TOPMOD = mkTb
 TOPFILE = Tb.bsv
@@ -46,7 +46,7 @@ endif
 #CONNECTALFLAGS += -v
 
 RUN_BSC = BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) BSC_VSIM_FLAGS=$(BSC_VSIM_FLAGS) $(BUILDCACHE) bsc -p +:$(BSVPATH)
-CONNECTALFLAGS += -show-range-conflict +RTS -K46777216 -RTS -demote-errors G0066:G0045 -suppress-warnings G0046:G0020:S0015:S0080:S0039 -steps-max-intervals 20
+CONNECTALFLAGS += -show-range-conflict +RTS -K46777216 -RTS -demote-errors G0066:G0045 -suppress-warnings G0046:G0020:G0023:S0015:S0080:S0039 -steps-max-intervals 20
 
 # Bluesim and Verilog simulators use two very different bsc calls
 ifeq ($(SIMULATOR),bluesim)

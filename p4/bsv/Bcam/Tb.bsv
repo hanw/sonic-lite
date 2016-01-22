@@ -42,14 +42,46 @@ function Stmt testSeq(BinaryCam#(256, 9) dut,
    endseq;
 endfunction
 
+function Stmt testSeq2(BinaryCam#(256, 18) dut,
+                      String dut_name);
+    return seq
+        noAction;
+        action
+            dut.writeServer.put(BcamWriteReq{addr:'h1, data:'h1000});
+        endaction
+        delay(100);
+        action
+            dut.writeServer.put(BcamWriteReq{addr:'h1, data:'h2000});
+        endaction
+        delay(100);
+        action
+            dut.writeServer.put(BcamWriteReq{addr:'h1, data:'h3000});
+        endaction
+        delay(100);
+        action
+            dut.writeServer.put(BcamWriteReq{addr:'h1, data:'h2000});
+        endaction
+        delay(100);
+        action
+            dut.readServer.request.put('h2000);
+        endaction
+        delay(10);
+        action
+            let v <- dut.readServer.response.get;
+            $display("read result=%x", fromMaybe(?,v));
+        endaction
+   endseq;
+endfunction
+
 (* synthesize *)
 module mkTb (Empty);
 
-   BinaryCam#(256, 9) bcam <- mkBinaryCam_256_9();
+   //BinaryCam#(256, 9) bcam <- mkBinaryCam();
+   BinaryCam#(256, 18) bcam <- mkBinaryCam();
    //PEnc#(1024) pe <- mkPriorityEncoder();
 
-   mkAutoFSM(testSeq(bcam, "bcam"));
-   //mkAutoFSM(testSeq2(pe, "pe"));
+   //mkAutoFSM(testSeq(bcam, "bcam"));
+   mkAutoFSM(testSeq2(bcam, "bcam"));
 
 endmodule: mkTb
 
