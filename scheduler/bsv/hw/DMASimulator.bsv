@@ -2,7 +2,6 @@ import FIFO::*;
 import FIFOF::*;
 import Vector::*;
 import DefaultValue::*;
-import Random::*;
 import GetPut::*;
 import Clocks::*;
 
