@@ -166,7 +166,7 @@ module mkStoreAndFwdFromMemToRing(StoreAndFwdFromMemToRing)
    provisos (Div#(`DataBusWidth, 8, bytesPerBeat)
             ,Log#(bytesPerBeat, beatShift));
 
-   let verbose = False;
+   let verbose = True;
 
    // Ring Buffer Write Client
    FIFO#(EtherData) writeDataFifo <- mkFIFO;

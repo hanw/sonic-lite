@@ -175,15 +175,6 @@ int main(int argc, char **argv)
         load_pcap_file(pcap_file, &pcap_info);
     }
 
-    if (arguments.rate && arguments.tracelen) {
-        int idle = compute_idle(&pcap_info, arguments.rate, LINK_SPEED);
-        device->start(arguments.tracelen, idle);
-        sem_wait(&alloc_sem);
-        device->free(0);
-        sem_wait(&free_sem);
-        //device->free(1);
-    }
-
     if (arguments.tableadd) {
         MatchField fields = {dstip: 0x0200000a};
         device->addEntry(0, fields);
@@ -192,6 +183,15 @@ int main(int argc, char **argv)
 
     if (arguments.tabledel) {
         device->deleteEntry(0, flowid);
+    }
+
+    if (arguments.rate && arguments.tracelen) {
+        int idle = compute_idle(&pcap_info, arguments.rate, LINK_SPEED);
+        device->start(arguments.tracelen, idle);
+        sem_wait(&alloc_sem);
+        device->free(0);
+        sem_wait(&free_sem);
+        //device->free(1);
     }
 
     while(1) sleep(1);

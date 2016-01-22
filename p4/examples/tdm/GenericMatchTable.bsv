@@ -13,7 +13,7 @@ import Bcam::*;
 import BcamTypes::*;
 
 typedef 36 KeyLen;
-typedef 10 AddrIdx;
+typedef 8 AddrIdx;
 
 typedef Bit#(16) FlowId;
 
@@ -56,7 +56,7 @@ module mkMatchTable(MatchTable);
    endrule
 
    FIFOF#(FlowId) entry_added_fifo <- mkSizedFIFOF(1);
-   BinaryCam#(1024, KeyLen) bcam <- mkBinaryCam; //FIXME
+   BinaryCam#(256, KeyLen) bcam <- mkBinaryCam; //FIXME
 
    BRAM_Configure cfg = defaultValue;
    cfg.latency = 2;
@@ -66,7 +66,7 @@ module mkMatchTable(MatchTable);
 
    rule handle_bcam_response;
       let v <- bcam.readServer.response.get;
-      if (verbose) $display("GenericMatchTable:: %d: recv bcam response ", cycle, fshow(v));
+      if (verbose) $display("GenericMatchTable:: %d: bcam response ", cycle, fshow(v));
       if (isValid(v)) begin
          let address = fromMaybe(?, v);
          ram.portA.request.put(BRAMRequest{write:False, responseOnWrite: False, address: address, datain:?});
@@ -79,13 +79,13 @@ module mkMatchTable(MatchTable);
          method Action put (MatchField field);
             BcamReadReq#(KeyLen) req_bcam = BcamReadReq{data: extend(field.dstip)};
             bcam.readServer.request.put(pack(req_bcam));
-            if (verbose) $display("GenericMatchTable:: %d: lookup ", cycle, fshow(req_bcam));
+            if (verbose) $display("GenericMatchTable:: %d: bcam lookup ", cycle, fshow(req_bcam));
          endmethod
       endinterface
       interface Get response;
          method ActionValue#(ActionArg) get();
             let v <- ram.portA.response.get;
-            if (verbose) $display("GenericMatchTable:: %d: recv ram response ", cycle, fshow(v));
+            if (verbose) $display("GenericMatchTable:: %d: bcam response ", cycle, fshow(v));
             return v;
          endmethod
       endinterface

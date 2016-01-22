@@ -65,7 +65,7 @@ interface MemoryTest;
 endinterface
 
 module mkMemoryTest#(MemoryTestIndication indication, MemMgmtIndication memTestInd, ConnectalMemory::MemServerIndication memServerInd, ConnectalMemory::MMUIndication mmuInd)(MemoryTest);
-   let verbose = False;
+   let verbose = True;
 
    Clock defaultClock <- exposeCurrentClock();
    Reset defaultReset <- exposeCurrentReset();
@@ -137,8 +137,7 @@ module mkMemoryTest#(MemoryTestIndication indication, MemMgmtIndication memTestI
    mkConnection(ringToMac.readClient, outgoing_buff.readServer);
 
    // Null Forwarding bypass pipeline
-   mkConnection(ingress.eventPktCommitted, egress.eventPktSend);
-
+   //mkConnection(ingress.eventPktCommitted, egress.eventPktSend);
 
    TDM sched <- mkTDM(ingress, egress, ipv4Parser, matchTable, modMac);
 

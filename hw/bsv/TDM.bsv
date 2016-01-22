@@ -150,10 +150,12 @@ module mkForwardQ(ForwardQ);
 endmodule
 
 interface ModifyMac;
-   interface Put#(ModifyMacReq) modifyMacReq;
+   interface Put#(ModifyMacReq) request;
+   interface Get#(Bit#(MemTagSize)) done;
    interface MemWriteClient#(`DataBusWidth) writeClient;
 endinterface
 module mkModifyMac(ModifyMac);
+   let verbose = True;
    FIFO#(ModifyMacReq) modifyMacReqFifo <- mkFIFO;
 
    // Memory Client
@@ -169,6 +171,7 @@ module mkModifyMac(ModifyMac);
    rule modifyMacAddress;
       let req <- toGet(modifyMacReqFifo).get;
       // FIXME: offset and mask
+      if(verbose) $display("TDM:: modifyMac %h", req.id);
       writeReqFifo.enq(MemRequest {sglId: req.id, offset: 0, 
                                    burstLen: 1, tag: 0
 `ifdef BYTE_ENABLES
@@ -178,11 +181,8 @@ module mkModifyMac(ModifyMac);
       writeDataFifo.enq(MemData{data: extend(req.data), tag:0, last: True});
    endrule
 
-   rule modifyMacDone;
-      let done <- toGet(writeDoneFifo).get;
-      $display("TDM:: modify mac done!");
-   endrule
-   interface Put modifyMacReq = toPut(modifyMacReqFifo);
+   interface Put request= toPut(modifyMacReqFifo);
+   interface Get done = toGet(writeDoneFifo);
    interface writeClient = dmaWriteClient;
 endmodule
 
@@ -195,6 +195,9 @@ endinterface
 
 module mkTDM#(StoreAndFwdFromRingToMem ingress, StoreAndFwdFromMemToRing egress, Parser parser, MatchTable matchTable, ModifyMac modMac)(TDM);
 
+   FIFOF#(FQWriteRequest) ingress_fifo <- mkSizedFIFOF(16);
+   FIFOF#(FQWriteRequest) egress_fifo <- mkSizedFIFOF(16);
+
    let verbose = True;
    Reg#(Bit#(32)) cycle <- mkReg(0);
    rule cycleRule if (verbose);
@@ -204,10 +207,22 @@ module mkTDM#(StoreAndFwdFromRingToMem ingress, StoreAndFwdFromMemToRing egress,
    TimeSlot timeSlot <- mkTimeSlot();
    ForwardQ fwdq <- mkForwardQ();
 
-   //! Schedule Table: support insert and lookup
+   // packet processing pipeline: ingress
    rule tableLookupResp;
       let v <- matchTable.lookupPort.response.get;
-      $display("TDM:: table lookup %h", v);
+      $display("TDM:: bcam matches %h", v);
+      let req <- toGet(ingress_fifo).get;
+      // assume logic is table match implies forward
+      modMac.request.put(ModifyMacReq{id: req.id, data:'h123456789abc });
+      egress_fifo.enq(req);
+   endrule
+
+   // packet processing pipelie: egress
+   rule modifyMacResp;
+      let req <- toGet(egress_fifo).get;
+      let v <- modMac.done.get;
+      $display("TDM:: modifyMac done %h", v);
+      fwdq.req_w.put(req);
    endrule
 
    //! Function: ipToIndex
@@ -215,10 +230,11 @@ module mkTDM#(StoreAndFwdFromRingToMem ingress, StoreAndFwdFromMemToRing egress,
    rule enqueuePacketInstance;
       let v <- ingress.eventPktCommitted.get;
       let ipv4 <- toGet(parser.parsedOut_ipv4_dstAddr).get;
-      fwdq.req_w.put(FQWriteRequest{host: truncate(ipv4), id: v.id,
-                                    dstip: ipv4, size: v.size});
       if (verbose) $display("TDM:: %d enqueuePkt: %h %h %h", cycle, v.id, v.size, ipv4);
-      //matchTable.lookupPort.request.put(MatchField{dstip:ipv4});
+      // Enqueue data for processing.
+      matchTable.lookupPort.request.put(MatchField{dstip:ipv4});
+      ingress_fifo.enq(FQWriteRequest{host: truncate(ipv4), id: v.id,
+                                  dstip: ipv4, size: v.size});
    endrule
 
    rule slotRequest;
