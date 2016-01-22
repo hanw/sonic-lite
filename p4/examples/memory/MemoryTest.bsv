@@ -35,7 +35,11 @@ import Gearbox::*;
 import Pipe::*;
 
 import MemServerIndication::*;
+import MemMgmt::*;
+import MemMgmtIndication::*;
+`ifdef SIMULATION
 import MMUIndication::*;
+`endif
 import MemTypes::*;
 import Ethernet::*;
 import MemoryAPI::*;
@@ -57,7 +61,13 @@ interface MemoryTest;
    interface `PinType pins;
 endinterface
 
-module mkMemoryTest#(MemoryTestIndication indication, ConnectalMemory::MemServerIndication memServerIndication)(MemoryTest);
+module mkMemoryTest#(MemoryTestIndication indication
+                    ,ConnectalMemory::MemServerIndication memServerIndication
+`ifdef SIMULATION
+                    ,MemMgmtIndication memTestInd
+                    ,ConnectalMemory::MMUIndication mmuInd
+`endif
+                    )(MemoryTest);
    let verbose = False;
 
    Clock defaultClock <- exposeCurrentClock();
@@ -66,7 +76,7 @@ module mkMemoryTest#(MemoryTestIndication indication, ConnectalMemory::MemServer
    Wire#(Bit#(1)) clk_644_wire <- mkDWire(0);
    Wire#(Bit#(1)) clk_50_wire <- mkDWire(0);
 
-`ifndef SIMULATION
+`ifdef SYNTHESIS
    De5Clocks clocks <- mkDe5Clocks(clk_50_wire, clk_644_wire);
 `else
    SimClocks clocks <- mkSimClocks();
@@ -79,7 +89,7 @@ module mkMemoryTest#(MemoryTestIndication indication, ConnectalMemory::MemServer
    Reset phyReset <- mkSyncReset(2, defaultReset, phyClock);
    Reset mgmtReset <- mkSyncReset(2, defaultReset, mgmtClock);
 
-`ifndef SIMULATION
+`ifdef SYNTHESIS
    // DE5 Pins
    De5Leds leds <- mkDe5Leds(defaultClock, txClock, mgmtClock, phyClock);
    De5SfpCtrl#(4) sfpctrl <- mkDe5SfpCtrl();
@@ -97,12 +107,23 @@ module mkMemoryTest#(MemoryTestIndication indication, ConnectalMemory::MemServer
 `endif
 
    PacketBuffer incoming_buff <- mkPacketBuffer();
-   StoreAndFwdFromRingToMem ringToMem <- mkStoreAndFwdFromRingToMem();
+   StoreAndFwdFromRingToMem ringToMem <- mkStoreAndFwdFromRingToMem(
+`ifdef SIMULATION
+                                                                    memTestInd
+`endif
+                                                                   );
 
    PacketBuffer outgoing_buff <- mkPacketBuffer();
    StoreAndFwdFromMemToRing memToRing <- mkStoreAndFwdFromMemToRing();
 
-   SharedBuffer#(12, 128, 1) mem <- mkSharedBuffer(vec(memToRing.readClient), vec(ringToMem.writeClient), memServerIndication);
+   SharedBuffer#(12, 128, 1) mem <- mkSharedBuffer(vec(memToRing.readClient)
+                                                  ,vec(ringToMem.writeClient)
+                                                  ,memServerIndication
+`ifdef SIMULATION
+                                                  ,memTestInd
+                                                  ,mmuInd
+`endif
+                                                  );
 
    mkConnection(ringToMem.readClient, incoming_buff.readServer);
    mkConnection(ringToMem.mallocReq, mem.mallocReq);
@@ -116,7 +137,7 @@ module mkMemoryTest#(MemoryTestIndication indication, ConnectalMemory::MemServer
 
    mkConnection(ringToMac.readClient, outgoing_buff.readServer);
 
-`ifndef SIMULATION
+`ifdef SYNTHESIS
    mkConnection(ringToMac.macTx, mac[0].packet_tx);
 `else
    rule drain_mac;
@@ -128,7 +149,7 @@ module mkMemoryTest#(MemoryTestIndication indication, ConnectalMemory::MemServer
    MemoryAPI api <- mkMemoryAPI(indication, incoming_buff);
 
    interface request = api.request;
-`ifndef SIMULATION
+`ifdef SYNTHESIS
    interface `PinType pins;
       method Action osc_50(Bit#(1) b3d, Bit#(1) b4a, Bit#(1) b4d, Bit#(1) b7a, Bit#(1) b7d, Bit#(1) b8a, Bit#(1) b8d);
          clk_50_wire <= b4a;

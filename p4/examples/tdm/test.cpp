@@ -20,7 +20,9 @@
  */
 
 #include "MemServerIndication.h"
+#ifdef SIMULATION
 #include "MemMgmtIndication.h"
+#endif
 #include "MemoryTestIndication.h"
 #include "MemoryTestRequest.h"
 #include "GeneratedTypes.h"
@@ -59,6 +61,7 @@ public:
     MemoryTestIndication(unsigned int id) : MemoryTestIndicationWrapper(id) {}
 };
 
+#ifdef SIMULATION
 class MemMgmtIndication : public MemMgmtIndicationWrapper
 {
 public:
@@ -78,6 +81,7 @@ public:
     }
     MemMgmtIndication(unsigned int id) : MemMgmtIndicationWrapper(id) {}
 };
+#endif
 
 void usage (const char *program_name) {
     printf("%s: p4fpga tester\n"
@@ -162,7 +166,9 @@ int main(int argc, char **argv)
     struct pcap_trace_info pcap_info = {0, 0};
 
     MemoryTestIndication echoIndication(IfcNames_MemoryTestIndicationH2S);
+#ifdef SIMULATION
     MemMgmtIndication memMgmtIndication(IfcNames_MemMgmtIndicationH2S);
+#endif
 
     device = new MemoryTestRequestProxy(IfcNames_MemoryTestRequestS2H);
 

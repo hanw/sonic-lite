@@ -49,12 +49,14 @@ interface SharedBuffer#(numeric type addrWidth, numeric type busWidth, numeric t
    interface Get#(Bool) freeDone;
 endinterface
 
-module mkSharedBuffer#(Vector#(numReadClients, MemReadClient#(busWidth)) readClients,
-                       Vector#(numWriteClients, MemWriteClient#(busWidth)) writeClients,
-                       MemMgmtIndication memTestInd,
-                       MemServerIndication memServerInd,
-                       MMUIndication mmuInd)
-                       (SharedBuffer#(addrWidth, busWidth, nMasters))
+module mkSharedBuffer#(Vector#(numReadClients, MemReadClient#(busWidth)) readClients
+                       ,Vector#(numWriteClients, MemWriteClient#(busWidth)) writeClients
+                       ,MemServerIndication memServerInd
+`ifdef SIMULATION
+                       ,MemMgmtIndication memTestInd
+                       ,MMUIndication mmuInd
+`endif
+                      )(SharedBuffer#(addrWidth, busWidth, nMasters))
    provisos(Add#(TLog#(TDiv#(busWidth, 8)), e__, 8)
 	    ,Add#(TLog#(TDiv#(busWidth, 8)), f__, BurstLenSize)
 	    ,Add#(c__, addrWidth, 64)
@@ -67,7 +69,12 @@ module mkSharedBuffer#(Vector#(numReadClients, MemReadClient#(busWidth)) readCli
 	    );
    let verbose = True;
 
-   MemMgmt#(addrWidth) alloc <- mkMemMgmt(memTestInd, mmuInd);
+   MemMgmt#(addrWidth) alloc <- mkMemMgmt(
+`ifdef SIMULATION
+                                          memTestInd
+                                         ,mmuInd
+`endif
+                                         );
    MemServer#(addrWidth, busWidth, nMasters) dma <- mkMemServer(readClients, writeClients, cons(alloc.mmu, nil), memServerInd);
 
    // TODO: use two ports to improve throughput

@@ -60,7 +60,11 @@ interface StoreAndFwdFromRingToMem;
    interface Get#(PacketInstance) eventPktCommitted;
 endinterface
 
-module mkStoreAndFwdFromRingToMem#(MemMgmtIndication memTestInd)(StoreAndFwdFromRingToMem)
+module mkStoreAndFwdFromRingToMem
+`ifdef SIMULATION
+                                 #(MemMgmtIndication memTestInd)
+`endif
+                                 (StoreAndFwdFromRingToMem)
    provisos (Div#(`DataBusWidth, 8, bytesPerBeat)
             ,Log#(bytesPerBeat, beatShift));
 
@@ -139,7 +143,9 @@ module mkStoreAndFwdFromRingToMem#(MemMgmtIndication memTestInd)(StoreAndFwdFrom
    rule packetReadDone;
       let v <- toGet(writeDoneFifo).get;
       let recvd <- toGet(eventPktReceivedFifo).get;
+`ifdef SIMULATION
       memTestInd.packet_committed(recvd.id);
+`endif
       eventPktCommittedFifo.enq(recvd);
       if (verbose) $display("StoreAndForward::packetReadDone %d: packet written to memory %h", cycle, v);
    endrule

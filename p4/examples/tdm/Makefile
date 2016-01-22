@@ -13,7 +13,13 @@ SCHEDDIR?=$(DEV_ROOT)/sonic-lite/scheduler
 # Connectal Support
 ########################################################
 S2H_INTERFACES=MemoryTestRequest:MemoryTest.request
-H2S_INTERFACES=MemoryTest:MemoryTestIndication,MemMgmtIndication,MemServerIndication,MMUIndication
+
+ifeq ($(BOARD), de5)
+H2S_INTERFACES=MemoryTest:MemoryTestIndication,MemServerIndication
+endif
+ifeq ($(BOARD), bluesim)
+H2S_INTERFACES=MemoryTest:MemoryTestIndication,MemServerIndication,MemMgmtIndication,MMUIndication
+endif
 
 BSVFILES=MemoryTest.bsv MemoryAPI.bsv $(SONICDIR)/hw/bsv/MemMgmt.bsv GenericMatchTable.bsv
 CPPFILES=test.cpp

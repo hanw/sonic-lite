@@ -12,7 +12,13 @@ P4FPGADIR?=$(DEV_ROOT)/sonic-lite/p4
 # Connectal Support
 ########################################################
 S2H_INTERFACES=MemoryTestRequest:MemoryTest.request
+ifeq ($(BOARD), de5)
 H2S_INTERFACES=MemoryTest:MemoryTestIndication,MemServerIndication
+endif
+ifeq ($(BOARD), bluesim)
+H2S_INTERFACES=MemoryTest:MemoryTestIndication,MemServerIndication,MemMgmtIndication,MMUIndication
+endif
+
 
 BSVFILES=MemoryTest.bsv MemoryAPI.bsv $(SONICDIR)/hw/bsv/MemMgmt.bsv
 CPPFILES=test.cpp

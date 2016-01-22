@@ -71,14 +71,20 @@ interface MMUIndicationProxy;
    interface MMUIndication mmuInd;
    interface Get#(Bit#(32)) idResponse;
 endinterface
-module mkMMUIndicationProxy#(MMUIndication mmuInd)(MMUIndicationProxy);
+module mkMMUIndicationProxy
+`ifdef SIMULATION
+                           #(MMUIndication mmuInd)
+`endif
+                           (MMUIndicationProxy);
    FIFO#(Bit#(32)) idresponse_fifo <- mkFIFO;
    interface MMUIndication mmuInd;
       method Action idResponse(Bit#(32) sglId);
          idresponse_fifo.enq(sglId);
       endmethod
+`ifdef SIMULATION
       method configResp = mmuInd.configResp;
       method error = mmuInd.error;
+`endif
    endinterface
    interface Get idResponse = toGet(idresponse_fifo);
 endmodule
@@ -91,7 +97,11 @@ interface MemMgmt#(numeric type addrWidth);
    interface Put#(Bit#(32)) freeReq;
    interface Get#(Bool) freeDone;
 endinterface
-module mkMemMgmt#(MemMgmtIndication indication, MMUIndication mmuInd)(MemMgmt#(addrWidth))
+module mkMemMgmt
+`ifdef SIMULATION
+                #(MemMgmtIndication indication, MMUIndication mmuInd)
+`endif
+                (MemMgmt#(addrWidth))
    provisos(Add#(a__, addrWidth, 44));
    let verbose = True;
 
@@ -133,7 +143,11 @@ module mkMemMgmt#(MemMgmtIndication indication, MMUIndication mmuInd)(MemMgmt#(a
    FIFO#(MemMgmtError) memMgmtErrorFifo <- mkFIFO;
    FIFO#(Bit#(PageIdx)) pagePointerFifo <- mkFIFO;
 
-   MMUIndicationProxy proxy <- mkMMUIndicationProxy(mmuInd);
+   MMUIndicationProxy proxy <- mkMMUIndicationProxy(
+`ifdef SIMULATION
+                                                    mmuInd
+`endif
+                                                   );
    MMU#(addrWidth) iommu <- mkSharedBuffMMU(0, proxy.mmuInd);
 
    function BRAMServer#(a,b) portsel(BRAM2Port#(a,b) x, Integer i);
@@ -190,7 +204,9 @@ module mkMemMgmt#(MemMgmtIndication indication, MMUIndication mmuInd)(MemMgmt#(a
          // map id to linked-list of pages
          portsel(idmap, 0).request.put(BRAMRequest{write:True, responseOnWrite:False, address:packetId, datain:tagged Valid segment});
          mallocDoneFifo.enq(tagged Valid packetId);
+`ifdef SIMULATION
          indication.memory_allocated(packetId);
+`endif
       end
       $display("MemMgmt:: id=%d, segmentIdx=%x", packetId, segment);
    endrule
@@ -205,7 +221,9 @@ module mkMemMgmt#(MemMgmtIndication indication, MMUIndication mmuInd)(MemMgmt#(a
 
    rule report_error;
       let v <- toGet(memMgmtErrorFifo).get;
+`ifdef SIMULATION
       indication.error(extend(pack(v.errorType)), v.id);
+`endif
       if (verbose) $display("MemMgmt::free_error: memMgmt error");
    endrule
 
@@ -232,7 +250,9 @@ module mkMemMgmt#(MemMgmtIndication indication, MMUIndication mmuInd)(MemMgmt#(a
          end
          tagged Invalid: begin
             free_started <= False;
+`ifdef SIMULATION
             indication.packet_freed(idToFree);
+`endif
          end
       endcase
       // return current page to free page list
