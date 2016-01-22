@@ -148,14 +148,17 @@ endfunction
 
 instance PEncoder#(2);
    module mkPEncoder(PE#(2));
+      FIFOF#(void) reqfifo <- mkFIFOF;
       Reg#(Bit#(2)) input_wire <- mkReg(0);
       interface Put oht;
          method Action put(Bit#(2) v);
             input_wire <= v;
+            reqfifo.enq(?);
          endmethod
       endinterface
       interface Get bin;
          method ActionValue#(Maybe#(Bit#(1))) get;
+            reqfifo.deq;
             return mkPE2(input_wire);
          endmethod
       endinterface
@@ -164,14 +167,17 @@ endinstance
 
 instance PEncoder#(4);
    module mkPEncoder(PE#(4));
+      FIFOF#(void) reqfifo <- mkFIFOF;
       Reg#(Bit#(4)) input_wire <- mkReg(0);
       interface Put oht;
          method Action put(Bit#(4) v);
             input_wire <= v;
+            reqfifo.enq(?);
          endmethod
       endinterface
       interface Get bin;
          method ActionValue#(Maybe#(Bit#(2))) get;
+            reqfifo.deq;
             return mkPE4(input_wire);
          endmethod
       endinterface
@@ -180,14 +186,17 @@ endinstance
 
 instance PEncoder#(16);
    module mkPEncoder(PE#(16));
+      FIFOF#(void) reqfifo <- mkFIFOF;
       Reg#(Bit#(16)) input_wire <- mkReg(0);
       interface Put oht;
          method Action put(Bit#(16) v);
             input_wire <= v;
+            reqfifo.enq(?);
          endmethod
       endinterface
       interface Get bin;
          method ActionValue#(Maybe#(Bit#(4))) get;
+            reqfifo.deq;
             return mkPE16(input_wire);
          endmethod
       endinterface
@@ -196,14 +205,17 @@ endinstance
 
 instance PEncoder#(32);
    module mkPEncoder(PE#(32));
+      FIFOF#(void) reqfifo <- mkFIFOF;
       Reg#(Bit#(32)) input_wire <- mkReg(0);
       interface Put oht;
          method Action put(Bit#(32) v);
             input_wire <= v;
+            reqfifo.enq(?);
          endmethod
       endinterface
       interface Get bin;
          method ActionValue#(Maybe#(Bit#(5))) get;
+            reqfifo.deq;
             return mkPE32(input_wire);
          endmethod
       endinterface
@@ -212,14 +224,17 @@ endinstance
 
 instance PEncoder#(64);
    module mkPEncoder(PE#(64));
+      FIFOF#(void) reqfifo <- mkFIFOF;
       Reg#(Bit#(64)) input_wire <- mkReg(0);
       interface Put oht;
          method Action put(Bit#(64) v);
             input_wire <= v;
+            reqfifo.enq(?);
          endmethod
       endinterface
       interface Get bin;
          method ActionValue#(Maybe#(Bit#(6))) get;
+            reqfifo.deq;
             return mkPE64(input_wire);
          endmethod
       endinterface
@@ -228,14 +243,17 @@ endinstance
 
 instance PEncoder#(256);
    module mkPEncoder(PE#(256));
+      FIFOF#(void) reqfifo <- mkFIFOF;
       Reg#(Bit#(256)) input_wire <- mkReg(0);
       interface Put oht;
          method Action put(Bit#(256) v);
             input_wire <= v;
+            reqfifo.enq(?);
          endmethod
       endinterface
       interface Get bin;
          method ActionValue#(Maybe#(Bit#(8))) get;
+            reqfifo.deq;
             return mkPE256(input_wire);
          endmethod
       endinterface

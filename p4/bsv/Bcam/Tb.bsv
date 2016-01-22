@@ -11,7 +11,7 @@ import Ram9b::*;
 import BcamTypes::*;
 import Bcam::*;
 
-function Stmt testSeq(BinaryCam#(1024, 9) dut,
+function Stmt testSeq(BinaryCam#(256, 9) dut,
                       String dut_name);
     return seq
         noAction;
@@ -45,7 +45,7 @@ endfunction
 (* synthesize *)
 module mkTb (Empty);
 
-   BinaryCam#(1024, 9) bcam <- mkBinaryCam_1024_9();
+   BinaryCam#(256, 9) bcam <- mkBinaryCam_256_9();
    //PEnc#(1024) pe <- mkPriorityEncoder();
 
    mkAutoFSM(testSeq(bcam, "bcam"));

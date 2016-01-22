@@ -46,53 +46,42 @@ typedef enum {S0, S1, S2} StateType
 interface Bcam9b#(numeric type camDepth);
    interface Put#(BcamWriteReq#(TLog#(camDepth), 9)) writeServer;
    interface Put#(ReadRequest) mPatt;
-   interface Get#(ReadResponse#(TSub#(TLog#(camDepth), 9))) mIndc;
+   interface Get#(ReadResponse#(TSub#(TLog#(camDepth), 7))) mIndc;
 endinterface
 module mkBcam9b(Bcam9b#(camDepth))
-   provisos(Add#(cdep, 9, camSz)
+   provisos(Add#(cdep, 7, camSz)
             ,Log#(camDepth, camSz)
-            ,Mul#(cdep, 1024, indcWidth)
-            ,Add#(a__, 2, TLog#(TDiv#(camDepth, 8)))
-            ,Add#(h__, 3, TLog#(TDiv#(camDepth, 4)))
-            ,Log#(TDiv#(camDepth, 4), TAdd#(a__, 3))
-            ,Add#(TAdd#(cdep, 5), b__, camSz)
-            ,Add#(5, c__, camSz)
-            ,Add#(2, d__, camSz)
-            ,Add#(3, e__, camSz)
-            ,Add#(TLog#(f__), 5, a__)
-            ,Add#(a__, g__, camSz)
-            ,Add#(f__, 9, camSz)
-            ,Log#(TDiv#(camDepth, 32), g__)
-            ,Log#(TDiv#(camDepth, 32), a__)
-            ,Add#(TAdd#(TLog#(TSub#(TLog#(camDepth), 9)), 5), h__, camSz)
-            ,Add#(TLog#(cdep), 5, wAddrHWidth)
+            ,Mul#(cdep, 256, indcWidth)
+            ,Add#(TLog#(cdep), 4, wAddrHWidth)
             ,Add#(writeSz, 0, 10)
             ,Add#(dataSz, 1, writeSz)
             ,Add#(readSz, 0, 40)
             ,Div#(readSz, writeSz, ratio)
             ,Log#(ratio, ratioSz)
-            ,Div#(camDepth, 8, writeDepth)
+            ,Div#(camDepth, 4, writeDepth)
             ,Log#(writeDepth, writeDepthSz)
             ,Add#(readDepthSz, ratioSz, writeDepthSz)
             ,Add#(readDepthSz, 0, wAddrHWidth)
-            ,Add#(vacWriteSz, 0, 32)
-            ,Add#(vacReadSz, 0, 32)
-            ,Div#(camDepth, 32, vacWriteDepth)
+            ,Add#(vacWriteSz, 0, 16)
+            ,Add#(vacReadSz, 0, 16)
+            ,Div#(camDepth, 16, vacWriteDepth)
             ,Div#(vacReadSz, vacWriteSz, vacRatio)
             ,Log#(vacRatio, vacRatioSz)
             ,Log#(vacWriteDepth, vacWriteDepthSz)
             ,Add#(vacReadDepthSz, vacRatioSz, vacWriteDepthSz)
             ,Add#(vacReadDepthSz, 0, wAddrHWidth)
             ,Add#(vacWriteDepthSz, 0, wAddrHWidth)
-            ,Add#(idxWriteSz, 0, 5)
-            ,Add#(idxReadSz, 0, 40)
+            ,Add#(idxWriteSz, 0, 4)
+            ,Add#(idxReadSz, 0, 16)
             ,Div#(camDepth, 4, idxWriteDepth)
             ,Div#(idxReadSz, idxWriteSz, idxRatio)
             ,Log#(idxRatio, idxRatioSz)
             ,Log#(idxWriteDepth, idxWriteDepthSz)
             ,Add#(idxReadDepthSz, idxRatioSz, idxWriteDepthSz)
-            ,Add#(wAddrHWidth, a__, camSz)
             ,Add#(idxReadDepthSz, 0, wAddrHWidth)
+            ,Add#(2, a__, camSz)
+            ,Add#(4, b__, camSz)
+            ,Add#(wAddrHWidth, c__, camSz)
          );
 
    let verbose = True;
@@ -106,8 +95,8 @@ module mkBcam9b(Bcam9b#(camDepth))
    endrule
 
    // setram fifo, remove later.
-   FIFO#(Bit#(32)) oldPattIndc_fifo <- mkFIFO;
-   FIFO#(Bit#(32)) newPattIndc_fifo <- mkFIFO;
+   FIFO#(Bit#(16)) oldPattIndc_fifo <- mkFIFO;
+   FIFO#(Bit#(16)) newPattIndc_fifo <- mkFIFO;
    FIFO#(void) setram_read <- mkFIFO;
    FIFO#(void) vacram_read <- mkFIFO;
    FIFO#(void) idxram_read <- mkFIFO;
@@ -122,27 +111,27 @@ module mkBcam9b(Bcam9b#(camDepth))
    Reg#(Bool) oldPattVR <- mkReg(False);
    Reg#(Bit#(9)) wPatt_bcam <- mkReg(0);
    Reg#(Bit#(camSz)) wAddr_bcam <- mkReg(0);
-   Reg#(Bit#(5)) vacFLocR <- mkReg(0);
-   Reg#(Bit#(32)) cVacR <- mkReg(maxBound);
+   Reg#(Bit#(4)) vacFLocR <- mkReg(0);
+   Reg#(Bit#(16)) cVacR <- mkReg(maxBound);
    Reg#(Bool) oldPattMultiOccR <- mkReg(False);
    Reg#(Bool) newPattMultiOccR <- mkReg(False);
-   Reg#(Bit#(5)) oldIdxR <- mkReg(0);
-   Reg#(Bit#(5)) newIdxR <- mkReg(0);
+   Reg#(Bit#(4)) oldIdxR <- mkReg(0);
+   Reg#(Bit#(4)) newIdxR <- mkReg(0);
    Reg#(Bool) oldEqNewPattR <- mkReg(False);
    Reg#(Bit#(wAddrHWidth)) wAddrHR <- mkReg(0);
-   Reg#(Bit#(32)) wIndcR <- mkReg(0);
-   Reg#(Bit#(5)) wIndxR <- mkReg(0);
-   Reg#(Bit#(5)) wAddr_indcR <- mkReg(0);
+   Reg#(Bit#(16)) wIndcR <- mkReg(0);
+   Reg#(Bit#(4)) wIndxR <- mkReg(0);
+   Reg#(Bit#(4)) wAddr_indcR <- mkReg(0);
 
-   Wire#(Bit#(5)) newPattOccFLoc_wire <- mkDWire(0);
+   Wire#(Bit#(4)) newPattOccFLoc_wire <- mkDWire(0);
 
-   PE#(32) pe_multiOcc <- mkPEncoder();
-   PE#(32) pe_vac <- mkPEncoder();
+   PE#(16) pe_multiOcc <- mkPEncoder();
+   PE#(16) pe_vac <- mkPEncoder();
 
    Ram9b#(cdep) ram9b <- mkRam9b();
 
    `define SETRAM AsymmetricBRAM#(Bit#(readDepthSz), Bit#(readSz), Bit#(writeDepthSz), Bit#(writeSz))
-   Vector#(8, `SETRAM) setRam <- replicateM(mkAsymmetricBRAM(True, False, "Setram"));
+   Vector#(4, `SETRAM) setRam <- replicateM(mkAsymmetricBRAM(True, False, "Setram"));
 
    `define VACRAM AsymmetricBRAM#(Bit#(vacReadDepthSz), Bit#(vacReadSz), Bit#(vacWriteDepthSz), Bit#(vacWriteSz))
    `VACRAM vacram <- mkAsymmetricBRAM(True, False, "Vacram");
@@ -218,25 +207,25 @@ module mkBcam9b(Bcam9b#(camDepth))
    rule wIndc_to_all;
       let oldPattIndc <- toGet(oldPattIndc_fifo).get;
       let newPattIndc <- toGet(newPattIndc_fifo).get;
-      Bit#(32) wIndc = oldNewbPattWrR ? oldPattIndc : newPattIndc;
+      Bit#(16) wIndc = oldNewbPattWrR ? oldPattIndc : newPattIndc;
       if(verbose) $display("cam9b %d: oldPattIndc=%x, newPattIndc=%x", cycle, oldPattIndc, newPattIndc);
       if(verbose) $display("cam9b %d: oldNewbPattwr=%x, wIndc=", cycle, oldNewbPattWrR, fshow(wIndc));
       wIndcR <= wIndc;
    endrule
 
    // vacram
-   function Bit#(32) compute_cVac(Bit#(32) rVac, Bool oldPattMultiOcc, Bool oldPattV, Bit#(5) oldIdx);
-      OInt#(32) oldIdxOH = toOInt(oldIdx);
+   function Bit#(16) compute_cVac(Bit#(16) rVac, Bool oldPattMultiOcc, Bool oldPattV, Bit#(4) oldIdx);
+      OInt#(16) oldIdxOH = toOInt(oldIdx);
       Bool oldVac = !oldPattMultiOcc && oldPattV;
-      Vector#(32, Bit#(1)) maskOldVac = replicate(pack(oldVac));
-      Bit#(32) cVac = (~rVac) | (pack(oldIdxOH) & pack(maskOldVac));
+      Vector#(16, Bit#(1)) maskOldVac = replicate(pack(oldVac));
+      Bit#(16) cVac = (~rVac) | (pack(oldIdxOH) & pack(maskOldVac));
       return cVac;
    endfunction
 
-   function Bit#(32) compute_wVac(Bit#(5) vacFLoc, Bool newPattMultiOcc, Bit#(32) cVac);
-      OInt#(32) vacFLocOH = toOInt(vacFLoc);
-      Vector#(32, Bit#(1)) maskNewVac = replicate(pack(newPattMultiOcc));
-      Bit#(32) wVac = ~(cVac & ((~pack(vacFLocOH)) | pack(maskNewVac)));
+   function Bit#(16) compute_wVac(Bit#(4) vacFLoc, Bool newPattMultiOcc, Bit#(16) cVac);
+      OInt#(16) vacFLocOH = toOInt(vacFLoc);
+      Vector#(16, Bit#(1)) maskNewVac = replicate(pack(newPattMultiOcc));
+      Bit#(16) wVac = ~(cVac & ((~pack(vacFLocOH)) | pack(maskNewVac)));
       return wVac;
    endfunction
 
@@ -244,9 +233,9 @@ module mkBcam9b(Bcam9b#(camDepth))
       let rVac <- vacram.readServer.response.get;
       let oldPattMultiOcc = oldPattMultiOccR;
       let oldPattV = oldPattVR;
-      Bit#(32) cVac = compute_cVac(rVac, oldPattMultiOcc, oldPattV, oldIdxR);
+      Bit#(16) cVac = compute_cVac(rVac, oldPattMultiOcc, oldPattV, oldIdxR);
       cVacR <= cVac;
-      Maybe#(Bit#(5)) bin = mkPE32(cVac);
+      Maybe#(Bit#(4)) bin = mkPE16(cVac);
       vacFLocR <= fromMaybe(?, bin);
       bcam_fsm_start.enq(?);
       ram9b_wIndx_start.enq(?);
@@ -256,8 +245,8 @@ module mkBcam9b(Bcam9b#(camDepth))
 
    rule vacram_write_request;
       let wEnb <- toGet(wEnb_vacram_fifo).get;
-      Vector#(wAddrHWidth, Bit#(1)) wAddrH = takeAt(5, unpack(wAddr_bcam));
-      Bit#(32) wVac = compute_wVac(vacFLocR, newPattMultiOccR, cVacR);
+      Vector#(wAddrHWidth, Bit#(1)) wAddrH = takeAt(4, unpack(wAddr_bcam)); //FIXME
+      Bit#(16) wVac = compute_wVac(vacFLocR, newPattMultiOccR, cVacR);
       if (verbose) $display("vacram %d: vacFLoc=%x, newPattMultiOcc=%x, cVac=%x", cycle, vacFLocR, newPattMultiOccR, cVacR);
       vacram.writeServer.put(tuple2(pack(wAddrH), wVac));
       if (verbose) $display("vacram %d: vacram write wAddrH=%x, wVac=%x", cycle, pack(wAddrH), wVac);
@@ -265,9 +254,9 @@ module mkBcam9b(Bcam9b#(camDepth))
 
    rule newPatt;
       let v <- toGet(ram9b_wIndx_start).get;
-      Bit#(5) _oldIdx = oldPattMultiOccR ? oldIdxR : 0;
-      Bit#(5) _newIdx = newPattMultiOccR ? newIdxR : vacFLocR;
-      Bit#(5) wIndx = oldNewbPattWrR ? _oldIdx : _newIdx;
+      Bit#(4) _oldIdx = oldPattMultiOccR ? oldIdxR : 0;
+      Bit#(4) _newIdx = newPattMultiOccR ? newIdxR : vacFLocR;
+      Bit#(4) wIndx = oldNewbPattWrR ? _oldIdx : _newIdx;
       if (verbose) $display("vacram %d: oldPattMultiOccR=%x, newPattMultiOcc=%x, oldNewbPattWrR=%x", cycle, oldPattMultiOccR, newPattMultiOccR, oldNewbPattWrR);
       if (verbose) $display("vacram %d: compute oldIdx_=%x, newIdx_=%x wIndx=%x", cycle, _oldIdx, _newIdx, wIndx);
       wIndxR <= wIndx;
@@ -276,19 +265,19 @@ module mkBcam9b(Bcam9b#(camDepth))
    endrule
 
    rule idxram_read_response;
-      Vector#(4, Bit#(40)) data = newVector;
+      Vector#(4, Bit#(16)) data = newVector;
       for (Integer i=0; i<4; i=i+1) begin
          let v <- idxRam[i].readServer.response.get;
          data[i] = v;
       end
-      Bit#(160) data_pack = pack(data);
-      Vector#(5, Bit#(1)) wAddrL = take(unpack(wAddr_bcam));
-      Bit#(5) oldIdx = data_pack[pack(wAddrL)*5+5 : pack(wAddrL)*5];
+      Bit#(64) data_pack = pack(data);
+      Vector#(4, Bit#(1)) wAddrL = take(unpack(wAddr_bcam));
+      Bit#(4) oldIdx = data_pack[pack(wAddrL)*4+4 : pack(wAddrL)*4];
       oldIdxR <= oldIdx;
       if (verbose) $display("idxram %d: oldIdx=%x", cycle, oldIdx);
 
       let newPattOccFLoc = newPattOccFLoc_wire;
-      Bit#(5) newIdx = data_pack[newPattOccFLoc*5 + 5: newPattOccFLoc*5];
+      Bit#(4) newIdx = data_pack[newPattOccFLoc*4+4: newPattOccFLoc*4];
       newIdxR <= newIdx;
       if (verbose) $display("idxram %d: newIdx=%x", cycle, newIdx);
 
@@ -297,9 +286,9 @@ module mkBcam9b(Bcam9b#(camDepth))
 
    rule idxram_write_request;
       let wEnb <- toGet(wEnb_idxram_fifo).get;
-      Vector#(2, Bit#(1)) wAddrLH = takeAt(3, unpack(wAddr_bcam));
-      Vector#(3, Bit#(1)) wAddrLL = take(unpack(wAddr_bcam));
-      Vector#(wAddrHWidth, Bit#(1)) wAddrH = takeAt(5, unpack(wAddr_bcam));
+      Vector#(2, Bit#(1)) wAddrLH = takeAt(2, unpack(wAddr_bcam));
+      Vector#(2, Bit#(1)) wAddrLL = take(unpack(wAddr_bcam));
+      Vector#(wAddrHWidth, Bit#(1)) wAddrH = takeAt(4, unpack(wAddr_bcam));
       Bit#(idxWriteDepthSz) writeAddr = {pack(wAddrH), pack(wAddrLL)};
       if (verbose) $display("idxram %d: wAddrLH %x", cycle, pack(wAddrLH));
       if (verbose) $display("idxram %d: wAddrLL %x", cycle, pack(wAddrLL));
@@ -314,13 +303,13 @@ module mkBcam9b(Bcam9b#(camDepth))
 
    rule setram_write_request;
       let v <- toGet(wEnb_setram_fifo).get;
-      Vector#(3, Bit#(1)) wAddrLH = takeAt(2, unpack(wAddr_bcam));
+      Vector#(2, Bit#(1)) wAddrLH = takeAt(2, unpack(wAddr_bcam));
       Vector#(2, Bit#(1)) wAddrLL = take(unpack(wAddr_bcam));
-      Vector#(wAddrHWidth, Bit#(1)) wAddrH = takeAt(5, unpack(wAddr_bcam));
+      Vector#(wAddrHWidth, Bit#(1)) wAddrH = takeAt(4, unpack(wAddr_bcam));
       Bit#(writeDepthSz) writeAddr = {pack(wAddrH), pack(wAddrLL)};
       Maybe#(Bit#(dataSz)) writeData = tagged Valid wPatt_bcam;
       if (verbose) $display("setram %d: writeReq wAddr=%x, wData=%x", cycle, wAddr_bcam, wPatt_bcam);
-      for (Integer i=0; i<8; i=i+1) begin
+      for (Integer i=0; i<4; i=i+1) begin
          if (fromInteger(i) == pack(wAddrLH)) begin
             setRam[i].writeServer.put(tuple2(writeAddr, pack(writeData)));
          end
@@ -328,18 +317,18 @@ module mkBcam9b(Bcam9b#(camDepth))
       if (verbose) $display("Setram %d: write to setram addr=%x, data=%x", cycle, wAddr_bcam, wPatt_bcam);
    endrule
 
-   function Maybe#(Bit#(9)) compute_oldPatt(Vector#(8, RPatt) data, Bit#(camSz) wAddr);
-      Vector#(5, Bit#(1)) wAddrL = take(unpack(wAddr));
-      Bit#(3) wAddrL_ram = pack(wAddrL)[4:2];
+   function Maybe#(Bit#(9)) compute_oldPatt(Vector#(4, RPatt) data, Bit#(camSz) wAddr);
+      Vector#(4, Bit#(1)) wAddrL = take(unpack(wAddr));
+      Bit#(2) wAddrL_ram = pack(wAddrL)[3:2];
       Bit#(2) wAddrL_word = pack(wAddrL)[1:0];
       return (data[wAddrL_ram].rpatt[wAddrL_word]);
    endfunction
 
-   function Bit#(32) compute_oldPattIndc(Vector#(8, RPatt) data, Bit#(camSz) wAddr, Maybe#(Bit#(9)) oldPatt);
-      Vector#(5, Bit#(1)) wAddrL = take(unpack(wAddr));
-      OInt#(32) wAddrLOH = toOInt(pack(wAddrL));
-      Vector#(32, Bool) oldPattIndc;
-      for (Integer i=0; i<8; i=i+1) begin
+   function Bit#(16) compute_oldPattIndc(Vector#(4, RPatt) data, Bit#(camSz) wAddr, Maybe#(Bit#(9)) oldPatt);
+      Vector#(4, Bit#(1)) wAddrL = take(unpack(wAddr));
+      OInt#(16) wAddrLOH = toOInt(pack(wAddrL));
+      Vector#(16, Bool) oldPattIndc;
+      for (Integer i=0; i<4; i=i+1) begin
          for (Integer j=0; j<4; j=j+1) begin
             oldPattIndc[i*4+j] = (data[i].rpatt[j] == oldPatt) && !unpack(pack(wAddrLOH)[i*4+j]);
          end
@@ -347,9 +336,9 @@ module mkBcam9b(Bcam9b#(camDepth))
       return pack(oldPattIndc);
    endfunction
 
-   function Bit#(32) compute_newPattIndc(Vector#(8, RPatt) data, Maybe#(Bit#(9)) wPatt);
-      Vector#(32, Bool) newPattIndc;
-      for (Integer i=0; i<8; i=i+1) begin
+   function Bit#(16) compute_newPattIndc(Vector#(4, RPatt) data, Maybe#(Bit#(9)) wPatt);
+      Vector#(16, Bool) newPattIndc;
+      for (Integer i=0; i<4; i=i+1) begin
          for (Integer j=0; j<4; j=j+1) begin
             newPattIndc[i*4+j] = (data[i].rpatt[j] == wPatt);
          end
@@ -359,11 +348,11 @@ module mkBcam9b(Bcam9b#(camDepth))
 
    // Compute Setram Outputs
    rule setram_read_response;
-      Vector#(5, Bit#(1)) wAddrL = take(unpack(wAddr_bcam));
-      OInt#(32) wAddrLOH = toOInt(pack(wAddrL));
+      Vector#(4, Bit#(1)) wAddrL = take(unpack(wAddr_bcam));
+      OInt#(16) wAddrLOH = toOInt(pack(wAddrL));
 
-      Vector#(8, RPatt) data = newVector;
-      for (Integer i=0; i<8; i=i+1) begin
+      Vector#(4, RPatt) data = newVector;
+      for (Integer i=0; i<4; i=i+1) begin
          let setram_data <- setRam[i].readServer.response.get;
          Vector#(4, Maybe#(Bit#(9))) m = unpack(setram_data);
          data[i] = unpack(setram_data);
@@ -385,12 +374,12 @@ module mkBcam9b(Bcam9b#(camDepth))
 
       // compute new pattern
       let newPattIndc_prev = compute_newPattIndc(data, tagged Valid wPatt_bcam);
-      Maybe#(Bit#(5)) bin = mkPE32(pack(newPattIndc_prev));
+      Maybe#(Bit#(4)) bin = mkPE16(pack(newPattIndc_prev));
       newPattOccFLoc_wire <= fromMaybe(0, bin); //FIXME: fly-wire
       newPattMultiOccR <= isValid(bin);
 
       // add currently written pattern into indicators
-      Bit#(32) newPattIndc = pack(newPattIndc_prev) | pack(wAddrLOH);
+      Bit#(16) newPattIndc = pack(newPattIndc_prev) | pack(wAddrLOH);
       newPattIndc_fifo.enq(newPattIndc);
       if (verbose) $display("setram %d: newPattIndc=%h %h", cycle, newPattIndc, pack(newPattIndc_prev));
    endrule
@@ -400,21 +389,21 @@ module mkBcam9b(Bcam9b#(camDepth))
       method Action put(BcamWriteReq#(camSz, 9) req);
          Bit#(camSz) wAddr = req.addr;
          Bit#(9) wData = req.data;
-         Vector#(wAddrHWidth, Bit#(1)) wAddrH = takeAt(5, unpack(wAddr));
+         Vector#(wAddrHWidth, Bit#(1)) wAddrH = takeAt(4, unpack(wAddr));
 
          wAddr_bcam <= wAddr;
          wPatt_bcam <= wData;
          if(verbose) $display("bcam9b %d: wAddr=%x, wPatt=%x", cycle, wAddr, wData);
 
          if (verbose) $display("setram %d: setram read addr=%x", cycle, pack(wAddrH));
-         for (Integer i=0; i<8; i=i+1) begin
+         for (Integer i=0; i<4; i=i+1) begin
             setRam[i].readServer.request.put(pack(wAddrH));
          end
 
          vacram.readServer.request.put(pack(wAddrH));
          if (verbose) $display("vacram %d: vacram read addr=%x", cycle, pack(wAddrH));
 
-         Vector#(5, Bit#(1)) wAddrL = take(unpack(wAddr));
+         Vector#(4, Bit#(1)) wAddrL = take(unpack(wAddr));
          for (Integer i=0; i<4; i=i+1) begin
             idxRam[i].readServer.request.put(pack(wAddrH));
          end
@@ -435,27 +424,18 @@ interface BinaryCam#(numeric type camDepth, numeric type pattWidth);
 endinterface
 
 module mkBinaryCam(BinaryCam#(camDepth, pattWidth))
-   provisos(Add#(cdep, 9, camSz)
-            ,Mul#(cdep, 1024, indcWidth)
+   provisos(Add#(cdep, 7, camSz)
+            ,Mul#(cdep, 256, indcWidth)
             ,Log#(camDepth, camSz)
             ,Log#(indcWidth, camSz)
             ,Mul#(pwid, 9, pattWidth)
-            ,Add#(TLog#(TSub#(camSz, 9)), 10, camSz)
-            ,Add#(TAdd#(TLog#(cdep), 5), a__, camSz)
-            ,Add#(5, b__, camSz)
-            ,Add#(2, c__, camSz)
-            ,Add#(3, d__, camSz)
-            ,Add#(TAdd#(cdep, 5), e__, camSz)
-            ,Add#(TAdd#(TLog#(TSub#(camSz, 9)), 5), f__, camSz)
-            ,Add#(g__, 3, TLog#(TDiv#(camDepth, 4)))
+            ,Add#(TAdd#(TLog#(cdep), 4), 2, TLog#(TDiv#(camDepth, 4)))
+            ,Log#(TDiv#(camDepth, 16), TAdd#(TLog#(cdep), 4))
             ,Add#(9, h__, pattWidth)
-            ,Add#(TAdd#(TLog#(cdep), 5), 2, TLog#(TDiv#(camDepth, 8)))
-            ,Log#(TDiv#(camDepth, 4), TAdd#(TAdd#(TLog#(cdep), 5), 3))
-            ,Log#(TDiv#(camDepth, 32), TAdd#(TLog#(cdep), 5))
             ,PEncoder#(indcWidth)
-            ,Add#(1, camSz, i__)
-            ,Add#(TLog#(cdep), 5, a__)
-            ,Add#(TAdd#(TLog#(TSub#(TLog#(camDepth), 9)), 5), g__, camSz)
+            ,Add#(2, a__, camSz)
+            ,Add#(4, b__, camSz)
+            ,Add#(TAdd#(TLog#(cdep), 4), c__, camSz)
          );
    Clock defaultClock <- exposeCurrentClock();
    Reset defaultReset <- exposeCurrentReset();
@@ -483,7 +463,7 @@ module mkBinaryCam(BinaryCam#(camDepth, pattWidth))
 
    rule pe_bcam_out;
       let bin <- pe_bcam.bin.get;
-      if (verbose) $display("pe_bcam %d: bin=", cycle, fshow(bin));
+      if (verbose) $display("indc pe_bcam %d: bin=", cycle, fshow(bin));
       readFifo.enq(bin);
    endrule
 
@@ -511,15 +491,15 @@ endmodule
 
 // Generated by compiler
 //(* synthesize *)
-module mkBinaryCamBSV(BinaryCam#(1024, 9));
-   BinaryCam#(1024, 9) bcam <- mkBinaryCam();
+module mkBinaryCamBSV(BinaryCam#(256, 9));
+   BinaryCam#(256, 9) bcam <- mkBinaryCam();
    interface writeServer = bcam.writeServer;
    interface readServer = bcam.readServer;
 endmodule
 
 (* synthesize *)
-module mkBinaryCam_1024_9(BinaryCam#(1024, 9));
-   BinaryCam#(1024, 9) bcam <- mkBinaryCam();
+module mkBinaryCam_256_9(BinaryCam#(256, 9));
+   BinaryCam#(256, 9) bcam <- mkBinaryCam();
    interface writeServer = bcam.writeServer;
    interface readServer = bcam.readServer;
 endmodule
