@@ -73,15 +73,49 @@ function Stmt testSeq2(BinaryCam#(256, 18) dut,
    endseq;
 endfunction
 
+function Stmt testSeq3(BinaryCam#(256, 36) dut,
+                      String dut_name);
+    return seq
+        noAction;
+        action
+            dut.writeServer.put(BcamWriteReq{addr:'h1, data:'h0200000a});
+        endaction
+        delay(100);
+        action
+            dut.writeServer.put(BcamWriteReq{addr:'h1, data:'h2000000b});
+        endaction
+        delay(100);
+        action
+            dut.writeServer.put(BcamWriteReq{addr:'h1, data:'h3000000c});
+        endaction
+        delay(100);
+        action
+            dut.writeServer.put(BcamWriteReq{addr:'h1, data:'h0200000a});
+        endaction
+        delay(100);
+        action
+            dut.readServer.request.put('h0200000a);
+        endaction
+        delay(10);
+        action
+            let v <- dut.readServer.response.get;
+            $display("read result=%x", fromMaybe(?,v));
+        endaction
+   endseq;
+endfunction
+
+
 (* synthesize *)
 module mkTb (Empty);
 
    //BinaryCam#(256, 9) bcam <- mkBinaryCam();
-   BinaryCam#(256, 18) bcam <- mkBinaryCam();
+   //BinaryCam#(256, 18) bcam <- mkBinaryCam();
+   BinaryCam#(256, 36) bcam <- mkBinaryCam();
    //PEnc#(1024) pe <- mkPriorityEncoder();
 
    //mkAutoFSM(testSeq(bcam, "bcam"));
-   mkAutoFSM(testSeq2(bcam, "bcam"));
+   //mkAutoFSM(testSeq2(bcam, "bcam"));
+   mkAutoFSM(testSeq3(bcam, "bcam"));
 
 endmodule: mkTb
 
