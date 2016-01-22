@@ -247,7 +247,8 @@ module mkSchedulerTop#(SchedulerTopIndication indication)(SchedulerTop);
 	Reg#(Bit#(1)) fire_once <- mkReg(0, clocked_by txClock, reset_by txReset);
 	rule start_dma (fire_once == 0 && done_populating_table == 1
 		            && host_index_ready == 1 && dma_trans_rate_ready == 1);
-		dma_sim.start(host_index, dma_trans_rate);
+        if (dma_trans_rate != 0)
+		    dma_sim.start(host_index, dma_trans_rate);
 		scheduler.start(host_index);
 		start_counting <= 1;
 		fire_once <= 1;
@@ -256,7 +257,7 @@ module mkSchedulerTop#(SchedulerTopIndication indication)(SchedulerTop);
 /*------------------------------------------------------------------------------*/
     // PHY port to MAC port mapping
 
-    for (Integer i = 1; i < fromInteger(valueof(NUM_OF_PORTS)); i = i + 1)
+    for (Integer i = 0; i < fromInteger(valueof(NUM_OF_PORTS)); i = i + 1)
     begin
         rule mac_phy_tx;
             phys.tx[i].put(mac.tx(i));
