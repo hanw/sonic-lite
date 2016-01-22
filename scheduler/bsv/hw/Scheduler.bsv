@@ -179,14 +179,20 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
     function ServerIndex ipToIndexMapping (IP ip_addr);
 		ServerIndex index = 0;
 		Bit#(24) msb = ip_addr[31:8];
-		if (msb == 'hc0a800)
+
+        if (ip_addr == ip_address(host_index))
+            index = 0;
+
+		else if (msb == 'hc0a800 && ip_addr != 'hc0a80000)
 		begin
 			index = truncate(ip_addr[7:0]) - 1;
 			if (index < truncate((ip_address(host_index))[7:0]))
 				index = index + 1;
 		end
-		if (index >= fromInteger(valueof(NUM_OF_SERVERS)))
-			index = 0;
+
+        else
+			index = fromInteger(valueof(NUM_OF_SERVERS));
+
         return index;
     endfunction
 
@@ -298,15 +304,21 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
 
                     /* Find the index of the ring buffer to insert to. */
                     Bit#(32) dst_ip = (buffered_data[i])[143:112]; /* dst IP */
+
                     if (dst_ip == ip_address(host_index))
                         ring_buffer_index_fifo[i].enq(0);
                     else
                     begin
                         ServerIndex index = ipToIndexMapping(dst_ip);
-                        ring_buffer_index_fifo[i].enq(index);
-						if (index == 0)
+						if (index >= fromInteger(valueof(NUM_OF_SERVERS)))
+                        begin
+                            ring_buffer_index_fifo[i].enq(0);
 							num_of_unknown_pkt_reg[i] <=
 							               num_of_unknown_pkt_reg[i] + 1;
+                        end
+                        else
+                            ring_buffer_index_fifo[i].enq(index);
+
                         if (verbose)
                             $display("[SCHED (%d)] Adding idx = %d to idx fifo %d",
                                      host_index, index, i);
