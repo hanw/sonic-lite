@@ -13,7 +13,9 @@ import RingBufferTypes::*;
 import RingBuffer::*;
 import Addresses::*;
 
+import AlteraMacWrap::*;
 import EthMac::*;
+import EthPhy::*;
 import AlteraEthPhy::*;
 import DE5Pins::*;
 
@@ -72,7 +74,10 @@ module mkSchedulerTop#(SchedulerTopIndication indication)(SchedulerTop);
     De5Buttons#(4) buttons <- mkDe5Buttons(clocked_by mgmtClock, reset_by mgmtReset);
 
     // Phy
-    EthPhyIfc phys <- mkAlteraEthPhy(defaultClock, phyClock, txClock, defaultReset);
+    //EthPhyIfc phys <- mkAlteraEthPhy(defaultClock, phyClock, txClock, defaultReset);
+    EthPhyIfc phys <- mkAlteraEthPhy(mgmtClock, phyClock, txClock, defaultReset, clocked_by mgmtClock, reset_by mgmtReset);
+    DtpPhyIfc#(1) dtpPhy <- mkEthPhy(mgmtClock, txClock, phyClock, clocked_by mgmtClock, reset_by mgmtReset);
+
     Clock rxClock = phys.rx_clkout;
     Reset rxReset <- mkSyncReset(2, defaultReset, rxClock);
 
@@ -478,8 +483,16 @@ module mkSchedulerTop#(SchedulerTopIndication indication)(SchedulerTop);
                               Bit#(1) b7d, Bit#(1) b8a, Bit#(1) b8d);
 			clk_50_wire <= b4a;
         endmethod
-        method serial_tx_data = phys.serial_tx;
-        method serial_rx = phys.serial_rx;
+        method Vector#(4, Bit#(1)) serial_tx_data;
+            let v = append(dtpPhy.serial_tx, phys.serial_tx);
+            return v;
+        endmethod
+        method Action serial_rx (Vector#(4, Bit#(1)) v);
+            phys.serial_rx(takeAt(0, v));
+            dtpPhy.serial_rx(takeAt(3, v));
+        endmethod
+//        method serial_tx_data = phys.serial_tx;
+//        method serial_rx = phys.serial_rx;
         method Action sfp(Bit#(1) refclk);
 			clk_644_wire <= refclk;
         endmethod
