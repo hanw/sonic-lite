@@ -291,8 +291,6 @@ module mkMac#(Scheduler#(ReadReqType, ReadResType,
 
 	Reg#(ServerIndex) host_index <- mkReg(0, clocked_by rxClock, reset_by rxReset);
 
-	Reg#(Bit#(1)) start_rx <- mkReg(1, clocked_by rxClock, reset_by rxReset);
-
 //	SyncFIFOIfc#(PacketDataT#(64)) debug_received_from_phy_fifo
 //	               <- mkSyncFIFO(16, rxClock, rxReset, defaultClock);
 
@@ -307,8 +305,10 @@ module mkMac#(Scheduler#(ReadReqType, ReadResType,
 
     for (Integer i = 0; i < fromInteger(valueof(NUM_OF_PORTS)); i = i + 1)
     begin
-        rule send_blocks_to_dst (start_rx == 1);
+        rule send_blocks_to_dst;
             let d <- eth_mac[i].packet_rx.get;
+
+            Bool write_flag = False;
 
 //			Bit#(1) drop = drop_pkt[i];
 			//debug_received_from_phy_fifo.enq(d);
@@ -336,42 +336,69 @@ module mkMac#(Scheduler#(ReadReqType, ReadResType,
 //			else if (d.sop == 0 && d.eop == 1)
 //				drop_pkt[i] <= 0;
 
+            Bit#(1) start_bit = 0;
+            Bit#(1) end_bit = 0;
+            Payload pload = 0;
+
             if (b_count[i] == 0)
             begin
-                mac_out_buffer[i] <= d;
-                b_count[i] <= (b_count[i] + 1) & 1; //same as mod 2
+                if (d.sop == 0 && d.eop == 1)
+                begin
+                    start_bit = 0;
+                    end_bit = 1;
+                    pload = {d.data, '0};
+                    write_flag = True;
+                end
+
+                else
+                begin
+                    mac_out_buffer[i] <= d;
+                    b_count[i] <= (b_count[i] + 1) & 1; //same as mod 2
+                end
             end
 
             else if (b_count[i] == 1)
             begin
-                b_count[i] <= (b_count[i] + 1) & 1; //same as mod 2
-
-                Payload pload = {mac_out_buffer[i].data, d.data};
-
-                Bit#(1) start_bit = 0;
-                Bit#(1) end_bit = 0;
-
-                if (mac_out_buffer[i].sop == 1 && mac_out_buffer[i].eop == 0
-                    && d.sop == 0 && d.eop == 0)
+                if (d.sop == 1 && d.eop == 0)
                 begin
-                    start_bit = 1;
-                    end_bit = 0;
-                end
-                else if (mac_out_buffer[i].sop == 0 && mac_out_buffer[i].eop == 0
-                         && d.sop == 0 && d.eop == 0)
-                begin
-                    start_bit = 0;
-                    end_bit = 0;
-                end
-                else if (mac_out_buffer[i].sop == 0 && mac_out_buffer[i].eop == 0
-                    && d.sop == 0 && d.eop == 1)
-                begin
-                    start_bit = 0;
-                    end_bit = 1;
+                    Bit#(2) b_count_temp = (b_count[i] + 1) & 1;
+                    mac_out_buffer[b_count_temp] <= d;
                 end
 
-				//if (drop == 0)
-				//begin
+                else
+                begin
+                    b_count[i] <= (b_count[i] + 1) & 1; //same as mod 2
+
+                    pload = {mac_out_buffer[i].data, d.data};
+
+                    if (mac_out_buffer[i].sop == 1
+                        && mac_out_buffer[i].eop == 0
+                        && d.sop == 0 && d.eop == 0)
+                    begin
+                        start_bit = 1;
+                        end_bit = 0;
+                    end
+                    else if (mac_out_buffer[i].sop == 0
+                             && mac_out_buffer[i].eop == 0
+                             && d.sop == 0 && d.eop == 0)
+                    begin
+                        start_bit = 0;
+                        end_bit = 0;
+                    end
+                    else if (mac_out_buffer[i].sop == 0
+                             && mac_out_buffer[i].eop == 0
+                             && d.sop == 0 && d.eop == 1)
+                    begin
+                        start_bit = 0;
+                        end_bit = 1;
+                    end
+
+                    write_flag = True;
+                end
+            end
+
+			if (write_flag == True)
+			begin
                 case (i)
                     0 : scheduler.mac_write_request_port_1.put
                                       (makeWriteReq(start_bit, end_bit, pload));
@@ -382,7 +409,6 @@ module mkMac#(Scheduler#(ReadReqType, ReadResType,
                     3 : scheduler.mac_write_request_port_4.put
                                       (makeWriteReq(start_bit, end_bit, pload));
                 endcase
-				//end
 
                 if (rx_verbose)
                     $display("[MAC] data = %d %d %x i = %d",

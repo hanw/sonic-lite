@@ -8,9 +8,10 @@
 #include "SchedulerTopRequest.h"
 #include "GeneratedTypes.h"
 
-#define NUM_OF_SERVERS 2
-
 static uint32_t server_index = 0;
+static uint32_t rate = 0;
+static uint64_t cycles = 0;
+
 static SchedulerTopRequestProxy *device = 0;
 
 class SchedulerTopIndication : public SchedulerTopIndicationWrapper
@@ -73,7 +74,7 @@ public:
 };
 
 void configure_scheduler(SchedulerTopRequestProxy* device) {
-	device->start_scheduler_and_dma(server_index, 3, 10000000000);
+	device->start_scheduler_and_dma(server_index, rate, cycles);
     device->debug();
 }
 
@@ -81,6 +82,15 @@ int main(int argc, char **argv)
 {
     SchedulerTopIndication echoIndication(IfcNames_SchedulerTopIndicationH2S);
     device = new SchedulerTopRequestProxy(IfcNames_SchedulerTopRequestS2H);
+
+    if (argc != 4) {
+        printf("Wrong number of arguments\n");
+        exit(0);
+    } else {
+        server_index = atoi(argv[1]);
+        rate = atoi(argv[2]);
+        cycles = atol(argv[3]);
+    }
 
     configure_scheduler(device);
 

@@ -132,12 +132,10 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
         src_rx_ring_buffer <- mkRingBuffer(fromInteger(valueof(RING_BUFFER_SIZE)));
 
     Vector#(NUM_OF_SERVERS, Reg#(ServerIndex)) schedule_list <- replicateM(mkReg(0));
-    Reg#(MAC) host_mac_addr <- mkReg(0);
-    Reg#(IP) host_ip_addr <- mkReg(0);
 
     /* Flags */
     Reg#(Bit#(1)) configure <- mkReg(0);
-    Reg#(Bit#(1)) get_host_mac <- mkReg(0);
+    Reg#(Bit#(1)) start_scheduling_flag <- mkReg(0);
     Reg#(Bit#(1)) start_polling_rx_buffer <- mkReg(0);
 	Reg#(Bit#(1)) start_tx_scheduling <- mkReg(0);
 
@@ -209,12 +207,11 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
             if (verbose)
             $display("[SCHED (%d)] schedule_list[%d] = %d", host_index, i, i+1);
         end
+        start_scheduling_flag <= 1;
     endrule
 
-    rule get_host_mac_addr (curr_state == RUN && get_host_mac == 1);
-        get_host_mac <= 0;
-        host_mac_addr <= sched_table[0].server_mac;
-        host_ip_addr <= sched_table[0].server_ip;
+    rule get_host_mac_addr (curr_state == RUN && start_scheduling_flag == 1);
+        start_scheduling_flag <= 0;
         start_polling_rx_buffer <= 1;
 		start_tx_scheduling <= 1;
     endrule
@@ -606,8 +603,9 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
 	method Action start(ServerIndex serverIdx);
 		curr_state <= RUN;
 	    configure <= 1;
-        get_host_mac <= 1;
+        start_scheduling_flag <= 0;
         start_polling_rx_buffer <= 0;
+        start_tx_scheduling <= 0;
 		host_index <= serverIdx;
 	endmethod
 
