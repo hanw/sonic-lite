@@ -300,8 +300,10 @@ module mkMac#(Scheduler#(ReadReqType, ReadResType,
 	SyncFIFOIfc#(Bit#(64)) eop_count_fifo
 	               <- mkSyncFIFO(1, rxClock, rxReset, defaultClock);
 
-    Reg#(Bit#(64)) sop_count_reg <- mkReg(0, clocked_by rxClock, reset_by rxReset);
-    Reg#(Bit#(64)) eop_count_reg <- mkReg(0, clocked_by rxClock, reset_by rxReset);
+    Vector#(NUM_OF_PORTS, Reg#(Bit#(64))) sop_count_reg
+	               <- replicateM(mkReg(0, clocked_by rxClock, reset_by rxReset));
+    Vector#(NUM_OF_PORTS, Reg#(Bit#(64))) eop_count_reg
+	               <- replicateM(mkReg(0, clocked_by rxClock, reset_by rxReset));
 
     for (Integer i = 0; i < fromInteger(valueof(NUM_OF_PORTS)); i = i + 1)
     begin
@@ -318,10 +320,10 @@ module mkMac#(Scheduler#(ReadReqType, ReadResType,
                            d.sop, d.eop, d.data);
 
             if (d.sop == 1 && d.eop == 0)
-                sop_count_reg <= sop_count_reg + 1;
+                sop_count_reg[i] <= sop_count_reg[i] + 1;
 
             if (d.sop == 0 && d.eop == 1)
-                eop_count_reg <= eop_count_reg + 1;
+                eop_count_reg[i] <= eop_count_reg[i] + 1;
 
 //			if (d.sop == 1 && d.eop == 0)
 //			begin
@@ -438,11 +440,17 @@ module mkMac#(Scheduler#(ReadReqType, ReadResType,
 //	endmethod
 
     method Action getSOPCount();
-        sop_count_fifo.enq(sop_count_reg);
+		Bit#(64) sop_pkt = 0;
+		for (Integer i = 0; i < fromInteger(valueof(NUM_OF_PORTS)); i = i + 1)
+			sop_pkt = sop_pkt + sop_count_reg[i];
+        sop_count_fifo.enq(sop_pkt);
     endmethod
 
     method Action getEOPCount();
-        eop_count_fifo.enq(eop_count_reg);
+		Bit#(64) eop_pkt = 0;
+		for (Integer i = 0; i < fromInteger(valueof(NUM_OF_PORTS)); i = i + 1)
+			eop_pkt = eop_pkt + eop_count_reg[i];
+        sop_count_fifo.enq(eop_pkt);
     endmethod
 
 //	interface Get debug_sending_to_phy = toGet(debug_sending_to_phy_fifo);

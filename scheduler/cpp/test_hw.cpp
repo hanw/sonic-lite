@@ -92,8 +92,13 @@ int main(int argc, char **argv)
         cycles = atol(argv[3]);
     }
 
-    configure_scheduler(device);
-
+//	for (int i = 0; i < 5; i++) {
+//		server_index = 0;
+//		rate = 3;
+//		cycles = 1000;
+		configure_scheduler(device);
+//		sleep(10);
+//	}
     while(1);
     return 0;
 }

@@ -35,7 +35,7 @@ module mkRingBuffer#(Integer size)
     BRAM_Configure cfg = defaultValue;
     cfg.memorySize = fromInteger(size)
                    * fromInteger(valueof(MAX_PKT_LEN));
-
+	
     BRAM2Port#(Address, Payload) ring_buffer <- mkBRAM2Server(cfg);
 
 /*-------------------------------------------------------------------------------*/
@@ -61,10 +61,10 @@ module mkRingBuffer#(Integer size)
     Bool is_empty = (head == tail);
     Bool is_full = (head == tail + fromInteger(size));
 
-    FIFO#(ReadReqType) read_request_fifo <- mkFIFO;
-    FIFO#(ReadResType) read_response_fifo <- mkFIFO;
-    FIFO#(WriteReqType) write_request_fifo <- mkFIFO;
-    FIFO#(WriteResType) write_response_fifo <- mkFIFO;
+    FIFO#(ReadReqType) read_request_fifo <- mkSizedFIFO(8);
+    FIFO#(ReadResType) read_response_fifo <- mkSizedFIFO(8);
+    FIFO#(WriteReqType) write_request_fifo <- mkSizedFIFO(8);
+    FIFO#(WriteResType) write_response_fifo <- mkSizedFIFO(8);
 
 	GlobalClock clk <- mkGlobalClock;
 /*-------------------------------------------------------------------------------*/

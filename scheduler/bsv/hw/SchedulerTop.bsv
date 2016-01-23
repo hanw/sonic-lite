@@ -15,7 +15,6 @@ import Addresses::*;
 
 import AlteraMacWrap::*;
 import EthMac::*;
-//import EthPhy::*;
 import AlteraEthPhy::*;
 import DE5Pins::*;
 
@@ -82,13 +81,17 @@ module mkSchedulerTop#(SchedulerTopIndication indication)(SchedulerTop);
     Reset rxReset <- mkSyncReset(2, defaultReset, rxClock);
 
 /*-------------------------------------------------------------------------------*/
+    MakeResetIfc scheduler_reset_ifc <- mkResetSync(0, False, defaultClock);
+    Reset rst <- mkSyncReset(0, scheduler_reset_ifc.new_rst, txClock);
+    Reset scheduler_rst <- mkResetEither(txReset, rst, clocked_by txClock);
+
     Scheduler#(ReadReqType, ReadResType, WriteReqType, WriteResType)
     scheduler <- mkScheduler(defaultClock, defaultReset,
 	                         txClock, txReset, rxClock, rxReset,
                              clocked_by txClock, reset_by txReset);
 
     DMASimulator dma_sim <- mkDMASimulator(scheduler, defaultClock, defaultReset,
-                            clocked_by txClock, reset_by txReset);
+								           clocked_by txClock, reset_by txReset);
 
     Mac mac <- mkMac(scheduler, txClock, txReset, rxClock, rxReset);
 
@@ -126,16 +129,21 @@ module mkSchedulerTop#(SchedulerTopIndication indication)(SchedulerTop);
 	                    <- mkReg(0, clocked_by rxClock, reset_by rxReset);
     SyncFIFOIfc#(Bit#(1)) mac_rx_debug_fifo
                         <- mkSyncFIFO(1, txClock, txReset, rxClock);
+
     /* This rule is to configure when to stop the DMA and collect stats */
     rule count_cycles (start_counting == 1);
-        counter <= counter + 1;
         if (counter == num_of_cycles_to_run_dma_for)
         begin
 			dma_sim.stop();
 			scheduler.stop();
-			start_counting <= 0;
 			get_dma_stats_flag <= 1;
+
+			/* reset state */
+			counter <= 0;
+			start_counting <= 0;
         end
+		else
+			counter <= counter + 1;
     endrule
 
 	rule get_dma_statistics (get_dma_stats_flag == 1);
@@ -244,6 +252,13 @@ module mkSchedulerTop#(SchedulerTopIndication indication)(SchedulerTop);
 		scheduler.start(host_index);
 		start_counting <= 1;
 		fire_once <= 1;
+
+		/* reset the state */
+		host_index_ready <= 0;
+		dma_trans_rate_ready <= 0;
+		count <= fromInteger(valueof(NUM_OF_SERVERS));
+		table_idx <= 0;
+		done_populating_table <= 0;
 	endrule
 
 /*------------------------------------------------------------------------------*/
@@ -440,7 +455,19 @@ module mkSchedulerTop#(SchedulerTopIndication indication)(SchedulerTop);
 	Reg#(Bit#(32)) dma_transmission_rate_reg <- mkReg(0);
 	Reg#(Bit#(64)) cycles_reg <- mkReg(0);
 
+	Reg#(Bit#(1)) fire_reset_state <- mkReg(0);
 	Reg#(Bit#(1)) fire_start_scheduler_and_dma_req <- mkReg(0);
+
+	Reg#(Bit#(64)) reset_len_count <- mkReg(0);
+	rule reset_state (fire_reset_state == 1);
+		//scheduler_reset_ifc.assertReset;
+		reset_len_count <= reset_len_count + 1;
+		if (reset_len_count == 1000)
+		begin
+			fire_reset_state <= 0;
+			fire_start_scheduler_and_dma_req <= 1;
+		end
+	endrule
 
 	rule start_scheduler_and_dma_req (fire_start_scheduler_and_dma_req == 1);
 		fire_start_scheduler_and_dma_req <= 0;
@@ -454,7 +481,8 @@ module mkSchedulerTop#(SchedulerTopIndication indication)(SchedulerTop);
     interface SchedulerTopRequest request;
         method Action start_scheduler_and_dma(Bit#(32) idx,
 			                    Bit#(32) dma_transmission_rate,	Bit#(64) cycles);
-			fire_start_scheduler_and_dma_req <= 1;
+			fire_reset_state <= 1;
+			reset_len_count <= 0;
 			host_index_reg <= truncate(idx);
 			dma_transmission_rate_reg <= dma_transmission_rate;
 			cycles_reg <= cycles;

@@ -313,8 +313,8 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
 						if (index >= fromInteger(valueof(NUM_OF_SERVERS)))
                         begin
                             ring_buffer_index_fifo[i].enq(0);
-							num_of_unknown_pkt_reg[i] <=
-							               num_of_unknown_pkt_reg[i] + 1;
+							//num_of_unknown_pkt_reg[i] <=
+							//               num_of_unknown_pkt_reg[i] + 1;
                         end
                         else
                             ring_buffer_index_fifo[i].enq(index);
@@ -540,13 +540,14 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
     begin
         rule handle_rx_buffer_write_req_from_mac;
             let req <- toGet(mac_write_request_fifo[i]).get;
-
+			if (req.data.sop == 1 && req.data.eop == 0)
+				num_of_unknown_pkt_reg[i] <= num_of_unknown_pkt_reg[i] + 1;
             if (verbose)
                 $display("[SCHED (%d)] CLK = %d Putting data into rx port buffer %d %d %x i = %d",
                 host_index, clk.currTime(), req.data.sop, req.data.eop, req.data.payload, i);
-
-            rx_ring_buffer[i].write_request.put
-                  (makeWriteReq(req.data.sop, req.data.eop, req.data.payload));
+			if (curr_state == RUN)
+				rx_ring_buffer[i].write_request.put
+					  (makeWriteReq(req.data.sop, req.data.eop, req.data.payload));
         endrule
 
         rule handle_tx_buffer_read_req_from_mac;
