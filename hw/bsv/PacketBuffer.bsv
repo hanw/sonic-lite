@@ -110,7 +110,7 @@ module mkPacketBuffer(PacketBuffer);
    FIFOF#(Bit#(EtherLen))    fifoReadReq <- mkSizedFIFOF(4);
    FIFOF#(EtherData)         fifoReadData <- mkBypassFIFOF();
 
-   rule every1;
+   rule every1 if (verbose);
       cycle <= cycle + 1;
    endrule
 

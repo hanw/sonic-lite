@@ -66,7 +66,7 @@ endif
 # Default Rules
 #######################################################
 run-small:
-	(cd bluesim; ./bin/ubuntu.exe -p ../udp-small.pcap -a 0 -r 5.8 -n $(N))
+	(cd bluesim; ./bin/ubuntu.exe -p ../udp-small.pcap -a 0 -r 9.8 -n $(N))
 
 run-large:
 	(cd bluesim; ./bin/ubuntu.exe -p ../udp-large.pcap -r 5.8 -n $(N))

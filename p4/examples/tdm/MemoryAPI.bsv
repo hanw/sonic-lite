@@ -54,7 +54,7 @@ interface MemoryAPI;
    interface MemoryTestRequest request;
 endinterface
 
-module mkMemoryAPI#(MemoryTestIndication indication, PktGen pktgen, SharedBuffer#(12, 128, 1) mem, MatchTable match_table)(MemoryAPI);
+module mkMemoryAPI#(MemoryTestIndication indication, PktGen pktgen, SharedBuffer#(12, 128, 1) mem, MatchTable#(256, 36) match_table)(MemoryAPI);
    interface MemoryTestRequest request;
       method Action read_version();
          let v= `NicVersion;

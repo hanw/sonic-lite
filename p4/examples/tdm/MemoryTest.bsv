@@ -124,7 +124,7 @@ module mkMemoryTest#(MemoryTestIndication indication
    Parser ipv4Parser <- mkParser();
 
    // Ingress Pipeline
-   MatchTable matchTable <- mkMatchTable();
+   MatchTable#(256, 36) matchTable <- mkMatchTable();
 
    // Egress Pipeline
    ModifyMac modMac <- mkModifyMac();

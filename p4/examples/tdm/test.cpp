@@ -159,6 +159,12 @@ compute_idle (const struct pcap_trace_info *info, double rate, double link_speed
     return idle;
 }
 
+void erase_table () {
+    for (int i =0; i < 256; i++) {
+        device->deleteEntry(0, i);
+    }
+}
+
 int main(int argc, char **argv)
 {
     char *pcap_file=NULL;
@@ -181,23 +187,30 @@ int main(int argc, char **argv)
         load_pcap_file(pcap_file, &pcap_info);
     }
 
+    erase_table();
+
     if (arguments.tableadd) {
         MatchField fields = {dstip: 0x0200000a};
         device->addEntry(0, fields);
         sem_wait(&flow_sem);
-    }
-
-    if (arguments.tabledel) {
-        device->deleteEntry(0, flowid);
+        fields.dstip = 0x0300000a;
+        device->addEntry(0, fields);
+        sem_wait(&flow_sem);
+        fields.dstip = 0x0400000a;
+        device->addEntry(0, fields);
+        sem_wait(&flow_sem);
+        fields.dstip = 0x0100000a;
+        device->addEntry(0, fields);
+        sem_wait(&flow_sem);
     }
 
     if (arguments.rate && arguments.tracelen) {
         int idle = compute_idle(&pcap_info, arguments.rate, LINK_SPEED);
         device->start(arguments.tracelen, idle);
-        sem_wait(&alloc_sem);
-        device->free(0);
-        sem_wait(&free_sem);
-        //device->free(1);
+    }
+
+    if (arguments.tabledel) {
+        device->deleteEntry(0, flowid);
     }
 
     while(1) sleep(1);
