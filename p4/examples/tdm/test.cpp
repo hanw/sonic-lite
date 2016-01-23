@@ -20,7 +20,7 @@
  */
 
 #include "MemServerIndication.h"
-#ifdef SIMULATION
+#ifdef DEBUG
 #include "MemMgmtIndication.h"
 #endif
 #include "MemoryTestIndication.h"
@@ -61,7 +61,7 @@ public:
     MemoryTestIndication(unsigned int id) : MemoryTestIndicationWrapper(id) {}
 };
 
-#ifdef SIMULATION
+#ifdef DEBUG
 class MemMgmtIndication : public MemMgmtIndicationWrapper
 {
 public:
@@ -166,7 +166,7 @@ int main(int argc, char **argv)
     struct pcap_trace_info pcap_info = {0, 0};
 
     MemoryTestIndication echoIndication(IfcNames_MemoryTestIndicationH2S);
-#ifdef SIMULATION
+#ifdef DEBUG
     MemMgmtIndication memMgmtIndication(IfcNames_MemMgmtIndicationH2S);
 #endif
 

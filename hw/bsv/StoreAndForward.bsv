@@ -61,7 +61,7 @@ interface StoreAndFwdFromRingToMem;
 endinterface
 
 module mkStoreAndFwdFromRingToMem
-`ifdef SIMULATION
+`ifdef DEBUG
                                  #(MemMgmtIndication memTestInd)
 `endif
                                  (StoreAndFwdFromRingToMem)
@@ -143,7 +143,7 @@ module mkStoreAndFwdFromRingToMem
    rule packetReadDone;
       let v <- toGet(writeDoneFifo).get;
       let recvd <- toGet(eventPktReceivedFifo).get;
-`ifdef SIMULATION
+`ifdef DEBUG
       memTestInd.packet_committed(recvd.id);
 `endif
       eventPktCommittedFifo.enq(recvd);
@@ -166,6 +166,7 @@ interface StoreAndFwdFromMemToRing;
    interface PktWriteClient writeClient;
    interface MemReadClient#(`DataBusWidth) readClient;
    interface Put#(PacketInstance) eventPktSend;
+   interface Get#(Bit#(32)) freeReq;
 endinterface
 
 module mkStoreAndFwdFromMemToRing(StoreAndFwdFromMemToRing)
@@ -185,9 +186,11 @@ module mkStoreAndFwdFromMemToRing(StoreAndFwdFromMemToRing)
    interface Put readData = toPut(readDataFifo);
    endinterface);
 
-   FIFO#(PacketInstance) eventPktSendFifo <- mkFIFO;
+   FIFO#(PacketInstance) eventPktSendFifo <- mkSizedFIFO(4);
+   FIFO#(Bit#(32)) freeReqFifo <- mkSizedFIFO(4);
 
    Reg#(Bool)                 outPacket <- mkReg(False);
+   Reg#(Bit#(32))          currPacketId <- mkReg(0);
    Reg#(Bit#(EtherLen))   readBurstCount <- mkReg(0);
    Reg#(Bit#(EtherLen))   readBurstLen <- mkReg(0);
 
@@ -211,6 +214,7 @@ module mkStoreAndFwdFromMemToRing(StoreAndFwdFromMemToRing)
                                 });
       if (verbose) $display("StoreAndForward::packetReadStart %d: send a new packet with size %h %h", cycle, burstLen, pack(mask));
       outPacket <= True;
+      currPacketId <= pkt.id;
       readBurstLen <= pkt.size;
       readBurstCount <= pkt.size;
    endrule
@@ -235,8 +239,10 @@ module mkStoreAndFwdFromMemToRing(StoreAndFwdFromMemToRing)
       if (readBurstCount > _bytesPerBeat)
          readBurstCount <= readBurstCount - _bytesPerBeat;
 
-      if (eop)
+      if (eop) begin
          outPacket <= False;
+         freeReqFifo.enq(currPacketId);
+      end
    endrule
 
    interface PktWriteClient writeClient;
@@ -244,6 +250,7 @@ module mkStoreAndFwdFromMemToRing(StoreAndFwdFromMemToRing)
    endinterface
    interface readClient = dmaReadClient;
    interface Put eventPktSend = toPut(eventPktSendFifo);
+   interface Get freeReq = toGet(freeReqFifo);
 endmodule
 
 interface StoreAndFwdFromRingToMac;

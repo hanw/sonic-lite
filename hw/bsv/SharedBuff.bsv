@@ -52,7 +52,7 @@ endinterface
 module mkSharedBuffer#(Vector#(numReadClients, MemReadClient#(busWidth)) readClients
                        ,Vector#(numWriteClients, MemWriteClient#(busWidth)) writeClients
                        ,MemServerIndication memServerInd
-`ifdef SIMULATION
+`ifdef DEBUG
                        ,MemMgmtIndication memTestInd
                        ,MMUIndication mmuInd
 `endif
@@ -70,7 +70,7 @@ module mkSharedBuffer#(Vector#(numReadClients, MemReadClient#(busWidth)) readCli
    let verbose = True;
 
    MemMgmt#(addrWidth) alloc <- mkMemMgmt(
-`ifdef SIMULATION
+`ifdef DEBUG
                                           memTestInd
                                          ,mmuInd
 `endif

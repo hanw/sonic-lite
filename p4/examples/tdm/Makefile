@@ -14,10 +14,9 @@ SCHEDDIR?=$(DEV_ROOT)/sonic-lite/scheduler
 ########################################################
 S2H_INTERFACES=MemoryTestRequest:MemoryTest.request
 
-ifeq ($(BOARD), de5)
+ifeq ($(DEBUG), )
 H2S_INTERFACES=MemoryTest:MemoryTestIndication,MemServerIndication
-endif
-ifeq ($(BOARD), bluesim)
+else
 H2S_INTERFACES=MemoryTest:MemoryTestIndication,MemServerIndication,MemMgmtIndication,MMUIndication
 endif
 
@@ -49,6 +48,7 @@ CONNECTALFLAGS += --implconstraint=constraint.sdc
 CONNECTALFLAGS += -m $(P4FPGADIR)/bsv/AsymmetricBRAM/mem_model.c
 
 CONNECTALFLAGS += -D BYTE_ENABLES
+#CONNECTALFLAGS += -D DEBUG
 
 BURST_LEN_SIZE=12
 

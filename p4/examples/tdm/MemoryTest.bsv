@@ -35,7 +35,7 @@ import Gearbox::*;
 import Pipe::*;
 
 import MemServerIndication::*;
-`ifdef SIMULATION
+`ifdef DEBUG
 import MMUIndication::*;
 `endif
 import MemTypes::*;
@@ -68,7 +68,7 @@ endinterface
 
 module mkMemoryTest#(MemoryTestIndication indication
                    ,ConnectalMemory::MemServerIndication memServerInd
-`ifdef SIMULATION
+`ifdef DEBUG
                    ,MemMgmtIndication memTestInd
                    ,ConnectalMemory::MMUIndication mmuInd
 `endif
@@ -130,7 +130,7 @@ module mkMemoryTest#(MemoryTestIndication indication
    ModifyMac modMac <- mkModifyMac();
 
    StoreAndFwdFromRingToMem ingress <- mkStoreAndFwdFromRingToMem(
-`ifdef SIMULATION
+`ifdef DEBUG
                                                                   memTestInd
 `endif
                                                                  );
@@ -140,7 +140,7 @@ module mkMemoryTest#(MemoryTestIndication indication
    SharedBuffer#(12, 128, 1) mem <- mkSharedBuffer(vec(egress.readClient)
                                                   ,vec(ingress.writeClient, modMac.writeClient)
                                                   ,memServerInd
-`ifdef SIMULATION
+`ifdef DEBUG
                                                   ,memTestInd
                                                   ,mmuInd
 `endif
@@ -153,8 +153,13 @@ module mkMemoryTest#(MemoryTestIndication indication
    mkConnection(ingress.readClient, tap.readServer);
    mkConnection(tap.tap_out, toPut(ipv4Parser.frameIn));
 
+   // alloc
    mkConnection(ingress.mallocReq, mem.mallocReq);
    mkConnection(mem.mallocDone, ingress.mallocDone);
+
+   // free
+   mkConnection(egress.freeReq, mem.freeReq);
+   //mkConnection(mem.freeDone, egress.freeDone);
 
    mkConnection(egress.writeClient, outgoing_buff.writeServer);
    mkConnection(ringToMac.readClient, outgoing_buff.readServer);

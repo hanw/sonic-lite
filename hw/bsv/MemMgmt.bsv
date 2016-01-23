@@ -72,7 +72,7 @@ interface MMUIndicationProxy;
    interface Get#(Bit#(32)) idResponse;
 endinterface
 module mkMMUIndicationProxy
-`ifdef SIMULATION
+`ifdef DEBUG
                            #(MMUIndication mmuInd)
 `endif
                            (MMUIndicationProxy);
@@ -81,7 +81,7 @@ module mkMMUIndicationProxy
       method Action idResponse(Bit#(32) sglId);
          idresponse_fifo.enq(sglId);
       endmethod
-`ifdef SIMULATION
+`ifdef DEBUG
       method configResp = mmuInd.configResp;
       method error = mmuInd.error;
 `endif
@@ -98,7 +98,7 @@ interface MemMgmt#(numeric type addrWidth);
    interface Get#(Bool) freeDone;
 endinterface
 module mkMemMgmt
-`ifdef SIMULATION
+`ifdef DEBUG
                 #(MemMgmtIndication indication, MMUIndication mmuInd)
 `endif
                 (MemMgmt#(addrWidth))
@@ -144,7 +144,7 @@ module mkMemMgmt
    FIFO#(Bit#(PageIdx)) pagePointerFifo <- mkFIFO;
 
    MMUIndicationProxy proxy <- mkMMUIndicationProxy(
-`ifdef SIMULATION
+`ifdef DEBUG
                                                     mmuInd
 `endif
                                                    );
@@ -204,7 +204,7 @@ module mkMemMgmt
          // map id to linked-list of pages
          portsel(idmap, 0).request.put(BRAMRequest{write:True, responseOnWrite:False, address:packetId, datain:tagged Valid segment});
          mallocDoneFifo.enq(tagged Valid packetId);
-`ifdef SIMULATION
+`ifdef DEBUG
          indication.memory_allocated(packetId);
 `endif
       end
@@ -221,7 +221,7 @@ module mkMemMgmt
 
    rule report_error;
       let v <- toGet(memMgmtErrorFifo).get;
-`ifdef SIMULATION
+`ifdef DEBUG
       indication.error(extend(pack(v.errorType)), v.id);
 `endif
       if (verbose) $display("MemMgmt::free_error: memMgmt error");
@@ -250,7 +250,7 @@ module mkMemMgmt
          end
          tagged Invalid: begin
             free_started <= False;
-`ifdef SIMULATION
+`ifdef DEBUG
             indication.packet_freed(idToFree);
 `endif
          end
@@ -283,6 +283,7 @@ module mkMemMgmt
    interface Get mallocDone = toGet(mallocDoneFifo);
    interface Put freeReq;
       method Action put(Bit#(32) id);
+         $display("MemMgmt:: free request %h", id);
          iommu.request.idReturn(id);
          outstanding_free.enq(id);
       endmethod
