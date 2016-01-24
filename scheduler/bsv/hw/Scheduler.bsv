@@ -29,26 +29,11 @@ endinstance
 interface Scheduler#(type readReqType, type readResType,
                      type writeReqType, type writeResType);
 
-    /* MAC interfaces */
-    interface Put#(readReqType) mac_read_request_port_1;
-    interface Put#(writeReqType) mac_write_request_port_1;
-    interface Get#(readResType) mac_read_response_port_1;
-    interface Get#(writeResType) mac_write_response_port_1;
-
-    interface Put#(readReqType) mac_read_request_port_2;
-    interface Put#(writeReqType) mac_write_request_port_2;
-    interface Get#(readResType) mac_read_response_port_2;
-    interface Get#(writeResType) mac_write_response_port_2;
-
-    interface Put#(readReqType) mac_read_request_port_3;
-    interface Put#(writeReqType) mac_write_request_port_3;
-    interface Get#(readResType) mac_read_response_port_3;
-    interface Get#(writeResType) mac_write_response_port_3;
-
-    interface Put#(readReqType) mac_read_request_port_4;
-    interface Put#(writeReqType) mac_write_request_port_4;
-    interface Get#(readResType) mac_read_response_port_4;
-    interface Get#(writeResType) mac_write_response_port_4;
+    /* MAC interface */
+	interface Vector#(NUM_OF_PORTS, Put#(readReqType)) mac_read_request_port;
+	interface Vector#(NUM_OF_PORTS, Get#(readResType)) mac_read_response_port;
+	interface Vector#(NUM_OF_PORTS, Put#(writeReqType)) mac_write_request_port;
+	interface Vector#(NUM_OF_PORTS, Get#(writeResType)) mac_write_response_port;
 
     /* DMA simulator interface */
     interface Put#(readReqType) dma_read_request;
@@ -76,7 +61,8 @@ endinterface
 (* synthesize *)
 module mkScheduler#(Clock pcieClock, Reset pcieReset,
                     Clock txClock, Reset txReset,
-                    Clock rxClock, Reset rxReset)
+                    Vector#(NUM_OF_PORTS, Clock) rxClock,
+					Vector#(NUM_OF_PORTS, Reset) rxReset)
 				(Scheduler#(ReadReqType, ReadResType, WriteReqType, WriteResType));
 
     Reg#(Bool) verbose <- mkReg(True);
@@ -89,24 +75,28 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
     Reset defaultReset <- exposeCurrentReset();
 
     Vector#(NUM_OF_PORTS, FIFO#(ReadReqType)) mac_read_request_fifo
-            <- replicateM(mkSizedFIFO(fromInteger(valueof(DEFAULT_FIFO_LEN))));
+            <- replicateM(mkSizedFIFO(valueof(DEFAULT_FIFO_LEN)));
     Vector#(NUM_OF_PORTS, FIFO#(ReadResType)) mac_read_response_fifo
-            <- replicateM(mkSizedFIFO(fromInteger(valueof(DEFAULT_FIFO_LEN))));
-    Vector#(NUM_OF_PORTS, SyncFIFOIfc#(WriteReqType)) mac_write_request_fifo
-            <- replicateM(mkSyncFIFO(fromInteger(valueof(DEFAULT_FIFO_LEN)),
-			                               rxClock, rxReset, defaultClock));
-    Vector#(NUM_OF_PORTS, SyncFIFOIfc#(WriteResType)) mac_write_response_fifo
-            <- replicateM(mkSyncFIFO(fromInteger(valueof(DEFAULT_FIFO_LEN)),
-			                               rxClock, rxReset, defaultClock));
+            <- replicateM(mkSizedFIFO(valueof(DEFAULT_FIFO_LEN)));
+    Vector#(NUM_OF_PORTS, SyncFIFOIfc#(WriteReqType)) mac_write_request_fifo;
+    Vector#(NUM_OF_PORTS, SyncFIFOIfc#(WriteResType)) mac_write_response_fifo;
+
+	for (Integer i = 0; i < valueof(NUM_OF_PORTS); i = i + 1)
+	begin
+		mac_write_request_fifo[i] <- mkSyncFIFO(valueof(DEFAULT_FIFO_LEN),
+	                                      rxClock[i], rxReset[i], defaultClock);
+		mac_write_response_fifo[i] <- mkSyncFIFO(valueof(DEFAULT_FIFO_LEN),
+	                                    defaultClock, defaultReset, rxClock[i]);
+	end
 
     FIFO#(ReadReqType) dma_read_request_fifo
-	                 <- mkSizedFIFO(fromInteger(valueof(DEFAULT_FIFO_LEN)));
+	                 <- mkSizedFIFO(valueof(DEFAULT_FIFO_LEN));
     FIFO#(ReadResType) dma_read_response_fifo
-	                 <- mkSizedFIFO(fromInteger(valueof(DEFAULT_FIFO_LEN)));
+	                 <- mkSizedFIFO(valueof(DEFAULT_FIFO_LEN));
     FIFO#(WriteReqType) dma_write_request_fifo
-	                 <- mkSizedFIFO(fromInteger(valueof(DEFAULT_FIFO_LEN)));
+	                 <- mkSizedFIFO(valueof(DEFAULT_FIFO_LEN));
     FIFO#(WriteResType) dma_write_response_fifo
-	                 <- mkSizedFIFO(fromInteger(valueof(DEFAULT_FIFO_LEN)));
+	                 <- mkSizedFIFO(valueof(DEFAULT_FIFO_LEN));
 
     Reg#(State) curr_state <- mkReg(CONFIG);
 
@@ -226,9 +216,9 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
 
 	// should be atleast as large as buffer_depth + max num of data blocks
     Vector#(NUM_OF_PORTS, FIFOF#(RingBufferDataT)) buffer_fifo
-	        <- replicateM(mkSizedFIFOF(fromInteger(valueof(DEFAULT_FIFO_LEN))));
+	                                    <- replicateM(mkSizedFIFOF(16));
     Vector#(NUM_OF_PORTS, FIFOF#(ServerIndex)) ring_buffer_index_fifo
-              <- replicateM(mkSizedFIFOF(fromInteger(valueof(NUM_OF_PORTS))+1));
+                 <- replicateM(mkSizedFIFOF((valueof(NUM_OF_PORTS)+1)));
     Vector#(NUM_OF_PORTS, Reg#(Bit#(1)))
                  ready_to_deq_from_index_buffer <- replicateM(mkReg(1));
     Vector#(NUM_OF_PORTS, Reg#(Bit#(1)))
@@ -285,10 +275,21 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
             begin
                 if (buffer_depth[i] > 0)
                 begin
-                    buffer_depth[i] <= buffer_depth[i] - 1;
-                    Bit#(384) pload = zeroExtend(d.data.payload);
-                    buffered_data[i] <= buffered_data[i] | (pload
-					<< (fromInteger(valueof(BUS_WIDTH)) * (buffer_depth[i]-1)));
+                    if (d.data.sop == 0 && d.data.eop == 1)
+                    begin
+                        /* reset state */
+                        buffer_depth[i] <= 3;  //no of data blocks to buffer
+                        buffered_data[i] <= 0;
+						ring_buffer_index_fifo[i].enq(0);
+                    end
+					else
+					begin
+						buffer_depth[i] <= buffer_depth[i] - 1;
+						Bit#(384) pload = zeroExtend(d.data.payload);
+						buffered_data[i] <= buffered_data[i] | (pload
+									<< (fromInteger(valueof(BUS_WIDTH))
+											   * (buffer_depth[i]-1)));
+					end
                 end
 
                 else if (buffer_depth[i] == 0) /* already buffered 3 data blocks */
@@ -370,7 +371,6 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
             port_idx[j] <= port_index;
             if (verbose)
                 $display("[SCHED (%d)] port_idx[%d] = %d",host_index,j,port_index);
-            stop_polling[port_index] <= 0;
 			wait_for_completion[j] <= 1;
         endrule
 
@@ -380,6 +380,8 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
                                         && port_idx[j] == fromInteger(i)
                                         && ready_to_deq_from_ring_buffer[i] == 1);
                 let d <- toGet(buffer_fifo[i]).get;
+				if (d.sop == 1 && d.eop == 0)
+					stop_polling[i] <= 0;
 
                 if (d.sop == 0 && d.eop == 1)
                 begin
@@ -545,8 +547,7 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
             if (verbose)
                 $display("[SCHED (%d)] CLK = %d Putting data into rx port buffer %d %d %x i = %d",
                 host_index, clk.currTime(), req.data.sop, req.data.eop, req.data.payload, i);
-			if (curr_state == RUN)
-				rx_ring_buffer[i].write_request.put
+			rx_ring_buffer[i].write_request.put
 					  (makeWriteReq(req.data.sop, req.data.eop, req.data.payload));
         endrule
 
@@ -583,6 +584,19 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
     endrule
 
 /*-----------------------------------------------------------------------------*/
+	Vector#(NUM_OF_PORTS, Put#(ReadReqType)) temp1;
+	Vector#(NUM_OF_PORTS, Get#(ReadResType)) temp2;
+	Vector#(NUM_OF_PORTS, Put#(WriteReqType)) temp3;
+	Vector#(NUM_OF_PORTS, Get#(WriteResType)) temp4;
+
+	for (Integer i = 0; i < valueof(NUM_OF_PORTS); i = i + 1)
+	begin
+		temp1[i] = toPut(mac_read_request_fifo[i]);
+		temp2[i] = toGet(mac_read_response_fifo[i]);
+		temp3[i] = toPut(mac_write_request_fifo[i]);
+		temp4[i] = toGet(mac_write_response_fifo[i]);
+	end
+
 	method Action insertToSchedTable(ServerIndex index, IP ip_addr, MAC mac_addr);
 		TableData d = TableData {
 						server_ip : ip_addr,
@@ -631,25 +645,10 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
 	endmethod
 
     /* MAC interfaces */
-    interface Put mac_read_request_port_1 = toPut(mac_read_request_fifo[0]);
-    interface Put mac_write_request_port_1 = toPut(mac_write_request_fifo[0]);
-    interface Get mac_read_response_port_1 = toGet(mac_read_response_fifo[0]);
-    interface Get mac_write_response_port_1 = toGet(mac_write_response_fifo[0]);
-
-    interface Put mac_read_request_port_2 = toPut(mac_read_request_fifo[1]);
-    interface Put mac_write_request_port_2 = toPut(mac_write_request_fifo[1]);
-    interface Get mac_read_response_port_2 = toGet(mac_read_response_fifo[1]);
-    interface Get mac_write_response_port_2 = toGet(mac_write_response_fifo[1]);
-
-    interface Put mac_read_request_port_3 = toPut(mac_read_request_fifo[2]);
-    interface Put mac_write_request_port_3 = toPut(mac_write_request_fifo[2]);
-    interface Get mac_read_response_port_3 = toGet(mac_read_response_fifo[2]);
-    interface Get mac_write_response_port_3 = toGet(mac_write_response_fifo[2]);
-
-    interface Put mac_read_request_port_4 = toPut(mac_read_request_fifo[3]);
-    interface Put mac_write_request_port_4 = toPut(mac_write_request_fifo[3]);
-    interface Get mac_read_response_port_4 = toGet(mac_read_response_fifo[3]);
-    interface Get mac_write_response_port_4 = toGet(mac_write_response_fifo[3]);
+    interface mac_read_request_port = temp1;
+    interface mac_read_response_port = temp2;
+    interface mac_write_request_port = temp3;
+    interface mac_write_response_port = temp4;
 
     /* DMA simulator interface */
     interface Put dma_read_request = toPut(dma_read_request_fifo);

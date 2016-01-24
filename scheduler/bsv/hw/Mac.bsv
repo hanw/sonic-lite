@@ -16,27 +16,33 @@ import EthMac::*;
 interface Mac;
 //	interface Get#(PacketDataT#(64)) debug_sending_to_phy;
 //	interface Get#(PacketDataT#(64)) debug_received_from_phy;
-    interface Get#(Bit#(64)) sop_count;
-    interface Get#(Bit#(64)) eop_count;
+    interface Get#(Bit#(64)) sop_count_port_1;
+    interface Get#(Bit#(64)) eop_count_port_1;
+
     (* always_ready, always_enabled *)
     method Bit#(72) tx(Integer port_index);
     (* always_ready, always_enabled *)
     method Action rx(Integer port_index, Bit#(72) v);
-//	method Action start_mac_rx(ServerIndex host_index);
 
-    method Action getSOPCount();
-    method Action getEOPCount();
+    method Action getSOPCountForPort1();
+    method Action getEOPCountForPort1();
 endinterface
 
 module mkMac#(Scheduler#(ReadReqType, ReadResType,
                          WriteReqType, WriteResType) scheduler,
-              Clock txClock, Reset txReset, Clock rxClock, Reset rxReset) (Mac);
+              Clock txClock, Reset txReset,
+			  Vector#(NUM_OF_PORTS, Clock) rxClock,
+		      Vector#(NUM_OF_PORTS, Reset) rxReset) (Mac);
 
     Clock defaultClock <- exposeCurrentClock();
     Reset defaultReset <- exposeCurrentReset();
 
-    Vector#(NUM_OF_PORTS, EthMacIfc) eth_mac <- replicateM(mkEthMac(defaultClock,
-                                                     txClock, rxClock, txReset));
+    Vector#(NUM_OF_PORTS, EthMacIfc) eth_mac;
+
+	for (Integer i = 0; i < valueof(NUM_OF_PORTS); i = i + 1)
+	begin
+		eth_mac[i] <- mkEthMac(defaultClock, txClock, rxClock[i], txReset);
+	end
 
 /*------------------------------------------------------------------------------*/
 
@@ -55,204 +61,57 @@ module mkMac#(Scheduler#(ReadReqType, ReadResType,
 //	SyncFIFOIfc#(PacketDataT#(64)) debug_sending_to_phy_fifo
 //	               <- mkSyncFIFO(16, txClock, txReset, defaultClock);
 
-    rule start_polling_tx_buffer_port_1;
-        scheduler.mac_read_request_port_1.put(makeReadReq(READ));
-    endrule
-
-    rule start_polling_tx_buffer_port_2;
-        scheduler.mac_read_request_port_2.put(makeReadReq(READ));
-    endrule
-
-    rule start_polling_tx_buffer_port_3;
-        scheduler.mac_read_request_port_3.put(makeReadReq(READ));
-    endrule
-
-    rule start_polling_tx_buffer_port_4;
-        scheduler.mac_read_request_port_4.put(makeReadReq(READ));
-    endrule
-
-    rule add_blocks_to_fifo_port_1;
-        let d <- scheduler.mac_read_response_port_1.get;
-
-        Vector#(2, Bit#(1)) start_bit = replicate(0);
-        Vector#(2, Bit#(1)) end_bit = replicate(0);
-
-        if (d.data.sop == 1 && d.data.eop == 0)
-        begin
-            start_bit[0] = 1;
-            end_bit[0] = 0;
-            start_bit[1] = 0;
-            end_bit[1] = 0;
-        end
-        if (d.data.sop == 0 && d.data.eop == 0)
-        begin
-            start_bit[0] = 0;
-            end_bit[0] = 0;
-            start_bit[1] = 0;
-            end_bit[1] = 0;
-        end
-        if (d.data.sop == 0 && d.data.eop == 1)
-        begin
-            start_bit[0] = 0;
-            end_bit[0] = 0;
-            start_bit[1] = 0;
-            end_bit[1] = 1;
-        end
-
-        PacketDataT#(64) data1 = PacketDataT {
-                                            data : d.data.payload[127:64],
-                                            mask : 0,
-                                            sop  : start_bit[0],
-                                            eop  : end_bit[0]
-                                          };
-        PacketDataT#(64) data2 = PacketDataT {
-                                            data : d.data.payload[63:0],
-                                            mask : 0,
-                                            sop  : start_bit[1],
-                                            eop  : end_bit[1]
-                                          };
-        (mac_in_buffer[0])[0].enq(data1);
-        (mac_in_buffer[0])[1].enq(data2);
-
-    endrule
-
-    rule add_blocks_to_fifo_port_2;
-        let d <- scheduler.mac_read_response_port_2.get;
-
-        Vector#(2, Bit#(1)) start_bit = replicate(0);
-        Vector#(2, Bit#(1)) end_bit = replicate(0);
-
-        if (d.data.sop == 1 && d.data.eop == 0)
-        begin
-            start_bit[0] = 1;
-            end_bit[0] = 0;
-            start_bit[1] = 0;
-            end_bit[1] = 0;
-        end
-        if (d.data.sop == 0 && d.data.eop == 0)
-        begin
-            start_bit[0] = 0;
-            end_bit[0] = 0;
-            start_bit[1] = 0;
-            end_bit[1] = 0;
-        end
-        if (d.data.sop == 0 && d.data.eop == 1)
-        begin
-            start_bit[0] = 0;
-            end_bit[0] = 0;
-            start_bit[1] = 0;
-            end_bit[1] = 1;
-        end
-
-        PacketDataT#(64) data1 = PacketDataT {
-                                            data : d.data.payload[127:64],
-                                            mask : 0,
-                                            sop  : start_bit[0],
-                                            eop  : end_bit[0]
-                                          };
-        PacketDataT#(64) data2 = PacketDataT {
-                                            data : d.data.payload[63:0],
-                                            mask : 0,
-                                            sop  : start_bit[1],
-                                            eop  : end_bit[1]
-                                          };
-        (mac_in_buffer[1])[0].enq(data1);
-        (mac_in_buffer[1])[1].enq(data2);
-
-    endrule
-
-    rule add_blocks_to_fifo_port_3;
-        let d <- scheduler.mac_read_response_port_3.get;
-
-        Vector#(2, Bit#(1)) start_bit = replicate(0);
-        Vector#(2, Bit#(1)) end_bit = replicate(0);
-
-        if (d.data.sop == 1 && d.data.eop == 0)
-        begin
-            start_bit[0] = 1;
-            end_bit[0] = 0;
-            start_bit[1] = 0;
-            end_bit[1] = 0;
-        end
-        if (d.data.sop == 0 && d.data.eop == 0)
-        begin
-            start_bit[0] = 0;
-            end_bit[0] = 0;
-            start_bit[1] = 0;
-            end_bit[1] = 0;
-        end
-        if (d.data.sop == 0 && d.data.eop == 1)
-        begin
-            start_bit[0] = 0;
-            end_bit[0] = 0;
-            start_bit[1] = 0;
-            end_bit[1] = 1;
-        end
-
-        PacketDataT#(64) data1 = PacketDataT {
-                                            data : d.data.payload[127:64],
-                                            mask : 0,
-                                            sop  : start_bit[0],
-                                            eop  : end_bit[0]
-                                          };
-        PacketDataT#(64) data2 = PacketDataT {
-                                            data : d.data.payload[63:0],
-                                            mask : 0,
-                                            sop  : start_bit[1],
-                                            eop  : end_bit[1]
-                                          };
-        (mac_in_buffer[2])[0].enq(data1);
-        (mac_in_buffer[2])[1].enq(data2);
-
-    endrule
-
-    rule add_blocks_to_fifo_port_4;
-        let d <- scheduler.mac_read_response_port_4.get;
-
-        Vector#(2, Bit#(1)) start_bit = replicate(0);
-        Vector#(2, Bit#(1)) end_bit = replicate(0);
-
-        if (d.data.sop == 1 && d.data.eop == 0)
-        begin
-            start_bit[0] = 1;
-            end_bit[0] = 0;
-            start_bit[1] = 0;
-            end_bit[1] = 0;
-        end
-        if (d.data.sop == 0 && d.data.eop == 0)
-        begin
-            start_bit[0] = 0;
-            end_bit[0] = 0;
-            start_bit[1] = 0;
-            end_bit[1] = 0;
-        end
-        if (d.data.sop == 0 && d.data.eop == 1)
-        begin
-            start_bit[0] = 0;
-            end_bit[0] = 0;
-            start_bit[1] = 0;
-            end_bit[1] = 1;
-        end
-
-        PacketDataT#(64) data1 = PacketDataT {
-                                            data : d.data.payload[127:64],
-                                            mask : 0,
-                                            sop  : start_bit[0],
-                                            eop  : end_bit[0]
-                                          };
-        PacketDataT#(64) data2 = PacketDataT {
-                                            data : d.data.payload[63:0],
-                                            mask : 0,
-                                            sop  : start_bit[1],
-                                            eop  : end_bit[1]
-                                          };
-        (mac_in_buffer[3])[0].enq(data1);
-        (mac_in_buffer[3])[1].enq(data2);
-
-    endrule
-
     for (Integer i = 0; i < fromInteger(valueof(NUM_OF_PORTS)); i = i + 1)
     begin
+		rule start_polling_tx_buffer;
+			scheduler.mac_read_request_port[i].put(makeReadReq(READ));
+		endrule
+
+		rule add_blocks_to_fifo;
+			let d <- scheduler.mac_read_response_port[i].get;
+
+			Vector#(2, Bit#(1)) start_bit = replicate(0);
+			Vector#(2, Bit#(1)) end_bit = replicate(0);
+
+			if (d.data.sop == 1 && d.data.eop == 0)
+			begin
+				start_bit[0] = 1;
+				end_bit[0] = 0;
+				start_bit[1] = 0;
+				end_bit[1] = 0;
+			end
+			if (d.data.sop == 0 && d.data.eop == 0)
+			begin
+				start_bit[0] = 0;
+				end_bit[0] = 0;
+				start_bit[1] = 0;
+				end_bit[1] = 0;
+			end
+			if (d.data.sop == 0 && d.data.eop == 1)
+			begin
+				start_bit[0] = 0;
+				end_bit[0] = 0;
+				start_bit[1] = 0;
+				end_bit[1] = 1;
+			end
+
+			PacketDataT#(64) data1 = PacketDataT {
+												data : d.data.payload[127:64],
+												mask : 0,
+												sop  : start_bit[0],
+												eop  : end_bit[0]
+											  };
+			PacketDataT#(64) data2 = PacketDataT {
+												data : d.data.payload[63:0],
+												mask : 0,
+												sop  : start_bit[1],
+												eop  : end_bit[1]
+											  };
+			(mac_in_buffer[i])[0].enq(data1);
+			(mac_in_buffer[i])[1].enq(data2);
+
+		endrule
+
         for (Integer j = 0; j < 2; j = j + 1)
         begin
             rule send_to_mac (turn[i] == fromInteger(j));
@@ -278,65 +137,50 @@ module mkMac#(Scheduler#(ReadReqType, ReadResType,
 
 /*------------------------------------------------------------------------------*/
 
-    Reg#(Bool) rx_verbose <- mkReg(False, clocked_by rxClock, reset_by rxReset);
-
-    Vector#(NUM_OF_PORTS, Reg#(PacketDataT#(64))) mac_out_buffer
-        <- replicateM(mkReg(defaultValue, clocked_by rxClock, reset_by rxReset));
-
-    Vector#(NUM_OF_PORTS, Reg#(Bit#(2))) b_count
-                   <- replicateM(mkReg(0, clocked_by rxClock, reset_by rxReset));
-
-	Vector#(NUM_OF_PORTS, Reg#(Bit#(1))) drop_pkt
-                   <- replicateM(mkReg(0, clocked_by rxClock, reset_by rxReset));
-
-	Reg#(ServerIndex) host_index <- mkReg(0, clocked_by rxClock, reset_by rxReset);
+    Vector#(NUM_OF_PORTS, Reg#(PacketDataT#(64))) mac_out_buffer;
+    Vector#(NUM_OF_PORTS, Reg#(Bit#(2))) b_count;
 
 //	SyncFIFOIfc#(PacketDataT#(64)) debug_received_from_phy_fifo
 //	               <- mkSyncFIFO(16, rxClock, rxReset, defaultClock);
 
-	SyncFIFOIfc#(Bit#(64)) sop_count_fifo
-	               <- mkSyncFIFO(1, rxClock, rxReset, defaultClock);
+	for (Integer i = 0; i < valueof(NUM_OF_PORTS); i = i + 1)
+	begin
+		mac_out_buffer[i] <- mkReg(defaultValue,
+	                             clocked_by rxClock[i], reset_by rxReset[i]);
+		b_count[i] <- mkReg(0, clocked_by rxClock[i], reset_by rxReset[i]);
+	end
 
-	SyncFIFOIfc#(Bit#(64)) eop_count_fifo
-	               <- mkSyncFIFO(1, rxClock, rxReset, defaultClock);
+/*------------------------------------------------------------------------------*/
+	SyncFIFOIfc#(Bit#(64)) sop_count_fifo_port_1
+	               <- mkSyncFIFO(1, rxClock[1], rxReset[1], defaultClock);
 
-    Vector#(NUM_OF_PORTS, Reg#(Bit#(64))) sop_count_reg
-	               <- replicateM(mkReg(0, clocked_by rxClock, reset_by rxReset));
-    Vector#(NUM_OF_PORTS, Reg#(Bit#(64))) eop_count_reg
-	               <- replicateM(mkReg(0, clocked_by rxClock, reset_by rxReset));
+	SyncFIFOIfc#(Bit#(64)) eop_count_fifo_port_1
+	               <- mkSyncFIFO(1, rxClock[1], rxReset[1], defaultClock);
 
-    for (Integer i = 0; i < fromInteger(valueof(NUM_OF_PORTS)); i = i + 1)
+    Vector#(NUM_OF_PORTS, Reg#(Bit#(64))) sop_count_reg;
+    Vector#(NUM_OF_PORTS, Reg#(Bit#(64))) eop_count_reg;
+
+	for (Integer i = 0; i < valueof(NUM_OF_PORTS); i = i + 1)
+	begin
+		sop_count_reg[i] <- mkReg(0, clocked_by rxClock[i], reset_by rxReset[i]);
+		eop_count_reg[i] <- mkReg(0, clocked_by rxClock[i], reset_by rxReset[i]);
+	end
+/*------------------------------------------------------------------------------*/
+
+    for (Integer i = 0; i < valueof(NUM_OF_PORTS); i = i + 1)
     begin
         rule send_blocks_to_dst;
             let d <- eth_mac[i].packet_rx.get;
 
             Bool write_flag = False;
 
-//			Bit#(1) drop = drop_pkt[i];
 			//debug_received_from_phy_fifo.enq(d);
-
-            if (rx_verbose)
-                $display("[MAC] output from mac layer %d %d %x",
-                           d.sop, d.eop, d.data);
 
             if (d.sop == 1 && d.eop == 0)
                 sop_count_reg[i] <= sop_count_reg[i] + 1;
 
             if (d.sop == 0 && d.eop == 1)
                 eop_count_reg[i] <= eop_count_reg[i] + 1;
-
-//			if (d.sop == 1 && d.eop == 0)
-//			begin
-//				MAC dst_mac_addr = d.data[63:16];
-//				if (dst_mac_addr != mac_address(host_index))
-//				begin
-//					drop_pkt[i] <= 1;
-//					drop = 1;
-//				end
-//			end
-//
-//			else if (d.sop == 0 && d.eop == 1)
-//				drop_pkt[i] <= 0;
 
             Bit#(1) start_bit = 0;
             Bit#(1) end_bit = 0;
@@ -399,22 +243,8 @@ module mkMac#(Scheduler#(ReadReqType, ReadResType,
             end
 
 			if (write_flag == True)
-			begin
-                case (i)
-                    0 : scheduler.mac_write_request_port_1.put
-                                      (makeWriteReq(start_bit, end_bit, pload));
-                    1 : scheduler.mac_write_request_port_2.put
-                                      (makeWriteReq(start_bit, end_bit, pload));
-                    2 : scheduler.mac_write_request_port_3.put
-                                      (makeWriteReq(start_bit, end_bit, pload));
-                    3 : scheduler.mac_write_request_port_4.put
-                                      (makeWriteReq(start_bit, end_bit, pload));
-                endcase
-
-                if (rx_verbose)
-                    $display("[MAC] data = %d %d %x i = %d",
-                              start_bit, end_bit, pload, i);
-            end
+				scheduler.mac_write_request_port[i].put
+			                         (makeWriteReq(start_bit, end_bit, pload));
         endrule
     end
 
@@ -433,27 +263,16 @@ module mkMac#(Scheduler#(ReadReqType, ReadResType,
         eth_mac[port_index].rx(v);
     endmethod
 
-//	method Action start_mac_rx(ServerIndex index);
-//		host_index <= index;
-//		start_rx <= 1;
-//	endmethod
-
-    method Action getSOPCount();
-		Bit#(64) sop_pkt = 0;
-		for (Integer i = 0; i < fromInteger(valueof(NUM_OF_PORTS)); i = i + 1)
-			sop_pkt = sop_pkt + sop_count_reg[i];
-        sop_count_fifo.enq(sop_pkt);
+    method Action getSOPCountForPort1();
+        sop_count_fifo_port_1.enq(sop_count_reg[1]);
     endmethod
 
-    method Action getEOPCount();
-		Bit#(64) eop_pkt = 0;
-		for (Integer i = 0; i < fromInteger(valueof(NUM_OF_PORTS)); i = i + 1)
-			eop_pkt = eop_pkt + eop_count_reg[i];
-        sop_count_fifo.enq(eop_pkt);
+    method Action getEOPCountForPort1();
+        eop_count_fifo_port_1.enq(eop_count_reg[1]);
     endmethod
 
 //	interface Get debug_sending_to_phy = toGet(debug_sending_to_phy_fifo);
 //	interface Get debug_received_from_phy = toGet(debug_received_from_phy_fifo);
-    interface Get sop_count = toGet(sop_count_fifo);
-    interface Get eop_count = toGet(eop_count_fifo);
+    interface Get sop_count_port_1 = toGet(sop_count_fifo_port_1);
+    interface Get eop_count_port_1 = toGet(eop_count_fifo_port_1);
 endmodule
