@@ -28,20 +28,10 @@ import GetPut::*;
 import Vector::*;
 
 import Ethernet::*;
-import PacketBuffer::*;
-import PktGen::*;
-import SharedBuff::*;
-import GenericMatchTable::*;
-import TDM::*;
 import DbgTypes::*;
-
-interface MemoryTestIndication;
-   method Action read_version_resp(Bit#(32) version);
-   method Action addEntryResp(FlowId id);
-   method Action readRingBuffCntrsResp(Bit#(64) sopEnq, Bit#(64) eopEnq, Bit#(64) sopDeq, Bit#(64) eopDeq);
-   method Action readMemMgmtCntrsResp(Bit#(64) allocCnt, Bit#(64) freeCnt);
-   method Action readTDMCntrsResp(Bit#(64) lookupCnt, Bit#(64) modifyMacCnt, Bit#(64) fwdReqCnt, Bit#(64) sendCnt);
-endinterface
+import PacketBuffer::*;
+import TopTypes::*;
+import TdmPipeline::*;
 
 interface MemoryTestRequest;
    method Action read_version();
@@ -60,7 +50,7 @@ interface MemoryAPI;
    interface MemoryTestRequest request;
 endinterface
 
-module mkMemoryAPI#(MemoryTestIndication indication, PktGen pktgen, SharedBuffer#(12, 128, 1) mem, MatchTable#(256, 36) match_table, Vector#(2, PacketBuffer) pktbuff, TDM tdm)(MemoryAPI);
+module mkMemoryAPI#(MemoryTestIndication indication, TdmPipeline tdm)(MemoryAPI);
    interface MemoryTestRequest request;
       method Action read_version();
          let v= `NicVersion;
@@ -72,30 +62,30 @@ module mkMemoryAPI#(MemoryTestIndication indication, PktGen pktgen, SharedBuffer
          beat.mask = pack(reverse(mask));
          beat.sop = unpack(sop);
          beat.eop = unpack(eop);
-         pktgen.writeServer.writeData.put(beat);
+         tdm.writeServer.writeData.put(beat);
       endmethod
-      method start = pktgen.start;
-      method stop = pktgen.stop;
+      method start = tdm.start;
+      method stop = tdm.stop;
       method Action addEntry(Bit#(32) table_name, MatchField fields);
          $display("MemoryAPI:: added entry ", fshow(fields));
          ActionArg args = ActionArg{egress_index: 4};
          TableEntry entry = TableEntry{field: fields, argument: args };
-         match_table.add_entry.put(entry);
+         tdm.add_entry.put(entry);
       endmethod
 
       method Action deleteEntry(Bit#(32) table_name, FlowId id);
          $display("MemoryAPI:: delete entry flow id ", fshow(id));
-         match_table.delete_entry.put(id);
+         tdm.delete_entry.put(id);
       endmethod
 
       method Action modifyEntry(Bit#(32) table_name, FlowId id, ActionArg args);
          $display("MemoryAPI:: modify entry flow id ", fshow(id), " action ", fshow(args));
-         match_table.modify_entry.put(tuple2(id, args));
+         tdm.modify_entry.put(tuple2(id, args));
       endmethod
 
       method Action readRingBuffCntrs(Bit#(8) id);
          if (id < 2) begin
-            let v = pktbuff[id].dbg();
+            let v <- tdm.pktBuffDbg(id);
             indication.readRingBuffCntrsResp(v.sopEnq, v.eopEnq, v.sopDeq, v.eopDeq);
          end
          else begin
@@ -104,12 +94,12 @@ module mkMemoryAPI#(MemoryTestIndication indication, PktGen pktgen, SharedBuffer
       endmethod
 
       method Action readMemMgmtCntrs();
-         let v = mem.dbg();
+         let v = tdm.memMgmtDbg();
          indication.readMemMgmtCntrsResp(v.allocCnt, v.freeCnt);
       endmethod
 
       method Action readTDMCntrs();
-         let v = tdm.dbg();
+         let v = tdm.tdmDbg();
          indication.readTDMCntrsResp(v.lookupCnt, v.modifyMacCnt, v.fwdReqCnt, v.sendCnt);
       endmethod
    endinterface

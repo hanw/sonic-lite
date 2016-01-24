@@ -31,8 +31,6 @@ import GetPut::*;
 import ClientServer::*;
 import Connectable::*;
 import Clocks::*;
-import Gearbox::*;
-import Pipe::*;
 import RegFile::*;
 
 import MemServerIndication::*;
@@ -42,17 +40,9 @@ import MMUIndication::*;
 import MemTypes::*;
 import Ethernet::*;
 import MemoryAPI::*;
-import PacketBuffer::*;
-import SharedBuff::*;
-import StoreAndForward::*;
-import PktGen::*;
-import TDM::*;
 import EthMac::*;
-import MMU::*;
-import MemMgmt::*;
-import IPv4Parser::*;
-import Tap::*;
-import GenericMatchTable::*;
+import TdmPipeline::*;
+import TopTypes::*;
 
 `ifdef SYNTHESIS
 import AlteraMacWrap::*;
@@ -112,78 +102,27 @@ module mkMemoryTest#(MemoryTestIndication indication
    mapM(uncurry(mkConnection), zip(phys.rx, map(getRx, mac)));
 `endif
 
-   // Host Port
-   PktGen pktgen <- mkPktGen();
-
-   // Ethernet Port
-   PacketBuffer incoming_buff <- mkPacketBuffer();
-   PacketBuffer outgoing_buff <- mkPacketBuffer();
-
-   // Ethernet Parser
-   TapPktRead tap <- mkTapPktRead();
-   Parser ipv4Parser <- mkParser();
-
-   // Ingress Pipeline
-   MatchTable#(256, 36) matchTable <- mkMatchTable();
-
-   // Egress Pipeline
-   ModifyMac modMac <- mkModifyMac();
-
-   StoreAndFwdFromRingToMem ingress <- mkStoreAndFwdFromRingToMem(
+   TdmPipeline tdm <- mkTdmPipeline(txClock, txReset
+                                        ,indication
+                                        ,memServerInd
 `ifdef DEBUG
-                                                                  memTestInd
+                                        ,memTestInd
+                                        ,mmuInd
 `endif
-                                                                 );
-   StoreAndFwdFromMemToRing egress <- mkStoreAndFwdFromMemToRing();
-   StoreAndFwdFromRingToMac ringToMac <- mkStoreAndFwdFromRingToMac(txClock, txReset);
+                                        );
 
-   SharedBuffer#(12, 128, 1) mem <- mkSharedBuffer(vec(egress.readClient)
-                                                  ,vec(ingress.writeClient, modMac.writeClient)
-                                                  ,memServerInd
-`ifdef DEBUG
-                                                  ,memTestInd
-                                                  ,mmuInd
-`endif
-                                                  );
-
-   mkConnection(pktgen.writeClient, incoming_buff.writeServer);
-
-   //mkConnection(ingress.readClient, incoming_buff.readServer);
-   mkConnection(tap.readClient, incoming_buff.readServer);
-   mkConnection(ingress.readClient, tap.readServer);
-   mkConnection(tap.tap_out, toPut(ipv4Parser.frameIn));
-
-   // alloc
-   mkConnection(ingress.mallocReq, mem.mallocReq);
-   mkConnection(mem.mallocDone, ingress.mallocDone);
-
-   // free
-   mkConnection(egress.freeReq, mem.freeReq);
-   //mkConnection(mem.freeDone, egress.freeDone);
-
-   mkConnection(egress.writeClient, outgoing_buff.writeServer);
-   mkConnection(ringToMac.readClient, outgoing_buff.readServer);
-
-   // Null Forwarding bypass pipeline
-   //mkConnection(ingress.eventPktCommitted, egress.eventPktSend);
-
-   TDM sched <- mkTDM(ingress, egress, ipv4Parser, matchTable, modMac);
-
+   // connect mac to tdm
 `ifdef SYNTHESIS
-   mkConnection(ringToMac.macTx, mac[0].packet_tx);
+   mkConnection(tdm.macTx, mac[0].packet_tx);
 `else
    rule drainMac;
-      let v <- ringToMac.macTx.get;
+      let v <- tdm.macTx.get;
       if (verbose) $display("tx data %h", v.data);
    endrule
 `endif
 
-   rule read_flow_id;
-      let v <- toGet(matchTable.entry_added).get;
-      indication.addEntryResp(v);
-   endrule
-
-   MemoryAPI api <- mkMemoryAPI(indication, pktgen, mem, matchTable, vec(incoming_buff, outgoing_buff), sched);
+   //MemoryAPI api <- mkMemoryAPI(indication, tdm.pktgen, tdm.mem, tdm.matchTable, vec(tdm.incoming_buff, tdm.outgoing_buff), tdm.sched);
+   MemoryAPI api <- mkMemoryAPI(indication, tdm);
 
    interface request = api.request;
 `ifdef SYNTHESIS

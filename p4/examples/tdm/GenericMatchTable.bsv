@@ -12,29 +12,7 @@ import Pipe::*;
 import Bcam::*;
 import BcamTypes::*;
 import PriorityEncoder::*;
-
-typedef Bit#(16) FlowId;
-
-typedef struct {
-   Bit#(4) egress_index;
-} ActionArg deriving (Bits, Eq, FShow);
-
-typedef struct {
-   Bit#(32) dstip;
-} MatchField deriving (Bits, Eq, FShow);
-
-typedef struct {
-   MatchField field;
-   ActionArg argument;
-} TableEntry deriving (Bits, Eq, FShow);
-
-typedef enum {
-   MODIFY_MAC = 1
-} OpCode deriving (Bits, Eq, FShow);
-
-typedef struct {
-   OpCode opcode;
-} ActionOp deriving (Bits, Eq, FShow);
+import TopTypes::*;
 
 // depthSz is multiple of 8 for 256 entries
 // keySz is multiple of 9 for 9 bits
