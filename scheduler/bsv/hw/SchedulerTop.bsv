@@ -1,7 +1,9 @@
 import FIFO::*;
 import FIFOF::*;
+import Pipe::*;
 import Vector::*;
 import GetPut::*;
+import Connectable::*;
 import DefaultValue::*;
 import Clocks::*;
 
@@ -77,8 +79,14 @@ module mkSchedulerTop#(SchedulerTopIndication indication)(SchedulerTop);
 //    EthPhyIfc phys <- mkAlteraEthPhy(mgmtClock, phyClock, txClock, defaultReset, clocked_by mgmtClock, reset_by mgmtReset);
 //    DtpPhyIfc#(1) dtpPhy <- mkEthPhy(mgmtClock, txClock, phyClock, clocked_by mgmtClock, reset_by mgmtReset);
 
-    Clock rxClock = phys.rx_clkout;
-    Reset rxReset <- mkSyncReset(2, defaultReset, rxClock);
+    Vector#(NUM_OF_PORTS, Clock) rxClock;
+    Vector#(NUM_OF_PORTS, Reset) rxReset;
+
+	for (Integer i = 0; i < valueOf(NUM_OF_PORTS); i = i + 1)
+	begin
+		rxClock[i] = phys.rx_clkout;
+		rxReset[i] <- mkSyncReset(2, defaultReset, rxClock[i]);
+	end
 
 /*-------------------------------------------------------------------------------*/
     MakeResetIfc scheduler_reset_ifc <- mkResetSync(0, False, defaultClock);
@@ -124,11 +132,11 @@ module mkSchedulerTop#(SchedulerTopIndication indication)(SchedulerTop);
 	Reg#(Bit#(1)) get_unknown_pkt_flag
 	                    <- mkReg(0, clocked_by txClock, reset_by txReset);
 	Reg#(Bit#(1)) get_sop_count_flag
-	                    <- mkReg(0, clocked_by rxClock, reset_by rxReset);
+	                    <- mkReg(0, clocked_by rxClock[1], reset_by rxReset[1]);
 	Reg#(Bit#(1)) get_eop_count_flag
-	                    <- mkReg(0, clocked_by rxClock, reset_by rxReset);
+	                    <- mkReg(0, clocked_by rxClock[1], reset_by rxReset[1]);
     SyncFIFOIfc#(Bit#(1)) mac_rx_debug_fifo
-                        <- mkSyncFIFO(1, txClock, txReset, rxClock);
+                        <- mkSyncFIFO(1, txClock, txReset, rxClock[1]);
 
     /* This rule is to configure when to stop the DMA and collect stats */
     rule count_cycles (start_counting == 1);
@@ -188,13 +196,13 @@ module mkSchedulerTop#(SchedulerTopIndication indication)(SchedulerTop);
     endrule
 
     rule get_sop_count (get_sop_count_flag == 1);
-        mac.getSOPCount();
+        mac.getSOPCountForPort1();
         get_sop_count_flag <= 0;
         get_eop_count_flag <= 1;
     endrule
 
     rule get_eop_count (get_eop_count_flag == 1);
-        mac.getEOPCount();
+        mac.getEOPCountForPort1();
         get_eop_count_flag <= 0;
     endrule
 
@@ -275,7 +283,6 @@ module mkSchedulerTop#(SchedulerTopIndication indication)(SchedulerTop);
             mac.rx(i, v);
         endrule
     end
-
 /* ------------------------------------------------------------------------------
 *                               INDICATION RULES
 * ------------------------------------------------------------------------------*/
@@ -424,7 +431,7 @@ module mkSchedulerTop#(SchedulerTopIndication indication)(SchedulerTop);
 	Reg#(Bit#(64)) sop_count_reg <- mkReg(0);
 	Reg#(Bit#(1)) fire_sop_counter_res <- mkReg(0);
 	rule sop_counter_rule (debug_flag == 1);
-		let res <- mac.sop_count.get;
+		let res <- mac.sop_count_port_1.get;
 		sop_count_reg <= res;
         fire_sop_counter_res <= 1;
 	endrule
@@ -438,7 +445,7 @@ module mkSchedulerTop#(SchedulerTopIndication indication)(SchedulerTop);
 	Reg#(Bit#(64)) eop_count_reg <- mkReg(0);
 	Reg#(Bit#(1)) fire_eop_counter_res <- mkReg(0);
 	rule eop_counter_rule (debug_flag == 1);
-		let res <- mac.eop_count.get;
+		let res <- mac.eop_count_port_1.get;
 		eop_count_reg <= res;
         fire_eop_counter_res <= 1;
 	endrule
