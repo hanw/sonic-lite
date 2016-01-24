@@ -32,7 +32,6 @@ import Clocks::*;
 import PacketBuffer::*;
 import MemTypes::*;
 import Ethernet::*;
-import MemoryAPI::*;
 import SharedBuff::*;
 import StoreAndForward::*;
 import IPv4Parser::*;
@@ -191,6 +190,7 @@ interface TDM;
    interface Vector#(4, PktWriteClient) writeClients;
    // From Rings, doubt if we need these.
    interface Vector#(4, PktReadServer) readServers;
+   method TDMDbgRec dbg;
 endinterface
 
 module mkTDM#(StoreAndFwdFromRingToMem ingress, StoreAndFwdFromMemToRing egress, Parser parser, MatchTable#(256, 36) matchTable, ModifyMac modMac)(TDM);
@@ -204,6 +204,11 @@ module mkTDM#(StoreAndFwdFromRingToMem ingress, StoreAndFwdFromMemToRing egress,
       cycle <= cycle + 1;
    endrule
 
+   Reg#(Bit#(64)) modifyMacCnt <- mkReg(0);
+   Reg#(Bit#(64)) fwdReqCnt <- mkReg(0);
+   Reg#(Bit#(64)) lookupCnt <- mkReg(0);
+   Reg#(Bit#(64)) sendCnt <- mkReg(0);
+
    TimeSlot timeSlot <- mkTimeSlot();
    ForwardQ fwdq <- mkForwardQ();
 
@@ -215,6 +220,7 @@ module mkTDM#(StoreAndFwdFromRingToMem ingress, StoreAndFwdFromMemToRing egress,
       // assume logic is table match implies forward
       modMac.request.put(ModifyMacReq{id: req.id, data:'h123456789abc});
       egress_fifo.enq(req);
+      modifyMacResp <= modifyMacResp + 1;
    endrule
 
    // packet processing pipelie: egress
@@ -223,6 +229,7 @@ module mkTDM#(StoreAndFwdFromRingToMem ingress, StoreAndFwdFromMemToRing egress,
       let v <- modMac.done.get;
       $display("TDM:: %d modifyMac done %h", cycle, v);
       fwdq.req_w.put(req);
+      fwdReqCnt <= fwdReqCnt + 1;
    endrule
 
    //! Function: ipToIndex
@@ -237,6 +244,7 @@ module mkTDM#(StoreAndFwdFromRingToMem ingress, StoreAndFwdFromMemToRing egress,
       matchTable.lookupPort.request.put(MatchField{dstip:ipv4});
       ingress_fifo.enq(FQWriteRequest{host: 0, id: v.id,
                                   dstip: ipv4, size: v.size});
+      lookupCnt <= lookupCnt + 1;
    endrule
 
    rule slotRequest;
@@ -249,6 +257,7 @@ module mkTDM#(StoreAndFwdFromRingToMem ingress, StoreAndFwdFromMemToRing egress,
       egress.eventPktSend.put(PacketInstance{id: resp.id, size: resp.size});
       if (verbose) $display("TDM:: %d dequeuePkt: %h %h", cycle, resp.id, resp.size);
       if (verbose) $display("TDM:: %d dequeuePkt: %h", cycle, resp.dstip);
+      sendCnt <= sendCnt + 1;
    endrule
 endmodule
 

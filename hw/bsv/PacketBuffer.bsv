@@ -32,7 +32,7 @@ import GetPut::*;
 import Pipe::*;
 import SpecialFIFOs::*;
 import Vector::*;
-
+import DbgTypes::*;
 import Ethernet::*;
 
 interface PktWriteClient;

@@ -183,7 +183,7 @@ module mkMemoryTest#(MemoryTestIndication indication
       indication.addEntryResp(v);
    endrule
 
-   MemoryAPI api <- mkMemoryAPI(indication, pktgen, mem, matchTable, vec(incoming_buff, outgoing_buff));
+   MemoryAPI api <- mkMemoryAPI(indication, pktgen, mem, matchTable, vec(incoming_buff, outgoing_buff), sched);
 
    interface request = api.request;
 `ifdef SYNTHESIS

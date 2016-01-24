@@ -40,6 +40,7 @@ import SharedBuffMMU::*;
 import MemMgmt::*;
 import PhysMemToBram::*;
 import Ethernet::*;
+import DbgTypes::*;
 
 interface SharedBuffer#(numeric type addrWidth, numeric type busWidth, numeric type nMasters);
    interface MemServerRequest memServerRequest;
@@ -47,6 +48,7 @@ interface SharedBuffer#(numeric type addrWidth, numeric type busWidth, numeric t
    interface Get#(Maybe#(Bit#(32))) mallocDone;
    interface Put#(Bit#(32)) freeReq;
    interface Get#(Bool) freeDone;
+   method MemMgmtDbgRec dbg;
 endinterface
 
 module mkSharedBuffer#(Vector#(numReadClients, MemReadClient#(busWidth)) readClients
@@ -95,5 +97,6 @@ module mkSharedBuffer#(Vector#(numReadClients, MemReadClient#(busWidth)) readCli
    interface Get mallocDone = alloc.mallocDone;
    interface Put freeReq = alloc.freeReq;
    interface Get freeDone = alloc.freeDone;
+   method MemMgmtDbgRec dbg = alloc.dbg;
 endmodule
 

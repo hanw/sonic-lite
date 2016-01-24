@@ -65,6 +65,14 @@ public:
         fprintf(stderr, "RingBufferStatus:\n Rx sop=%ld, eop=%ld \n Tx sop=%ld, eop=%ld \n", sopEnq, eopEnq, sopDeq, eopDeq);
         sem_post(&cmdCompleted);
     }
+    virtual void readMemMgmtCntrsResp(uint64_t allocCnt, uint64_t freeCnt) {
+        fprintf(stderr, "MemMgmt: alloc=%ld, free=%ld\n", allocCnt, freeCnt);
+        sem_post(&cmdCompleted);
+    }
+    virtual void readTDMCntrsResp(uint64_t lookupCnt, uint64_t modifyMacCnt, uint64_t fwdReqCnt, uint64_t sendCnt) {
+        fprintf(stderr, "TDM: lookup=%ld, modifyMac=%ld, fwdReq=%ld, sent=%ld\n", lookupCnt, modifyMacCnt, fwdReqCnt, sendCnt);
+        sem_post(&cmdCompleted);
+    }
     MemoryTestIndication(unsigned int id) : MemoryTestIndicationWrapper(id) {}
 };
 
@@ -184,6 +192,10 @@ void read_status () {
     device->readRingBuffCntrs(0);
     sem_wait(&cmdCompleted);
     device->readRingBuffCntrs(1);
+    sem_wait(&cmdCompleted);
+    device->readTDMCntrs();
+    sem_wait(&cmdCompleted);
+    device->readMemMgmtCntrs();
     sem_wait(&cmdCompleted);
 }
 

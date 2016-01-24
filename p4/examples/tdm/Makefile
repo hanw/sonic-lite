@@ -46,6 +46,7 @@ CONNECTALFLAGS += --tcl=constraint.sdc
 CONNECTALFLAGS += --constraint=constraint.sdc
 CONNECTALFLAGS += --implconstraint=constraint.sdc
 CONNECTALFLAGS += -m $(P4FPGADIR)/bsv/AsymmetricBRAM/mem_model.c
+CONNECTALFLAGS += --nocache
 
 CONNECTALFLAGS += -D BYTE_ENABLES
 #CONNECTALFLAGS += -D DEBUG

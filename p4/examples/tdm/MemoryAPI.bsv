@@ -32,11 +32,14 @@ import PacketBuffer::*;
 import PktGen::*;
 import SharedBuff::*;
 import GenericMatchTable::*;
+import TDM::*;
 
 interface MemoryTestIndication;
    method Action read_version_resp(Bit#(32) version);
    method Action addEntryResp(FlowId id);
    method Action readRingBuffCntrsResp(Bit#(64) sopEnq, Bit#(64) eopEnq, Bit#(64) sopDeq, Bit#(64) eopDeq);
+   method Action readMemMgmtCntrsResp(Bit#(64) allocCnt, Bit#(64) freeCnt);
+   method Action readTDMCntrsResp(Bit#(64) lookupCnt, Bit#(64) modifyMacCnt, Bit#(64) fwdReqCnt, Bit#(64) sendCnt);
 endinterface
 
 interface MemoryTestRequest;
@@ -49,13 +52,15 @@ interface MemoryTestRequest;
    method Action deleteEntry(Bit#(32) name, FlowId flow_id);
    method Action modifyEntry(Bit#(32) name, FlowId flow_id, ActionArg actions);
    method Action readRingBuffCntrs(Bit#(8) id);
+   method Action readMemMgmtCntrs();
+   method Action readTDMCntrs();
 endinterface
 
 interface MemoryAPI;
    interface MemoryTestRequest request;
 endinterface
 
-module mkMemoryAPI#(MemoryTestIndication indication, PktGen pktgen, SharedBuffer#(12, 128, 1) mem, MatchTable#(256, 36) match_table, Vector#(2, PacketBuffer) pktbuff)(MemoryAPI);
+module mkMemoryAPI#(MemoryTestIndication indication, PktGen pktgen, SharedBuffer#(12, 128, 1) mem, MatchTable#(256, 36) match_table, Vector#(2, PacketBuffer) pktbuff, TDM tdm)(MemoryAPI);
    interface MemoryTestRequest request;
       method Action read_version();
          let v= `NicVersion;
@@ -91,14 +96,21 @@ module mkMemoryAPI#(MemoryTestIndication indication, PktGen pktgen, SharedBuffer
       method Action readRingBuffCntrs(Bit#(8) id);
          if (id < 2) begin
             let v = pktbuff[id].dbg();
-            indication.readRingBuffCntrsResp(v.sopEnq
-                                            ,v.eopEnq
-                                            ,v.sopDeq
-                                            ,v.eopDeq);
+            indication.readRingBuffCntrsResp(v.sopEnq, v.eopEnq, v.sopDeq, v.eopDeq);
          end
          else begin
             indication.readRingBuffCntrsResp(0, 0, 0, 0);
          end
+      endmethod
+
+      method Action readMemMgmtCntrs();
+         let v = mem.dbg();
+         indication.readMemMgmtCntrsResp(v.allocCnt, v.freeCnt);
+      endmethod
+
+      method Action readTDMCntrs();
+         let v = tdm.dbg;
+         indication.readTDMCntrsResp(v.lookupCnt, v.modifyMacCnt, v.fwdReqCnt, v.sendCnt);
       endmethod
    endinterface
 endmodule

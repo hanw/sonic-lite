@@ -148,11 +148,4 @@ instance FShow#(AddrTransRequest);
    endfunction
 endinstance
 
-typedef struct {
-   Bit#(64) sopEnq;
-   Bit#(64) eopEnq;
-   Bit#(64) sopDeq;
-   Bit#(64) eopDeq;
-} PktBuffDbgRec deriving (Bits, Eq);
-
 endpackage: Ethernet

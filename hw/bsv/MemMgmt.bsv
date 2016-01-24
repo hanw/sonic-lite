@@ -39,6 +39,7 @@ import ConnectalMemory::*;
 import MMU::*;
 import Ethernet::*;
 import SharedBuffMMU::*;
+import DbgTypes::*;
 
 typedef enum {
    MemMgmtErrorNone,
@@ -96,6 +97,7 @@ interface MemMgmt#(numeric type addrWidth);
    interface Get#(Maybe#(Bit#(32))) mallocDone;
    interface Put#(Bit#(32)) freeReq;
    interface Get#(Bool) freeDone;
+   method MemMgmtDbgRec dbg;
 endinterface
 module mkMemMgmt
 `ifdef DEBUG
@@ -109,6 +111,9 @@ module mkMemMgmt
    rule cycleRule if (verbose);
       cycle <= cycle + 1;
    endrule
+
+   Reg#(Bit#(64)) allocCnt <- mkReg(0);
+   Reg#(Bit#(64)) freeCnt <- mkReg(0);
 
    Reg#(Bool) inited <- mkReg(False);
    FIFOF#(Bit#(EtherLen)) outstanding_malloc <- mkFIFOF;
@@ -278,6 +283,7 @@ module mkMemMgmt
          $display("MemMgmt:: %d: req page=%d", cycle, freePageCount.read);
          outstanding_malloc.enq(sz);
          iommu.request.idRequest(0);
+         allocCnt <= allocCnt + 1;
       endmethod
    endinterface
    interface Get mallocDone = toGet(mallocDoneFifo);
@@ -286,9 +292,13 @@ module mkMemMgmt
          $display("MemMgmt:: free request %h", id);
          iommu.request.idReturn(id);
          outstanding_free.enq(id);
+         freeCnt <= freeCnt + 1;
       endmethod
    endinterface
    interface Get freeDone = toGet(freeDoneFifo);
    interface MMU mmu = iommu;
+   method MemMgmtDbgRec dbg;
+      return MemMgmtDbgRec { allocCnt: allocCnt, freeCnt: freeCnt };
+   endmethod
 endmodule
 
