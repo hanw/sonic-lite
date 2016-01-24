@@ -36,6 +36,7 @@ import SharedBuff::*;
 import StoreAndForward::*;
 import IPv4Parser::*;
 import GenericMatchTable::*;
+import DbgTypes::*;
 
 `ifndef SIMULATION
 import AlteraMacWrap::*;
