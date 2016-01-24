@@ -221,7 +221,7 @@ module mkTDM#(StoreAndFwdFromRingToMem ingress, StoreAndFwdFromMemToRing egress,
       // assume logic is table match implies forward
       modMac.request.put(ModifyMacReq{id: req.id, data:'h123456789abc});
       egress_fifo.enq(req);
-      modifyMacResp <= modifyMacResp + 1;
+      modifyMacCnt <= modifyMacCnt + 1;
    endrule
 
    // packet processing pipelie: egress
@@ -260,6 +260,10 @@ module mkTDM#(StoreAndFwdFromRingToMem ingress, StoreAndFwdFromMemToRing egress,
       if (verbose) $display("TDM:: %d dequeuePkt: %h", cycle, resp.dstip);
       sendCnt <= sendCnt + 1;
    endrule
+
+   method TDMDbgRec dbg;
+      return TDMDbgRec{lookupCnt:lookupCnt, modifyMacCnt: modifyMacCnt, fwdReqCnt: fwdReqCnt, sendCnt: sendCnt};
+   endmethod
 endmodule
 
 

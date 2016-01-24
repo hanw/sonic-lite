@@ -238,7 +238,7 @@ int main(int argc, char **argv)
     }
 
     if (arguments.rate && arguments.tracelen) {
-        //device->stop();
+        device->stop();
         int idle = compute_idle(&pcap_info, arguments.rate, LINK_SPEED);
         device->start(arguments.tracelen, idle);
     }
@@ -247,6 +247,23 @@ int main(int argc, char **argv)
         sleep(5);
         read_status();
     }
+
+    if (pcap_file) {
+        fprintf(stderr, "Attempts to read pcap file %s\n", pcap_file);
+        load_pcap_file(pcap_file, &pcap_info);
+    }
+
+    if (arguments.rate && arguments.tracelen) {
+        device->stop();
+        int idle = compute_idle(&pcap_info, arguments.rate, LINK_SPEED);
+        device->start(arguments.tracelen, idle);
+    }
+
+    if (arguments.checkStatus) {
+        sleep(5);
+        read_status();
+    }
+
 
     while(1) sleep(1);
     return 0;

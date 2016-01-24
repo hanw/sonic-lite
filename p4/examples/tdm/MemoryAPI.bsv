@@ -33,6 +33,7 @@ import PktGen::*;
 import SharedBuff::*;
 import GenericMatchTable::*;
 import TDM::*;
+import DbgTypes::*;
 
 interface MemoryTestIndication;
    method Action read_version_resp(Bit#(32) version);
@@ -45,7 +46,6 @@ endinterface
 interface MemoryTestRequest;
    method Action read_version();
    method Action writePacketData(Vector#(2, Bit#(64)) data, Vector#(2, Bit#(8)) mask, Bit#(1) sop, Bit#(1) eop);
-   method Action free(Bit#(32) id);
    method Action start(Bit#(32) iter, Bit#(32) ipg);
    method Action stop();
    method Action addEntry(Bit#(32) name, MatchField fields);
@@ -109,7 +109,7 @@ module mkMemoryAPI#(MemoryTestIndication indication, PktGen pktgen, SharedBuffer
       endmethod
 
       method Action readTDMCntrs();
-         let v = tdm.dbg;
+         let v = tdm.dbg();
          indication.readTDMCntrsResp(v.lookupCnt, v.modifyMacCnt, v.fwdReqCnt, v.sendCnt);
       endmethod
    endinterface
