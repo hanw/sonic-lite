@@ -363,8 +363,7 @@ module mkMac#(Scheduler#(ReadReqType, ReadResType,
             begin
                 if (d.sop == 1 && d.eop == 0)
                 begin
-                    Bit#(2) b_count_temp = (b_count[i] + 1) & 1;
-                    mac_out_buffer[b_count_temp] <= d;
+                    mac_out_buffer[i] <= d;
                 end
 
                 else
