@@ -54,6 +54,7 @@ module mkPktGen(PktGen)
    Reg#(Bool) idle <- mkReg(False);
    Reg#(Bit#(32)) currIPG <- mkReg(0);
    Reg#(Bool) started <- mkReg(False);
+   Reg#(Bool) infiniteLoop <- mkReg(False);
 
    FIFO#(EtherData) outgoing_fifo <- mkFIFO();
    PacketBuffer buff <- mkPacketBuffer();
@@ -70,7 +71,8 @@ module mkPktGen(PktGen)
       outgoing_fifo.enq(data);
 
       if (data.eop) begin
-         pktCount <= pktCount - 1;
+         if (!infiniteLoop)
+            pktCount <= pktCount - 1;
          idle <= True;
          currIPG <= 0;
          $display("Pktgen:: eop %h %h %h %h", idle, started, currIPG, ipgCount);
@@ -125,8 +127,17 @@ module mkPktGen(PktGen)
    method Action start(Bit#(32) pc, Bit#(32) ipg) if (pktCount==0 && traceLen!=0);
       started <= True;
       ipgCount <= ipg;
-      pktCount <= pc;
+      if (pc != 0) begin
+         pktCount <= pc;
+      end
+      else begin
+         pktCount <= 1;
+         infiniteLoop <= True;
+      end
       $display("Pktgen:: start %h %h", pc, ipg);
+   endmethod
+   method Action stop();
+      infiniteLoop <= False;
    endmethod
 endmodule
 

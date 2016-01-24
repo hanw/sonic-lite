@@ -238,9 +238,10 @@ int main(int argc, char **argv)
     }
 
     if (arguments.rate && arguments.tracelen) {
-        device->stop();
         int idle = compute_idle(&pcap_info, arguments.rate, LINK_SPEED);
-        device->start(arguments.tracelen, idle);
+        device->start(0, idle);
+        sleep(10);
+        device->stop();
     }
 
     if (arguments.checkStatus) {
@@ -254,13 +255,13 @@ int main(int argc, char **argv)
     }
 
     if (arguments.rate && arguments.tracelen) {
-        device->stop();
         int idle = compute_idle(&pcap_info, arguments.rate, LINK_SPEED);
         device->start(arguments.tracelen, idle);
+        sleep(10);
+        device->stop();
     }
 
     if (arguments.checkStatus) {
-        sleep(5);
         read_status();
     }
 
