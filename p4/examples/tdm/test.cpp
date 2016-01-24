@@ -40,9 +40,7 @@ using namespace std;
 
 static MemoryTestRequestProxy *device = 0;
 uint16_t flowid;
-sem_t alloc_sem;
-sem_t free_sem;
-sem_t flow_sem;
+sem_t cmdCompleted;
 
 void device_writePacketData(uint64_t* data, uint8_t* mask, int sop, int eop) {
     device->writePacketData(data, mask, sop, eop);
@@ -53,10 +51,19 @@ class MemoryTestIndication : public MemoryTestIndicationWrapper
 public:
     virtual void read_version_resp(uint32_t a) {
         fprintf(stderr, "version %x\n", a);
+        sem_post(&cmdCompleted);
     }
     virtual void addEntryResp(uint16_t a) {
         fprintf(stderr, "add flow id %x\n", a);
-        sem_post(&flow_sem);
+        sem_post(&cmdCompleted);
+    }
+    virtual void delEntryResp(uint16_t a) {
+        fprintf(stderr, "del flow id %x\n", a);
+        sem_post(&cmdCompleted);
+    }
+    virtual void readRingBuffCntrsResp(uint64_t sopEnq, uint64_t eopEnq, uint64_t sopDeq, uint64_t eopDeq) {
+        fprintf(stderr, "RingBufferStatus:\n Rx sop=%ld, eop=%ld \n Tx sop=%ld, eop=%ld \n", sopEnq, eopEnq, sopDeq, eopDeq);
+        sem_post(&cmdCompleted);
     }
     MemoryTestIndication(unsigned int id) : MemoryTestIndicationWrapper(id) {}
 };
@@ -67,11 +74,9 @@ class MemMgmtIndication : public MemMgmtIndicationWrapper
 public:
     virtual void memory_allocated(uint32_t a) {
         fprintf(stderr, "allocated id %x\n", a);
-        sem_post(&alloc_sem);
     }
     virtual void packet_committed(uint32_t a) {
         fprintf(stderr, "committed tag %x\n", a);
-        sem_post(&free_sem);
     }
     virtual void packet_freed(uint32_t a) {
         fprintf(stderr, "packet freed %x\n", a);
@@ -97,6 +102,7 @@ struct arg_info {
     int tracelen;
     bool tableadd;
     bool tabledel;
+    bool checkStatus;
 };
 
 static void
@@ -108,9 +114,9 @@ parse_options(int argc, char *argv[], char **pcap_file, struct arg_info* info) {
         {"parser-test",         required_argument, 0, 'p'},
         {"pktgen-rate",         required_argument, 0, 'r'},
         {"pktgen-count",        required_argument, 0, 'n'},
-        {"table-add",           required_argument, 0, 'a'},
-        {"table-del",           required_argument, 0, 'd'},
-        {"table-mod",           required_argument, 0, 'm'},
+        {"table-add",           no_argument, 0, 'a'},
+        {"table-del",           no_argument, 0, 'd'},
+        {"dump-stats",          no_argument, 0, 's'},
         {0, 0, 0, 0}
     };
 
@@ -142,6 +148,9 @@ parse_options(int argc, char *argv[], char **pcap_file, struct arg_info* info) {
             case 'd':
                 info->tabledel = true;
                 break;
+            case 's':
+                info->checkStatus = true;
+                break;
             default:
                 exit(EXIT_FAILURE);
         }
@@ -162,7 +171,20 @@ compute_idle (const struct pcap_trace_info *info, double rate, double link_speed
 void erase_table () {
     for (int i =0; i < 256; i++) {
         device->deleteEntry(0, i);
+        sem_wait(&cmdCompleted);
     }
+}
+
+void add_entry (MatchField *field) {
+    device->addEntry(0, *field);
+    sem_wait(&cmdCompleted);
+}
+
+void read_status () {
+    device->readRingBuffCntrs(0);
+    sem_wait(&cmdCompleted);
+    device->readRingBuffCntrs(1);
+    sem_wait(&cmdCompleted);
 }
 
 int main(int argc, char **argv)
@@ -181,36 +203,37 @@ int main(int argc, char **argv)
     parse_options(argc, argv, &pcap_file, &arguments);
 
     device->read_version();
+    sem_wait(&cmdCompleted);
 
     if (pcap_file) {
         fprintf(stderr, "Attempts to read pcap file %s\n", pcap_file);
         load_pcap_file(pcap_file, &pcap_info);
     }
 
-    erase_table();
+    if (arguments.tabledel) {
+        erase_table();
+    }
 
     if (arguments.tableadd) {
         MatchField fields = {dstip: 0x0200000a};
-        device->addEntry(0, fields);
-        sem_wait(&flow_sem);
+        add_entry(&fields);
         fields.dstip = 0x0300000a;
-        device->addEntry(0, fields);
-        sem_wait(&flow_sem);
+        add_entry(&fields);
         fields.dstip = 0x0400000a;
-        device->addEntry(0, fields);
-        sem_wait(&flow_sem);
+        add_entry(&fields);
         fields.dstip = 0x0100000a;
-        device->addEntry(0, fields);
-        sem_wait(&flow_sem);
+        add_entry(&fields);
     }
 
     if (arguments.rate && arguments.tracelen) {
+        //device->stop();
         int idle = compute_idle(&pcap_info, arguments.rate, LINK_SPEED);
         device->start(arguments.tracelen, idle);
     }
 
-    if (arguments.tabledel) {
-        device->deleteEntry(0, flowid);
+    if (arguments.checkStatus) {
+        sleep(5);
+        read_status();
     }
 
     while(1) sleep(1);

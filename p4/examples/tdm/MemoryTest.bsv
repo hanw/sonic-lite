@@ -33,6 +33,7 @@ import Connectable::*;
 import Clocks::*;
 import Gearbox::*;
 import Pipe::*;
+import RegFile::*;
 
 import MemServerIndication::*;
 `ifdef DEBUG
@@ -113,7 +114,6 @@ module mkMemoryTest#(MemoryTestIndication indication
 
    // Host Port
    PktGen pktgen <- mkPktGen();
-   PacketBuffer host_buff <- mkPacketBuffer();
 
    // Ethernet Port
    PacketBuffer incoming_buff <- mkPacketBuffer();
@@ -183,7 +183,7 @@ module mkMemoryTest#(MemoryTestIndication indication
       indication.addEntryResp(v);
    endrule
 
-   MemoryAPI api <- mkMemoryAPI(indication, pktgen, mem, matchTable);
+   MemoryAPI api <- mkMemoryAPI(indication, pktgen, mem, matchTable, vec(incoming_buff, outgoing_buff));
 
    interface request = api.request;
 `ifdef SYNTHESIS

@@ -42,14 +42,12 @@ interface PktGen;
     interface PktWriteClient writeClient;
     method Action start(Bit#(32) iter, Bit#(32) ipg);
     method Action stop();
-    method Action clear();
 endinterface
 
 module mkPktGen(PktGen)
    provisos (Div#(`DataBusWidth, 8, bytesPerBeat)
             ,Log#(bytesPerBeat, beatShift));
 
-    Reg#(Bit#(32)) traceLen <- mkReg(0);
     Reg#(Bit#(32)) count <- mkReg(0);
     Reg#(Bit#(32)) iteration <- mkReg(0);
     Reg#(Bit#(32)) total_ipg <- mkReg(0);
@@ -64,7 +62,7 @@ module mkPktGen(PktGen)
     rule fetch_packet if (started && !halt && !idle);
         let pktLen <- buff.readServer.readLen.get;
         buff.readServer.readReq.put(EtherReq{len:pktLen});
-        $display("Pktgen:: fetch_packet");
+        $display("Pktgen:: fetch_packet pktlen=%h", pktLen);
     endrule
 
     rule enqueue_packet if (started && !halt && !idle);
@@ -83,6 +81,19 @@ module mkPktGen(PktGen)
         halt <= True;
     endrule
 
+    // has to drain buffer at the end of packet generation
+    rule drainBuffer if (halt);
+        let pktLen <- buff.readServer.readLen.get;
+        buff.readServer.readReq.put(EtherReq{len: pktLen});
+        $display("drain buffer");
+    endrule
+
+    rule drainBufferPayload if (halt);
+        let data <- buff.readServer.readData.get;
+        // do nothing
+        $display("drain buffer payload");
+    endrule
+
     rule gen_ipg if ((curr_ipg < total_ipg + fromInteger(valueOf(MinimumIPG))) && idle);
         curr_ipg <= curr_ipg + fromInteger(valueOf(bytesPerBeat));
         $display("Pktgen:: ipg = %d", curr_ipg);
@@ -98,17 +109,12 @@ module mkPktGen(PktGen)
         interface Put writeData;
             method Action put (EtherData d);
                 buff.writeServer.writeData.put(d);
-                if (d.eop) begin
-                    traceLen <= traceLen + 1;
-                end
             endmethod
         endinterface
     endinterface
     interface PktWriteClient writeClient;
         interface Get writeData = toGet(outgoing_fifo);
     endinterface
-    method Action clear();
-    endmethod
     method Action start(Bit#(32) iter, Bit#(32) ipg) if (!started);
         started <= True;
         halt <= False;
@@ -116,8 +122,12 @@ module mkPktGen(PktGen)
         iteration <= iter;
         $display("Pktgen:: start %h %h", iter, ipg);
     endmethod
-    method Action stop() if (started);
+    method Action stop();
         started <= False;
+        halt <= False;
+        count     <= 0;
+        total_ipg <= 0;
+        iteration <= 0;
     endmethod
 endmodule
 
