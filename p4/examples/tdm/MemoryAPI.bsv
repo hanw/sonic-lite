@@ -20,6 +20,7 @@
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+import FIFO::*;
 import BuildVector::*;
 import ClientServer::*;
 import Connectable::*;
@@ -29,6 +30,7 @@ import Vector::*;
 
 import Ethernet::*;
 import DbgTypes::*;
+import PktGen::*;
 import PacketBuffer::*;
 import TopTypes::*;
 import TdmPipeline::*;
@@ -48,9 +50,17 @@ endinterface
 
 interface MemoryAPI;
    interface MemoryTestRequest request;
+   interface Get#(Tuple2#(Bit#(32), Bit#(32))) pktGenStart;
+   interface Get#(void) pktGenStop;
+   interface Get#(EtherData) pktGenWrite;
 endinterface
 
 module mkMemoryAPI#(MemoryTestIndication indication, TdmPipeline tdm)(MemoryAPI);
+   
+   FIFO#(Tuple2#(Bit#(32), Bit#(32))) startReqFifo <- mkFIFO;
+   FIFO#(void) stopReqFifo <- mkFIFO;
+   FIFO#(EtherData) etherDataFifo <- mkFIFO;
+
    interface MemoryTestRequest request;
       method Action read_version();
          let v= `NicVersion;
@@ -62,10 +72,14 @@ module mkMemoryAPI#(MemoryTestIndication indication, TdmPipeline tdm)(MemoryAPI)
          beat.mask = pack(reverse(mask));
          beat.sop = unpack(sop);
          beat.eop = unpack(eop);
-         tdm.writeServer.writeData.put(beat);
+         etherDataFifo.enq(beat);
       endmethod
-      method start = tdm.start;
-      method stop = tdm.stop;
+      method Action start(Bit#(32) pktCount, Bit#(32) ipg);
+         startReqFifo.enq(tuple2(pktCount, ipg));
+      endmethod
+      method Action stop();
+         stopReqFifo.enq(?);
+      endmethod
       method Action addEntry(Bit#(32) table_name, MatchField fields);
          $display("MemoryAPI:: added entry ", fshow(fields));
          ActionArg args = ActionArg{egress_index: 4};
@@ -103,4 +117,7 @@ module mkMemoryAPI#(MemoryTestIndication indication, TdmPipeline tdm)(MemoryAPI)
          indication.readTDMCntrsResp(v.lookupCnt, v.modifyMacCnt, v.fwdReqCnt, v.sendCnt);
       endmethod
    endinterface
+   interface pktGenStart = toGet(startReqFifo);
+   interface pktGenStop = toGet(stopReqFifo);
+   interface pktGenWrite = toGet(etherDataFifo);
 endmodule

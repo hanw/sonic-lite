@@ -22,6 +22,7 @@
 
 package MemoryTest;
 
+import BRAMFIFO::*;
 import FIFO::*;
 import FIFOF::*;
 import DefaultValue::*;
@@ -41,8 +42,10 @@ import MemTypes::*;
 import Ethernet::*;
 import MemoryAPI::*;
 import EthMac::*;
+import PktGen::*;
 import TdmPipeline::*;
 import TopTypes::*;
+import PacketBuffer::*;
 
 `ifdef SYNTHESIS
 import AlteraMacWrap::*;
@@ -91,10 +94,10 @@ module mkMemoryTest#(MemoryTestIndication indication
    De5SfpCtrl#(4) sfpctrl <- mkDe5SfpCtrl();
    De5Buttons#(4) buttons <- mkDe5Buttons(clocked_by mgmtClock, reset_by mgmtReset);
 
-   EthPhyIfc phys <- mkAlteraEthPhy(defaultClock, phyClock, txClock, defaultReset);
+   EthPhyIfc phys <- mkAlteraEthPhy(mgmtClock, phyClock, txClock, defaultReset);
    Clock rxClock = phys.rx_clkout;
    Reset rxReset <- mkSyncReset(2, defaultReset, rxClock);
-   Vector#(4, EthMacIfc) mac <- replicateM(mkEthMac(defaultClock, txClock, rxClock, txReset));
+   Vector#(4, EthMacIfc) mac <- replicateM(mkEthMac(mgmtClock, txClock, rxClock, txReset));
 
    function Get#(Bit#(72)) getTx(EthMacIfc _mac); return _mac.tx; endfunction
    function Put#(Bit#(72)) getRx(EthMacIfc _mac); return _mac.rx; endfunction
@@ -102,14 +105,27 @@ module mkMemoryTest#(MemoryTestIndication indication
    mapM(uncurry(mkConnection), zip(phys.rx, map(getRx, mac)));
 `endif
 
+   // Host Packet Generator
+   PktGen pktgen <- mkPktGen(clocked_by txClock, reset_by txReset);
+   SyncFIFOIfc#(EtherData) txSyncFifo <- mkSyncBRAMFIFO(6, txClock, txReset, defaultClock, defaultReset);
+
    TdmPipeline tdm <- mkTdmPipeline(txClock, txReset
-                                        ,indication
-                                        ,memServerInd
+                                    ,indication
+                                    ,memServerInd
 `ifdef DEBUG
-                                        ,memTestInd
-                                        ,mmuInd
+                                    ,memTestInd
+                                    ,mmuInd
 `endif
-                                        );
+                                   );
+
+   function PktWriteServer genWriteServer = (interface PktWriteServer;
+      interface writeData = toPut(txSyncFifo);
+   endinterface);
+   function PktWriteClient genWriteClient = (interface PktWriteClient;
+      interface writeData = toGet(txSyncFifo);
+   endinterface);
+   mkConnection(pktgen.writeClient, genWriteServer);
+   mkConnection(genWriteClient, tdm.writeServer);
 
    // connect mac to tdm
 `ifdef SYNTHESIS
@@ -123,6 +139,28 @@ module mkMemoryTest#(MemoryTestIndication indication
 
    //MemoryAPI api <- mkMemoryAPI(indication, tdm.pktgen, tdm.mem, tdm.matchTable, vec(tdm.incoming_buff, tdm.outgoing_buff), tdm.sched);
    MemoryAPI api <- mkMemoryAPI(indication, tdm);
+
+   // PktGen start/stop
+   SyncFIFOIfc#(Tuple2#(Bit#(32),Bit#(32))) pktGenStartSyncFifo <- mkSyncFIFO(4, defaultClock, defaultReset, txClock);
+   SyncFIFOIfc#(void) pktGenStopSyncFifo <- mkSyncFIFO(4, defaultClock, defaultReset, txClock);
+   SyncFIFOIfc#(EtherData) pktGenWriteSyncFifo <- mkSyncFIFO(4, defaultClock, defaultReset, txClock);
+   mkConnection(api.pktGenStart, toPut(pktGenStartSyncFifo));
+   mkConnection(api.pktGenStop, toPut(pktGenStopSyncFifo));
+   mkConnection(api.pktGenWrite, toPut(pktGenWriteSyncFifo));
+   rule req_start;
+      let v <- toGet(pktGenStartSyncFifo).get;
+      pktgen.start(tpl_1(v), tpl_2(v));
+   endrule
+
+   rule req_stop;
+      let v <- toGet(pktGenStopSyncFifo).get;
+      pktgen.stop();
+   endrule
+
+   rule req_write;
+      let v <- toGet(pktGenWriteSyncFifo).get;
+      pktgen.writeServer.writeData.put(v);
+   endrule
 
    interface request = api.request;
 `ifdef SYNTHESIS

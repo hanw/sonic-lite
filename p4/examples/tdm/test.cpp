@@ -239,32 +239,32 @@ int main(int argc, char **argv)
 
     if (arguments.rate && arguments.tracelen) {
         int idle = compute_idle(&pcap_info, arguments.rate, LINK_SPEED);
-        device->start(0, idle);
-        sleep(10);
-        device->stop();
-    }
-
-    if (arguments.checkStatus) {
-        sleep(5);
-        read_status();
-    }
-
-    if (pcap_file) {
-        fprintf(stderr, "Attempts to read pcap file %s\n", pcap_file);
-        load_pcap_file(pcap_file, &pcap_info);
-    }
-
-    if (arguments.rate && arguments.tracelen) {
-        int idle = compute_idle(&pcap_info, arguments.rate, LINK_SPEED);
         device->start(arguments.tracelen, idle);
-        sleep(10);
+        sleep(5);
         device->stop();
     }
 
     if (arguments.checkStatus) {
+        sleep(1);
         read_status();
     }
 
+//    if (pcap_file) {
+//        fprintf(stderr, "Attempts to read pcap file %s\n", pcap_file);
+//        load_pcap_file(pcap_file, &pcap_info);
+//    }
+//
+//    if (arguments.rate && arguments.tracelen) {
+//        int idle = compute_idle(&pcap_info, arguments.rate, LINK_SPEED);
+//        device->start(arguments.tracelen, idle);
+//        sleep(10);
+//        device->stop();
+//    }
+//
+//    if (arguments.checkStatus) {
+//        read_status();
+//    }
+//
 
     while(1) sleep(1);
     return 0;
