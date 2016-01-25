@@ -18,7 +18,10 @@ CPPFILES=$(PROJTOP)/test-dtp.cpp
 PINOUT_FILE=../../../boards/de5.json
 PIN_BINDINGS?=PCIE:PCIE LED:LED OSC:OSC SFPA:SFPA SFPB:SFPB SFPC:SFPC SFPD:SFPD SFP:SFP I2C:I2C BUTTON:BUTTON
 
-#CONNECTALFLAGS += --tcl=$(PROJTOP)/mkDtpTop_old.sdc
+CONNECTALFLAGS += --nocache
+CONNECTALFLAGS += --constraint=$(PROJTOP)/mkDtpTop.sdc
+CONNECTALFLAGS += --implconstraint=$(PROJTOP)/mkDtpTop.sdc
+CONNECTALFLAGS += --tcl=$(PROJTOP)/mkDtpTop.sdc
 CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/mac_10gbe.qip # To be removed.
 CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/pll_156/altera_pll_156.qip
 CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/sv_10g_pma/sv_10g_pma.qip

@@ -29,6 +29,4 @@ module mkDtpPktGenAPI#(DtpPktGenIndication indication, PktGen pktgen)(DtpPktGenR
    endmethod
    method start = pktgen.start;
    method stop = pktgen.stop;
-   method clear = pktgen.clear;
 endmodule
-

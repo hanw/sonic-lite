@@ -139,6 +139,8 @@ module mkDtpPktGenTop#(DtpIndication indication1, DtpPktGenIndication indication
       mkConnection(phys.api[i].cLocalOut, dtp.ifc.cLocal[i]);
       mkConnection(dtp.ifc.interval[i], phys.api[i].interval);
       mkConnection(phys.api[i].dtpErrCnt, dtp.ifc.dtpErrCnt[i]);
+      mkConnection(phys.tx_dbg[i], dtp.ifc.txPcsDbg[i]);
+      mkConnection(phys.rx_dbg[i], dtp.ifc.rxPcsDbg[i]);
    end
 
    // Packet Generator
