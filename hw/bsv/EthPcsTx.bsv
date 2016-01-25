@@ -45,6 +45,7 @@ interface EthPcsTx;
    interface PipeIn#(Bit#(66)) dtpTxOut;
    (* always_ready, always_enabled *)
    method Action tx_ready(Bool v);
+   method PcsDbgRec dbg;
 endinterface
 
 (* synthesize *)
@@ -88,5 +89,6 @@ module mkEthPcsTx#(Integer id)(EthPcsTx);
    interface scramblerOut = scram.scrambledOut;
    interface dtpTxIn      = toPipeOut(dtpTxInFifo);
    interface dtpTxOut     = toPipeIn(dtpTxOutFifo);
+   method PcsDbgRec dbg = encoder.dbg;
 endmodule
 endpackage: EthPcsTx

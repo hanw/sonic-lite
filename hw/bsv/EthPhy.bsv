@@ -43,6 +43,7 @@ import DtpDCFifo            ::*;
 import ALTERA_SI570_WRAPPER          ::*;
 import ALTERA_EDGE_DETECTOR_WRAPPER  ::*;
 import AlteraExtra                   ::*;
+import BuildVector                  ::*;
 
 `ifdef NUMBER_OF_10G_PORTS
 typedef `NUMBER_OF_10G_PORTS NumPorts;
@@ -66,6 +67,8 @@ interface DtpPhyIfc#(numeric type numPorts);
    interface Vector#(numPorts, DtpToPhyIfc) api;
    interface PipeIn#(Bit#(1)) switchMode;
    interface PipeOut#(Bit#(53)) globalOut;
+   interface Vector#(numPorts, PipeOut#(PcsDbgRec)) tx_dbg;
+   interface Vector#(numPorts, PipeOut#(PcsDbgRec)) rx_dbg;
 endinterface
 
 function Bit#(n) reverseBits(Bit#(n) x);
@@ -128,6 +131,10 @@ module mkEthPhy#(Clock mgmt_clk, Clock clk_156_25, Clock clk_644)(DtpPhyIfc#(num
    Vector#(numPorts, SyncFIFOIfc#(Bit#(32))) dtpErrCntFifo = newVector;
    Vector#(numPorts, PipeOut#(Bit#(32))) dtpErrCntOut = newVector;
    Vector#(numPorts, PipeIn#(Bit#(32))) dtpErrCntIn = newVector;
+
+   // Debugging
+   Vector#(numPorts, SyncFIFOIfc#(PcsDbgRec)) phyRxDebug = newVector;
+   Vector#(numPorts, FIFOF#(PcsDbgRec)) phyTxDebug <- replicateM(mkFIFOF(clocked_by clk_156_25, reset_by rst_156_25_n));
 
    // 156.25MHz to pma4.tx
    Vector#(numPorts, SyncFIFOIfc#(Bit#(66))) txSyncFifo = newVector;
@@ -192,6 +199,17 @@ module mkEthPhy#(Clock mgmt_clk, Clock clk_156_25, Clock clk_644)(DtpPhyIfc#(num
           // Tx Path: DtpTx -> PcsTx
           mkConnection(dtp_tx[i].dtpTxOut, pcs_tx[i].dtpTxOut);
       end
+
+      // debugging
+      phyRxDebug[i] <- mkSyncFIFO(4, pma4.rx_clkout[i], pma4.rx_reset[i], clk_156_25); 
+      rule update_rx_debug;
+         let v = pcs_rx[i].dbg;
+         phyRxDebug[i].enq(v);
+      endrule
+      rule update_tx_debug ;
+        let v = pcs_tx[i].dbg;
+        phyTxDebug[i].enq(v);
+      endrule
 
       // Loopback Enable Signal
       //ReadOnly#(Bool) rx_lpbk_en <- mkNullCrossingWire(pma4.rx_clkout[i], loopback_en);
@@ -289,6 +307,12 @@ module mkEthPhy#(Clock mgmt_clk, Clock clk_156_25, Clock clk_644)(DtpPhyIfc#(num
    for (Integer i=0; i<valueOf(numPorts); i=i+1) begin
       vapi[i] = dtp_tx[i].api;
    end
+   function PcsDbgRec getPcsTxDbgRec (EthPcsTx tx);
+    return tx.dbg;
+   endfunction
+   function PcsDbgRec getPcsRxDbgRec (EthPcsRx rx);
+    return rx.dbg;
+   endfunction
 
    interface loopback = (interface LoopbackIfc;
       method Action lpbk_en (Bool en);
@@ -308,5 +332,10 @@ module mkEthPhy#(Clock mgmt_clk, Clock clk_156_25, Clock clk_644)(DtpPhyIfc#(num
    interface switchMode = toPipeIn(switchModeFifo);
    interface globalOut = dtpswitch.globalOut;
 
+   interface tx_dbg = map(toPipeOut, phyTxDebug);
+   interface rx_dbg = map(toPipeOut, phyRxDebug);
+
+   //method Vector#(numPorts, PcsDbgRec) tx_dbg = map(getPcsTxDbgRec, pcs_tx);//cons(pcs_tx[0].dbg, cons(pcs_tx[1].dbg, cons(pcs_tx[2].dbg, cons(pcs_tx[3].dbg, nil))));//vec(map(getPcsTxDbgRec, pcs_tx));
+   //method Vector#(numPorts, PcsDbgRec) rx_dbg = map(getPcsRxDbgRec, pcs_rx);
 endmodule: mkEthPhy
 endpackage: EthPhy

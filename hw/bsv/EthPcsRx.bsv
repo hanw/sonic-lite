@@ -48,6 +48,7 @@ interface EthPcsRx;
    method Action rx_ready(Bool v);
    (* always_ready, always_enabled *)
    method Bool lock();
+   method PcsDbgRec dbg;
 endinterface
 
 (* synthesize *)
@@ -96,5 +97,6 @@ module mkEthPcsRx#(Integer id)(EthPcsRx);
    interface dtpRxIn      = toPipeOut(dtpRxInFifo);
    interface dtpRxOut     = toPipeIn(dtpRxOutFifo);
    interface lock         = bsync.lock;
+   method PcsDbgRec dbg = decoder.dbg;
 endmodule
 endpackage: EthPcsRx

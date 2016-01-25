@@ -39,6 +39,7 @@ interface Decoder;
    interface PipeOut#(Bit#(72)) decoderOut;
    (* always_ready, always_enabled *)
    method Action rx_ready(Bool v);
+   method PcsDbgRec dbg;
 endinterface
 
 typedef enum {CONTROL, START, DATA, TERMINATE, ERROR} State
@@ -65,6 +66,12 @@ module mkDecoder(Decoder);
    FIFOF#(Bit#(1)) lane4Seq5cFifo       <- mkFIFOF;
 
    Wire#(Bool) rx_ready_wire <- mkDWire(False);
+
+   // for debugging
+   Reg#(Bit#(64)) debug_bytes <- mkReg(0);
+   Reg#(Bit#(64)) debug_starts <- mkReg(0);
+   Reg#(Bit#(64)) debug_ends <- mkReg(0);
+   Reg#(Bit#(64)) debug_errorframes <- mkReg(0);
 
    rule cyc;
       cycle <= cycle + 1;
@@ -169,6 +176,53 @@ module mkDecoder(Decoder);
       type_d2 = type_field[7] & type_field[6] & ~(type_field[5]) & type_field[4] & ~(type_field[3]) & ~(type_field[2]) & type_field[1] & ~(type_field[0]) ;
       type_e1 = type_field[7] & type_field[6] & type_field[5] & ~(type_field[4]) & ~(type_field[3]) & ~(type_field[2]) & ~(type_field[1]) & type_field[0] ;
       type_ff = type_field[7] & type_field[6] & type_field[5] & type_field[4] & type_field[3] & type_field[2] & type_field[1] & type_field[0] ;
+
+      // debugging
+      if (type_1e == 1'b1) begin
+         debug_errorframes <= debug_errorframes + 1;
+      end
+      else if (type_33 == 1'b1) begin
+         debug_starts <= debug_starts + 1;
+         debug_bytes <= debug_bytes + 3;
+      end
+      else if (type_78 == 1'b1) begin
+         debug_starts <= debug_starts + 1;
+         debug_bytes <= debug_bytes + 7;
+      end
+      else if (type_87 == 1'b1) begin
+         debug_ends <= debug_ends + 1;
+      end
+      else if (type_99 == 1'b1) begin
+         debug_ends <= debug_ends + 1;
+         debug_bytes <= debug_bytes + 1;
+      end
+      else if (type_aa == 1'b1) begin
+         debug_ends <= debug_ends + 1;
+         debug_bytes <= debug_bytes + 2;
+      end
+      else if (type_b4 == 1'b1) begin
+         debug_ends <= debug_ends + 1;
+         debug_bytes <= debug_bytes + 3;
+      end
+      else if (type_cc == 1'b1) begin
+         debug_ends <= debug_ends + 1;
+         debug_bytes <= debug_bytes + 4;
+      end
+      else if (type_d2 == 1'b1) begin
+         debug_ends <= debug_ends + 1;
+         debug_bytes <= debug_bytes + 5;
+      end
+      else if (type_e1 == 1'b1) begin
+         debug_ends <= debug_ends + 1;
+         debug_bytes <= debug_bytes + 6;
+      end
+      else if (type_ff == 1'b1) begin
+         debug_ends <= debug_ends + 1;
+         debug_bytes <= debug_bytes + 7;
+      end
+      else if (data_word == 1'b1) begin
+         debug_bytes <= debug_bytes + 8;
+      end
 
       //-------------------------------------------------------------------------------
       // Translate these signals to give the type of data in each byte.
@@ -589,6 +643,9 @@ module mkDecoder(Decoder);
 
    interface decoderIn=toPipeIn(fifo_in);
    interface decoderOut=toPipeOut(fifo_out);
+   method PcsDbgRec dbg;
+      return PcsDbgRec{bytes:debug_bytes, starts:debug_starts, ends:debug_ends, errorframes:debug_errorframes};
+   endmethod
 endmodule
 
 endpackage

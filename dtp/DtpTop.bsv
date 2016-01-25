@@ -94,6 +94,8 @@ module mkDtpTop#(DtpIndication indication)(DtpTop);
       mkConnection(net.api.phys[i].cLocalOut, dtp.ifc.cLocal[i]);
       mkConnection(dtp.ifc.interval[i], net.api.phys[i].interval);
       mkConnection(net.api.phys[i].dtpErrCnt, dtp.ifc.dtpErrCnt[i]);
+      mkConnection(net.api.phys[i].tx_dbg, dtp.ifc.txPcsDbg[i]);
+      mkConnection(net.api.phys[i].rx_dbg, dtp.ifc.rxPcsDbg[i]);
    end
 `endif // SIMULATION
 

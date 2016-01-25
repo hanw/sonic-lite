@@ -31,13 +31,14 @@ import GetPut::*;
 import ClientServer::*;
 
 import Pipe::*;
-
+import Ethernet::*;
 
 interface Encoder;
    interface PipeIn#(Bit#(72)) encoderIn;
    interface PipeOut#(Bit#(66)) encoderOut;
    (* always_ready, always_enabled *)
    method Action tx_ready(Bool v);
+   method PcsDbgRec dbg;
 endinterface
 
 typedef enum {CONTROL, START, DATA, TERMINATE, ERROR} State
@@ -88,6 +89,12 @@ module mkEncoder(Encoder);
    FIFOF#(Bit#(72)) fifo_in    <- mkFIFOF;
    FIFOF#(Bit#(66)) fifo_out   <- mkFIFOF;
    Wire#(Bool) tx_ready_wire   <- mkDWire(False);
+
+   // for debugging
+   Reg#(Bit#(64)) debug_bytes <- mkReg(0);
+   Reg#(Bit#(64)) debug_starts <- mkReg(0);
+   Reg#(Bit#(64)) debug_ends <- mkReg(0);
+   Reg#(Bit#(64)) debug_errorframes <- mkReg(0);
 
    // TODO: remove all these fifos.
    //---------------------------------------------------------------------------------
@@ -447,12 +454,15 @@ module mkEncoder(Encoder);
 
       if ((type_reg[0]) == 1'b1) begin
          type_field =  8'b00011110 ;
+         debug_errorframes <= debug_errorframes + 1;
       end
       else if ((type_reg[1]) == 1'b1) begin
          type_field =  8'b00101101 ;
       end
       else if ((type_reg[2]) == 1'b1) begin
          type_field =  8'b00110011 ;
+         debug_starts <= debug_starts + 1;
+         debug_bytes <= debug_bytes + 3;
       end
       else if ((type_reg[3]) == 1'b1) begin
          type_field =  8'b01100110 ;
@@ -462,39 +472,57 @@ module mkEncoder(Encoder);
       end
       else if ((type_reg[5]) == 1'b1) begin
          type_field =  8'b01111000 ;
+         debug_starts <= debug_starts + 1;
+         debug_bytes <= debug_bytes + 7;
       end
       else if ((type_reg[6]) == 1'b1) begin
          type_field =  8'b01001011 ;
       end
       else if ((type_reg[7]) == 1'b1) begin
          type_field =  8'b10000111 ;
+         debug_ends <= debug_ends + 1;
       end
       else if ((type_reg[8]) == 1'b1) begin
          type_field =  8'b10011001 ;
+         debug_ends <= debug_ends + 1;
+         debug_bytes <= debug_bytes + 1;
       end
       else if ((type_reg[9]) == 1'b1) begin
          type_field =  8'b10101010 ;
+         debug_ends <= debug_ends + 1;
+         debug_bytes <= debug_bytes + 2;
       end
       else if ((type_reg[10]) == 1'b1) begin
          type_field =  8'b10110100 ;
+         debug_ends <= debug_ends + 1;
+         debug_bytes <= debug_bytes + 3;
       end
       else if ((type_reg[11]) == 1'b1) begin
          type_field =  8'b11001100 ;
+         debug_ends <= debug_ends + 1;
+         debug_bytes <= debug_bytes + 4;
       end
       else if ((type_reg[12]) == 1'b1) begin
          type_field =  8'b11010010 ;
+         debug_ends <= debug_ends + 1;
+         debug_bytes <= debug_bytes + 5;
       end
       else if ((type_reg[13]) == 1'b1) begin
          type_field =  8'b11100001 ;
+         debug_ends <= debug_ends + 1;
+         debug_bytes <= debug_bytes + 6;
       end
       else if ((type_reg[14]) == 1'b1) begin
          type_field =  8'b11111111 ;
+         debug_ends <= debug_ends + 1;
+         debug_bytes <= debug_bytes + 7;
       end
       else if ((type_reg[15]) == 1'b1) begin
          type_field =  8'b00011110 ;
       end
       else begin
          type_field = xgmii_txd[7:0]; //FIXME
+         debug_bytes <= debug_bytes + 8;
       end
 
       // Firstly the sync field. This is 01 for a data double and 10 for a double
@@ -590,6 +618,9 @@ module mkEncoder(Encoder);
    endmethod
    interface encoderIn = toPipeIn(fifo_in);
    interface encoderOut = toPipeOut(fifo_out);
+   method PcsDbgRec dbg;
+      return PcsDbgRec{bytes:debug_bytes, starts:debug_starts, ends:debug_ends, errorframes:debug_errorframes};
+   endmethod
 endmodule
 
 endpackage

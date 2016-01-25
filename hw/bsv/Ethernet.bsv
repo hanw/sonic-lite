@@ -148,4 +148,11 @@ instance FShow#(AddrTransRequest);
    endfunction
 endinstance
 
+typedef struct {
+   Bit#(64) bytes;
+   Bit#(64) starts;
+   Bit#(64) ends;
+   Bit#(64) errorframes;
+} PcsDbgRec deriving (Bits, Eq);
+
 endpackage: Ethernet
