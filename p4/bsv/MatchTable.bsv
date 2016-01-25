@@ -19,9 +19,9 @@ typedef 10 AddrIdx;
 
 typedef Bit#(16) FlowId;
 
-interface MatchTable;
+interface MatchTable#(numeric type depth, numeric type keySz);
    interface Server#(Bit#(KeyLen), ActionSpec_t) lookupPort;
-   interface Server#(Bit#(10), Bit#(9)) readPort;
+   interface Server#(Bit#(depth), Bit#(keySz)) readPort;
    interface PipeOut#(FlowId) entry_added;
    interface Put#(MatchSpec_t) add_entry;
    interface Put#(FlowId) delete_entry;
@@ -37,7 +37,7 @@ module mkMatchTable(MatchTable);
    endrule
 
    FIFOF#(FlowId) entry_added_fifo <- mkSizedFIFOF(1);
-   BinaryCam#(1024, 9) bcam <- mkBinaryCam;
+   BinaryCam#(depth, keySz) bcam <- mkBinaryCam;
 
    BRAM_Configure cfg = defaultValue;
    cfg.latency = 2;
@@ -75,7 +75,7 @@ module mkMatchTable(MatchTable);
    // Interface for read from control-plane
    interface Server readPort;
       interface Put request;
-         method Action put (Bit#(10) addr);
+         method Action put (Bit#(8) addr);
 
          endmethod
       endinterface

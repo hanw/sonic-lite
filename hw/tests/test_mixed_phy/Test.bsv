@@ -137,12 +137,12 @@ module mkTest#(TestIndication indication) (Test);
          clk_50_wire <= b4a;
       endmethod
       method Vector#(4, Bit#(1)) serial_tx_data;
-         let v = append(dtpPhy.serial_tx, phys.serial_tx);
-         return v;
+         Bit#(4) tx_data = {phys.serial_tx[2], phys.serial_tx[1], phys.serial_tx[0], dtpPhy.serial_tx[0]};
+         return unpack(tx_data);
       endmethod
       method Action serial_rx (Vector#(4, Bit#(1)) v);
-         phys.serial_rx(takeAt(0, v));
-         dtpPhy.serial_rx(takeAt(3, v));
+         dtpPhy.serial_rx(takeAt(0, v));
+         phys.serial_rx(takeAt(1, v));
       endmethod
       method Action sfp(Bit#(1) refclk);
          clk_644_wire <= refclk;

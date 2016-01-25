@@ -13,9 +13,14 @@ SCHEDDIR?=$(DEV_ROOT)/sonic-lite/scheduler
 # Connectal Support
 ########################################################
 S2H_INTERFACES=MemoryTestRequest:MemoryTest.request
-H2S_INTERFACES=MemoryTest:MemoryTestIndication,MemMgmtIndication,MemServerIndication,MMUIndication
 
-BSVFILES=MemoryTest.bsv MemoryAPI.bsv $(SONICDIR)/hw/bsv/MemMgmt.bsv GenericMatchTable.bsv
+ifeq ($(DEBUG), )
+H2S_INTERFACES=MemoryTest:MemoryTestIndication,MemServerIndication
+else
+H2S_INTERFACES=MemoryTest:MemoryTestIndication,MemServerIndication,MemMgmtIndication,MMUIndication
+endif
+
+BSVFILES=MemoryTest.bsv MemoryAPI.bsv $(SONICDIR)/hw/bsv/MemMgmt.bsv GenericMatchTable.bsv TdmPipeline.bsv TopTypes.bsv
 CPPFILES=test.cpp
 
 #######################################################
@@ -41,8 +46,10 @@ CONNECTALFLAGS += --tcl=constraint.sdc
 CONNECTALFLAGS += --constraint=constraint.sdc
 CONNECTALFLAGS += --implconstraint=constraint.sdc
 CONNECTALFLAGS += -m $(P4FPGADIR)/bsv/AsymmetricBRAM/mem_model.c
+CONNECTALFLAGS += --nocache
 
 CONNECTALFLAGS += -D BYTE_ENABLES
+#CONNECTALFLAGS += -D DEBUG
 
 BURST_LEN_SIZE=12
 
@@ -60,7 +67,7 @@ endif
 # Default Rules
 #######################################################
 run-small:
-	(cd bluesim; ./bin/ubuntu.exe -p ../udp-small.pcap -a 0 -r 5.8 -n $(N))
+	(cd bluesim; ./bin/ubuntu.exe -p ../udp-small.pcap -a -s -r 9.8 -n $(N))
 
 run-large:
 	(cd bluesim; ./bin/ubuntu.exe -p ../udp-large.pcap -r 5.8 -n $(N))

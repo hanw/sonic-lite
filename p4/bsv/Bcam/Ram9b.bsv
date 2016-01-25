@@ -80,10 +80,8 @@ module mkRam9bx256(Ram9bx256);
    // DWID = 32, DDEP = 32, MRDW = "DONT_CARE", RREG=ALL, INIT=1
    BRAM_Configure bramCfg = defaultValue;
    bramCfg.memorySize = 16;
-   bramCfg.latency=1;
+   bramCfg.latency=2;
    Vector#(16, BRAM2Port#(Bit#(4), Bit#(16))) dpmlab <- replicateM(ConnectalBram::mkBRAM2Server(bramCfg));
-
-   //Vector#(4, Wire#(Bit#(40))) indx <- replicateM(mkDWire(0));
 
    rule vldram_output;
       let v <- vldram.readServer.response.get;
@@ -96,7 +94,6 @@ module mkRam9bx256(Ram9bx256);
          let v <- indxram[i].readServer.response.get;
          for (Integer j=0; j<4; j=j+1) begin
             Bit#(4) addr = v[(j+1)*4-1 : j*4];
-            //dpmlab[i*8+j].readServer.request.put(addr);
             dpmlab[i*4+j].portB.request.put(BRAMRequest{write: False, responseOnWrite: False, address: addr, datain: ?});
             //$display("dpmlab %d: read i=%d, j=%d index=%d", cycle, i, j, i*8+j);
          end
@@ -249,5 +246,4 @@ module mkRam9b(Ram9b#(cdep));
       endmethod
    endinterface
 endmodule
-
 

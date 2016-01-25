@@ -64,11 +64,11 @@ if {[info exists NUMBER_OF_ALTERA_PORTS]} {
 }
 
 if {[info exists SYNTHESIS]} {
-    puts "Genereate synthesis model.."
+    puts "Generate synthesis model.."
     create_altera_10gber_phy $core_version altera_xcvr_10gbaser_wrapper $portCount synthesis
 }
 
 if {[info exists SIMULATION]} {
-    puts "Genereate simulation model.."
+    puts "Generate simulation model.."
     create_altera_10gber_phy $core_version altera_xcvr_10gbaser_wrapper $portCount simulation
 }

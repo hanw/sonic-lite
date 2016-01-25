@@ -20,6 +20,7 @@
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+import FIFO::*;
 import BuildVector::*;
 import ClientServer::*;
 import Connectable::*;
@@ -28,33 +29,38 @@ import GetPut::*;
 import Vector::*;
 
 import Ethernet::*;
-import PacketBuffer::*;
+import DbgTypes::*;
 import PktGen::*;
-import SharedBuff::*;
-import GenericMatchTable::*;
-
-interface MemoryTestIndication;
-   method Action read_version_resp(Bit#(32) version);
-   method Action addEntryResp(FlowId id);
-endinterface
+import PacketBuffer::*;
+import TopTypes::*;
+import TdmPipeline::*;
 
 interface MemoryTestRequest;
    method Action read_version();
    method Action writePacketData(Vector#(2, Bit#(64)) data, Vector#(2, Bit#(8)) mask, Bit#(1) sop, Bit#(1) eop);
-   method Action free(Bit#(32) id);
    method Action start(Bit#(32) iter, Bit#(32) ipg);
    method Action stop();
-   method Action clear();
    method Action addEntry(Bit#(32) name, MatchField fields);
    method Action deleteEntry(Bit#(32) name, FlowId flow_id);
    method Action modifyEntry(Bit#(32) name, FlowId flow_id, ActionArg actions);
+   method Action readRingBuffCntrs(Bit#(8) id);
+   method Action readMemMgmtCntrs();
+   method Action readTDMCntrs();
 endinterface
 
 interface MemoryAPI;
    interface MemoryTestRequest request;
+   interface Get#(Tuple2#(Bit#(32), Bit#(32))) pktGenStart;
+   interface Get#(void) pktGenStop;
+   interface Get#(EtherData) pktGenWrite;
 endinterface
 
-module mkMemoryAPI#(MemoryTestIndication indication, PktGen pktgen, SharedBuffer#(12, 128, 1) mem, MatchTable match_table)(MemoryAPI);
+module mkMemoryAPI#(MemoryTestIndication indication, TdmPipeline tdm)(MemoryAPI);
+   
+   FIFO#(Tuple2#(Bit#(32), Bit#(32))) startReqFifo <- mkFIFO;
+   FIFO#(void) stopReqFifo <- mkFIFO;
+   FIFO#(EtherData) etherDataFifo <- mkFIFO;
+
    interface MemoryTestRequest request;
       method Action read_version();
          let v= `NicVersion;
@@ -66,30 +72,52 @@ module mkMemoryAPI#(MemoryTestIndication indication, PktGen pktgen, SharedBuffer
          beat.mask = pack(reverse(mask));
          beat.sop = unpack(sop);
          beat.eop = unpack(eop);
-         pktgen.writeServer.writeData.put(beat);
+         etherDataFifo.enq(beat);
       endmethod
-      method Action free(Bit#(32) id);
-         mem.freeReq.put(id);
+      method Action start(Bit#(32) pktCount, Bit#(32) ipg);
+         startReqFifo.enq(tuple2(pktCount, ipg));
       endmethod
-      method start = pktgen.start;
-      method stop = pktgen.stop;
-      method clear = pktgen.clear;
+      method Action stop();
+         stopReqFifo.enq(?);
+      endmethod
       method Action addEntry(Bit#(32) table_name, MatchField fields);
          $display("MemoryAPI:: added entry ", fshow(fields));
          ActionArg args = ActionArg{egress_index: 4};
          TableEntry entry = TableEntry{field: fields, argument: args };
-         match_table.add_entry.put(entry);
+         tdm.add_entry.put(entry);
       endmethod
 
       method Action deleteEntry(Bit#(32) table_name, FlowId id);
          $display("MemoryAPI:: delete entry flow id ", fshow(id));
-         match_table.delete_entry.put(id);
+         tdm.delete_entry.put(id);
       endmethod
 
       method Action modifyEntry(Bit#(32) table_name, FlowId id, ActionArg args);
          $display("MemoryAPI:: modify entry flow id ", fshow(id), " action ", fshow(args));
-         match_table.modify_entry.put(tuple2(id, args));
+         tdm.modify_entry.put(tuple2(id, args));
       endmethod
 
+      method Action readRingBuffCntrs(Bit#(8) id);
+         if (id < 2) begin
+            let v <- tdm.pktBuffDbg(id);
+            indication.readRingBuffCntrsResp(v.sopEnq, v.eopEnq, v.sopDeq, v.eopDeq);
+         end
+         else begin
+            indication.readRingBuffCntrsResp(0, 0, 0, 0);
+         end
+      endmethod
+
+      method Action readMemMgmtCntrs();
+         let v = tdm.memMgmtDbg();
+         indication.readMemMgmtCntrsResp(v.allocCnt, v.freeCnt);
+      endmethod
+
+      method Action readTDMCntrs();
+         let v = tdm.tdmDbg();
+         indication.readTDMCntrsResp(v.lookupCnt, v.modifyMacCnt, v.fwdReqCnt, v.sendCnt);
+      endmethod
    endinterface
+   interface pktGenStart = toGet(startReqFifo);
+   interface pktGenStop = toGet(stopReqFifo);
+   interface pktGenWrite = toGet(etherDataFifo);
 endmodule

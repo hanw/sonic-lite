@@ -128,11 +128,7 @@
  <interface
    name="xcvr_low_latency_phy_0_rx_byteordflag"
    internal="xcvr_low_latency_phy_0.rx_byteordflag" />
- <interface
-   name="reconfig_busy"
-   internal="alt_xcvr_reconfig_0.reconfig_busy"
-   type="conduit"
-   dir="end" />
+ <interface name="reconfig_busy" internal="alt_xcvr_reconfig_0.reconfig_busy" />
  <interface
    name="rx_parallel_data0"
    internal="xcvr_low_latency_phy_0.rx_parallel_data0"
@@ -286,7 +282,7 @@
  <module
    kind="alt_xcvr_reconfig"
    version="14.0"
-   enabled="1"
+   enabled="0"
    name="alt_xcvr_reconfig_0">
   <parameter name="device_family" value="Stratix V" />
   <parameter name="number_of_reconfig_interfaces" value="2" />

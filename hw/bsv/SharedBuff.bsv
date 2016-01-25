@@ -40,6 +40,7 @@ import SharedBuffMMU::*;
 import MemMgmt::*;
 import PhysMemToBram::*;
 import Ethernet::*;
+import DbgTypes::*;
 
 interface SharedBuffer#(numeric type addrWidth, numeric type busWidth, numeric type nMasters);
    interface MemServerRequest memServerRequest;
@@ -47,14 +48,17 @@ interface SharedBuffer#(numeric type addrWidth, numeric type busWidth, numeric t
    interface Get#(Maybe#(Bit#(32))) mallocDone;
    interface Put#(Bit#(32)) freeReq;
    interface Get#(Bool) freeDone;
+   method MemMgmtDbgRec dbg;
 endinterface
 
-module mkSharedBuffer#(Vector#(numReadClients, MemReadClient#(busWidth)) readClients,
-                       Vector#(numWriteClients, MemWriteClient#(busWidth)) writeClients,
-                       MemMgmtIndication memTestInd,
-                       MemServerIndication memServerInd,
-                       MMUIndication mmuInd)
-                       (SharedBuffer#(addrWidth, busWidth, nMasters))
+module mkSharedBuffer#(Vector#(numReadClients, MemReadClient#(busWidth)) readClients
+                       ,Vector#(numWriteClients, MemWriteClient#(busWidth)) writeClients
+                       ,MemServerIndication memServerInd
+`ifdef DEBUG
+                       ,MemMgmtIndication memTestInd
+                       ,MMUIndication mmuInd
+`endif
+                      )(SharedBuffer#(addrWidth, busWidth, nMasters))
    provisos(Add#(TLog#(TDiv#(busWidth, 8)), e__, 8)
 	    ,Add#(TLog#(TDiv#(busWidth, 8)), f__, BurstLenSize)
 	    ,Add#(c__, addrWidth, 64)
@@ -67,7 +71,12 @@ module mkSharedBuffer#(Vector#(numReadClients, MemReadClient#(busWidth)) readCli
 	    );
    let verbose = True;
 
-   MemMgmt#(addrWidth) alloc <- mkMemMgmt(memTestInd, mmuInd);
+   MemMgmt#(addrWidth) alloc <- mkMemMgmt(
+`ifdef DEBUG
+                                          memTestInd
+                                         ,mmuInd
+`endif
+                                         );
    MemServer#(addrWidth, busWidth, nMasters) dma <- mkMemServer(readClients, writeClients, cons(alloc.mmu, nil), memServerInd);
 
    // TODO: use two ports to improve throughput
@@ -88,5 +97,6 @@ module mkSharedBuffer#(Vector#(numReadClients, MemReadClient#(busWidth)) readCli
    interface Get mallocDone = alloc.mallocDone;
    interface Put freeReq = alloc.freeReq;
    interface Get freeDone = alloc.freeDone;
+   method MemMgmtDbgRec dbg = alloc.dbg;
 endmodule
 

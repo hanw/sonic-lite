@@ -48,6 +48,27 @@ function Maybe#(Bit#(2)) mkPE4(Bit#(4) data);
    return ret;
 endfunction
 
+function Maybe#(Bit#(3)) mkPE8(Bit#(8) data);
+   Vector#(4, Bit#(2)) data2b = unpack(data);
+   Vector#(4, Maybe#(Bit#(1))) out2b;
+   for(Integer i=0; i<4; i=i+1) begin
+      out2b[i] = mkPE2(data2b[i]);
+   end
+   Vector#(4, Bool) vld2b = map(isValid, out2b);
+   Maybe#(Bit#(2)) vldOut = mkPE4(pack(vld2b));
+   Maybe#(Bit#(3)) ret;
+   if (isValid(vldOut)) begin
+      let validOut = fromMaybe(?, vldOut);
+      let encodedOut = fromMaybe(?, out2b[validOut]);
+      let out = {validOut, encodedOut};
+      ret = tagged Valid out;
+   end
+   else begin
+      ret = tagged Invalid;
+   end
+   return ret;
+endfunction
+
 function Maybe#(Bit#(4)) mkPE16(Bit#(16) data);
    Vector#(4, Bit#(4)) data4b = unpack(data);
    Vector#(4, Maybe#(Bit#(2))) out4b;
@@ -179,6 +200,25 @@ instance PEncoder#(4);
          method ActionValue#(Maybe#(Bit#(2))) get;
             reqfifo.deq;
             return mkPE4(input_wire);
+         endmethod
+      endinterface
+   endmodule
+endinstance
+
+instance PEncoder#(8);
+   module mkPEncoder(PE#(8));
+      FIFOF#(void) reqfifo <- mkFIFOF;
+      Reg#(Bit#(8)) input_wire <- mkReg(0);
+      interface Put oht;
+         method Action put(Bit#(8) v);
+            input_wire <= v;
+            reqfifo.enq(?);
+         endmethod
+      endinterface
+      interface Get bin;
+         method ActionValue#(Maybe#(Bit#(3))) get;
+            reqfifo.deq;
+            return mkPE8(input_wire);
          endmethod
       endinterface
    endmodule

@@ -84,7 +84,7 @@ module mkBcam9b(Bcam9b#(camDepth))
             ,Add#(wAddrHWidth, c__, camSz)
          );
 
-   let verbose = True;
+   let verbose = False;
    let verbose_setram = verbose && True;
    let verbose_idxram = verbose && True;
    let verbose_vacram = verbose && True;
@@ -183,7 +183,7 @@ module mkBcam9b(Bcam9b#(camDepth))
       curr_state <= S2;
       if (verbose) $display("camctrl\t %d: currStt=%d, patt=%x oldPattV=%x, oldPatt=%x, wPatt=%x", cycle, curr_state, patt, oldPattVR, oldPattR, wPatt_bcam);
       if (verbose) $display("camctrl\t %d: currStt=%d, oldPatt=%x, oldPattV=%x, oldMultiOcc=%x, newMultiOcc=%x", cycle, curr_state, oldPattR, oldPattVR, oldPattMultiOccR, newPattMultiOccR);
-      if (verbose) $display("camctrl\t %d: Genereate wEnb_indc=%x and wEnb_iVld=%x", cycle, wEnb_indc, wEnb_iVld);
+      if (verbose) $display("camctrl\t %d: Generate wEnb_indc=%x and wEnb_iVld=%x", cycle, wEnb_indc, wEnb_iVld);
    endrule
 
    // second state, write new entry
@@ -414,6 +414,7 @@ interface BinaryCam#(numeric type camDepth, numeric type pattWidth);
    //interface Put#(Tuple2#(Bit#(TLog#(camDepth)), Bit#(pattWidth))) writeServer;
    interface Put#(BcamWriteReq#(TLog#(camDepth), pattWidth)) writeServer;
    interface Server#(Bit#(pattWidth), Maybe#(Bit#(TLog#(camDepth)))) readServer;
+   interface Server#(Bit#(TLog#(camDepth)), Maybe#(Bit#(pattWidth))) printServer;
 endinterface
 
 module mkBinaryCam(BinaryCam#(camDepth, pattWidth))
@@ -440,6 +441,7 @@ module mkBinaryCam(BinaryCam#(camDepth, pattWidth))
    endrule
 
    FIFO#(Maybe#(Bit#(camSz))) readFifo <- mkFIFO;
+   FIFO#(Maybe#(Bit#(pattWidth))) printFifo <- mkFIFO;
 
    Vector#(pwid, Bcam9b#(camDepth)) cam9b <- replicateM(mkBcam9b());
    PE#(indcWidth) pe_bcam <- mkPEncoder();
@@ -460,6 +462,13 @@ module mkBinaryCam(BinaryCam#(camDepth, pattWidth))
       readFifo.enq(bin);
    endrule
 
+   interface Server printServer;
+      interface Put request;
+         method Action put(Bit#(camSz) addr);
+         endmethod
+      endinterface
+      interface Get response = toGet(printFifo);
+   endinterface
    interface Server readServer;
       interface Put request;
          method Action put(Bit#(pattWidth) v);

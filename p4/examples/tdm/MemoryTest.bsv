@@ -22,6 +22,7 @@
 
 package MemoryTest;
 
+import BRAMFIFO::*;
 import FIFO::*;
 import FIFOF::*;
 import DefaultValue::*;
@@ -31,27 +32,22 @@ import GetPut::*;
 import ClientServer::*;
 import Connectable::*;
 import Clocks::*;
-import Gearbox::*;
-import Pipe::*;
+import RegFile::*;
 
 import MemServerIndication::*;
+`ifdef DEBUG
 import MMUIndication::*;
+`endif
 import MemTypes::*;
 import Ethernet::*;
 import MemoryAPI::*;
-import PacketBuffer::*;
-import SharedBuff::*;
-import StoreAndForward::*;
-import PktGen::*;
-import TDM::*;
 import EthMac::*;
-import MMU::*;
-import MemMgmt::*;
-import IPv4Parser::*;
-import Tap::*;
-import GenericMatchTable::*;
+import PktGen::*;
+import TdmPipeline::*;
+import TopTypes::*;
+import PacketBuffer::*;
 
-`ifndef SIMULATION
+`ifdef SYNTHESIS
 import AlteraMacWrap::*;
 import AlteraEthPhy::*;
 import DE5Pins::*;
@@ -64,7 +60,13 @@ interface MemoryTest;
    interface `PinType pins;
 endinterface
 
-module mkMemoryTest#(MemoryTestIndication indication, MemMgmtIndication memTestInd, ConnectalMemory::MemServerIndication memServerInd, ConnectalMemory::MMUIndication mmuInd)(MemoryTest);
+module mkMemoryTest#(MemoryTestIndication indication
+                   ,ConnectalMemory::MemServerIndication memServerInd
+`ifdef DEBUG
+                   ,MemMgmtIndication memTestInd
+                   ,ConnectalMemory::MMUIndication mmuInd
+`endif
+                   )(MemoryTest);
    let verbose = True;
 
    Clock defaultClock <- exposeCurrentClock();
@@ -73,7 +75,7 @@ module mkMemoryTest#(MemoryTestIndication indication, MemMgmtIndication memTestI
    Wire#(Bit#(1)) clk_644_wire <- mkDWire(0);
    Wire#(Bit#(1)) clk_50_wire <- mkDWire(0);
 
-`ifndef SIMULATION
+`ifdef SYNTHESIS
    De5Clocks clocks <- mkDe5Clocks(clk_50_wire, clk_644_wire);
 `else
    SimClocks clocks <- mkSimClocks();
@@ -86,16 +88,16 @@ module mkMemoryTest#(MemoryTestIndication indication, MemMgmtIndication memTestI
    Reset phyReset <- mkSyncReset(2, defaultReset, phyClock);
    Reset mgmtReset <- mkSyncReset(2, defaultReset, mgmtClock);
 
-`ifndef SIMULATION
+`ifdef SYNTHESIS
    // DE5 Pins
    De5Leds leds <- mkDe5Leds(defaultClock, txClock, mgmtClock, phyClock);
    De5SfpCtrl#(4) sfpctrl <- mkDe5SfpCtrl();
    De5Buttons#(4) buttons <- mkDe5Buttons(clocked_by mgmtClock, reset_by mgmtReset);
 
-   EthPhyIfc phys <- mkAlteraEthPhy(defaultClock, phyClock, txClock, defaultReset);
+   EthPhyIfc phys <- mkAlteraEthPhy(mgmtClock, phyClock, txClock, defaultReset);
    Clock rxClock = phys.rx_clkout;
    Reset rxReset <- mkSyncReset(2, defaultReset, rxClock);
-   Vector#(4, EthMacIfc) mac <- replicateM(mkEthMac(defaultClock, txClock, rxClock, txReset));
+   Vector#(4, EthMacIfc) mac <- replicateM(mkEthMac(mgmtClock, txClock, rxClock, txReset));
 
    function Get#(Bit#(72)) getTx(EthMacIfc _mac); return _mac.tx; endfunction
    function Put#(Bit#(72)) getRx(EthMacIfc _mac); return _mac.rx; endfunction
@@ -103,62 +105,65 @@ module mkMemoryTest#(MemoryTestIndication indication, MemMgmtIndication memTestI
    mapM(uncurry(mkConnection), zip(phys.rx, map(getRx, mac)));
 `endif
 
-   // Port One
-   PktGen pktgen <- mkPktGen();
-   PacketBuffer incoming_buff <- mkPacketBuffer();
-   PacketBuffer outgoing_buff <- mkPacketBuffer();
+   // Host Packet Generator
+   PktGen pktgen <- mkPktGen(clocked_by txClock, reset_by txReset);
+   SyncFIFOIfc#(EtherData) txSyncFifo <- mkSyncBRAMFIFO(6, txClock, txReset, defaultClock, defaultReset);
 
-   TapPktRead tap <- mkTapPktRead();
-   Parser ipv4Parser <- mkParser();
+   TdmPipeline tdm <- mkTdmPipeline(txClock, txReset
+                                    ,indication
+                                    ,memServerInd
+`ifdef DEBUG
+                                    ,memTestInd
+                                    ,mmuInd
+`endif
+                                   );
 
-   // Ingress Pipeline
-   MatchTable matchTable <- mkMatchTable();
+   function PktWriteServer genWriteServer = (interface PktWriteServer;
+      interface writeData = toPut(txSyncFifo);
+   endinterface);
+   function PktWriteClient genWriteClient = (interface PktWriteClient;
+      interface writeData = toGet(txSyncFifo);
+   endinterface);
+   mkConnection(pktgen.writeClient, genWriteServer);
+   mkConnection(genWriteClient, tdm.writeServer);
 
-   // Egress Pipeline
-   ModifyMac modMac <- mkModifyMac();
-
-   StoreAndFwdFromRingToMem ingress <- mkStoreAndFwdFromRingToMem(memTestInd);
-   StoreAndFwdFromMemToRing egress <- mkStoreAndFwdFromMemToRing();
-   StoreAndFwdFromRingToMac ringToMac <- mkStoreAndFwdFromRingToMac(txClock, txReset);
-
-   SharedBuffer#(12, 128, 1) mem <- mkSharedBuffer(vec(egress.readClient), vec(ingress.writeClient, modMac.writeClient), memTestInd, memServerInd, mmuInd);
-
-   mkConnection(pktgen.writeClient, incoming_buff.writeServer);
-
-   //mkConnection(ingress.readClient, incoming_buff.readServer);
-   mkConnection(tap.readClient, incoming_buff.readServer);
-   mkConnection(ingress.readClient, tap.readServer);
-   mkConnection(tap.tap_out, toPut(ipv4Parser.frameIn));
-
-   mkConnection(ingress.mallocReq, mem.mallocReq);
-   mkConnection(mem.mallocDone, ingress.mallocDone);
-
-   mkConnection(egress.writeClient, outgoing_buff.writeServer);
-   mkConnection(ringToMac.readClient, outgoing_buff.readServer);
-
-   // Null Forwarding bypass pipeline
-   //mkConnection(ingress.eventPktCommitted, egress.eventPktSend);
-
-   TDM sched <- mkTDM(ingress, egress, ipv4Parser, matchTable, modMac);
-
-`ifndef SIMULATION
-   mkConnection(ringToMac.macTx, mac[0].packet_tx);
+   // connect mac to tdm
+`ifdef SYNTHESIS
+   mkConnection(tdm.macTx, mac[0].packet_tx);
 `else
    rule drainMac;
-      let v <- ringToMac.macTx.get;
+      let v <- tdm.macTx.get;
       if (verbose) $display("tx data %h", v.data);
    endrule
 `endif
 
-   rule read_flow_id;
-      let v <- toGet(matchTable.entry_added).get;
-      indication.addEntryResp(v);
+   //MemoryAPI api <- mkMemoryAPI(indication, tdm.pktgen, tdm.mem, tdm.matchTable, vec(tdm.incoming_buff, tdm.outgoing_buff), tdm.sched);
+   MemoryAPI api <- mkMemoryAPI(indication, tdm);
+
+   // PktGen start/stop
+   SyncFIFOIfc#(Tuple2#(Bit#(32),Bit#(32))) pktGenStartSyncFifo <- mkSyncFIFO(4, defaultClock, defaultReset, txClock);
+   SyncFIFOIfc#(void) pktGenStopSyncFifo <- mkSyncFIFO(4, defaultClock, defaultReset, txClock);
+   SyncFIFOIfc#(EtherData) pktGenWriteSyncFifo <- mkSyncFIFO(4, defaultClock, defaultReset, txClock);
+   mkConnection(api.pktGenStart, toPut(pktGenStartSyncFifo));
+   mkConnection(api.pktGenStop, toPut(pktGenStopSyncFifo));
+   mkConnection(api.pktGenWrite, toPut(pktGenWriteSyncFifo));
+   rule req_start;
+      let v <- toGet(pktGenStartSyncFifo).get;
+      pktgen.start(tpl_1(v), tpl_2(v));
    endrule
 
-   MemoryAPI api <- mkMemoryAPI(indication, pktgen, mem, matchTable);
+   rule req_stop;
+      let v <- toGet(pktGenStopSyncFifo).get;
+      pktgen.stop();
+   endrule
+
+   rule req_write;
+      let v <- toGet(pktGenWriteSyncFifo).get;
+      pktgen.writeServer.writeData.put(v);
+   endrule
 
    interface request = api.request;
-`ifndef SIMULATION
+`ifdef SYNTHESIS
    interface `PinType pins;
       method Action osc_50(Bit#(1) b3d, Bit#(1) b4a, Bit#(1) b4d, Bit#(1) b7a, Bit#(1) b7d, Bit#(1) b8a, Bit#(1) b8d);
          clk_50_wire <= b4a;

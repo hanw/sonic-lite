@@ -57,12 +57,12 @@ regexp {[\.0-9]+} $quartus(version) core_version
 puts $core_version
 
 if {[info exists SYNTHESIS]} {
-    puts "Genereate synthesis model.."
+    puts "Generate synthesis model.."
     generate_mac_core $core_version mac_10gbe synthesis
 }
 
 if {[info exists SIMULATION]} {
-    puts "Genereate simulation model.."
+    puts "Generate simulation model.."
     generate_mac_core $core_version mac_10gbe simulation
 }
 

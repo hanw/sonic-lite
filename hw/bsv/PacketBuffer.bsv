@@ -32,7 +32,7 @@ import GetPut::*;
 import Pipe::*;
 import SpecialFIFOs::*;
 import Vector::*;
-
+import DbgTypes::*;
 import Ethernet::*;
 
 interface PktWriteClient;
@@ -55,9 +55,11 @@ interface PktReadServer;
    interface Put#(EtherReq) readReq;
 endinterface
 
+
 interface PacketBuffer;
    interface PktWriteServer writeServer;
    interface PktReadServer readServer;
+   method PktBuffDbgRec dbg;
 endinterface
 
 instance Connectable#(PktWriteClient, PktWriteServer);
@@ -93,6 +95,12 @@ module mkPacketBuffer(PacketBuffer);
    Reg#(Bit#(EtherLen))         packetLen   <- mkReg(0);
    Reg#(Bool)                   inPacket    <- mkReg(False);
 
+   // status registers
+   Reg#(Bit#(64)) sopEnq <- mkReg(0);
+   Reg#(Bit#(64)) eopEnq <- mkReg(0);
+   Reg#(Bit#(64)) sopDeq <- mkReg(0);
+   Reg#(Bit#(64)) eopDeq <- mkReg(0);
+
    // Memory
    BRAM_Configure bramConfig = defaultValue;
    bramConfig.latency = 1;
@@ -110,7 +118,7 @@ module mkPacketBuffer(PacketBuffer);
    FIFOF#(Bit#(EtherLen))    fifoReadReq <- mkSizedFIFOF(4);
    FIFOF#(EtherData)         fifoReadData <- mkBypassFIFOF();
 
-   rule every1;
+   rule every1 if (verbose);
       cycle <= cycle + 1;
    endrule
 
@@ -134,6 +142,7 @@ module mkPacketBuffer(PacketBuffer);
       memBuffer.portA.request.put(BRAMRequest{write:True, responseOnWrite:False,
          address:req.addr, datain:req.data});
       inPacket <= True;
+      sopEnq <= sopEnq + 1;
    endrule
 
    rule enqueue_next_beat(!fifoEop.notEmpty && inPacket);
@@ -151,6 +160,7 @@ module mkPacketBuffer(PacketBuffer);
       let v <- toGet(fifoEop).get;
       fifoLen.enq(v);
       inPacket <= False;
+      eopEnq <= eopEnq + 1;
    endrule
 
    rule dequeue_first_beat(!outPacket);
@@ -160,6 +170,7 @@ module mkPacketBuffer(PacketBuffer);
          address:truncate(rdCurrPtr), datain:?});
       outPacket <= True;
       rdCurrPtr <= rdCurrPtr + 1;
+      sopDeq <= sopDeq + 1;
    endrule
 
    rule dequeue_next_beat(outPacket);
@@ -167,6 +178,7 @@ module mkPacketBuffer(PacketBuffer);
       fifoReadData.enq(d);
       if (d.eop) begin
          outPacket <= False;
+         eopDeq <= eopDeq + 1;
       end
       else begin
          memBuffer.portB.request.put(BRAMRequest{write:False, responseOnWrite:False,
@@ -205,6 +217,12 @@ module mkPacketBuffer(PacketBuffer);
          endmethod
       endinterface
    endinterface
+   method PktBuffDbgRec dbg();
+      return PktBuffDbgRec { sopEnq: sopEnq
+                            ,eopEnq: eopEnq
+                            ,sopDeq: sopDeq
+                            ,eopDeq: eopDeq };
+   endmethod
 endmodule
 
 endpackage: PacketBuffer

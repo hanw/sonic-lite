@@ -39,6 +39,7 @@ import ConnectalMemory::*;
 import MMU::*;
 import Ethernet::*;
 import SharedBuffMMU::*;
+import DbgTypes::*;
 
 typedef enum {
    MemMgmtErrorNone,
@@ -71,14 +72,20 @@ interface MMUIndicationProxy;
    interface MMUIndication mmuInd;
    interface Get#(Bit#(32)) idResponse;
 endinterface
-module mkMMUIndicationProxy#(MMUIndication mmuInd)(MMUIndicationProxy);
+module mkMMUIndicationProxy
+`ifdef DEBUG
+                           #(MMUIndication mmuInd)
+`endif
+                           (MMUIndicationProxy);
    FIFO#(Bit#(32)) idresponse_fifo <- mkFIFO;
    interface MMUIndication mmuInd;
       method Action idResponse(Bit#(32) sglId);
          idresponse_fifo.enq(sglId);
       endmethod
+`ifdef DEBUG
       method configResp = mmuInd.configResp;
       method error = mmuInd.error;
+`endif
    endinterface
    interface Get idResponse = toGet(idresponse_fifo);
 endmodule
@@ -90,8 +97,13 @@ interface MemMgmt#(numeric type addrWidth);
    interface Get#(Maybe#(Bit#(32))) mallocDone;
    interface Put#(Bit#(32)) freeReq;
    interface Get#(Bool) freeDone;
+   method MemMgmtDbgRec dbg;
 endinterface
-module mkMemMgmt#(MemMgmtIndication indication, MMUIndication mmuInd)(MemMgmt#(addrWidth))
+module mkMemMgmt
+`ifdef DEBUG
+                #(MemMgmtIndication indication, MMUIndication mmuInd)
+`endif
+                (MemMgmt#(addrWidth))
    provisos(Add#(a__, addrWidth, 44));
    let verbose = True;
 
@@ -99,6 +111,9 @@ module mkMemMgmt#(MemMgmtIndication indication, MMUIndication mmuInd)(MemMgmt#(a
    rule cycleRule if (verbose);
       cycle <= cycle + 1;
    endrule
+
+   Reg#(Bit#(64)) allocCnt <- mkReg(0);
+   Reg#(Bit#(64)) freeCnt <- mkReg(0);
 
    Reg#(Bool) inited <- mkReg(False);
    FIFOF#(Bit#(EtherLen)) outstanding_malloc <- mkFIFOF;
@@ -133,7 +148,11 @@ module mkMemMgmt#(MemMgmtIndication indication, MMUIndication mmuInd)(MemMgmt#(a
    FIFO#(MemMgmtError) memMgmtErrorFifo <- mkFIFO;
    FIFO#(Bit#(PageIdx)) pagePointerFifo <- mkFIFO;
 
-   MMUIndicationProxy proxy <- mkMMUIndicationProxy(mmuInd);
+   MMUIndicationProxy proxy <- mkMMUIndicationProxy(
+`ifdef DEBUG
+                                                    mmuInd
+`endif
+                                                   );
    MMU#(addrWidth) iommu <- mkSharedBuffMMU(0, proxy.mmuInd);
 
    function BRAMServer#(a,b) portsel(BRAM2Port#(a,b) x, Integer i);
@@ -190,7 +209,9 @@ module mkMemMgmt#(MemMgmtIndication indication, MMUIndication mmuInd)(MemMgmt#(a
          // map id to linked-list of pages
          portsel(idmap, 0).request.put(BRAMRequest{write:True, responseOnWrite:False, address:packetId, datain:tagged Valid segment});
          mallocDoneFifo.enq(tagged Valid packetId);
+`ifdef DEBUG
          indication.memory_allocated(packetId);
+`endif
       end
       $display("MemMgmt:: id=%d, segmentIdx=%x", packetId, segment);
    endrule
@@ -205,7 +226,9 @@ module mkMemMgmt#(MemMgmtIndication indication, MMUIndication mmuInd)(MemMgmt#(a
 
    rule report_error;
       let v <- toGet(memMgmtErrorFifo).get;
+`ifdef DEBUG
       indication.error(extend(pack(v.errorType)), v.id);
+`endif
       if (verbose) $display("MemMgmt::free_error: memMgmt error");
    endrule
 
@@ -232,7 +255,9 @@ module mkMemMgmt#(MemMgmtIndication indication, MMUIndication mmuInd)(MemMgmt#(a
          end
          tagged Invalid: begin
             free_started <= False;
+`ifdef DEBUG
             indication.packet_freed(idToFree);
+`endif
          end
       endcase
       // return current page to free page list
@@ -258,16 +283,22 @@ module mkMemMgmt#(MemMgmtIndication indication, MMUIndication mmuInd)(MemMgmt#(a
          $display("MemMgmt:: %d: req page=%d", cycle, freePageCount.read);
          outstanding_malloc.enq(sz);
          iommu.request.idRequest(0);
+         allocCnt <= allocCnt + 1;
       endmethod
    endinterface
    interface Get mallocDone = toGet(mallocDoneFifo);
    interface Put freeReq;
       method Action put(Bit#(32) id);
+         $display("MemMgmt:: free request %h", id);
          iommu.request.idReturn(id);
          outstanding_free.enq(id);
+         freeCnt <= freeCnt + 1;
       endmethod
    endinterface
    interface Get freeDone = toGet(freeDoneFifo);
    interface MMU mmu = iommu;
+   method MemMgmtDbgRec dbg;
+      return MemMgmtDbgRec { allocCnt: allocCnt, freeCnt: freeCnt };
+   endmethod
 endmodule
 
