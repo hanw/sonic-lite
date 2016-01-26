@@ -80,17 +80,17 @@ module mkDtpTop#(DtpIndication indication)(DtpTop);
    Reset rst_api <- mkSyncReset(0, dtp.ifc.rst, txClock);
    Reset dtp_rst <- mkResetEither(txReset, rst_api, clocked_by txClock);
 
-   DtpPhyIfc#(NumPorts) phys <- mkEthPhy(clock_50, txClock, phyClock, clocked_by txClock, reset_by txReset);
+   DtpPhyIfc#(NumPorts) phys <- mkEthPhy(clock_50, txClock, phyClock, clocked_by txClock, reset_by dtp_rst);
 
    Vector#(NumPorts, EthMacIfc) mac ;
-   Vector#(NumPorts, FIFOF#(Bit#(72))) macToPhy <- replicateM(mkFIFOF, clocked_by txClock, reset_by txReset);
+   Vector#(NumPorts, FIFOF#(Bit#(72))) macToPhy <- replicateM(mkFIFOF, clocked_by txClock, reset_by dtp_rst);
    Vector#(NumPorts, FIFOF#(Bit#(72))) phyToMac;// <- replicateM(mkFIFOF, clocked_by txClock);
    Reg#(Bit#(128)) cycle <- mkReg(0, clocked_by txClock, reset_by dtp_rst);
    FIFOF#(Bit#(128)) tsFifo <- mkFIFOF(clocked_by txClock, reset_by dtp_rst);
 
    for (Integer i = 0 ; i < valueOf(NumPorts) ; i=i+1) begin
-      mac[i] <- mkEthMac(defaultClock, txClock, phys.rx_clkout[i], txReset);
-      Reset rx_rst<- mkSyncReset(2, defaultReset, phys.rx_clkout[i]);
+      mac[i] <- mkEthMac(defaultClock, txClock, phys.rx_clkout[i], dtp_rst);
+      Reset rx_rst<- mkSyncReset(2, dtp_rst, phys.rx_clkout[i]);
       phyToMac[i] <- mkFIFOF(clocked_by phys.rx_clkout[i], reset_by rx_rst);
 
       mkConnection(toPipeOut(macToPhy[i]), phys.tx[i]);
