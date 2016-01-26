@@ -257,12 +257,19 @@ endmodule
 interface StoreAndFwdFromRingToMac;
    interface PktReadClient readClient;
    interface Get#(PacketDataT#(64)) macTx;
+   method TxThruDbgRec dbg; 
 endinterface
 
 module mkStoreAndFwdFromRingToMac#(Clock txClock, Reset txReset)(StoreAndFwdFromRingToMac);
    let verbose = False;
    Clock defaultClock <- exposeCurrentClock();
    Reset defaultReset <- exposeCurrentReset();
+
+   Reg#(Bit#(64)) cycle_cnt <- mkReg(0);
+   Reg#(Bit#(64)) last_startofpacket <- mkReg(0);
+   Reg#(Bit#(64)) last_endofpacket <- mkReg(0);
+   Reg#(Bit#(64)) goodputCount <- mkReg(0);
+   Reg#(Bit#(64)) idleCount <- mkReg(0);
 
    // RingBuffer Read Client
    FIFO#(EtherData) readDataFifo <- mkFIFO;
@@ -273,6 +280,10 @@ module mkStoreAndFwdFromRingToMac#(Clock txClock, Reset txReset)(StoreAndFwdFrom
    FIFO#(PacketDataT#(64)) writeMacFifo <- mkFIFO(clocked_by txClock, reset_by txReset);
    Gearbox#(2, 1, PacketDataT#(64)) fifoTxData <- mkNto1Gearbox(txClock, txReset, txClock, txReset);
    SyncFIFOIfc#(EtherData) tx_fifo <- mkSyncFIFO(5, defaultClock, defaultReset, txClock);
+
+   rule cycle;
+      cycle_cnt <= cycle_cnt + 1;
+   endrule
 
    rule readDataStart;
       let pktLen <- toGet(readLenFifo).get;
@@ -298,6 +309,16 @@ module mkStoreAndFwdFromRingToMac#(Clock txClock, Reset txReset)(StoreAndFwdFrom
    rule cross_clocking;
       let v <- toGet(readDataFifo).get;
       tx_fifo.enq(v);
+
+      // performance analysis
+      if (v.sop) begin
+         last_startofpacket <= cycle_cnt;
+         idleCount <= (last_endofpacket != 0) ? (idleCount + (cycle_cnt - last_endofpacket)) : 0;
+      end
+      if (v.eop) begin
+         last_endofpacket <= cycle_cnt;
+         goodputCount <= (last_startofpacket != 0) ? (goodputCount + (cycle_cnt - last_startofpacket)) : 0;
+      end
    endrule
 
    rule process_incoming_packet;
@@ -320,6 +341,9 @@ module mkStoreAndFwdFromRingToMac#(Clock txClock, Reset txReset)(StoreAndFwdFrom
       interface readReq = toGet(readReqFifo);
    endinterface
    interface Get macTx = toGet(writeMacFifo);
+   method TxThruDbgRec dbg;
+      return TxThruDbgRec {goodputCount: goodputCount, idleCount: idleCount};
+   endmethod
 endmodule
 
 interface StoreAndFwdFromMacToRing;

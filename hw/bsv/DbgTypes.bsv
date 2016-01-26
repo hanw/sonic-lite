@@ -81,3 +81,16 @@ instance DefaultValue#(MatchTableDbgRec);
       lastMatchRequest: 0
    };
 endinstance
+
+typedef struct {
+   Bit#(64) goodputCount;
+   Bit#(64) idleCount;
+} TxThruDbgRec deriving (Bits, Eq);
+instance DefaultValue#(TxThruDbgRec);
+   defaultValue =
+   TxThruDbgRec {
+      goodputCount: 0,
+      idleCount: 0
+   };
+endinstance
+

@@ -78,6 +78,11 @@ public:
         fprintf(stderr, "MatchTable: matchRequestCount=%ld, matchResponseCount=%ld, matchValidCount=%ld\n lastMatchIdx=%lx lastMatchRequest=%lx\n", matchRequestCount, matchResponseCount, matchValidCount, lastMatchIdx, lastMatchRequest);
         sem_post(&cmdCompleted);
     }
+    virtual void readTxThruCntrsResp(uint64_t goodputCount, uint64_t idleCount) {
+        double utilization = (double) goodputCount / (goodputCount + idleCount);
+        fprintf(stderr, "TxThru: GoodputCount=%ld, IdleCount=%ld, utilization=%f", goodputCount, idleCount, utilization);
+        sem_post(&cmdCompleted);
+    }
     MemoryTestIndication(unsigned int id) : MemoryTestIndicationWrapper(id) {}
 };
 

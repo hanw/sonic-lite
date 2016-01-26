@@ -32,7 +32,7 @@ import Ethernet::*;
 import DbgTypes::*;
 import PktGen::*;
 import PacketBuffer::*;
-import TopTypes::*;
+import TdmTypes::*;
 import TdmPipeline::*;
 
 interface MemoryTestRequest;
@@ -47,6 +47,7 @@ interface MemoryTestRequest;
    method Action readMemMgmtCntrs();
    method Action readTDMCntrs();
    method Action readMatchTableCntrs();
+   method Action readTxThruCntrs();
 endinterface
 
 interface MemoryAPI;
@@ -121,6 +122,11 @@ module mkMemoryAPI#(MemoryTestIndication indication, TdmPipeline tdm)(MemoryAPI)
       method Action readMatchTableCntrs();
          let v = tdm.matchTableDbg();
          indication.readMatchTableCntrsResp(v.matchRequestCount, v.matchResponseCount, v.matchValidCount, v.lastMatchIdx, v.lastMatchRequest);
+      endmethod
+
+      method Action readTxThruCntrs();
+         let v = tdm.ringToMacDbg;
+         indication.readTxThruCntrsResp(v.goodputCount, v.idleCount);
       endmethod
    endinterface
    interface pktGenStart = toGet(startReqFifo);

@@ -34,19 +34,19 @@ import Connectable::*;
 import Clocks::*;
 import RegFile::*;
 
+import Ethernet::*;
+import EthMac::*;
 import MemServerIndication::*;
 `ifdef DEBUG
 import MMUIndication::*;
 `endif
 import MemTypes::*;
-import Ethernet::*;
 import MemoryAPI::*;
-import EthMac::*;
-import PktGen::*;
 import MemMgmt::*;
-import TdmPipeline::*;
-import TopTypes::*;
 import PacketBuffer::*;
+import PktGen::*;
+import TdmPipeline::*;
+import TdmTypes::*;
 
 `ifdef SYNTHESIS
 import AlteraMacWrap::*;

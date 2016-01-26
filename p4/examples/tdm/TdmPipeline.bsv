@@ -19,6 +19,7 @@
 // ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
+
 import FIFO::*;
 import FIFOF::*;
 import DefaultValue::*;
@@ -33,19 +34,19 @@ import Pipe::*;
 import RegFile::*;
 import MemTypes::*;
 
+import DbgTypes::*;
 import Ethernet::*;
+import EthMac::*;
+import GenericMatchTable::*;
+import IPv4Parser::*;
+import MMU::*;
+import MemMgmt::*;
 import PacketBuffer::*;
 import SharedBuff::*;
 import StoreAndForward::*;
-import TDM::*;
-import EthMac::*;
-import MMU::*;
-import MemMgmt::*;
-import IPv4Parser::*;
 import Tap::*;
-import GenericMatchTable::*;
-import DbgTypes::*;
-import TopTypes::*;
+import TDM::*;
+import TdmTypes::*;
 
 interface TdmPipeline;
    interface Put#(PacketDataT#(64)) macRx;
@@ -58,6 +59,7 @@ interface TdmPipeline;
    method TDMDbgRec tdmDbg;
    method ActionValue#(PktBuffDbgRec) pktBuffDbg(Bit#(8) id);
    method MatchTableDbgRec matchTableDbg;
+   method TxThruDbgRec ringToMacDbg;
 endinterface
 
 module mkTdmPipeline#(Clock txClock, Reset txReset

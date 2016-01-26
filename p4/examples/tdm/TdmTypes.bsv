@@ -29,6 +29,7 @@ interface MemoryTestIndication;
    method Action readMemMgmtCntrsResp(Bit#(64) allocCnt, Bit#(64) freeCnt, Bit#(64) allocCompleted, Bit#(64) freeCompleted, Bit#(64) errorCode, Bit#(64) lastIdFreed, Bit#(64) lastIdAllocated, Bit#(64) freeStarted, Bit#(64) firstSegment, Bit#(64) lastSegment, Bit#(64) currSegment, Bit#(64) invalidSegment);
    method Action readTDMCntrsResp(Bit#(64) lookupCnt, Bit#(64) modifyMacCnt, Bit#(64) fwdReqCnt, Bit#(64) sendCnt);
    method Action readMatchTableCntrsResp(Bit#(64) matchRequestCount, Bit#(64) matchResponseCount, Bit#(64) matchValidCount, Bit#(64) lastMatchIdx, Bit#(64) lastMatchRequest);
+   method Action readTxThruCntrsResp(Bit#(64) goodputCount, Bit#(64) idleCount);
 endinterface
 
 
