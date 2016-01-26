@@ -296,7 +296,7 @@ module mkSharedBuffMMU#(Integer iid, MMUIndication mmuIndication)(MMU#(addrWidth
    endfunction
       
    interface MMURequest request;
-   method Action idRequest(SpecialTypeForSendingFd fd);
+   method Action idRequest(Bit#(32) fd);
       let nextId <- sglId_gen.getTag;
       let resp = (fromInteger(iid) << 16) | extend(nextId);
       if (verbose) $display("mkMMU::idRequest %d", fd);

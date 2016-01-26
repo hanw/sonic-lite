@@ -46,6 +46,7 @@ interface MemoryTestRequest;
    method Action readRingBuffCntrs(Bit#(8) id);
    method Action readMemMgmtCntrs();
    method Action readTDMCntrs();
+   method Action readMatchTableCntrs();
 endinterface
 
 interface MemoryAPI;
@@ -109,12 +110,17 @@ module mkMemoryAPI#(MemoryTestIndication indication, TdmPipeline tdm)(MemoryAPI)
 
       method Action readMemMgmtCntrs();
          let v = tdm.memMgmtDbg();
-         indication.readMemMgmtCntrsResp(v.allocCnt, v.freeCnt);
+         indication.readMemMgmtCntrsResp(v.allocCnt, v.freeCnt, v.allocCompleted, v.freeCompleted, v.errorCode, v.lastIdFreed, v.lastIdAllocated, v.freeStarted, v.firstSegment, v.lastSegment, v.currSegment, v.invalidSegment);
       endmethod
 
       method Action readTDMCntrs();
          let v = tdm.tdmDbg();
          indication.readTDMCntrsResp(v.lookupCnt, v.modifyMacCnt, v.fwdReqCnt, v.sendCnt);
+      endmethod
+
+      method Action readMatchTableCntrs();
+         let v = tdm.matchTableDbg();
+         indication.readMatchTableCntrsResp(v.matchRequestCount, v.matchResponseCount, v.matchValidCount, v.lastMatchIdx, v.lastMatchRequest);
       endmethod
    endinterface
    interface pktGenStart = toGet(startReqFifo);

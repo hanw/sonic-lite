@@ -33,6 +33,7 @@ import PacketBuffer::*;
 import MemTypes::*;
 import Ethernet::*;
 import SharedBuff::*;
+import SharedBuffMMU::*;
 import StoreAndForward::*;
 import IPv4Parser::*;
 import GenericMatchTable::*;
@@ -53,7 +54,7 @@ typedef 8 SlotLen;
 
 typedef struct {
    Bit#(TLog#(NumOfHosts)) host;
-   Bit#(32) id;
+   PktId id;
    Bit#(32) dstip;
    Bit#(EtherLen) size;
 } FQWriteRequest deriving(Bits, Eq);
@@ -63,18 +64,18 @@ typedef struct {
 } FQReadRequest deriving(Bits, Eq);
 
 typedef struct {
-   Bit#(32) id;
+   PktId id;
    Bit#(32) dstip;
    Bit#(EtherLen) size;
 } FQReadResp deriving(Bits, Eq);
 
 typedef struct {
-   Bit#(32) id;
+   PktId id;
    Bool ready;
 } FQReady deriving(Bits, Eq);
 
 typedef struct {
-   Bit#(32) id;
+   PktId id;
    Bit#(48) data;
 } ModifyMacReq deriving(Bits, Eq);
 
@@ -173,7 +174,7 @@ module mkModifyMac(ModifyMac);
       let req <- toGet(modifyMacReqFifo).get;
       // FIXME: busrtLen must be multiple of 16..
       if(verbose) $display("TDM:: modifyMac %h ", req.id);
-      writeReqFifo.enq(MemRequest {sglId: req.id, offset: 0, 
+      writeReqFifo.enq(MemRequest {sglId: extend(req.id), offset: 0, 
                                    burstLen: 'h10, tag: 0
 `ifdef BYTE_ENABLES
                                    , firstbe: 'hffff, lastbe: 'h003f

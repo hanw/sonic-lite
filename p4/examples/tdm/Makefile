@@ -47,9 +47,13 @@ CONNECTALFLAGS += --constraint=constraint.sdc
 CONNECTALFLAGS += --implconstraint=constraint.sdc
 CONNECTALFLAGS += -m $(P4FPGADIR)/bsv/AsymmetricBRAM/mem_model.c
 CONNECTALFLAGS += --nocache
+CONNECTALFLAGS += --chipscope=$(P4FPGADIR)/examples/tdm/debug.stp
 
 CONNECTALFLAGS += -D BYTE_ENABLES
-#CONNECTALFLAGS += -D DEBUG
+
+ifneq ($(DEBUG),)
+CONNECTALFLAGS += -D DEBUG=1
+endif
 
 BURST_LEN_SIZE=12
 
@@ -73,7 +77,7 @@ run-large:
 	(cd bluesim; ./bin/ubuntu.exe -p ../udp-large.pcap -r 5.8 -n $(N))
 
 run-mid:
-	(cd bluesim; ./bin/ubuntu.exe -p ../udp-mid.pcap -r 5.8 -n $(N))
+	(cd bluesim; ./bin/ubuntu.exe -p ../udp-mid.pcap -a -s -r 5.8 -n $(N))
 
 run-burst:
 	(cd bluesim; ./bin/ubuntu.exe -p ../udp-burst.pcap)

@@ -43,6 +43,7 @@ import Ethernet::*;
 import MemoryAPI::*;
 import EthMac::*;
 import PktGen::*;
+import MemMgmt::*;
 import TdmPipeline::*;
 import TopTypes::*;
 import PacketBuffer::*;
@@ -97,7 +98,7 @@ module mkMemoryTest#(MemoryTestIndication indication
    EthPhyIfc phys <- mkAlteraEthPhy(mgmtClock, phyClock, txClock, defaultReset);
    Clock rxClock = phys.rx_clkout;
    Reset rxReset <- mkSyncReset(2, defaultReset, rxClock);
-   Vector#(4, EthMacIfc) mac <- replicateM(mkEthMac(mgmtClock, txClock, rxClock, txReset));
+   Vector#(4, EthMacIfc) mac <- replicateM(mkEthMac(mgmtClock, txClock, rxClock, txReset, clocked_by txClock, reset_by txReset));
 
    function Get#(Bit#(72)) getTx(EthMacIfc _mac); return _mac.tx; endfunction
    function Put#(Bit#(72)) getRx(EthMacIfc _mac); return _mac.rx; endfunction
@@ -137,7 +138,6 @@ module mkMemoryTest#(MemoryTestIndication indication
    endrule
 `endif
 
-   //MemoryAPI api <- mkMemoryAPI(indication, tdm.pktgen, tdm.mem, tdm.matchTable, vec(tdm.incoming_buff, tdm.outgoing_buff), tdm.sched);
    MemoryAPI api <- mkMemoryAPI(indication, tdm);
 
    // PktGen start/stop

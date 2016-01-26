@@ -13,6 +13,7 @@ import Bcam::*;
 import BcamTypes::*;
 import PriorityEncoder::*;
 import TopTypes::*;
+import DbgTypes::*;
 
 // depthSz is multiple of 8 for 256 entries
 // keySz is multiple of 9 for 9 bits
@@ -23,6 +24,7 @@ interface MatchTable#(numeric type depth, numeric type keySz);
    interface Put#(TableEntry) add_entry;
    interface Put#(FlowId) delete_entry;
    interface Put#(Tuple2#(FlowId, ActionArg)) modify_entry;
+   method MatchTableDbgRec dbg;
 endinterface
 
 module mkMatchTable(MatchTable#(depth, keySz))
@@ -42,9 +44,16 @@ module mkMatchTable(MatchTable#(depth, keySz))
            ,Add#(j__, TLog#(depth), 16)
            ,PriorityEncoder::PEncoder#(depth)
            ,PriorityEncoder::PEncoder#(d__)
+           ,Add#(k__, TLog#(depth), 64)
            ,Add#(TAdd#(TLog#(c__), 4), i__, depthSz));
-   let verbose = True;
+   let verbose = False;
    Reg#(Bit#(32)) cycle <- mkReg(0);
+
+   Reg#(Bit#(64)) matchResponseCount <- mkReg(0);
+   Reg#(Bit#(64)) matchRequestCount <- mkReg(0);
+   Reg#(Bit#(64)) matchValidCount <- mkReg(0);
+   Reg#(Bit#(64)) lastMatchIdx <- mkReg(0);
+   Reg#(Bit#(64)) lastMatchRequest <- mkReg(0);
 
    rule every1 if (verbose);
       cycle <= cycle + 1;
@@ -68,7 +77,10 @@ module mkMatchTable(MatchTable#(depth, keySz))
       if (isValid(v)) begin
          let address = fromMaybe(?, v);
          ram.portA.request.put(BRAMRequest{write:False, responseOnWrite: False, address: address, datain:?});
+         matchValidCount <= matchValidCount + 1;
+         lastMatchIdx <= extend(address);
       end
+      matchResponseCount <= matchResponseCount + 1;
    endrule
 
    // clear bit at location n in a vector
@@ -108,7 +120,9 @@ module mkMatchTable(MatchTable#(depth, keySz))
          method Action put (MatchField field);
             BcamReadReq#(keySz) req_bcam = BcamReadReq{data: extend(field.dstip)};
             bcam.readServer.request.put(pack(req_bcam));
+            matchRequestCount <= matchRequestCount + 1;
             if (verbose) $display("GenericMatchTable:: %d: bcam lookup ", cycle, fshow(req_bcam));
+            lastMatchRequest <= extend(field.dstip);
          endmethod
       endinterface
       interface Get response;
@@ -162,4 +176,11 @@ module mkMatchTable(MatchTable#(depth, keySz))
          ram.portA.request.put(req_ram);
       endmethod
    endinterface
+   method MatchTableDbgRec dbg();
+      return MatchTableDbgRec {matchRequestCount: matchRequestCount
+                              ,matchResponseCount: matchResponseCount
+                              ,matchValidCount: matchValidCount
+                              ,lastMatchIdx: lastMatchIdx
+                              ,lastMatchRequest: lastMatchRequest};
+   endmethod
 endmodule

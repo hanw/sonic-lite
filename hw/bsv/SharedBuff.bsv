@@ -45,8 +45,8 @@ import DbgTypes::*;
 interface SharedBuffer#(numeric type addrWidth, numeric type busWidth, numeric type nMasters);
    interface MemServerRequest memServerRequest;
    interface Put#(Bit#(EtherLen)) mallocReq;
-   interface Get#(Maybe#(Bit#(32))) mallocDone;
-   interface Put#(Bit#(32)) freeReq;
+   interface Get#(Maybe#(PktId)) mallocDone;
+   interface Put#(PktId) freeReq;
    interface Get#(Bool) freeDone;
    method MemMgmtDbgRec dbg;
 endinterface
@@ -69,8 +69,6 @@ module mkSharedBuffer#(Vector#(numReadClients, MemReadClient#(busWidth)) readCli
             ,Mul#(TDiv#(busWidth, ByteEnableSize), ByteEnableSize, busWidth)
             ,Add#(`DataBusWidth, 0, busWidth)
 	    );
-   let verbose = True;
-
    MemMgmt#(addrWidth) alloc <- mkMemMgmt(
 `ifdef DEBUG
                                           memTestInd

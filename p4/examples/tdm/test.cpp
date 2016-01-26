@@ -65,12 +65,17 @@ public:
         fprintf(stderr, "RingBufferStatus:\n Rx sop=%ld, eop=%ld \n Tx sop=%ld, eop=%ld \n", sopEnq, eopEnq, sopDeq, eopDeq);
         sem_post(&cmdCompleted);
     }
-    virtual void readMemMgmtCntrsResp(uint64_t allocCnt, uint64_t freeCnt) {
-        fprintf(stderr, "MemMgmt: alloc=%ld, free=%ld\n", allocCnt, freeCnt);
+    virtual void readMemMgmtCntrsResp(uint64_t allocCnt, uint64_t freeCnt, uint64_t allocCompleted, uint64_t freeCompleted, uint64_t errorCode, uint64_t lastIdFreed, uint64_t lastIdAllocated, uint64_t freeStarted, uint64_t firstSegment, uint64_t lastSegment, uint64_t currSegment, uint64_t invalidSegment) {
+        fprintf(stderr, "MemMgmt: alloc=%ld, free=%ld, allocCompleted=%ld, freeCompleted=%ld, error=%ld\n", allocCnt, freeCnt, allocCompleted, freeCompleted, errorCode);
+        fprintf(stderr, "MemMgmt: lastIdFreed=0x%lx, lastIdAllocated=0x%lx, freeStarted=%ld, firstSegment=0x%lx, lastSegment=0x%lx, currSegment=0x%lx, invalidSegment=%ld\n", lastIdFreed, lastIdAllocated, freeStarted, firstSegment, lastSegment, currSegment, invalidSegment);
         sem_post(&cmdCompleted);
     }
     virtual void readTDMCntrsResp(uint64_t lookupCnt, uint64_t modifyMacCnt, uint64_t fwdReqCnt, uint64_t sendCnt) {
         fprintf(stderr, "TDM: lookup=%ld, modifyMac=%ld, fwdReq=%ld, sent=%ld\n", lookupCnt, modifyMacCnt, fwdReqCnt, sendCnt);
+        sem_post(&cmdCompleted);
+    }
+    virtual void readMatchTableCntrsResp(uint64_t matchRequestCount, uint64_t matchResponseCount, uint64_t matchValidCount, uint64_t lastMatchIdx, uint64_t lastMatchRequest) {
+        fprintf(stderr, "MatchTable: matchRequestCount=%ld, matchResponseCount=%ld, matchValidCount=%ld\n lastMatchIdx=%lx lastMatchRequest=%lx\n", matchRequestCount, matchResponseCount, matchValidCount, lastMatchIdx, lastMatchRequest);
         sem_post(&cmdCompleted);
     }
     MemoryTestIndication(unsigned int id) : MemoryTestIndicationWrapper(id) {}
@@ -197,6 +202,8 @@ void read_status () {
     sem_wait(&cmdCompleted);
     device->readMemMgmtCntrs();
     sem_wait(&cmdCompleted);
+    device->readMatchTableCntrs();
+    sem_wait(&cmdCompleted);
 }
 
 int main(int argc, char **argv)
@@ -227,13 +234,13 @@ int main(int argc, char **argv)
     }
 
     if (arguments.tableadd) {
-        MatchField fields = {dstip: 0x0200000a};
-        add_entry(&fields);
-        fields.dstip = 0x0300000a;
+        MatchField fields = {dstip: 0x0300000a};
         add_entry(&fields);
         fields.dstip = 0x0400000a;
         add_entry(&fields);
         fields.dstip = 0x0100000a;
+        add_entry(&fields);
+        fields.dstip = 0x0200000a;
         add_entry(&fields);
     }
 
@@ -266,6 +273,6 @@ int main(int argc, char **argv)
 //    }
 //
 
-    while(1) sleep(1);
+//    while(1) sleep(1);
     return 0;
 }

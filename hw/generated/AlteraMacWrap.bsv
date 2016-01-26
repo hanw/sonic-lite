@@ -44,7 +44,15 @@ endinterface
 interface Mac_link_fault;
     method Bit#(2)     status_data();
 endinterface
-
+(* always_ready, always_enabled *)
+interface Mac_mgmt;
+   method Action address(Bit#(17) v);
+   method Action read(Bit#(1) v);
+   method Action write(Bit#(1) v);
+   method Action writedata(Bit#(32) v);
+   method Bit#(1) waitrequest();
+   method Bit#(32) readdata();
+endinterface
 (* always_ready, always_enabled *)
 interface MacWrap;
    interface Mac_rx rx;
@@ -53,6 +61,7 @@ interface MacWrap;
    interface Mac_tx_status tx_status;
    interface Mac_xgmii xgmii;
    interface Mac_link_fault link_fault;
+   interface Mac_mgmt mgmt;
 endinterface
 
 import "BVI" mac_10gbe=
@@ -101,6 +110,13 @@ module mkMacWrap#(Clock mgmt_clk, Clock tx_clk, Clock rx_clk, Reset mgmt_reset_n
       method rx_data(xgmii_rx_data) clocked_by (rx_clk) reset_by (rx_reset_n) enable((*inhigh*) EN_xgmii_rx_data);
       method xgmii_tx_data tx_data() clocked_by (tx_clk) reset_by (tx_reset_n);
    endinterface
-
-   schedule (link_fault.status_data, rx.fifo_out_data, rx.fifo_out_empty, rx.fifo_out_endofpacket, rx.fifo_out_error, rx.fifo_out_ready, rx.fifo_out_startofpacket, rx.fifo_out_valid, rx_status.status_data, rx_status.status_error, rx_status.status_valid, tx.fifo_in_data, tx.fifo_in_empty, tx.fifo_in_endofpacket, tx.fifo_in_error, tx.fifo_in_ready, tx.fifo_in_startofpacket, tx.fifo_in_valid, tx_status.status_data, tx_status.status_error, tx_status.status_valid, xgmii.rx_data, xgmii.tx_data) CF (link_fault.status_data, rx.fifo_out_data, rx.fifo_out_empty, rx.fifo_out_endofpacket, rx.fifo_out_error, rx.fifo_out_ready, rx.fifo_out_startofpacket, rx.fifo_out_valid, rx_status.status_data, rx_status.status_error, rx_status.status_valid, tx.fifo_in_data, tx.fifo_in_empty, tx.fifo_in_endofpacket, tx.fifo_in_error, tx.fifo_in_ready, tx.fifo_in_startofpacket, tx.fifo_in_valid, tx_status.status_data, tx_status.status_error, tx_status.status_valid, xgmii.rx_data, xgmii.tx_data);
+   interface Mac_mgmt      mgmt;
+      method address(mm_pipeline_bridge_address) clocked_by (mgmt_clk) reset_by (mgmt_reset_n) enable((*inhigh*) EN_mm_pipeline_bridge_address);
+      method read(mm_pipeline_bridge_read) clocked_by (mgmt_clk) reset_by (mgmt_reset_n) enable((*inhigh*) EN_mm_pipeline_bridge_read);
+      method write(mm_pipeline_bridge_write) clocked_by (mgmt_clk) reset_by (mgmt_reset_n) enable((*inhigh*) EN_mm_pipeline_bridge_write);
+      method writedata(mm_pipeline_bridge_writedata) clocked_by (mgmt_clk) reset_by (mgmt_reset_n) enable((*inhigh*) EN_mm_pipeline_bridge_writedata);
+      method mm_pipeline_bridge_waitrequest waitrequest() clocked_by (mgmt_clk) reset_by (mgmt_reset_n);
+      method mm_pipeline_bridge_readdata readdata() clocked_by (mgmt_clk) reset_by (mgmt_reset_n);
+   endinterface
+   schedule (link_fault.status_data, rx.fifo_out_data, rx.fifo_out_empty, rx.fifo_out_endofpacket, rx.fifo_out_error, rx.fifo_out_ready, rx.fifo_out_startofpacket, rx.fifo_out_valid, rx_status.status_data, rx_status.status_error, rx_status.status_valid, tx.fifo_in_data, tx.fifo_in_empty, tx.fifo_in_endofpacket, tx.fifo_in_error, tx.fifo_in_ready, tx.fifo_in_startofpacket, tx.fifo_in_valid, tx_status.status_data, tx_status.status_error, tx_status.status_valid, xgmii.rx_data, xgmii.tx_data, mgmt.address, mgmt.read, mgmt.write, mgmt.writedata, mgmt.waitrequest, mgmt.readdata) CF (link_fault.status_data, rx.fifo_out_data, rx.fifo_out_empty, rx.fifo_out_endofpacket, rx.fifo_out_error, rx.fifo_out_ready, rx.fifo_out_startofpacket, rx.fifo_out_valid, rx_status.status_data, rx_status.status_error, rx_status.status_valid, tx.fifo_in_data, tx.fifo_in_empty, tx.fifo_in_endofpacket, tx.fifo_in_error, tx.fifo_in_ready, tx.fifo_in_startofpacket, tx.fifo_in_valid, tx_status.status_data, tx_status.status_error, tx_status.status_valid, xgmii.rx_data, xgmii.tx_data, mgmt.address, mgmt.read, mgmt.write, mgmt.writedata, mgmt.waitrequest, mgmt.readdata);
 endmodule

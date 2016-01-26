@@ -43,7 +43,8 @@ import DbgTypes::*;
 
 typedef enum {
    MemMgmtErrorNone,
-   MemMgmtErrorInvalidPacketId
+   MemMgmtErrorInvalidPacketId,
+   MemMgmtErrorOutOfSpace
 } MemMgmtErrorType deriving (Bits);
 
 typedef struct {
@@ -94,8 +95,8 @@ interface MemMgmt#(numeric type addrWidth);
    method Action init_mem();
    interface MMU#(addrWidth) mmu;
    interface Put#(Bit#(EtherLen)) mallocReq;
-   interface Get#(Maybe#(Bit#(32))) mallocDone;
-   interface Put#(Bit#(32)) freeReq;
+   interface Get#(Maybe#(PktId)) mallocDone;
+   interface Put#(PktId) freeReq;
    interface Get#(Bool) freeDone;
    method MemMgmtDbgRec dbg;
 endinterface
@@ -113,11 +114,18 @@ module mkMemMgmt
    endrule
 
    Reg#(Bit#(64)) allocCnt <- mkReg(0);
+   Reg#(Bit#(64)) allocCompleted <- mkReg(0);
    Reg#(Bit#(64)) freeCnt <- mkReg(0);
+   Reg#(Bit#(64)) freeCompleted <- mkReg(0);
+   Reg#(Bit#(64)) errorCode <- mkReg(0);
+   Reg#(Bit#(64)) lastIdFreed <- mkReg(0);
+   Reg#(Bit#(64)) lastIdAllocated <- mkReg(0);
+   Reg#(Bit#(64)) firstSegment <- mkReg(0);
+   Reg#(Bool) invalidSegment <- mkReg(False);
 
    Reg#(Bool) inited <- mkReg(False);
    FIFOF#(Bit#(EtherLen)) outstanding_malloc <- mkFIFOF;
-   FIFOF#(Bit#(32)) outstanding_free <- mkFIFOF;
+   FIFOF#(PktId) outstanding_free <- mkFIFOF;
 
    FIFOF#(Bit#(PageIdx)) freePageList <- mkSizedFIFOF(freeQueueDepth);
 
@@ -125,25 +133,25 @@ module mkMemMgmt
    bramConfig.latency        = 2;
    // Store mapping from packetId to first page in linked list
    // PortA
-   BRAM2Port#(Bit#(32), Maybe#(Bit#(PageIdx))) idmap <- ConnectalBram::mkBRAM2Server(bramConfig);
+   BRAM2Port#(PktId, Maybe#(Bit#(PageIdx))) idmap <- mkBRAM2Server(bramConfig);
    // Pack linked list of pages into BRAM for free operation
    // BRAM is indiced with pageIdx, and each entry in BRAM stores
    // a Maybe#(pageIdx) for next entry in the same list.
    // Entry is Invalid for last entry in a list
-   BRAM2Port#(Bit#(PageIdx), Maybe#(Bit#(PageIdx))) pagemap <- ConnectalBram::mkBRAM2Server(bramConfig);
+   BRAM2Port#(Bit#(PageIdx), Maybe#(Bit#(PageIdx))) pagemap <- mkBRAM2Server(bramConfig);
 
-   Count#(Bit#(PageIdx)) reqBurstLen <- mkCount(0);
-   Count#(Bit#(PageIdx)) reqSglIndex<- mkCount(0);
+   Reg#(Bit#(PageIdx)) reqBurstLen <- mkReg(0);
+   Reg#(Bit#(PageIdx)) reqSglIndex<- mkReg(0);
    ConfigCounter#(PageIdx) freePageCount <- mkConfigCounter(0);
    Reg#(Bool) free_started <- mkReg(False);
    Reg#(Maybe#(Bit#(PageIdx))) lastSegment <- mkReg(tagged Invalid);
-   Reg#(Bit#(32)) idToFree <- mkReg(0);
-   Reg#(Bit#(PageIdx)) currSegement <- mkReg(0);
+   Reg#(PktId) idToFree <- mkReg(0);
+   Reg#(Bit#(PageIdx)) currSegment <- mkReg(0);
 
-   Reg#(Bit#(32)) packetId <- mkReg(0);
+   Reg#(PktId) packetId <- mkReg(0);
    Reg#(Bit#(64)) barr0 <- mkReg(0);
 
-   FIFO#(Maybe#(Bit#(32))) mallocDoneFifo <- mkFIFO;
+   FIFO#(Maybe#(PktId)) mallocDoneFifo <- mkFIFO;
    FIFO#(Bool) freeDoneFifo <- mkFIFO;
    FIFO#(MemMgmtError) memMgmtErrorFifo <- mkFIFO;
    FIFO#(Bit#(PageIdx)) pagePointerFifo <- mkFIFO;
@@ -176,44 +184,48 @@ module mkMemMgmt
    rule handle_alloc_req;
       let v <- toGet(outstanding_malloc).get;
       let id <- proxy.idResponse.get;
-      $display("MemMgmt:: Allocating pages for packet id %d packet size %d", id, v);
+      $display("MemMgmt:: %d Allocating pages for packet id %d packet size %d", cycle, id, v);
       // Corner case when v is close to 4kb.
       let mask = (1 << valueOf(PageAddrLen)) - 1;
       Bit#(PageIdx) nPages = truncate(((v + mask) & (~mask)) >> valueOf(PageAddrLen));
-      $display("MemMgmt::handle_malloc allocate nPage=%d", nPages);
+      $display("MemMgmt:: %d handle_malloc allocate nPage=%d", cycle, nPages);
       let hasSpace <- freePageCount.maybeDecrement(unpack(nPages));
       if (hasSpace) begin
-         reqBurstLen.update(nPages);
-         reqSglIndex.update(0);
+         reqBurstLen <= nPages;
+         reqSglIndex <= 0;
          lastSegment <= tagged Invalid;
          barr0 <= extend(((v+mask) & (~mask)) >> valueOf(PageAddrLen));
-         packetId <= id;
+         packetId <= truncate(id); // MaxNumPkts defined in SharedBuffMMU;
       end
       else begin
          $display("Error:: insufficient space %d instead of %d", freePageCount.read, nPages);
          mallocDoneFifo.enq(tagged Invalid);
+         errorCode <= extend(pack(MemMgmtErrorOutOfSpace));
       end
    endrule
 
-   rule generate_sglist if (reqBurstLen._read > 0 && !free_started);
+   rule generate_sglist if (reqBurstLen > 0);
       let segment <- toGet(freePageList).get;
       // assume fixed page size of 256 bytes
-      iommu.request.sglist(packetId, extend(reqSglIndex._read), extend(segment), 256);
+      // extend packetId to 32 bit, only lower TLog#(MaxNumPkts) bits are used
+      iommu.request.sglist(extend(packetId), extend(reqSglIndex), extend(segment), 256);
       // add current page(segment) to the front of a linked list
       portsel(pagemap, 0).request.put(BRAMRequest{write:True, responseOnWrite:False, address:segment, datain: lastSegment});
-      reqBurstLen.decr(1);
-      reqSglIndex.incr(1);
+      reqBurstLen <= reqBurstLen - 1;
+      reqSglIndex <= reqSglIndex + 1;
       lastSegment <= tagged Valid segment;
-      if (reqBurstLen._read == 1) begin
-         iommu.request.region(packetId, 0, 0, 0, 0, 0, 0, barr0, 0);
+      if (reqBurstLen == 1) begin
+         iommu.request.region(extend(packetId), 0, 0, 0, 0, 0, 0, barr0, 0);
          // map id to linked-list of pages
          portsel(idmap, 0).request.put(BRAMRequest{write:True, responseOnWrite:False, address:packetId, datain:tagged Valid segment});
          mallocDoneFifo.enq(tagged Valid packetId);
+         allocCompleted <= allocCompleted + 1;
+         lastIdAllocated <= extend(packetId);
 `ifdef DEBUG
-         indication.memory_allocated(packetId);
+         indication.memory_allocated(extend(packetId));
 `endif
       end
-      $display("MemMgmt:: id=%d, segmentIdx=%x", packetId, segment);
+      $display("MemMgmt:: %d id=%d, segmentIdx=%x %h", cycle, packetId, segment, lastSegment);
    endrule
 
    rule handle_free_req if (!free_started);
@@ -221,7 +233,8 @@ module mkMemMgmt
       free_started <= True;
       portsel(idmap, 1).request.put(BRAMRequest{write:False, responseOnWrite:False, address:sglId, datain:?});
       idToFree <= sglId;
-      if (verbose) $display("MemMgmt::start_free_sglist %h", sglId);
+      if (verbose) $display("MemMgmt:: %d start_free_sglist %h", cycle, sglId);
+      lastIdFreed <= extend(sglId);
    endrule
 
    rule report_error;
@@ -229,7 +242,7 @@ module mkMemMgmt
 `ifdef DEBUG
       indication.error(extend(pack(v.errorType)), v.id);
 `endif
-      if (verbose) $display("MemMgmt::free_error: memMgmt error");
+      if (verbose) $display("MemMgmt:: %d free_error: memMgmt error", cycle);
    endrule
 
    rule del_id_metadata if (free_started);
@@ -238,39 +251,43 @@ module mkMemMgmt
          tagged Valid .page: begin
             portsel(idmap, 1).request.put(BRAMRequest{write:True, responseOnWrite:False, address: idToFree, datain: tagged Invalid});
             portsel(pagemap, 1).request.put(BRAMRequest{write:False, responseOnWrite:False, address: page, datain:?});
-            $display("MemMgmt::free_idmap ", fshow(page));
-            currSegement <= page;
+            $display("MemMgmt:: %d free_idmap ", cycle, fshow(page));
+            currSegment <= page;
          end
-         tagged Invalid:
-            memMgmtErrorFifo.enq(MemMgmtError{errorType: MemMgmtErrorInvalidPacketId, id: idToFree});
+         tagged Invalid: begin
+            memMgmtErrorFifo.enq(MemMgmtError{errorType: MemMgmtErrorInvalidPacketId, id: extend(idToFree)});
+            invalidSegment <= True;
+         end
       endcase
+      firstSegment <= extend(pack(segment));
    endrule
 
    rule del_page_metadata if (free_started);
       Maybe#(Bit#(PageIdx)) segment <- portsel(pagemap, 1).response.get;
       case (segment) matches
          tagged Valid .page: begin
-            currSegement <= page;
+            currSegment <= page;
             pagePointerFifo.enq(page);
          end
          tagged Invalid: begin
             free_started <= False;
+            freeCompleted <= freeCompleted + 1;
 `ifdef DEBUG
-            indication.packet_freed(idToFree);
+            indication.packet_freed(extend(idToFree));
 `endif
          end
       endcase
       // return current page to free page list
-      portsel(pagemap, 1).request.put(BRAMRequest{write:True, responseOnWrite:False, address: currSegement, datain: tagged Invalid});
-      freePageList.enq(currSegement);
+      portsel(pagemap, 1).request.put(BRAMRequest{write:True, responseOnWrite:False, address: currSegment, datain: tagged Invalid});
+      freePageList.enq(currSegment);
       freePageCount.increment(1);
-      if (verbose) $display("MemMgmt:: segment ", fshow(segment));
+      if (verbose) $display("MemMgmt:: %d segment ", cycle, fshow(segment));
    endrule
 
    rule read_next_page_metadata if (free_started);
       let page <- toGet(pagePointerFifo).get;
       portsel(pagemap, 1).request.put(BRAMRequest{write:False, responseOnWrite:False, address:page, datain:?});
-      if (verbose) $display("MemMgmt:: read next page ", fshow(page));
+      if (verbose) $display("MemMgmt:: %d read next page ", cycle, fshow(page));
    endrule
 
    method Action init_mem();
@@ -280,7 +297,7 @@ module mkMemMgmt
    endmethod
    interface Put mallocReq;
       method Action put(Bit#(EtherLen) sz);
-         $display("MemMgmt:: %d: req page=%d", cycle, freePageCount.read);
+         $display("MemMgmt:: %d req page=%d", cycle, freePageCount.read);
          outstanding_malloc.enq(sz);
          iommu.request.idRequest(0);
          allocCnt <= allocCnt + 1;
@@ -288,9 +305,9 @@ module mkMemMgmt
    endinterface
    interface Get mallocDone = toGet(mallocDoneFifo);
    interface Put freeReq;
-      method Action put(Bit#(32) id);
-         $display("MemMgmt:: free request %h", id);
-         iommu.request.idReturn(id);
+      method Action put(PktId id);
+         $display("MemMgmt:: %d free request %h", cycle, id);
+         iommu.request.idReturn(extend(id));
          outstanding_free.enq(id);
          freeCnt <= freeCnt + 1;
       endmethod
@@ -298,7 +315,18 @@ module mkMemMgmt
    interface Get freeDone = toGet(freeDoneFifo);
    interface MMU mmu = iommu;
    method MemMgmtDbgRec dbg;
-      return MemMgmtDbgRec { allocCnt: allocCnt, freeCnt: freeCnt };
+      return MemMgmtDbgRec { allocCnt: allocCnt
+                            ,freeCnt: freeCnt
+                            ,allocCompleted: allocCompleted
+                            ,freeCompleted: freeCompleted
+                            ,errorCode: errorCode
+                            ,lastIdFreed: lastIdFreed
+                            ,lastIdAllocated: lastIdAllocated
+                            ,freeStarted: extend(pack(free_started))
+                            ,firstSegment: extend(firstSegment)
+                            ,lastSegment: extend(pack(lastSegment))
+                            ,currSegment: extend(currSegment)
+                            ,invalidSegment: extend(pack(invalidSegment))};
    endmethod
 endmodule
 

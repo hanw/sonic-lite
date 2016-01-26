@@ -57,6 +57,7 @@ interface TdmPipeline;
    method MemMgmtDbgRec memMgmtDbg;
    method TDMDbgRec tdmDbg;
    method ActionValue#(PktBuffDbgRec) pktBuffDbg(Bit#(8) id);
+   method MatchTableDbgRec matchTableDbg;
 endinterface
 
 module mkTdmPipeline#(Clock txClock, Reset txReset
@@ -64,7 +65,7 @@ module mkTdmPipeline#(Clock txClock, Reset txReset
                        ,ConnectalMemory::MemServerIndication memServerInd
 `ifdef DEBUG
                        ,MemMgmtIndication memTestInd
-                       ,MMUIndication mmuInd
+                       ,ConnectalMemory::MMUIndication mmuInd
 `endif
    )(TdmPipeline);
 
@@ -131,6 +132,7 @@ module mkTdmPipeline#(Clock txClock, Reset txReset
    interface add_entry = matchTable.add_entry;
    interface delete_entry = matchTable.delete_entry;
    interface modify_entry = matchTable.modify_entry;
+   method matchTableDbg = matchTable.dbg;
    method memMgmtDbg = mem.dbg;
    method tdmDbg = sched.dbg;
    method ActionValue#(PktBuffDbgRec) pktBuffDbg(Bit#(8) id);

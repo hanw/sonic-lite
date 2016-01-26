@@ -43,19 +43,20 @@ import MemServerInternal::*;
 import MemMgmt::*;
 import PacketBuffer::*;
 import SharedBuff::*;
+import SharedBuffMMU::*;
 import SpecialFIFOs::*;
 import Vector::*;
 import Pipe::*;
 
 typedef struct {
-   Bit#(32) id;
+   PktId id;
    Bit#(EtherLen) size;
 } PacketInstance deriving(Bits, Eq);
 
 interface StoreAndFwdFromRingToMem;
    interface PktReadClient readClient;
    interface Get#(Bit#(EtherLen)) mallocReq;
-   interface Put#(Maybe#(Bit#(32))) mallocDone;
+   interface Put#(Maybe#(PktId)) mallocDone;
    interface MemWriteClient#(`DataBusWidth) writeClient;
    interface Get#(PacketInstance) eventPktCommitted;
 endinterface
@@ -87,7 +88,7 @@ module mkStoreAndFwdFromRingToMem
 
    FIFO#(Bit#(EtherLen)) mallocReqFifo <- mkFIFO;
    FIFO#(Bit#(EtherLen)) pktLenFifo <- mkFIFO;
-   FIFO#(Maybe#(Bit#(32))) mallocDoneFifo <- mkFIFO;
+   FIFO#(Maybe#(PktId)) mallocDoneFifo <- mkFIFO;
    Reg#(Bool) readStarted <- mkReg(False);
    Reg#(Bool) mallocd <- mkReg(False);
 
@@ -118,7 +119,7 @@ module mkStoreAndFwdFromRingToMem
          mallocd <= True;
          readReqFifo.enq(EtherReq{len: truncate(pktLen)});
          //FIXME use correct sglId
-         writeReqFifo.enq(MemRequest {sglId: fromMaybe(?, allocId), offset: 0,
+         writeReqFifo.enq(MemRequest {sglId: extend(fromMaybe(?, allocId)), offset: 0,
                                       burstLen: truncate(burstLen), tag:0
 `ifdef BYTE_ENABLES
                                       , firstbe: 'hffff, lastbe: mask
@@ -144,7 +145,7 @@ module mkStoreAndFwdFromRingToMem
       let v <- toGet(writeDoneFifo).get;
       let recvd <- toGet(eventPktReceivedFifo).get;
 `ifdef DEBUG
-      memTestInd.packet_committed(recvd.id);
+      memTestInd.packet_committed(extend(recvd.id));
 `endif
       eventPktCommittedFifo.enq(recvd);
       if (verbose) $display("StoreAndForward::packetReadDone %d: packet written to memory %h", cycle, v);
@@ -166,7 +167,7 @@ interface StoreAndFwdFromMemToRing;
    interface PktWriteClient writeClient;
    interface MemReadClient#(`DataBusWidth) readClient;
    interface Put#(PacketInstance) eventPktSend;
-   interface Get#(Bit#(32)) freeReq;
+   interface Get#(PktId) freeReq;
 endinterface
 
 module mkStoreAndFwdFromMemToRing(StoreAndFwdFromMemToRing)
@@ -187,10 +188,10 @@ module mkStoreAndFwdFromMemToRing(StoreAndFwdFromMemToRing)
    endinterface);
 
    FIFO#(PacketInstance) eventPktSendFifo <- mkSizedFIFO(4);
-   FIFO#(Bit#(32)) freeReqFifo <- mkSizedFIFO(4);
+   FIFO#(PktId) freeReqFifo <- mkSizedFIFO(4);
 
    Reg#(Bool)                 outPacket <- mkReg(False);
-   Reg#(Bit#(32))          currPacketId <- mkReg(0);
+   Reg#(PktId)            currPacketId <- mkReg(0);
    Reg#(Bit#(EtherLen))   readBurstCount <- mkReg(0);
    Reg#(Bit#(EtherLen))   readBurstLen <- mkReg(0);
 
@@ -206,7 +207,7 @@ module mkStoreAndFwdFromMemToRing(StoreAndFwdFromMemToRing)
       let burstLen = ((pkt.size + bytesPerBeatMinusOne) & ~(bytesPerBeatMinusOne));
       if (verbose) $display("StoreAndForward:: packetReadStart: %h, burstLen = %h", pkt.size, burstLen);
       let mask = (1<< (pkt.size % fromInteger(valueOf(bytesPerBeat))))-1;
-      readReqFifo.enq(MemRequest{sglId: pkt.id, offset: 0,
+      readReqFifo.enq(MemRequest{sglId: extend(pkt.id), offset: 0,
                                  burstLen: truncate(burstLen), tag: 0
 `ifdef BYTE_ENABLES
                                  , firstbe: 'hffff, lastbe: mask
