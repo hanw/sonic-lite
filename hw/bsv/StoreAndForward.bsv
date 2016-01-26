@@ -31,6 +31,7 @@ import Clocks::*;
 import Cntrs::*;
 import ClientServer::*;
 import DefaultValue::*;
+import DbgTypes::*;
 import Ethernet::*;
 import EthMac::*;
 import FIFO::*;
