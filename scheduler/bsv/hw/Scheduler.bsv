@@ -45,7 +45,7 @@ interface Scheduler#(type readReqType, type readResType,
 	interface Get#(Bit#(64)) host_pkt_response;
 	interface Get#(Bit#(64)) non_host_pkt_response;
 	interface Get#(Bit#(64)) received_pkt_response;
-	interface Get#(Bit#(64)) unknown_pkt_response;
+	interface Get#(Bit#(64)) rxWrite_pkt_response;
 //	interface Get#(RingBufferDataT) debug_consuming_pkt;
 
 	method Action start(ServerIndex serverIdx);
@@ -55,7 +55,7 @@ interface Scheduler#(type readReqType, type readResType,
 	method Action hostPktCount();
 	method Action nonHostPktCount();
 	method Action receivedPktCount();
-	method Action unknownPktCount();
+	method Action rxWritePktCount();
 endinterface
 
 (* synthesize *)
@@ -138,14 +138,14 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
 	        <- mkSyncFIFO(1, defaultClock, defaultReset, pcieClock);
 	SyncFIFOIfc#(Bit#(64)) received_pkt_fifo
 	        <- mkSyncFIFO(1, defaultClock, defaultReset, pcieClock);
-	SyncFIFOIfc#(Bit#(64)) unknown_pkt_fifo
+	SyncFIFOIfc#(Bit#(64)) rxWrite_pkt_fifo
 	        <- mkSyncFIFO(1, defaultClock, defaultReset, pcieClock);
 	Reg#(Bit#(64)) num_of_time_slots_used_reg <- mkReg(0);
 	Reg#(Bit#(64)) host_pkt_transmitted_reg <- mkReg(0);
 	Reg#(Bit#(64)) non_host_pkt_transmitted_reg <- mkReg(0);
 	Vector#(NUM_OF_PORTS, Reg#(Bit#(64))) num_of_pkt_received_reg
 	                                     <- replicateM(mkReg(0));
-	Vector#(NUM_OF_PORTS, Reg#(Bit#(64))) num_of_unknown_pkt_reg
+	Vector#(NUM_OF_PORTS, Reg#(Bit#(64))) num_of_rxWrite_pkt_reg
 	                                     <- replicateM(mkReg(0));
 
 //	SyncFIFOIfc#(RingBufferDataT) debug_consuming_pkt_fifo
@@ -314,8 +314,8 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
 						if (index >= fromInteger(valueof(NUM_OF_SERVERS)))
                         begin
                             ring_buffer_index_fifo[i].enq(0);
-							//num_of_unknown_pkt_reg[i] <=
-							//               num_of_unknown_pkt_reg[i] + 1;
+							//num_of_rxWrite_pkt_reg[i] <=
+							//               num_of_rxWrite_pkt_reg[i] + 1;
                         end
                         else
                             ring_buffer_index_fifo[i].enq(index);
@@ -543,7 +543,7 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
         rule handle_rx_buffer_write_req_from_mac;
             let req <- toGet(mac_write_request_fifo[i]).get;
 			if (req.data.sop == 1 && req.data.eop == 0)
-				num_of_unknown_pkt_reg[i] <= num_of_unknown_pkt_reg[i] + 1;
+				num_of_rxWrite_pkt_reg[i] <= num_of_rxWrite_pkt_reg[i] + 1;
             if (verbose)
                 $display("[SCHED (%d)] CLK = %d Putting data into rx port buffer %d %d %x i = %d",
                 host_index, clk.currTime(), req.data.sop, req.data.eop, req.data.payload, i);
@@ -624,11 +624,11 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
 		received_pkt_fifo.enq(pkt_received);
 	endmethod
 
-	method Action unknownPktCount();
-		Bit#(64) unknown_pkt = 0;
+	method Action rxWritePktCount();
+		Bit#(64) rxWrite_pkt = 0;
 		for (Integer i = 0; i < fromInteger(valueof(NUM_OF_PORTS)); i = i + 1)
-			unknown_pkt = unknown_pkt + num_of_unknown_pkt_reg[i];
-		unknown_pkt_fifo.enq(unknown_pkt);
+			rxWrite_pkt = rxWrite_pkt + num_of_rxWrite_pkt_reg[i];
+		rxWrite_pkt_fifo.enq(rxWrite_pkt);
 	endmethod
 
 	method Action start(ServerIndex serverIdx);
@@ -660,7 +660,7 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
 	interface Get host_pkt_response = toGet(host_pkt_fifo);
 	interface Get non_host_pkt_response = toGet(non_host_pkt_fifo);
 	interface Get received_pkt_response = toGet(received_pkt_fifo);
-	interface Get unknown_pkt_response = toGet(unknown_pkt_fifo);
+	interface Get rxWrite_pkt_response = toGet(rxWrite_pkt_fifo);
 //	interface Get debug_consuming_pkt = toGet(debug_consuming_pkt_fifo);
 
 endmodule

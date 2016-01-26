@@ -33,8 +33,8 @@ public:
 		fprintf(stderr, "RECEIVED PKT = %lu\n", num_of_received_pkt);
 	}
 
-	virtual void display_unknown_pkt_count(uint64_t num_of_unknown_pkt) {
-		fprintf(stderr, "UNKNOWN PKT = %lu\n", num_of_unknown_pkt);
+	virtual void display_rxWrite_pkt_count(uint64_t num_of_rxWrite_pkt) {
+		fprintf(stderr, "PKT WRITTEN TO Rx = %lu\n", num_of_rxWrite_pkt);
 	}
 
 	virtual void display_dma_stats(uint64_t num_of_pkt_generated) {
@@ -92,13 +92,9 @@ int main(int argc, char **argv)
         cycles = atol(argv[3]);
     }
 
-//	for (int i = 0; i < 5; i++) {
-//		server_index = 0;
-//		rate = 3;
-//		cycles = 1000;
-		configure_scheduler(device);
-//		sleep(10);
-//	}
+	sleep(server_index);
+	configure_scheduler(device);
+
     while(1);
     return 0;
 }

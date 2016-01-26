@@ -7,7 +7,7 @@ BSVFILES = $(SONICDIR)/scheduler/bsv/hw/SchedulerTop.bsv
 CPPFILES = $(SONICDIR)/scheduler/cpp/test_hw.cpp
 
 CONNECTALFLAGS += -D DataBusWidth=128
-#CONNECTALFLAGS += -D NUMBER_OF_ALTERA_PORTS=3
+CONNECTALFLAGS += -D NUMBER_OF_ALTERA_PORTS=3
 CONNECTALFLAGS += --bsvpath=$(CONNECTALDIR)/bsv
 CONNECTALFLAGS += --bsvpath=$(SONICDIR)/hw/bsv/
 CONNECTALFLAGS += --bsvpath=$(SONICDIR)/hw/generated/
@@ -36,8 +36,8 @@ CONNECTALFLAGS += --tcl=$(SONICDIR)/boards/de5_extra.qsf
 CONNECTALFLAGS += --tcl=constraint.sdc
 CONNECTALFLAGS += --constraint=constraint.sdc
 CONNECTALFLAGS += --implconstraint=constraint.sdc
-#CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/sv_10g_pma/sv_10g_pma.qip
-#CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/altera_clkctrl/altera_clkctrl.qip
+CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/sv_10g_pma/sv_10g_pma.qip
+CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/altera_clkctrl/altera_clkctrl.qip
 
 #CONNECTALFLAGS += --chipscope=$(SONICDIR)/scheduler/debug.stp
 
@@ -53,8 +53,8 @@ prebuild::
 	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) quartus_sh -t $(SONICDIR)/hw/scripts/generate-mac.tcl)
 	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) quartus_sh -t $(SONICDIR)/hw/scripts/connectal-synth-phy.tcl)
 	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) quartus_sh -t $(CONNECTALDIR)/scripts/connectal-synth-pll.tcl)
-#	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) $(QUARTUS_SH) -t $(SONICDIR)/hw/scripts/connectal-synth-pma.tcl)
-#	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) $(QUARTUS_SH) -t $(SONICDIR)/hw/scripts/connectal-synth-misc.tcl)
+	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) $(QUARTUS_SH) -t $(SONICDIR)/hw/scripts/connectal-synth-pma.tcl)
+	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) $(QUARTUS_SH) -t $(SONICDIR)/hw/scripts/connectal-synth-misc.tcl)
 
-#include $(SONICDIR)/p4/Makefile.common
+include $(SONICDIR)/p4/Makefile.common
 include $(CONNECTALDIR)/Makefile.connectal

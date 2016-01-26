@@ -17,6 +17,7 @@ import Addresses::*;
 
 import AlteraMacWrap::*;
 import EthMac::*;
+import EthPhy::*;
 import AlteraEthPhy::*;
 import DE5Pins::*;
 
@@ -25,7 +26,7 @@ interface SchedulerTopIndication;
 	method Action display_host_pkt_count(Bit#(64) num_of_host_pkt);
 	method Action display_non_host_pkt_count(Bit#(64) num_of_non_host_pkt);
 	method Action display_received_pkt_count(Bit#(64) num_of_received_pkt);
-	method Action display_unknown_pkt_count(Bit#(64) num_of_unknown_pkt);
+	method Action display_rxWrite_pkt_count(Bit#(64) num_of_rxWrite_pkt);
 	method Action display_dma_stats(Bit#(64) num_of_pkt_generated);
     method Action display_sop_count_from_mac_rx(Bit#(64) count);
     method Action display_eop_count_from_mac_rx(Bit#(64) count);
@@ -75,9 +76,9 @@ module mkSchedulerTop#(SchedulerTopIndication indication)(SchedulerTop);
     De5Buttons#(4) buttons <- mkDe5Buttons(clocked_by mgmtClock, reset_by mgmtReset);
 
     // Phy
-    EthPhyIfc phys <- mkAlteraEthPhy(defaultClock, phyClock, txClock, defaultReset);
-//    EthPhyIfc phys <- mkAlteraEthPhy(mgmtClock, phyClock, txClock, defaultReset, clocked_by mgmtClock, reset_by mgmtReset);
-//    DtpPhyIfc#(1) dtpPhy <- mkEthPhy(mgmtClock, txClock, phyClock, clocked_by mgmtClock, reset_by mgmtReset);
+    //EthPhyIfc phys <- mkAlteraEthPhy(defaultClock, phyClock, txClock, defaultReset);
+    EthPhyIfc phys <- mkAlteraEthPhy(mgmtClock, phyClock, txClock, defaultReset, clocked_by mgmtClock, reset_by mgmtReset);
+    DtpPhyIfc#(1) dtpPhy <- mkEthPhy(mgmtClock, txClock, phyClock, clocked_by mgmtClock, reset_by mgmtReset);
 
     Vector#(NUM_OF_PORTS, Clock) rxClock;
     Vector#(NUM_OF_PORTS, Reset) rxReset;
@@ -129,14 +130,14 @@ module mkSchedulerTop#(SchedulerTopIndication indication)(SchedulerTop);
 	                    <- mkReg(0, clocked_by txClock, reset_by txReset);
 	Reg#(Bit#(1)) get_received_pkt_flag
 	                    <- mkReg(0, clocked_by txClock, reset_by txReset);
-	Reg#(Bit#(1)) get_unknown_pkt_flag
+	Reg#(Bit#(1)) get_rxWrite_pkt_flag
 	                    <- mkReg(0, clocked_by txClock, reset_by txReset);
 	Reg#(Bit#(1)) get_sop_count_flag
-	                    <- mkReg(0, clocked_by rxClock[1], reset_by rxReset[1]);
+	                    <- mkReg(0, clocked_by rxClock[0], reset_by rxReset[0]);
 	Reg#(Bit#(1)) get_eop_count_flag
-	                    <- mkReg(0, clocked_by rxClock[1], reset_by rxReset[1]);
+	                    <- mkReg(0, clocked_by rxClock[0], reset_by rxReset[0]);
     SyncFIFOIfc#(Bit#(1)) mac_rx_debug_fifo
-                        <- mkSyncFIFO(1, txClock, txReset, rxClock[1]);
+                        <- mkSyncFIFO(1, txClock, txReset, rxClock[0]);
 
     /* This rule is to configure when to stop the DMA and collect stats */
     rule count_cycles (start_counting == 1);
@@ -181,12 +182,12 @@ module mkSchedulerTop#(SchedulerTopIndication indication)(SchedulerTop);
 	rule get_received_pkt_statistics (get_received_pkt_flag == 1);
 		scheduler.receivedPktCount();
 		get_received_pkt_flag <= 0;
-		get_unknown_pkt_flag <= 1;
+		get_rxWrite_pkt_flag <= 1;
 	endrule
 
-	rule get_unknown_pkt_statistics (get_unknown_pkt_flag == 1);
-		scheduler.unknownPktCount();
-		get_unknown_pkt_flag <= 0;
+	rule get_rxWrite_pkt_statistics (get_rxWrite_pkt_flag == 1);
+		scheduler.rxWritePktCount();
+		get_rxWrite_pkt_flag <= 0;
         mac_rx_debug_fifo.enq(1);
 	endrule
 
@@ -196,13 +197,13 @@ module mkSchedulerTop#(SchedulerTopIndication indication)(SchedulerTop);
     endrule
 
     rule get_sop_count (get_sop_count_flag == 1);
-        mac.getSOPCountForPort1();
+        mac.getSOPCountForPort0();
         get_sop_count_flag <= 0;
         get_eop_count_flag <= 1;
     endrule
 
     rule get_eop_count (get_eop_count_flag == 1);
-        mac.getEOPCountForPort1();
+        mac.getEOPCountForPort0();
         get_eop_count_flag <= 0;
     endrule
 
@@ -272,7 +273,7 @@ module mkSchedulerTop#(SchedulerTopIndication indication)(SchedulerTop);
 /*------------------------------------------------------------------------------*/
     // PHY port to MAC port mapping
 
-    for (Integer i = 0; i < fromInteger(valueof(NUM_OF_PORTS)); i = i + 1)
+    for (Integer i = 0; i < valueof(NUM_OF_PORTS); i = i + 1)
     begin
         rule mac_phy_tx;
             phys.tx[i].put(mac.tx(i));
@@ -342,17 +343,17 @@ module mkSchedulerTop#(SchedulerTopIndication indication)(SchedulerTop);
 	endrule
 
 /*------------------------------------------------------------------------------*/
-	Reg#(Bit#(64)) unknown_pkt_reg <- mkReg(0);
-	Reg#(Bit#(1)) fire_unknown_pkt <- mkReg(0);
-	rule unknown_pkt_rule;
-		let res <- scheduler.unknown_pkt_response.get;
-		unknown_pkt_reg <= res;
-		fire_unknown_pkt <= 1;
+	Reg#(Bit#(64)) rxWrite_pkt_reg <- mkReg(0);
+	Reg#(Bit#(1)) fire_rxWrite_pkt <- mkReg(0);
+	rule rxWrite_pkt_rule;
+		let res <- scheduler.rxWrite_pkt_response.get;
+		rxWrite_pkt_reg <= res;
+		fire_rxWrite_pkt <= 1;
 	endrule
 
-	rule unknown_pkt (fire_unknown_pkt == 1);
-		fire_unknown_pkt <= 0;
-		indication.display_unknown_pkt_count(unknown_pkt_reg);
+	rule rxWrite_pkt (fire_rxWrite_pkt == 1);
+		fire_rxWrite_pkt <= 0;
+		indication.display_rxWrite_pkt_count(rxWrite_pkt_reg);
 	endrule
 
 /*------------------------------------------------------------------------------*/
@@ -431,7 +432,7 @@ module mkSchedulerTop#(SchedulerTopIndication indication)(SchedulerTop);
 	Reg#(Bit#(64)) sop_count_reg <- mkReg(0);
 	Reg#(Bit#(1)) fire_sop_counter_res <- mkReg(0);
 	rule sop_counter_rule (debug_flag == 1);
-		let res <- mac.sop_count_port_1.get;
+		let res <- mac.sop_count_port_0.get;
 		sop_count_reg <= res;
         fire_sop_counter_res <= 1;
 	endrule
@@ -445,7 +446,7 @@ module mkSchedulerTop#(SchedulerTopIndication indication)(SchedulerTop);
 	Reg#(Bit#(64)) eop_count_reg <- mkReg(0);
 	Reg#(Bit#(1)) fire_eop_counter_res <- mkReg(0);
 	rule eop_counter_rule (debug_flag == 1);
-		let res <- mac.eop_count_port_1.get;
+		let res <- mac.eop_count_port_0.get;
 		eop_count_reg <= res;
         fire_eop_counter_res <= 1;
 	endrule
@@ -505,16 +506,17 @@ module mkSchedulerTop#(SchedulerTopIndication indication)(SchedulerTop);
                               Bit#(1) b7d, Bit#(1) b8a, Bit#(1) b8d);
 			clk_50_wire <= b4a;
         endmethod
-//        method Vector#(4, Bit#(1)) serial_tx_data;
-//            let v = append(dtpPhy.serial_tx, phys.serial_tx);
-//            return v;
-//        endmethod
-//        method Action serial_rx (Vector#(4, Bit#(1)) v);
-//            phys.serial_rx(takeAt(0, v));
-//            dtpPhy.serial_rx(takeAt(3, v));
-//        endmethod
-        method serial_tx_data = phys.serial_tx;
-        method serial_rx = phys.serial_rx;
+        method Vector#(4, Bit#(1)) serial_tx_data;
+			Bit#(4) tx_data = {phys.serial_tx[2],
+			        phys.serial_tx[1], phys.serial_tx[0], dtpPhy.serial_tx[0]};
+			return unpack(tx_data);
+        endmethod
+        method Action serial_rx (Vector#(4, Bit#(1)) v);
+            dtpPhy.serial_rx(takeAt(0, v));
+            phys.serial_rx(takeAt(1, v));
+        endmethod
+//        method serial_tx_data = phys.serial_tx;
+//        method serial_rx = phys.serial_rx;
         method Action sfp(Bit#(1) refclk);
 			clk_644_wire <= refclk;
         endmethod

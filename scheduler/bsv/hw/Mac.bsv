@@ -16,16 +16,16 @@ import EthMac::*;
 interface Mac;
 //	interface Get#(PacketDataT#(64)) debug_sending_to_phy;
 //	interface Get#(PacketDataT#(64)) debug_received_from_phy;
-    interface Get#(Bit#(64)) sop_count_port_1;
-    interface Get#(Bit#(64)) eop_count_port_1;
+    interface Get#(Bit#(64)) sop_count_port_0;
+    interface Get#(Bit#(64)) eop_count_port_0;
 
     (* always_ready, always_enabled *)
     method Bit#(72) tx(Integer port_index);
     (* always_ready, always_enabled *)
     method Action rx(Integer port_index, Bit#(72) v);
 
-    method Action getSOPCountForPort1();
-    method Action getEOPCountForPort1();
+    method Action getSOPCountForPort0();
+    method Action getEOPCountForPort0();
 endinterface
 
 module mkMac#(Scheduler#(ReadReqType, ReadResType,
@@ -151,11 +151,11 @@ module mkMac#(Scheduler#(ReadReqType, ReadResType,
 	end
 
 /*------------------------------------------------------------------------------*/
-	SyncFIFOIfc#(Bit#(64)) sop_count_fifo_port_1
-	               <- mkSyncFIFO(1, rxClock[1], rxReset[1], defaultClock);
+	SyncFIFOIfc#(Bit#(64)) sop_count_fifo_port_0
+	               <- mkSyncFIFO(1, rxClock[0], rxReset[0], defaultClock);
 
-	SyncFIFOIfc#(Bit#(64)) eop_count_fifo_port_1
-	               <- mkSyncFIFO(1, rxClock[1], rxReset[1], defaultClock);
+	SyncFIFOIfc#(Bit#(64)) eop_count_fifo_port_0
+	               <- mkSyncFIFO(1, rxClock[0], rxReset[0], defaultClock);
 
     Vector#(NUM_OF_PORTS, Reg#(Bit#(64))) sop_count_reg;
     Vector#(NUM_OF_PORTS, Reg#(Bit#(64))) eop_count_reg;
@@ -263,16 +263,16 @@ module mkMac#(Scheduler#(ReadReqType, ReadResType,
         eth_mac[port_index].rx(v);
     endmethod
 
-    method Action getSOPCountForPort1();
-        sop_count_fifo_port_1.enq(sop_count_reg[1]);
+    method Action getSOPCountForPort0();
+        sop_count_fifo_port_0.enq(sop_count_reg[0]);
     endmethod
 
-    method Action getEOPCountForPort1();
-        eop_count_fifo_port_1.enq(eop_count_reg[1]);
+    method Action getEOPCountForPort0();
+        eop_count_fifo_port_0.enq(eop_count_reg[0]);
     endmethod
 
 //	interface Get debug_sending_to_phy = toGet(debug_sending_to_phy_fifo);
 //	interface Get debug_received_from_phy = toGet(debug_received_from_phy_fifo);
-    interface Get sop_count_port_1 = toGet(sop_count_fifo_port_1);
-    interface Get eop_count_port_1 = toGet(eop_count_fifo_port_1);
+    interface Get sop_count_port_0 = toGet(sop_count_fifo_port_0);
+    interface Get eop_count_port_0 = toGet(eop_count_fifo_port_0);
 endmodule
