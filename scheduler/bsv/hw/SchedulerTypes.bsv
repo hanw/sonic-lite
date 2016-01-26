@@ -2,8 +2,9 @@ import DefaultValue::*;
 
  typedef 32 IP_ADDR_LEN;
  typedef 48 MAC_ADDR_LEN;
- typedef 4 NUM_OF_SERVERS;
- typedef 3 NUM_OF_PORTS;
+ typedef 5 NUM_OF_SERVERS;
+ typedef 3 NUM_OF_ALTERA_PORTS;
+ typedef 1 NUM_OF_DTP_PORTS;
 
  typedef 8 DEFAULT_FIFO_LEN;
 

@@ -35,7 +35,7 @@ module mkRingBuffer#(Integer size)
     BRAM_Configure cfg = defaultValue;
     cfg.memorySize = fromInteger(size)
                    * fromInteger(valueof(MAX_PKT_LEN));
-	
+
     BRAM2Port#(Address, Payload) ring_buffer <- mkBRAM2Server(cfg);
 
 /*-------------------------------------------------------------------------------*/

@@ -31,15 +31,15 @@ endinterface
 module mkMac#(Scheduler#(ReadReqType, ReadResType,
                          WriteReqType, WriteResType) scheduler,
               Clock txClock, Reset txReset,
-			  Vector#(NUM_OF_PORTS, Clock) rxClock,
-		      Vector#(NUM_OF_PORTS, Reset) rxReset) (Mac);
+			  Vector#(NUM_OF_ALTERA_PORTS, Clock) rxClock,
+		      Vector#(NUM_OF_ALTERA_PORTS, Reset) rxReset) (Mac);
 
     Clock defaultClock <- exposeCurrentClock();
     Reset defaultReset <- exposeCurrentReset();
 
-    Vector#(NUM_OF_PORTS, EthMacIfc) eth_mac;
+    Vector#(NUM_OF_ALTERA_PORTS, EthMacIfc) eth_mac;
 
-	for (Integer i = 0; i < valueof(NUM_OF_PORTS); i = i + 1)
+	for (Integer i = 0; i < valueof(NUM_OF_ALTERA_PORTS); i = i + 1)
 	begin
 		eth_mac[i] <- mkEthMac(defaultClock, txClock, rxClock[i], txReset);
 	end
@@ -51,17 +51,17 @@ module mkMac#(Scheduler#(ReadReqType, ReadResType,
 /*------------------------------------------------------------------------------*/
     Reg#(Bool) tx_verbose <- mkReg(False, clocked_by txClock, reset_by txReset);
 
-    Vector#(NUM_OF_PORTS, Vector#(2, FIFO#(PacketDataT#(64)))) mac_in_buffer
+    Vector#(NUM_OF_ALTERA_PORTS, Vector#(2, FIFO#(PacketDataT#(64)))) mac_in_buffer
        <- replicateM(replicateM(mkSizedFIFO(fromInteger(valueof(DEFAULT_FIFO_LEN)),
 		              clocked_by txClock, reset_by txReset)));
 
-    Vector#(NUM_OF_PORTS, Reg#(Bit#(2))) turn
+    Vector#(NUM_OF_ALTERA_PORTS, Reg#(Bit#(2))) turn
                     <- replicateM(mkReg(0, clocked_by txClock, reset_by txReset));
 
 //	SyncFIFOIfc#(PacketDataT#(64)) debug_sending_to_phy_fifo
 //	               <- mkSyncFIFO(16, txClock, txReset, defaultClock);
 
-    for (Integer i = 0; i < fromInteger(valueof(NUM_OF_PORTS)); i = i + 1)
+    for (Integer i = 0; i < fromInteger(valueof(NUM_OF_ALTERA_PORTS)); i = i + 1)
     begin
 		rule start_polling_tx_buffer;
 			scheduler.mac_read_request_port[i].put(makeReadReq(READ));
@@ -137,13 +137,13 @@ module mkMac#(Scheduler#(ReadReqType, ReadResType,
 
 /*------------------------------------------------------------------------------*/
 
-    Vector#(NUM_OF_PORTS, Reg#(PacketDataT#(64))) mac_out_buffer;
-    Vector#(NUM_OF_PORTS, Reg#(Bit#(2))) b_count;
+    Vector#(NUM_OF_ALTERA_PORTS, Reg#(PacketDataT#(64))) mac_out_buffer;
+    Vector#(NUM_OF_ALTERA_PORTS, Reg#(Bit#(2))) b_count;
 
 //	SyncFIFOIfc#(PacketDataT#(64)) debug_received_from_phy_fifo
 //	               <- mkSyncFIFO(16, rxClock, rxReset, defaultClock);
 
-	for (Integer i = 0; i < valueof(NUM_OF_PORTS); i = i + 1)
+	for (Integer i = 0; i < valueof(NUM_OF_ALTERA_PORTS); i = i + 1)
 	begin
 		mac_out_buffer[i] <- mkReg(defaultValue,
 	                             clocked_by rxClock[i], reset_by rxReset[i]);
@@ -157,17 +157,17 @@ module mkMac#(Scheduler#(ReadReqType, ReadResType,
 	SyncFIFOIfc#(Bit#(64)) eop_count_fifo_port_0
 	               <- mkSyncFIFO(1, rxClock[0], rxReset[0], defaultClock);
 
-    Vector#(NUM_OF_PORTS, Reg#(Bit#(64))) sop_count_reg;
-    Vector#(NUM_OF_PORTS, Reg#(Bit#(64))) eop_count_reg;
+    Vector#(NUM_OF_ALTERA_PORTS, Reg#(Bit#(64))) sop_count_reg;
+    Vector#(NUM_OF_ALTERA_PORTS, Reg#(Bit#(64))) eop_count_reg;
 
-	for (Integer i = 0; i < valueof(NUM_OF_PORTS); i = i + 1)
+	for (Integer i = 0; i < valueof(NUM_OF_ALTERA_PORTS); i = i + 1)
 	begin
 		sop_count_reg[i] <- mkReg(0, clocked_by rxClock[i], reset_by rxReset[i]);
 		eop_count_reg[i] <- mkReg(0, clocked_by rxClock[i], reset_by rxReset[i]);
 	end
 /*------------------------------------------------------------------------------*/
 
-    for (Integer i = 0; i < valueof(NUM_OF_PORTS); i = i + 1)
+    for (Integer i = 0; i < valueof(NUM_OF_ALTERA_PORTS); i = i + 1)
     begin
         rule send_blocks_to_dst;
             let d <- eth_mac[i].packet_rx.get;

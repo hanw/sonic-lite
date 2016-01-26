@@ -78,12 +78,12 @@ module mkSchedulerTop#(SchedulerTopIndication indication)(SchedulerTop);
     // Phy
     //EthPhyIfc phys <- mkAlteraEthPhy(defaultClock, phyClock, txClock, defaultReset);
     EthPhyIfc phys <- mkAlteraEthPhy(mgmtClock, phyClock, txClock, defaultReset, clocked_by mgmtClock, reset_by mgmtReset);
-    DtpPhyIfc#(1) dtpPhy <- mkEthPhy(mgmtClock, txClock, phyClock, clocked_by mgmtClock, reset_by mgmtReset);
+    DtpPhyIfc#(NUM_OF_DTP_PORTS) dtp_phy <- mkEthPhy(mgmtClock, txClock, phyClock, clocked_by mgmtClock, reset_by mgmtReset);
 
-    Vector#(NUM_OF_PORTS, Clock) rxClock;
-    Vector#(NUM_OF_PORTS, Reset) rxReset;
+    Vector#(NUM_OF_ALTERA_PORTS, Clock) rxClock;
+    Vector#(NUM_OF_ALTERA_PORTS, Reset) rxReset;
 
-	for (Integer i = 0; i < valueOf(NUM_OF_PORTS); i = i + 1)
+	for (Integer i = 0; i < valueOf(NUM_OF_ALTERA_PORTS); i = i + 1)
 	begin
 		rxClock[i] = phys.rx_clkout;
 		rxReset[i] <- mkSyncReset(2, defaultReset, rxClock[i]);
@@ -271,9 +271,9 @@ module mkSchedulerTop#(SchedulerTopIndication indication)(SchedulerTop);
 	endrule
 
 /*------------------------------------------------------------------------------*/
-    // PHY port to MAC port mapping
+    // PHY port to MAC port mapping for Altera PHY
 
-    for (Integer i = 0; i < valueof(NUM_OF_PORTS); i = i + 1)
+    for (Integer i = 0; i < valueof(NUM_OF_ALTERA_PORTS); i = i + 1)
     begin
         rule mac_phy_tx;
             phys.tx[i].put(mac.tx(i));
@@ -284,6 +284,43 @@ module mkSchedulerTop#(SchedulerTopIndication indication)(SchedulerTop);
             mac.rx(i, v);
         endrule
     end
+
+	// PHY port to MAC port mapping for DTP PHY
+
+	Vector#(NUM_OF_DTP_PORTS, Clock) dtp_rxClock;
+	Vector#(NUM_OF_DTP_PORTS, Reset) dtp_rxReset;
+	Vector#(NUM_OF_DTP_PORTS, EthMacIfc) dtp_mac;
+
+	for (Integer i = 0; i < valueof(NUM_OF_DTP_PORTS); i = i + 1)
+	begin
+		dtp_rxClock[i] = dtp_phy.rx_clkout[i];
+		dtp_rxReset[i] <- mkSyncReset(2, defaultReset, dtp_rxClock[i]);
+		dtp_mac[i] <- mkEthMac(defaultClock, txClock, dtp_rxClock[i], txReset);
+	end
+
+	Vector#(NUM_OF_DTP_PORTS, FIFOF#(Bit#(72))) macToPhy
+                  <- replicateM(mkFIFOF, clocked_by txClock, reset_by txReset);
+
+	Vector#(NUM_OF_DTP_PORTS, FIFOF#(Bit#(72))) phyToMac;
+
+	for (Integer i = 0 ; i < valueOf(NUM_OF_DTP_PORTS) ; i = i + 1)
+	begin
+		phyToMac[i] <- mkFIFOF(clocked_by dtp_rxClock[i], reset_by dtp_rxReset[i]);
+
+		mkConnection(toPipeOut(macToPhy[i]), dtp_phy.tx[i]);
+		mkConnection(dtp_phy.rx[i], toPipeIn(phyToMac[i]));
+
+		rule mac_dtpphy_tx;
+			macToPhy[i].enq(dtp_mac[i].tx);
+		endrule
+
+		rule mac_dtpphy_rx;
+			let v = phyToMac[i].first;
+			dtp_mac[i].rx(v);
+			phyToMac[i].deq;
+		endrule
+	end
+
 /* ------------------------------------------------------------------------------
 *                               INDICATION RULES
 * ------------------------------------------------------------------------------*/
@@ -508,11 +545,11 @@ module mkSchedulerTop#(SchedulerTopIndication indication)(SchedulerTop);
         endmethod
         method Vector#(4, Bit#(1)) serial_tx_data;
 			Bit#(4) tx_data = {phys.serial_tx[2],
-			        phys.serial_tx[1], phys.serial_tx[0], dtpPhy.serial_tx[0]};
+			        phys.serial_tx[1], phys.serial_tx[0], dtp_phy.serial_tx[0]};
 			return unpack(tx_data);
         endmethod
         method Action serial_rx (Vector#(4, Bit#(1)) v);
-            dtpPhy.serial_rx(takeAt(0, v));
+            dtp_phy.serial_rx(takeAt(0, v));
             phys.serial_rx(takeAt(1, v));
         endmethod
 //        method serial_tx_data = phys.serial_tx;

@@ -22,7 +22,7 @@ typedef struct {
 instance DefaultValue#(DataToPutInTx);
 	defaultValue = DataToPutInTx {
 					data : defaultValue,
-					tx_port : fromInteger(valueof(NUM_OF_PORTS))
+					tx_port : fromInteger(valueof(NUM_OF_ALTERA_PORTS))
 				};
 endinstance
 
@@ -30,10 +30,10 @@ interface Scheduler#(type readReqType, type readResType,
                      type writeReqType, type writeResType);
 
     /* MAC interface */
-	interface Vector#(NUM_OF_PORTS, Put#(readReqType)) mac_read_request_port;
-	interface Vector#(NUM_OF_PORTS, Get#(readResType)) mac_read_response_port;
-	interface Vector#(NUM_OF_PORTS, Put#(writeReqType)) mac_write_request_port;
-	interface Vector#(NUM_OF_PORTS, Get#(writeResType)) mac_write_response_port;
+	interface Vector#(NUM_OF_ALTERA_PORTS, Put#(readReqType)) mac_read_request_port;
+	interface Vector#(NUM_OF_ALTERA_PORTS, Get#(readResType)) mac_read_response_port;
+	interface Vector#(NUM_OF_ALTERA_PORTS, Put#(writeReqType)) mac_write_request_port;
+	interface Vector#(NUM_OF_ALTERA_PORTS, Get#(writeResType)) mac_write_response_port;
 
     /* DMA simulator interface */
     interface Put#(readReqType) dma_read_request;
@@ -61,8 +61,8 @@ endinterface
 (* synthesize *)
 module mkScheduler#(Clock pcieClock, Reset pcieReset,
                     Clock txClock, Reset txReset,
-                    Vector#(NUM_OF_PORTS, Clock) rxClock,
-					Vector#(NUM_OF_PORTS, Reset) rxReset)
+                    Vector#(NUM_OF_ALTERA_PORTS, Clock) rxClock,
+					Vector#(NUM_OF_ALTERA_PORTS, Reset) rxReset)
 				(Scheduler#(ReadReqType, ReadResType, WriteReqType, WriteResType));
 
     Reg#(Bool) verbose <- mkReg(True);
@@ -74,14 +74,14 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
     Clock defaultClock <- exposeCurrentClock();
     Reset defaultReset <- exposeCurrentReset();
 
-    Vector#(NUM_OF_PORTS, FIFO#(ReadReqType)) mac_read_request_fifo
+    Vector#(NUM_OF_ALTERA_PORTS, FIFO#(ReadReqType)) mac_read_request_fifo
             <- replicateM(mkSizedFIFO(valueof(DEFAULT_FIFO_LEN)));
-    Vector#(NUM_OF_PORTS, FIFO#(ReadResType)) mac_read_response_fifo
+    Vector#(NUM_OF_ALTERA_PORTS, FIFO#(ReadResType)) mac_read_response_fifo
             <- replicateM(mkSizedFIFO(valueof(DEFAULT_FIFO_LEN)));
-    Vector#(NUM_OF_PORTS, SyncFIFOIfc#(WriteReqType)) mac_write_request_fifo;
-    Vector#(NUM_OF_PORTS, SyncFIFOIfc#(WriteResType)) mac_write_response_fifo;
+    Vector#(NUM_OF_ALTERA_PORTS, SyncFIFOIfc#(WriteReqType)) mac_write_request_fifo;
+    Vector#(NUM_OF_ALTERA_PORTS, SyncFIFOIfc#(WriteResType)) mac_write_response_fifo;
 
-	for (Integer i = 0; i < valueof(NUM_OF_PORTS); i = i + 1)
+	for (Integer i = 0; i < valueof(NUM_OF_ALTERA_PORTS); i = i + 1)
 	begin
 		mac_write_request_fifo[i] <- mkSyncFIFO(valueof(DEFAULT_FIFO_LEN),
 	                                      rxClock[i], rxReset[i], defaultClock);
@@ -103,23 +103,20 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
 	Vector#(NUM_OF_SERVERS, Reg#(TableData)) sched_table
 	                                    <- replicateM(mkReg(defaultValue));
 /*------------------------------------------------------------------------------*/
-    Vector#(NUM_OF_PORTS,
+    Vector#(NUM_OF_ALTERA_PORTS,
             RingBuffer#(ReadReqType, ReadResType, WriteReqType, WriteResType))
-    rx_ring_buffer <- replicateM
-                      (mkRingBuffer(fromInteger(valueof(RING_BUFFER_SIZE))));
+    rx_ring_buffer <- replicateM(mkRingBuffer(valueof(RING_BUFFER_SIZE)));
 
-    Vector#(NUM_OF_PORTS,
+    Vector#(NUM_OF_ALTERA_PORTS,
             RingBuffer#(ReadReqType, ReadResType, WriteReqType, WriteResType))
-    tx_ring_buffer <- replicateM
-                      (mkRingBuffer(fromInteger(valueof(RING_BUFFER_SIZE))));
+    tx_ring_buffer <- replicateM(mkRingBuffer(valueof(RING_BUFFER_SIZE)));
 
     Vector#(NUM_OF_SERVERS,
             RingBuffer#(ReadReqType, ReadResType, WriteReqType, WriteResType))
-    ring_buffer <- replicateM
-                   (mkRingBuffer(fromInteger(valueof(RING_BUFFER_SIZE))));
+    ring_buffer <- replicateM(mkRingBuffer(valueof(RING_BUFFER_SIZE)));
 
     RingBuffer#(ReadReqType, ReadResType, WriteReqType, WriteResType)
-        src_rx_ring_buffer <- mkRingBuffer(fromInteger(valueof(RING_BUFFER_SIZE)));
+        src_rx_ring_buffer <- mkRingBuffer(valueof(RING_BUFFER_SIZE));
 
     Vector#(NUM_OF_SERVERS, Reg#(ServerIndex)) schedule_list <- replicateM(mkReg(0));
 
@@ -143,9 +140,9 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
 	Reg#(Bit#(64)) num_of_time_slots_used_reg <- mkReg(0);
 	Reg#(Bit#(64)) host_pkt_transmitted_reg <- mkReg(0);
 	Reg#(Bit#(64)) non_host_pkt_transmitted_reg <- mkReg(0);
-	Vector#(NUM_OF_PORTS, Reg#(Bit#(64))) num_of_pkt_received_reg
+	Vector#(NUM_OF_ALTERA_PORTS, Reg#(Bit#(64))) num_of_pkt_received_reg
 	                                     <- replicateM(mkReg(0));
-	Vector#(NUM_OF_PORTS, Reg#(Bit#(64))) num_of_rxWrite_pkt_reg
+	Vector#(NUM_OF_ALTERA_PORTS, Reg#(Bit#(64))) num_of_rxWrite_pkt_reg
 	                                     <- replicateM(mkReg(0));
 
 //	SyncFIFOIfc#(RingBufferDataT) debug_consuming_pkt_fifo
@@ -197,7 +194,7 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
     */
     rule configure_scheduling (curr_state == RUN && configure == 1);
         configure <= 0;
-        for (Integer i = 0; i < fromInteger(valueof(NUM_OF_SERVERS))-1; i = i + 1)
+        for (Integer i = 0; i < valueof(NUM_OF_SERVERS)-1; i = i + 1)
         begin
             schedule_list[i] <= fromInteger(i) + 1;
             if (verbose)
@@ -215,17 +212,17 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
 /*------------------------------------------------------------------------------*/
 
 	// should be atleast as large as buffer_depth + max num of data blocks
-    Vector#(NUM_OF_PORTS, FIFOF#(RingBufferDataT)) buffer_fifo
+    Vector#(NUM_OF_ALTERA_PORTS, FIFOF#(RingBufferDataT)) buffer_fifo
 	                                    <- replicateM(mkSizedFIFOF(16));
-    Vector#(NUM_OF_PORTS, FIFOF#(ServerIndex)) ring_buffer_index_fifo
-                 <- replicateM(mkSizedFIFOF((valueof(NUM_OF_PORTS)+1)));
-    Vector#(NUM_OF_PORTS, Reg#(Bit#(1)))
+    Vector#(NUM_OF_ALTERA_PORTS, FIFOF#(ServerIndex)) ring_buffer_index_fifo
+                 <- replicateM(mkSizedFIFOF((valueof(NUM_OF_ALTERA_PORTS)+1)));
+    Vector#(NUM_OF_ALTERA_PORTS, Reg#(Bit#(1)))
                  ready_to_deq_from_index_buffer <- replicateM(mkReg(1));
-    Vector#(NUM_OF_PORTS, Reg#(Bit#(1)))
+    Vector#(NUM_OF_ALTERA_PORTS, Reg#(Bit#(1)))
                   ready_to_deq_from_ring_buffer <- replicateM(mkReg(0));
 
     /* Stores the number of data blocks to buffer */
-    Vector#(NUM_OF_PORTS, Reg#(int)) buffer_depth <- replicateM(mkReg(3));
+    Vector#(NUM_OF_ALTERA_PORTS, Reg#(int)) buffer_depth <- replicateM(mkReg(3));
 
     /* Have to buffer first 3 data blocks to get to dst IP addr
     *
@@ -235,17 +232,17 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
     *  ------------------------------------------------------
     * So, no VLAN tags etc.
     */
-    Vector#(NUM_OF_PORTS, Reg#(Bit#(384))) buffered_data <- replicateM(mkReg(0));
+    Vector#(NUM_OF_ALTERA_PORTS, Reg#(Bit#(384))) buffered_data <- replicateM(mkReg(0));
 
-    Vector#(NUM_OF_PORTS, Reg#(Bit#(1))) stop_polling <- replicateM(mkReg(0));
+    Vector#(NUM_OF_ALTERA_PORTS, Reg#(Bit#(1))) stop_polling <- replicateM(mkReg(0));
 
-    Vector#(NUM_OF_PORTS, Reg#(ServerIndex)) curr_ring_buffer_index
+    Vector#(NUM_OF_ALTERA_PORTS, Reg#(ServerIndex)) curr_ring_buffer_index
                         <- replicateM(mkReg(fromInteger(valueof(NUM_OF_SERVERS))));
 
     Vector#(NUM_OF_SERVERS, FIFOF#(PortIndex))
-    token_queue <- replicateM(mkSizedFIFOF(fromInteger(valueof(NUM_OF_SERVERS))));
+    token_queue <- replicateM(mkSizedFIFOF(valueof(NUM_OF_SERVERS)));
 
-    for (Integer i = 0; i < fromInteger(valueof(NUM_OF_PORTS)); i = i + 1)
+    for (Integer i = 0; i < valueof(NUM_OF_ALTERA_PORTS); i = i + 1)
     begin
         rule start_polling_rx (curr_state == RUN && start_polling_rx_buffer == 1
                                && stop_polling[i] == 0);
@@ -345,7 +342,7 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
             ready_to_deq_from_ring_buffer[i] <= 1;
         endrule
 
-        for (Integer j = 0; j < fromInteger(valueof(NUM_OF_SERVERS)); j = j + 1)
+        for (Integer j = 0; j < valueof(NUM_OF_SERVERS); j = j + 1)
         begin
             rule enq_to_token_queue (curr_state == RUN
                                   && curr_ring_buffer_index[i] == fromInteger(j));
@@ -358,12 +355,12 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
     end
 
     Vector#(NUM_OF_SERVERS, Reg#(PortIndex))
-         port_idx <- replicateM(mkReg(fromInteger(valueof(NUM_OF_PORTS))));
+         port_idx <- replicateM(mkReg(fromInteger(valueof(NUM_OF_ALTERA_PORTS))));
 
 	Vector#(NUM_OF_SERVERS, Reg#(Bit#(1))) wait_for_completion
 	                                            <- replicateM(mkReg(0));
 
-    for (Integer j = 0; j < fromInteger(valueof(NUM_OF_SERVERS)); j = j + 1)
+    for (Integer j = 0; j < valueof(NUM_OF_SERVERS); j = j + 1)
     begin
         rule deq_from_token_queue (curr_state == RUN
 			                       && wait_for_completion[j] == 0);
@@ -374,7 +371,7 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
 			wait_for_completion[j] <= 1;
         endrule
 
-        for (Integer i = 0; i < fromInteger(valueof(NUM_OF_PORTS)); i = i + 1)
+        for (Integer i = 0; i < valueof(NUM_OF_ALTERA_PORTS); i = i + 1)
         begin
             rule add_to_correct_ring_buffer (curr_state == RUN
                                         && port_idx[j] == fromInteger(i)
@@ -388,7 +385,7 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
                     ready_to_deq_from_index_buffer[i] <= 1;
                     ready_to_deq_from_ring_buffer[i] <= 0;
 					wait_for_completion[j] <= 0;
-                    port_idx[j] <= fromInteger(valueof(NUM_OF_PORTS));
+                    port_idx[j] <= fromInteger(valueof(NUM_OF_ALTERA_PORTS));
                 end
 
                 if (j != 0)
@@ -413,10 +410,8 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
 		if (clock_lsb_four_bits == 0)
 		begin
 			ServerIndex slot = 0;
-            if (fromInteger(valueof(NUM_OF_SERVERS)) == 1)
+            if (valueof(NUM_OF_SERVERS) == 1)
                 slot = fromInteger(valueof(NUM_OF_SERVERS))-1;
-            else if (fromInteger(valueof(NUM_OF_SERVERS)) == 2)
-                slot = 0;
             else
 			    slot = curr_time[6:3] %
 			                   (fromInteger(valueof(NUM_OF_SERVERS))-1);
@@ -467,15 +462,15 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
     endrule
 
     Vector#(NUM_OF_SERVERS, FIFO#(DataToPutInTx)) data_to_put
-	            <- replicateM(mkSizedFIFO(fromInteger(valueof(DEFAULT_FIFO_LEN))));
+	            <- replicateM(mkSizedFIFO(valueof(DEFAULT_FIFO_LEN)));
 	Vector#(NUM_OF_SERVERS, Reg#(PortIndex)) tx_port_index <- replicateM(mkReg(0));
 
     Vector#(NUM_OF_SERVERS, FIFO#(ReadResType)) data_fifo
 	                                           <- replicateM(mkBypassFIFO);
 	Vector#(NUM_OF_SERVERS, Wire#(PortIndex)) correct_tx_index
-	                <- replicateM(mkDWire(fromInteger(valueof(NUM_OF_PORTS))));
+	                <- replicateM(mkDWire(fromInteger(valueof(NUM_OF_ALTERA_PORTS))));
 
-    for (Integer i = 0; i < fromInteger(valueof(NUM_OF_SERVERS)); i = i + 1)
+    for (Integer i = 0; i < valueof(NUM_OF_SERVERS); i = i + 1)
     begin
         rule modify_mac_headers_and_put_to_tx (curr_state == RUN);
             let d <- ring_buffer[i].read_response.get;
@@ -527,7 +522,7 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
 		host_index, clk.currTime(), idx, d.data.sop, d.data.eop, d.data.payload);
 		endrule
 
-		for (Integer j = 0; j < fromInteger(valueof(NUM_OF_PORTS)); j = j + 1)
+		for (Integer j = 0; j < valueof(NUM_OF_ALTERA_PORTS); j = j + 1)
 		begin
 			rule add_to_correct_tx (correct_tx_index[i] == fromInteger(j));
 				let d <- toGet(data_fifo[i]).get;
@@ -538,7 +533,7 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
     end
 
 /*-------------------------------------------------------------------------------*/
-    for (Integer i = 0; i < fromInteger(valueof(NUM_OF_PORTS)); i = i + 1)
+    for (Integer i = 0; i < valueof(NUM_OF_ALTERA_PORTS); i = i + 1)
     begin
         rule handle_rx_buffer_write_req_from_mac;
             let req <- toGet(mac_write_request_fifo[i]).get;
@@ -584,12 +579,12 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
     endrule
 
 /*-----------------------------------------------------------------------------*/
-	Vector#(NUM_OF_PORTS, Put#(ReadReqType)) temp1;
-	Vector#(NUM_OF_PORTS, Get#(ReadResType)) temp2;
-	Vector#(NUM_OF_PORTS, Put#(WriteReqType)) temp3;
-	Vector#(NUM_OF_PORTS, Get#(WriteResType)) temp4;
+	Vector#(NUM_OF_ALTERA_PORTS, Put#(ReadReqType)) temp1;
+	Vector#(NUM_OF_ALTERA_PORTS, Get#(ReadResType)) temp2;
+	Vector#(NUM_OF_ALTERA_PORTS, Put#(WriteReqType)) temp3;
+	Vector#(NUM_OF_ALTERA_PORTS, Get#(WriteResType)) temp4;
 
-	for (Integer i = 0; i < valueof(NUM_OF_PORTS); i = i + 1)
+	for (Integer i = 0; i < valueof(NUM_OF_ALTERA_PORTS); i = i + 1)
 	begin
 		temp1[i] = toPut(mac_read_request_fifo[i]);
 		temp2[i] = toGet(mac_read_response_fifo[i]);
@@ -619,14 +614,14 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
 
 	method Action receivedPktCount();
 		Bit#(64) pkt_received = 0;
-		for (Integer i = 0; i < fromInteger(valueof(NUM_OF_PORTS)); i = i + 1)
+		for (Integer i = 0; i < valueof(NUM_OF_ALTERA_PORTS); i = i + 1)
 			pkt_received = pkt_received + num_of_pkt_received_reg[i];
 		received_pkt_fifo.enq(pkt_received);
 	endmethod
 
 	method Action rxWritePktCount();
 		Bit#(64) rxWrite_pkt = 0;
-		for (Integer i = 0; i < fromInteger(valueof(NUM_OF_PORTS)); i = i + 1)
+		for (Integer i = 0; i < valueof(NUM_OF_ALTERA_PORTS); i = i + 1)
 			rxWrite_pkt = rxWrite_pkt + num_of_rxWrite_pkt_reg[i];
 		rxWrite_pkt_fifo.enq(rxWrite_pkt);
 	endmethod
