@@ -64,6 +64,5 @@ module mkMemoryAPI#(MemoryTestIndication indication, PktGen pktgen)(MemoryAPI);
       endmethod
       method start = pktgen.start;
       method stop = pktgen.stop;
-      method clear = pktgen.clear;
    endinterface
 endmodule

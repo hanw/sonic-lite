@@ -13,9 +13,9 @@ SCHEDDIR?=$(DEV_ROOT)/sonic-lite/scheduler
 # Connectal Support
 ########################################################
 S2H_INTERFACES=MemoryTestRequest:MemoryTest.request
-H2S_INTERFACES=MemoryTest:MemoryTestIndication,MemServerIndication,MallocIndication
+H2S_INTERFACES=MemoryTest:MemoryTestIndication,MemServerIndication
 
-BSVFILES=MemoryTest.bsv MemoryAPI.bsv $(P4FPGADIR)/bsv/Malloc.bsv
+BSVFILES=MemoryTest.bsv MemoryAPI.bsv $(SONICDIR)/hw/bsv/MemMgmt.bsv
 CPPFILES=test.cpp
 
 #######################################################
