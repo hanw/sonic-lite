@@ -54,20 +54,12 @@ import ALTERA_SI570_WRAPPER::*;
 import AlteraExtra::*;
 import LedController::*;
 
-interface DummyIndication;
-   method Action read_version_resp(Bit#(32) version);
-endinterface
-
-interface DummyRequest;
-   method Action read_version();
-endinterface
-
 interface DtpTop;
-   interface DummyRequest request;
+   interface DtpRequest request;
    interface `PinType pins;
 endinterface
 
-module mkDtpTop#(DummyIndication indication)(DtpTop);
+module mkDtpTop#(DtpIndication indication)(DtpTop);
    Clock defaultClock <- exposeCurrentClock();
    Reset defaultReset <- exposeCurrentReset();
 
@@ -83,17 +75,19 @@ module mkDtpTop#(DummyIndication indication)(DtpTop);
 
    De5SfpCtrl#(4) sfpctrl <- mkDe5SfpCtrl();
 
+   DtpController dtp <- mkDtpController(indication, txClock, txReset, clocked_by defaultClock);
+
+   Reset rst_api <- mkSyncReset(0, dtp.ifc.rst, txClock);
+   Reset dtp_rst <- mkResetEither(txReset, rst_api, clocked_by txClock);
+
    DtpPhyIfc#(NumPorts) phys <- mkEthPhy(clock_50, txClock, phyClock, clocked_by txClock, reset_by txReset);
-
-   Clock rxClock = phys.rx_clkout[0];
-
-   function Clock getRxClock (Vector#(N, Clock) clocks, i);
-      return clocks[i];
-   endfunction
 
    Vector#(NumPorts, EthMacIfc) mac ;
    Vector#(NumPorts, FIFOF#(Bit#(72))) macToPhy <- replicateM(mkFIFOF, clocked_by txClock, reset_by txReset);
    Vector#(NumPorts, FIFOF#(Bit#(72))) phyToMac;// <- replicateM(mkFIFOF, clocked_by txClock);
+   Reg#(Bit#(128)) cycle <- mkReg(0, clocked_by txClock, reset_by dtp_rst);
+   FIFOF#(Bit#(128)) tsFifo <- mkFIFOF(clocked_by txClock, reset_by dtp_rst);
+
    for (Integer i = 0 ; i < valueOf(NumPorts) ; i=i+1) begin
       mac[i] <- mkEthMac(defaultClock, txClock, phys.rx_clkout[i], txReset);
       Reset rx_rst<- mkSyncReset(2, defaultReset, phys.rx_clkout[i]);
@@ -103,22 +97,43 @@ module mkDtpTop#(DummyIndication indication)(DtpTop);
       mkConnection(phys.rx[i], toPipeIn(phyToMac[i]));
 
       rule mac_phy_tx;
-         macToPhy[i].enq(mac[i].tx);
+         let v <- mac[i].tx.get();
+         macToPhy[i].enq(v);
       endrule
 
       rule mac_phy_rx;
          let v = phyToMac[i].first;
-         mac[i].rx(v);
+         mac[i].rx.put(v);
          phyToMac[i].deq;
       endrule
    end
 
-   interface DummyRequest request;
-      method Action read_version();
-         let v=`DtpVersion;
-         indication.read_version_resp(v);
-      endmethod
-   endinterface
+   rule cyc;
+      cycle <= cycle + 1;
+   endrule
+
+   rule send_dtp_timestamp;
+      tsFifo.enq(cycle);
+   endrule
+
+   // Connecting DTP request/indication and DTP-PHY looks ugly
+   mkConnection(toPipeOut(tsFifo), dtp.ifc.timestamp);
+   mkConnection(phys.globalOut, dtp.ifc.globalOut);
+   mkConnection(dtp.ifc.switchMode, phys.switchMode);
+   for (Integer i=0; i<4; i=i+1) begin
+      mkConnection(dtp.ifc.fromHost[i], phys.api[i].fromHost);
+      mkConnection(phys.api[i].toHost, dtp.ifc.toHost[i]);
+      mkConnection(phys.api[i].delayOut, dtp.ifc.delay[i]);
+      mkConnection(phys.api[i].stateOut, dtp.ifc.state[i]);
+      mkConnection(phys.api[i].jumpCount, dtp.ifc.jumpCount[i]);
+      mkConnection(phys.api[i].cLocalOut, dtp.ifc.cLocal[i]);
+      mkConnection(dtp.ifc.interval[i], phys.api[i].interval);
+      mkConnection(phys.api[i].dtpErrCnt, dtp.ifc.dtpErrCnt[i]);
+      mkConnection(phys.tx_dbg[i], dtp.ifc.txPcsDbg[i]);
+      mkConnection(phys.rx_dbg[i], dtp.ifc.rxPcsDbg[i]);
+   end
+
+   interface request = dtp.request;
 
    interface `PinType pins;
       // Clocks
