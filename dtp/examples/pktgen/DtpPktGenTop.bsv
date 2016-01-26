@@ -95,6 +95,7 @@ module mkDtpPktGenTop#(DtpIndication indication1, DtpPktGenIndication indication
 
    Reg#(Bit#(128)) cycle <- mkReg(0, clocked_by txClock, reset_by dtp_rst);
    FIFOF#(Bit#(128)) tsFifo <- mkFIFOF(clocked_by txClock, reset_by dtp_rst);
+
    for (Integer i = 0 ; i < valueOf(NumPorts) ; i=i+1) begin
       mac[i] <- mkEthMac(defaultClock, txClock, phys.rx_clkout[i], dtp_rst);
       //mkConnection(toPipeOut(mac[i].tx), phys.tx[i]);
@@ -144,17 +145,18 @@ module mkDtpPktGenTop#(DtpIndication indication1, DtpPktGenIndication indication
    end
 
    // Packet Generator
-   PktGen pktgen <- mkPktGen();
-   PacketBuffer pkt_buff <- mkPacketBuffer();
-   StoreAndFwdFromRingToMac ringToMac <- mkStoreAndFwdFromRingToMac(txClock, dtp_rst);
+   PktGen pktgen <- mkPktGen(clocked_by txClock, reset_by dtp_rst);
+   PacketBuffer pkt_buff <- mkPacketBuffer(clocked_by txClock, reset_by dtp_rst);
+   StoreAndFwdFromRingToMac ringToMac <- mkStoreAndFwdFromRingToMac(txClock, dtp_rst, clocked_by txClock, reset_by dtp_rst);
 
    mkConnection(pktgen.writeClient, pkt_buff.writeServer);
    mkConnection(ringToMac.readClient, pkt_buff.readServer);
    mkConnection(ringToMac.macTx, mac[0].packet_tx);
 
-   DtpPktGenRequest api <- mkDtpPktGenAPI(indication2, pktgen);
+   DtpPktGenAPI api <- mkDtpPktGenAPI(indication2, pktgen);
+
    interface request1 = dtp.request;
-   interface request2 = api;
+   interface request2 = api.request;
 
    interface `PinType pins;
       // Clocks

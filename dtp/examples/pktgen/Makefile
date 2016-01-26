@@ -14,7 +14,7 @@ AUTOTOP= --interface pins:DtpPktGenTop.pins
 PIN_TYPE=DE5Pins
 PIN_TYPE_INCLUDE=DE5Pins
 BSVFILES=$(PROJTOP)/DtpPktGenTop.bsv $(PROJTOP)/DtpPktGenAPI.bsv $(PROJTOP)/../../../hw/bsv/DtpController.bsv
-CPPFILES=$(PROJTOP)/test-dtp.cpp
+CPPFILES=$(PROJTOP)/pktgen.cpp
 PINOUT_FILE=../../../boards/de5.json
 PIN_BINDINGS?=PCIE:PCIE LED:LED OSC:OSC SFPA:SFPA SFPB:SFPB SFPC:SFPC SFPD:SFPD SFP:SFP I2C:I2C BUTTON:BUTTON
 
