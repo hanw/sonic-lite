@@ -48,6 +48,7 @@ import SharedBuffMMU::*;
 import SpecialFIFOs::*;
 import Vector::*;
 import Pipe::*;
+import DbgTypes::*;
 
 typedef struct {
    PktId id;
@@ -175,7 +176,7 @@ module mkStoreAndFwdFromMemToRing(StoreAndFwdFromMemToRing)
    provisos (Div#(`DataBusWidth, 8, bytesPerBeat)
             ,Log#(bytesPerBeat, beatShift));
 
-   let verbose = True;
+   let verbose = False;
 
    // Ring Buffer Write Client
    FIFO#(EtherData) writeDataFifo <- mkFIFO;

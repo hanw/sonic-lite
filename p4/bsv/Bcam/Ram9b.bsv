@@ -31,7 +31,6 @@ import StmtFSM::*;
 import Vector::*;
 import Pipe::*;
 import AsymmetricBRAM::*;
-import ConnectalBram::*;
 
 import BcamTypes::*;
 
@@ -61,7 +60,7 @@ interface Ram9bx256;
    interface Get#(Ram9bReadResponse) readResp;
 endinterface
 module mkRam9bx256(Ram9bx256);
-   let verbose = False;
+   let verbose = True;
    Reg#(Bit#(32)) cycle <- mkReg(0);
    rule every1 if (verbose);
       cycle <= cycle + 1;
@@ -81,11 +80,11 @@ module mkRam9bx256(Ram9bx256);
    BRAM_Configure bramCfg = defaultValue;
    bramCfg.memorySize = 16;
    bramCfg.latency=2;
-   Vector#(16, BRAM2Port#(Bit#(4), Bit#(16))) dpmlab <- replicateM(ConnectalBram::mkBRAM2Server(bramCfg));
+   Vector#(16, BRAM2Port#(Bit#(4), Bit#(16))) dpmlab <- replicateM(mkBRAM2Server(bramCfg));
 
    rule vldram_output;
       let v <- vldram.readServer.response.get;
-      if (verbose) $display("vldram %d: read v=%x", cycle, v);
+      if (verbose) $display("vldram %d: read iVld_fifo.enq=%x", cycle, v);
       iVld_fifo.enq(v);
    endrule
 

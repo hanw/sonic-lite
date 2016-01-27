@@ -84,7 +84,7 @@ module mkBcam9b(Bcam9b#(camDepth))
             ,Add#(wAddrHWidth, c__, camSz)
          );
 
-   let verbose = False;
+   let verbose = True;
    let verbose_setram = verbose && True;
    let verbose_idxram = verbose && True;
    let verbose_vacram = verbose && True;
@@ -123,9 +123,6 @@ module mkBcam9b(Bcam9b#(camDepth))
    Reg#(Bit#(4)) wAddr_indcR <- mkReg(0);
 
    Wire#(Bit#(4)) newPattOccFLoc_wire <- mkDWire(0);
-
-   PE#(16) pe_multiOcc <- mkPEncoder();
-   PE#(16) pe_vac <- mkPEncoder();
 
    Ram9b#(cdep) ram9b <- mkRam9b();
 

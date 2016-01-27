@@ -51,15 +51,15 @@ function Stmt testSeq2(BinaryCam#(256, 18) dut,
         endaction
         delay(100);
         action
-            dut.writeServer.put(BcamWriteReq{addr:'h1, data:'h2000});
+            dut.writeServer.put(BcamWriteReq{addr:'h2, data:'h2000});
         endaction
         delay(100);
         action
-            dut.writeServer.put(BcamWriteReq{addr:'h1, data:'h3000});
+            dut.writeServer.put(BcamWriteReq{addr:'h3, data:'h3000});
         endaction
         delay(100);
         action
-            dut.writeServer.put(BcamWriteReq{addr:'h1, data:'h2000});
+            dut.writeServer.put(BcamWriteReq{addr:'h4, data:'h4000});
         endaction
         delay(100);
         action
@@ -78,19 +78,19 @@ function Stmt testSeq3(BinaryCam#(256, 36) dut,
     return seq
         noAction;
         action
-            dut.writeServer.put(BcamWriteReq{addr:'h1, data:'h0200000a});
+            dut.writeServer.put(BcamWriteReq{addr:'h6, data:'h0200000a});
         endaction
         delay(100);
         action
-            dut.writeServer.put(BcamWriteReq{addr:'h1, data:'h2000000b});
+            dut.writeServer.put(BcamWriteReq{addr:'h2, data:'h1000000a});
         endaction
         delay(100);
         action
-            dut.writeServer.put(BcamWriteReq{addr:'h1, data:'h3000000c});
+            dut.writeServer.put(BcamWriteReq{addr:'h3, data:'h3000000a});
         endaction
         delay(100);
         action
-            dut.writeServer.put(BcamWriteReq{addr:'h1, data:'h0200000a});
+            dut.writeServer.put(BcamWriteReq{addr:'h4, data:'h0400000a});
         endaction
         delay(100);
         action

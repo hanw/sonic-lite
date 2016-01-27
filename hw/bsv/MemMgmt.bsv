@@ -106,7 +106,7 @@ module mkMemMgmt
 `endif
                 (MemMgmt#(addrWidth))
    provisos(Add#(a__, addrWidth, 44));
-   let verbose = True;
+   let verbose = False;
 
    Reg#(Bit#(32)) cycle <- mkReg(0);
    rule cycleRule if (verbose);

@@ -38,7 +38,7 @@ import StoreAndForward::*;
 import IPv4Parser::*;
 import GenericMatchTable::*;
 import DbgTypes::*;
-import TopTypes::*;
+import TdmTypes::*;
 
 `ifndef SIMULATION
 import AlteraMacWrap::*;
@@ -157,7 +157,7 @@ interface ModifyMac;
    interface MemWriteClient#(`DataBusWidth) writeClient;
 endinterface
 module mkModifyMac(ModifyMac);
-   let verbose = True;
+   let verbose = False;
    FIFO#(ModifyMacReq) modifyMacReqFifo <- mkFIFO;
 
    // Memory Client
@@ -201,7 +201,7 @@ module mkTDM#(StoreAndFwdFromRingToMem ingress, StoreAndFwdFromMemToRing egress,
    FIFOF#(FQWriteRequest) ingress_fifo <- mkSizedFIFOF(16);
    FIFOF#(FQWriteRequest) egress_fifo <- mkSizedFIFOF(16);
 
-   let verbose = True;
+   let verbose = False;
    Reg#(Bit#(32)) cycle <- mkReg(0);
    rule cycleRule if (verbose);
       cycle <= cycle + 1;
