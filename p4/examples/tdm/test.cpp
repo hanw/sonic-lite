@@ -189,7 +189,7 @@ compute_idle (const struct pcap_trace_info *info, double rate, double link_speed
 void erase_table () {
     for (int i =0; i < 256; i++) {
         device->deleteEntry(0, i);
-        sem_wait(&cmdCompleted);
+        //sem_wait(&cmdCompleted);
     }
 }
 
@@ -234,6 +234,17 @@ int main(int argc, char **argv)
         load_pcap_file(pcap_file, &pcap_info);
     }
 
+    if (arguments.tableadd) {
+        MatchField fields = {dstip: 0x0300000a};
+        add_entry(&fields);
+        fields.dstip = 0x0400000a;
+        add_entry(&fields);
+        fields.dstip = 0x0100000a;
+        add_entry(&fields);
+        fields.dstip = 0x0200000a;
+        add_entry(&fields);
+    }
+
     if (arguments.tabledel) {
         erase_table();
     }
@@ -261,23 +272,5 @@ int main(int argc, char **argv)
         read_status();
     }
 
-//    if (pcap_file) {
-//        fprintf(stderr, "Attempts to read pcap file %s\n", pcap_file);
-//        load_pcap_file(pcap_file, &pcap_info);
-//    }
-//
-//    if (arguments.rate && arguments.tracelen) {
-//        int idle = compute_idle(&pcap_info, arguments.rate, LINK_SPEED);
-//        device->start(arguments.tracelen, idle);
-//        sleep(10);
-//        device->stop();
-//    }
-//
-//    if (arguments.checkStatus) {
-//        read_status();
-//    }
-//
-
-//    while(1) sleep(1);
     return 0;
 }

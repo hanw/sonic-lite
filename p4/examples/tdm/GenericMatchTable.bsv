@@ -12,7 +12,7 @@ import Pipe::*;
 import Bcam::*;
 import BcamTypes::*;
 import PriorityEncoder::*;
-import TopTypes::*;
+import TdmTypes::*;
 import DbgTypes::*;
 
 // depthSz is multiple of 8 for 256 entries
@@ -46,7 +46,7 @@ module mkMatchTable(MatchTable#(depth, keySz))
            ,PriorityEncoder::PEncoder#(d__)
            ,Add#(k__, TLog#(depth), 64)
            ,Add#(TAdd#(TLog#(c__), 4), i__, depthSz));
-   let verbose = False;
+   let verbose = True;
    Reg#(Bit#(32)) cycle <- mkReg(0);
 
    Reg#(Bit#(64)) matchResponseCount <- mkReg(0);

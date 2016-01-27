@@ -47,7 +47,7 @@ CONNECTALFLAGS += --constraint=constraint.sdc
 CONNECTALFLAGS += --implconstraint=constraint.sdc
 CONNECTALFLAGS += -m $(P4FPGADIR)/bsv/AsymmetricBRAM/mem_model.c
 CONNECTALFLAGS += --nocache
-#CONNECTALFLAGS += --chipscope=$(P4FPGADIR)/examples/tdm/debug.stp
+CONNECTALFLAGS += --chipscope=$(P4FPGADIR)/examples/tdm/bcam.stp
 
 CONNECTALFLAGS += -D BYTE_ENABLES
 
@@ -86,7 +86,7 @@ run-sweep:
 	(cd bluesim; ./bin/ubuntu.exe -p ../udp-sweep-small.pcap -r 5 -n $(N))
 
 run-match:
-	(cd bluesim; ./bin/ubuntu.exe -a 0 -d 0)
+	(cd bluesim; ./bin/ubuntu.exe -a -d)
 
 include $(SONICDIR)/p4/Makefile.common
 include $(CONNECTALDIR)/Makefile.connectal
