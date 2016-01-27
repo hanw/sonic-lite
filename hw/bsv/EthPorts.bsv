@@ -103,6 +103,8 @@ module mkEthPorts#(Clock clk_50, Clock clk_156_25, Clock clk_644)(EthPortIfc);
       interface globalOut = phys.globalOut;
       interface switchMode = phys.switchMode;
       interface phys = phys.api;
+      interface tx_dbg = phys.tx_dbg;
+      interface rx_dbg = phys.rx_dbg;
    endinterface);
 
    interface loopback = phys.loopback;

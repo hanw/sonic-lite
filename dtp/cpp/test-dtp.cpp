@@ -75,6 +75,13 @@ public:
   virtual void dtp_get_mode_resp(uint8_t a) {
 	fprintf(stderr, "read from mode(%x)\n", a);
   }
+  virtual void dtp_debug_tx_pcs_resp(uint8_t p, uint64_t a, uint64_t b, uint64_t c, uint64_t d) {
+   fprintf(stderr, "read from port(%d) tx %lx %lx %lx %lx\n", p, a, b, c, d);
+  }
+  virtual void dtp_debug_rx_pcs_resp(uint8_t p, uint64_t a, uint64_t b, uint64_t c, uint64_t d) {
+   fprintf(stderr, "read from port(%d) rx %lx %lx %lx %lx\n", p, a, b, c, d);
+  }
+
 
   DtpTop(unsigned int id) : DtpIndicationWrapper(id) {}
 };

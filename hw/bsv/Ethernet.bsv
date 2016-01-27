@@ -96,6 +96,8 @@ interface NetToConnectalIfc;
    interface PipeOut#(Bit#(53)) globalOut;
    interface PipeIn#(Bit#(1)) switchMode;
    interface Vector#(NumPorts, DtpToPhyIfc) phys;
+   interface Vector#(NumPorts, PipeOut#(PcsDbgRec)) tx_dbg;
+   interface Vector#(NumPorts, PipeOut#(PcsDbgRec)) rx_dbg;
 endinterface
 
 typedef struct {
