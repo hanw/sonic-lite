@@ -12,10 +12,9 @@ P4FPGADIR?=$(DEV_ROOT)/sonic-lite/p4
 # Connectal Support
 ########################################################
 S2H_INTERFACES=MemoryTestRequest:MemoryTest.request
-ifeq ($(BOARD), de5)
+ifeq ($(DEBUG), )
 H2S_INTERFACES=MemoryTest:MemoryTestIndication,MemServerIndication
-endif
-ifeq ($(BOARD), bluesim)
+else
 H2S_INTERFACES=MemoryTest:MemoryTestIndication,MemServerIndication,MemMgmtIndication,MMUIndication
 endif
 

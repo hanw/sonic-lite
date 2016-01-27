@@ -37,7 +37,7 @@ import Pipe::*;
 import MemServerIndication::*;
 import MemMgmt::*;
 import MemMgmtIndication::*;
-`ifdef SIMULATION
+`ifdef DEBUG
 import MMUIndication::*;
 `endif
 import MemTypes::*;
@@ -46,8 +46,9 @@ import MemoryAPI::*;
 import PacketBuffer::*;
 import SharedBuff::*;
 import StoreAndForward::*;
+import DbgTypes::*;
 
-`ifndef SIMULATION
+`ifdef SYNTHESIS
 import AlteraMacWrap::*;
 import EthMac::*;
 import AlteraEthPhy::*;
@@ -63,7 +64,7 @@ endinterface
 
 module mkMemoryTest#(MemoryTestIndication indication
                     ,ConnectalMemory::MemServerIndication memServerIndication
-`ifdef SIMULATION
+`ifdef DEBUG
                     ,MemMgmtIndication memTestInd
                     ,ConnectalMemory::MMUIndication mmuInd
 `endif
@@ -108,7 +109,7 @@ module mkMemoryTest#(MemoryTestIndication indication
 
    PacketBuffer incoming_buff <- mkPacketBuffer();
    StoreAndFwdFromRingToMem ringToMem <- mkStoreAndFwdFromRingToMem(
-`ifdef SIMULATION
+`ifdef DEBUG
                                                                     memTestInd
 `endif
                                                                    );
@@ -119,7 +120,7 @@ module mkMemoryTest#(MemoryTestIndication indication
    SharedBuffer#(12, 128, 1) mem <- mkSharedBuffer(vec(memToRing.readClient)
                                                   ,vec(ringToMem.writeClient)
                                                   ,memServerIndication
-`ifdef SIMULATION
+`ifdef DEBUG
                                                   ,memTestInd
                                                   ,mmuInd
 `endif
