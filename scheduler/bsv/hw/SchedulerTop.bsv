@@ -15,6 +15,8 @@ import RingBufferTypes::*;
 import RingBuffer::*;
 import Addresses::*;
 
+import DtpController::*;
+import Ethernet::*;
 import AlteraMacWrap::*;
 import EthMac::*;
 import EthPhy::*;
@@ -45,11 +47,12 @@ interface SchedulerTopRequest;
 endinterface
 
 interface SchedulerTop;
-    interface SchedulerTopRequest request;
+	interface DtpRequest request1;
+    interface SchedulerTopRequest request2;
     interface `PinType pins;
 endinterface
 
-module mkSchedulerTop#(SchedulerTopIndication indication)(SchedulerTop);
+module mkSchedulerTop#(DtpIndication indication1, SchedulerTopIndication indication2)(SchedulerTop);
     // Clocks
     Clock defaultClock <- exposeCurrentClock();
     Reset defaultReset <- exposeCurrentReset();
@@ -77,8 +80,11 @@ module mkSchedulerTop#(SchedulerTopIndication indication)(SchedulerTop);
 
     // Phy
     //EthPhyIfc phys <- mkAlteraEthPhy(defaultClock, phyClock, txClock, defaultReset);
+    DtpController dtp <- mkDtpController(indication1, txClock, txReset, clocked_by defaultClock);
+    Reset rst_api <- mkSyncReset(0, dtp.ifc.rst, txClock);
+    Reset dtp_rst <- mkResetEither(txReset, rst_api, clocked_by txClock);
     EthPhyIfc phys <- mkAlteraEthPhy(mgmtClock, phyClock, txClock, defaultReset, clocked_by mgmtClock, reset_by mgmtReset);
-    DtpPhyIfc#(NUM_OF_DTP_PORTS) dtp_phy <- mkEthPhy(mgmtClock, txClock, phyClock, clocked_by mgmtClock, reset_by mgmtReset);
+    DtpPhyIfc#(NUM_OF_DTP_PORTS) dtp_phy <- mkEthPhy(mgmtClock, txClock, phyClock, clocked_by txClock, reset_by dtp_rst);
 
     Vector#(NUM_OF_ALTERA_PORTS, Clock) rxClock;
     Vector#(NUM_OF_ALTERA_PORTS, Reset) rxReset;
@@ -321,6 +327,19 @@ module mkSchedulerTop#(SchedulerTopIndication indication)(SchedulerTop);
 		endrule
 	end
 
+   FIFOF#(Bit#(128)) tsFifo <- mkFIFOF(clocked_by txClock, reset_by dtp_rst);
+   // Connecting DTP request/indication and DTP-PHY looks ugly
+   mkConnection(toPipeOut(tsFifo), dtp.ifc.timestamp);
+   for (Integer i = 0; i < valueOf(NUM_OF_DTP_PORTS); i = i + 1) begin
+      mkConnection(dtp.ifc.fromHost[i], dtp_phy.api[i].fromHost);
+      mkConnection(dtp_phy.api[i].toHost, dtp.ifc.toHost[i]);
+      mkConnection(dtp_phy.api[i].delayOut, dtp.ifc.delay[i]);
+      mkConnection(dtp_phy.api[i].stateOut, dtp.ifc.state[i]);
+      mkConnection(dtp_phy.api[i].jumpCount, dtp.ifc.jumpCount[i]);
+      mkConnection(dtp_phy.api[i].cLocalOut, dtp.ifc.cLocal[i]);
+      mkConnection(dtp.ifc.interval[i], dtp_phy.api[i].interval);
+      mkConnection(dtp_phy.api[i].dtpErrCnt, dtp.ifc.dtpErrCnt[i]);
+   end
 /* ------------------------------------------------------------------------------
 *                               INDICATION RULES
 * ------------------------------------------------------------------------------*/
@@ -334,7 +353,7 @@ module mkSchedulerTop#(SchedulerTopIndication indication)(SchedulerTop);
 
 	rule time_slots (fire_time_slots == 1);
 		fire_time_slots <= 0;
-		indication.display_time_slots_count(time_slots_reg);
+		indication2.display_time_slots_count(time_slots_reg);
 	endrule
 
 /*------------------------------------------------------------------------------*/
@@ -348,7 +367,7 @@ module mkSchedulerTop#(SchedulerTopIndication indication)(SchedulerTop);
 
 	rule host_pkt (fire_host_pkt == 1);
 		fire_host_pkt <= 0;
-		indication.display_host_pkt_count(host_pkt_reg);
+		indication2.display_host_pkt_count(host_pkt_reg);
 	endrule
 
 /*------------------------------------------------------------------------------*/
@@ -362,7 +381,7 @@ module mkSchedulerTop#(SchedulerTopIndication indication)(SchedulerTop);
 
 	rule non_host_pkt (fire_non_host_pkt == 1);
 		fire_non_host_pkt <= 0;
-		indication.display_non_host_pkt_count(non_host_pkt_reg);
+		indication2.display_non_host_pkt_count(non_host_pkt_reg);
 	endrule
 
 /*------------------------------------------------------------------------------*/
@@ -376,7 +395,7 @@ module mkSchedulerTop#(SchedulerTopIndication indication)(SchedulerTop);
 
 	rule received_pkt (fire_received_pkt == 1);
 		fire_received_pkt <= 0;
-		indication.display_received_pkt_count(received_pkt_reg);
+		indication2.display_received_pkt_count(received_pkt_reg);
 	endrule
 
 /*------------------------------------------------------------------------------*/
@@ -390,7 +409,7 @@ module mkSchedulerTop#(SchedulerTopIndication indication)(SchedulerTop);
 
 	rule rxWrite_pkt (fire_rxWrite_pkt == 1);
 		fire_rxWrite_pkt <= 0;
-		indication.display_rxWrite_pkt_count(rxWrite_pkt_reg);
+		indication2.display_rxWrite_pkt_count(rxWrite_pkt_reg);
 	endrule
 
 /*------------------------------------------------------------------------------*/
@@ -404,7 +423,7 @@ module mkSchedulerTop#(SchedulerTopIndication indication)(SchedulerTop);
 
 	rule dma_stats (fire_dma_stats == 1);
 		fire_dma_stats <= 0;
-		indication.display_dma_stats(dma_stats_reg.pkt_count);
+		indication2.display_dma_stats(dma_stats_reg.pkt_count);
 	endrule
 
 ///*-----------------------------------------------------------------------------*/
@@ -417,7 +436,7 @@ module mkSchedulerTop#(SchedulerTopIndication indication)(SchedulerTop);
 //
 //	rule debug_dma_res (debug_flag == 1);
 //		let res <-toGet(debug_dma_res_fifo).get;
-//		indication.debug_dma(zeroExtend(res));
+//		indication2.debug_dma(zeroExtend(res));
 //	endrule
 //
 ///*-----------------------------------------------------------------------------*/
@@ -430,7 +449,7 @@ module mkSchedulerTop#(SchedulerTopIndication indication)(SchedulerTop);
 //
 //	rule debug_sched_res (debug_flag == 1);
 //		let res <- toGet(debug_sched_res_fifo).get;
-//		indication.debug_sched(zeroExtend(res.sop),
+//		indication2.debug_sched(zeroExtend(res.sop),
 //		                       zeroExtend(res.eop),
 //	                           res.payload[127:64],
 //							   res.payload[63:0]);
@@ -446,7 +465,7 @@ module mkSchedulerTop#(SchedulerTopIndication indication)(SchedulerTop);
 //
 //	rule debug_mac_tx_res (debug_flag == 1);
 //		let res <- toGet(debug_mac_tx_res_fifo).get;
-//		indication.debug_mac_tx(zeroExtend(res.sop),
+//		indication2.debug_mac_tx(zeroExtend(res.sop),
 //		                        zeroExtend(res.eop),
 //		                        res.data);
 //	endrule
@@ -461,7 +480,7 @@ module mkSchedulerTop#(SchedulerTopIndication indication)(SchedulerTop);
 //
 //	rule debug_mac_rx_res (debug_flag == 1);
 //		let res <- toGet(debug_mac_rx_res_fifo).get;
-//		indication.debug_mac_rx(zeroExtend(res.sop),
+//		indication2.debug_mac_rx(zeroExtend(res.sop),
 //		                        zeroExtend(res.eop),
 //		                        res.data);
 //	endrule
@@ -476,7 +495,7 @@ module mkSchedulerTop#(SchedulerTopIndication indication)(SchedulerTop);
 
 	rule sop_counter_res (debug_flag == 1 && fire_sop_counter_res == 1);
 		fire_sop_counter_res <= 0;
-		indication.display_sop_count_from_mac_rx(sop_count_reg);
+		indication2.display_sop_count_from_mac_rx(sop_count_reg);
 	endrule
 
 /*-----------------------------------------------------------------------------*/
@@ -490,7 +509,7 @@ module mkSchedulerTop#(SchedulerTopIndication indication)(SchedulerTop);
 
 	rule eop_counter_res (debug_flag == 1 && fire_eop_counter_res == 1);
 		fire_eop_counter_res <= 0;
-		indication.display_eop_count_from_mac_rx(eop_count_reg);
+		indication2.display_eop_count_from_mac_rx(eop_count_reg);
 	endrule
 
 /* ------------------------------------------------------------------------------
@@ -522,8 +541,9 @@ module mkSchedulerTop#(SchedulerTopIndication indication)(SchedulerTop);
 		//host_index_fifo_mac.enq(host_index_reg);
 	endrule
 
+	interface DtpRequest request1 = dtp.request;
 
-    interface SchedulerTopRequest request;
+    interface SchedulerTopRequest request2;
         method Action start_scheduler_and_dma(Bit#(32) idx,
 			                    Bit#(32) dma_transmission_rate,	Bit#(64) cycles);
 			fire_reset_state <= 1;
