@@ -15,9 +15,11 @@ PIN_TYPE=DE5Pins
 PIN_TYPE_INCLUDE=DE5Pins
 BSVFILES=$(PROJTOP)/DtpPktGenTop.bsv $(PROJTOP)/DtpPktGenAPI.bsv $(PROJTOP)/../../../hw/bsv/DtpController.bsv
 CPPFILES=$(PROJTOP)/pktgen.cpp
+CPPFILES += $(PROJTOP)/../../../sw/lpcap.c
 PINOUT_FILE=../../../boards/de5.json
 PIN_BINDINGS?=PCIE:PCIE LED:LED OSC:OSC SFPA:SFPA SFPB:SFPB SFPC:SFPC SFPD:SFPD SFP:SFP I2C:I2C BUTTON:BUTTON
 
+CONNECTALFLAGS += -I $(PROJTOP)/../../../sw/ 
 CONNECTALFLAGS += --nocache
 CONNECTALFLAGS += --constraint=$(PROJTOP)/mkDtpTop.sdc
 CONNECTALFLAGS += --implconstraint=$(PROJTOP)/mkDtpTop.sdc

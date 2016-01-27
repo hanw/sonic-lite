@@ -19,12 +19,7 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#include "MemServerIndication.h"
-#ifdef DEBUG
-#include "MemMgmtIndication.h"
-#endif
-#include "MemoryTestIndication.h"
-#include "MemoryTestRequest.h"
+#include "DtpPktGenRequest.h"
 #include "GeneratedTypes.h"
 #include "lutils.h"
 #include "lpcap.h"
@@ -58,9 +53,6 @@ void usage (const char *program_name) {
 struct arg_info {
     double rate;
     int tracelen;
-    bool tableadd;
-    bool tabledel;
-    bool checkStatus;
 };
 
 static void
@@ -89,7 +81,7 @@ parse_options(int argc, char *argv[], char **pcap_file, struct arg_info* info) {
                 usage(get_exe_name(argv[0]));
                 break;
             case 'p':
-                *pcap_file = optarg;
+                *pcap_file = strdup(optarg);
                 break;
             case 'r':
                 info->rate = strtod(optarg, NULL);
@@ -117,14 +109,12 @@ compute_idle (const struct pcap_trace_info *info, double rate, double link_speed
 int main(int argc, char **argv)
 {
     char *pcap_file=NULL;
-    struct arg_info arguments = {0, 0};
+    struct arg_info arguments = {1, 200};
     struct pcap_trace_info pcap_info = {0, 0};
 
     device = new DtpPktGenRequestProxy(IfcNames_DtpPktGenRequestS2H);
 
     parse_options(argc, argv, &pcap_file, &arguments);
-
-    sem_wait(&cmdCompleted);
 
     if (pcap_file) {
         fprintf(stderr, "Attempts to read pcap file %s\n", pcap_file);

@@ -97,33 +97,17 @@ module mkDtpPktGenTop#(DtpIndication indication1, DtpPktGenIndication indication
    FIFOF#(Bit#(128)) tsFifo <- mkFIFOF(clocked_by txClock, reset_by dtp_rst);
 
    for (Integer i = 0 ; i < valueOf(NumPorts) ; i=i+1) begin
-      mac[i] <- mkEthMac(defaultClock, txClock, phys.rx_clkout[i], dtp_rst);
-      //mkConnection(toPipeOut(mac[i].tx), phys.tx[i]);
-      //mkConnection(mac[i].rx, phys.rx[i]);
-      
-      Reset rx_rst<- mkSyncReset(2, dtp_rst, phys.rx_clkout[i]);
-      phyToMac[i] <- mkFIFOF(clocked_by phys.rx_clkout[i], reset_by rx_rst);
+      mac[i] <- mkEthMac(mgmtClock, txClock, phys.rx_clkout[i], dtp_rst);
 
-      mkConnection(toPipeOut(macToPhy[i]), phys.tx[i]);
-      mkConnection(phys.rx[i], toPipeIn(phyToMac[i]));
-
-      rule mac_phy_tx;
-         let v <- mac[i].tx.get();
-         macToPhy[i].enq(v);
-      endrule
-
-      rule mac_phy_rx;
-         let v = phyToMac[i].first;
-         mac[i].rx.put(v);
-         phyToMac[i].deq;
-      endrule
+      mkConnection(mac[i].tx, toPut(phys.tx[i]));
+      mkConnection(toGet(phys.rx[i]), mac[i].rx);
    end
 
    rule cyc;
       cycle <= cycle + 1;
    endrule
 
-   rule send_dtp_timestamp;
+   rule send_dtp_timestamp; 
       tsFifo.enq(cycle);
    endrule
 
@@ -154,6 +138,28 @@ module mkDtpPktGenTop#(DtpIndication indication1, DtpPktGenIndication indication
    mkConnection(ringToMac.macTx, mac[0].packet_tx);
 
    DtpPktGenAPI api <- mkDtpPktGenAPI(indication2, pktgen);
+
+   // PktGen start/stop
+   SyncFIFOIfc#(Tuple2#(Bit#(32),Bit#(32))) pktGenStartSyncFifo <- mkSyncFIFO(4, defaultClock, defaultReset, txClock);
+   SyncFIFOIfc#(void) pktGenStopSyncFifo <- mkSyncFIFO(4, defaultClock, defaultReset, txClock);
+   SyncFIFOIfc#(EtherData) pktGenWriteSyncFifo <- mkSyncFIFO(4, defaultClock, defaultReset, txClock);
+   mkConnection(api.pktGenStart, toPut(pktGenStartSyncFifo));
+   mkConnection(api.pktGenStop, toPut(pktGenStopSyncFifo));
+   mkConnection(api.pktGenWrite, toPut(pktGenWriteSyncFifo));
+   rule req_start;
+      let v <- toGet(pktGenStartSyncFifo).get;
+      pktgen.start(tpl_1(v), tpl_2(v));
+   endrule
+
+   rule req_stop;
+      let v <- toGet(pktGenStopSyncFifo).get;
+      pktgen.stop();
+   endrule
+
+   rule req_write;
+      let v <- toGet(pktGenWriteSyncFifo).get;
+      pktgen.writeServer.writeData.put(v);
+   endrule
 
    interface request1 = dtp.request;
    interface request2 = api.request;
