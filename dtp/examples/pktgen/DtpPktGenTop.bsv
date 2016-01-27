@@ -97,7 +97,7 @@ module mkDtpPktGenTop#(DtpIndication indication1, DtpPktGenIndication indication
    FIFOF#(Bit#(128)) tsFifo <- mkFIFOF(clocked_by txClock, reset_by dtp_rst);
 
    for (Integer i = 0 ; i < valueOf(NumPorts) ; i=i+1) begin
-      mac[i] <- mkEthMac(mgmtClock, txClock, phys.rx_clkout[i], dtp_rst);
+      mac[i] <- mkEthMac(mgmtClock, txClock, phys.rx_clkout[i], dtp_rst, clocked_by txClock, reset_by dtp_rst);
 
       mkConnection(mac[i].tx, toPut(phys.tx[i]));
       mkConnection(toGet(phys.rx[i]), mac[i].rx);
@@ -136,6 +136,10 @@ module mkDtpPktGenTop#(DtpIndication indication1, DtpPktGenIndication indication
    mkConnection(pktgen.writeClient, pkt_buff.writeServer);
    mkConnection(ringToMac.readClient, pkt_buff.readServer);
    mkConnection(ringToMac.macTx, mac[0].packet_tx);
+
+   rule drain_mac_rx;
+      let v <- toGet(mac[0].packet_rx).get;
+   endrule
 
    DtpPktGenAPI api <- mkDtpPktGenAPI(indication2, pktgen);
 
