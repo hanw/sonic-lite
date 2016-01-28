@@ -11,7 +11,7 @@
 static uint32_t server_index = 0;
 static uint32_t rate = 0;
 static uint64_t cycles = 0;
-static uint32_t num_of_servers_transmitting = 0;
+//static uint16_t num_of_servers_transmitting = 0;
 
 static SchedulerTopRequestProxy *device = 0;
 
@@ -79,8 +79,10 @@ public:
 };
 
 void configure_scheduler(SchedulerTopRequestProxy* device) {
-	device->start_scheduler_and_dma(server_index, rate, cycles,
-			                        num_of_servers_transmitting);
+	device->start_scheduler_and_dma(server_index,
+//			                        num_of_servers_transmitting,
+									rate,
+									cycles);
     device->debug();
 }
 
@@ -89,14 +91,14 @@ int main(int argc, char **argv)
     SchedulerTopIndication echoIndication(IfcNames_SchedulerTopIndicationH2S);
     device = new SchedulerTopRequestProxy(IfcNames_SchedulerTopRequestS2H);
 
-    if (argc != 5) {
+    if (argc != 4) {
         printf("Wrong number of arguments\n");
         exit(0);
     } else {
         server_index = atoi(argv[1]);
         rate = atoi(argv[2]);
         cycles = atol(argv[3]);
-		num_of_servers_transmitting = atoi(argv[4]);
+//		num_of_servers_transmitting = atoi(argv[4]);
     }
 
 	sleep(server_index);

@@ -42,9 +42,9 @@ endinterface
 
 interface SchedulerTopRequest;
     method Action start_scheduler_and_dma(Bit#(32) idx,
+//									      Bit#(16) num_of_servers_transmitting,
 		                                  Bit#(32) dma_transmission_rate,
-		                                  Bit#(64) cycles,
-									      Bit#(32) num_of_servers_transmitting);
+		                                  Bit#(64) cycles);
 	method Action debug();
 endinterface
 
@@ -583,14 +583,22 @@ module mkSchedulerTop#(DtpIndication indication1, SchedulerTopIndication indicat
 
     interface SchedulerTopRequest request2;
         method Action start_scheduler_and_dma(Bit#(32) idx,
-			                    Bit#(32) dma_transmission_rate,	Bit#(64) cycles,
-								Bit#(32) num_of_servers_transmitting);
+//			                    Bit#(16) num_of_servers_transmitting,
+			                    Bit#(32) dma_transmission_rate,	Bit#(64) cycles);
 			fire_reset_state <= 1;
 			reset_len_count <= 0;
 			host_index_reg <= truncate(idx);
-			dma_transmission_rate_reg <= dma_transmission_rate;
 			cycles_reg <= cycles;
-			num_of_servers_reg <= truncate(num_of_servers_transmitting);
+			if (dma_transmission_rate <= 10)
+			begin
+				num_of_servers_reg <= 0;
+				dma_transmission_rate_reg <= dma_transmission_rate;
+			end
+			else
+			begin
+				num_of_servers_reg <= truncate(dma_transmission_rate - 10);
+				dma_transmission_rate_reg <= 10;
+			end
         endmethod
 
 		method Action debug();
