@@ -10,16 +10,27 @@ CONNECTALFLAGS += --bsvpath=$(PROJTOP)/../../../hw/generated
 
 S2H_INTERFACES=DtpRequest:DtpPktGenTop.request1 DtpPktGenRequest:DtpPktGenTop.request2
 H2S_INTERFACES=DtpPktGenTop:DtpIndication,DtpPktGenIndication
-AUTOTOP= --interface pins:DtpPktGenTop.pins
-PIN_TYPE=DE5Pins
-PIN_TYPE_INCLUDE=DE5Pins
 BSVFILES=$(PROJTOP)/DtpPktGenTop.bsv $(PROJTOP)/DtpPktGenAPI.bsv $(PROJTOP)/../../../hw/bsv/DtpController.bsv
 CPPFILES=$(PROJTOP)/pktgen.cpp
 CPPFILES += $(PROJTOP)/../../../sw/lpcap.c
+CONNECTALFLAGS += -I $(PROJTOP)/../../../sw/ 
+
+CONNECTALFLAGS += -D DataBusWidth=128
+ifeq ($(BOARD), vsim)
+CONNECTALFLAGS += --verilog $(IPDIR)/$(BOARD)/simulation/mac_10gbe
+CONNECTALFLAGS += --verilog $(IPDIR)/$(BOARD)/simulation/altera_xcvr_10gbaser_wrapper
+CONNECTALFLAGS += --modelsim $(IPDIR)/$(BOARD)/simulation/altera_xcvr_10gbaser_wrapper/submodules/alt_xcvr_csr_common_h.sv
+CONNECTALFLAGS += --modelsim $(IPDIR)/$(BOARD)/simulation/altera_xcvr_10gbaser_wrapper/submodules/altera_xcvr_functions.sv
+CONNECTALFLAGS += --modelsim $(IPDIR)/$(BOARD)/simulation/altera_xcvr_10gbaser_wrapper/submodules/alt_xcvr_csr_selector.sv
+endif
+
+ifeq ($(BOARD), de5)
+AUTOTOP= --interface pins:DtpPktGenTop.pins
+PIN_TYPE=DE5Pins
+PIN_TYPE_INCLUDE=DE5Pins
 PINOUT_FILE=../../../boards/de5.json
 PIN_BINDINGS?=PCIE:PCIE LED:LED OSC:OSC SFPA:SFPA SFPB:SFPB SFPC:SFPC SFPD:SFPD SFP:SFP I2C:I2C BUTTON:BUTTON
 
-CONNECTALFLAGS += -I $(PROJTOP)/../../../sw/ 
 CONNECTALFLAGS += --nocache
 CONNECTALFLAGS += --constraint=$(PROJTOP)/mkDtpTop.sdc
 CONNECTALFLAGS += --implconstraint=$(PROJTOP)/mkDtpTop.sdc
@@ -31,10 +42,11 @@ CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/altera_clkctrl/altera_clkctr
 CONNECTALFLAGS += --verilog=$(PROJTOP)/../../../hw/verilog/si570/
 CONNECTALFLAGS += --verilog=$(PROJTOP)/../../../hw/verilog/
 
-CONNECTALFLAGS += -D DtpVersion=$(shell printf "%d" 0x`git rev-parse --short=8 HEAD`)
 CONNECTALFLAGS += -D PcieHostIF
-CONNECTALFLAGS += -D DataBusWidth=128
 CONNECTALFLAGS += -D DEBUG_ETH
+endif
+CONNECTALFLAGS += -D DtpVersion=$(shell printf "%d" 0x`git rev-parse --short=8 HEAD`)
+
 ifneq (, $(BLUESIM))
 CONNECTALFLAGS += --pinfo=$(PROJTOP)/../../../boards/dtp_synth.json
 endif
@@ -43,9 +55,14 @@ prebuild::
 ifneq (, $(QUARTUS_SH))
 	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) $(QUARTUS_SH) -t $(CONNECTALDIR)/scripts/connectal-synth-pll.tcl)
 	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) $(QUARTUS_SH) -t $(PROJTOP)/../../../hw/scripts/generate-mac.tcl)
+ifeq ($(BOARD), de5)
 	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) $(QUARTUS_SH) -t $(CONNECTALDIR)/scripts/connectal-synth-eth.tcl)
 	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) $(QUARTUS_SH) -t $(PROJTOP)/../../../hw/scripts/connectal-synth-pma.tcl)
 	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) $(QUARTUS_SH) -t $(PROJTOP)/../../../hw/scripts/connectal-synth-misc.tcl)
+endif
+ifeq ($(BOARD), vsim)
+	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) $(QUARTUS_SH) -t $(PROJTOP)/../../../hw/scripts/connectal-synth-phy.tcl)
+endif
 endif
 
 include $(CONNECTALDIR)/Makefile.connectal

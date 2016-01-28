@@ -21,13 +21,13 @@ endinterface
 interface DtpPktGenAPI;
    interface DtpPktGenRequest request;
    interface Get#(Tuple2#(Bit#(32), Bit#(32))) pktGenStart;
-   interface Get#(void) pktGenStop;
+   interface Get#(Bit#(1)) pktGenStop;
    interface Get#(EtherData) pktGenWrite;
 endinterface
 
 module mkDtpPktGenAPI#(DtpPktGenIndication indication, PktGen pktgen)(DtpPktGenAPI);
    FIFO#(Tuple2#(Bit#(32), Bit#(32))) startReqFifo <- mkFIFO;
-   FIFO#(void) stopReqFifo <- mkFIFO;
+   FIFO#(Bit#(1)) stopReqFifo <- mkFIFO;
    FIFO#(EtherData) etherDataFifo <- mkFIFO;
 
    interface DtpPktGenRequest request;

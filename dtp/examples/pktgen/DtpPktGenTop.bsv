@@ -54,8 +54,12 @@ import HostInterface::*;
 import `PinTypeInclude::*;
 
 import ConnectalClocks::*;
+`ifdef SYNTHESIS
 import ALTERA_SI570_WRAPPER::*;
 import AlteraExtra::*;
+`else
+import Sims::*;
+`endif
 import LedController::*;
 
 interface DtpPktGenTop;
@@ -71,7 +75,11 @@ module mkDtpPktGenTop#(DtpIndication indication1, DtpPktGenIndication indication
    Wire#(Bit#(1)) clk_644_wire <- mkDWire(0);
    Wire#(Bit#(1)) clk_50_wire <- mkDWire(0);
 
+`ifdef SYNTHESIS
    De5Clocks clocks <- mkDe5Clocks(clk_50_wire, clk_644_wire);
+`else
+   SimClocks clocks <- mkSimClocks();
+`endif
    Clock txClock = clocks.clock_156_25;
    Clock phyClock = clocks.clock_644_53;
    Clock mgmtClock = clocks.clock_50;
@@ -79,7 +87,9 @@ module mkDtpPktGenTop#(DtpIndication indication1, DtpPktGenIndication indication
    Reset phyReset <- mkSyncReset(2, defaultReset, phyClock);
    Reset mgmtReset <- mkSyncReset(2, defaultReset, mgmtClock);
 
+`ifdef SYNTHESIS
    De5SfpCtrl#(4) sfpctrl <- mkDe5SfpCtrl();
+`endif
 
    DtpController dtp <- mkDtpController(indication1, txClock, txReset, clocked_by defaultClock);
 
@@ -145,7 +155,7 @@ module mkDtpPktGenTop#(DtpIndication indication1, DtpPktGenIndication indication
 
    // PktGen start/stop
    SyncFIFOIfc#(Tuple2#(Bit#(32),Bit#(32))) pktGenStartSyncFifo <- mkSyncFIFO(4, defaultClock, defaultReset, txClock);
-   SyncFIFOIfc#(void) pktGenStopSyncFifo <- mkSyncFIFO(4, defaultClock, defaultReset, txClock);
+   SyncFIFOIfc#(Bit#(1)) pktGenStopSyncFifo <- mkSyncFIFO(4, defaultClock, defaultReset, txClock);
    SyncFIFOIfc#(EtherData) pktGenWriteSyncFifo <- mkSyncFIFO(4, defaultClock, defaultReset, txClock);
    mkConnection(api.pktGenStart, toPut(pktGenStartSyncFifo));
    mkConnection(api.pktGenStop, toPut(pktGenStopSyncFifo));
@@ -168,6 +178,7 @@ module mkDtpPktGenTop#(DtpIndication indication1, DtpPktGenIndication indication
    interface request1 = dtp.request;
    interface request2 = api.request;
 
+`ifdef SYNTHESIS
    interface `PinType pins;
       // Clocks
       method Action osc_50(Bit#(1) b3d, Bit#(1) b4a, Bit#(1) b4d, Bit#(1) b7a, Bit#(1) b7d, Bit#(1) b8a, Bit#(1) b8d);
@@ -185,4 +196,5 @@ module mkDtpPktGenTop#(DtpIndication indication1, DtpPktGenIndication indication
       interface deleteme_unused_clock3 = defaultClock;
       interface deleteme_unused_reset = defaultReset;
    endinterface
+`endif
 endmodule
