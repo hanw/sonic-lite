@@ -95,7 +95,7 @@ module mkDtpRx#(Integer id, Integer c_local_init)(DtpRx);
 
       let c_remote_compensated = c_remote + rxtx_delay;
 
-      if (v[9:2] == 8'h1e && bsync_lock_wire) begin
+      if (v[1:0] == 2'b01 && v[9:2] == 8'h1e && bsync_lock_wire) begin
          vo[65:10] = 56'h0;
          if (v[11:10] == init_type ) begin
             if (parity == v[12]) begin

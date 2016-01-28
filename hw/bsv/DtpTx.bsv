@@ -196,7 +196,7 @@ module mkDtpTx#(Integer id, Integer c_local_init)(DtpTx);
 //      c_local_out = c_local+2; // forward compute parity.
       parity = ^c_local_out[52:0];
 
-      if(v[9:2] == 8'h1e) begin
+      if(v[1:0] == 2'b01 && v[9:2] == 8'h1e) begin
          mux_sel = True;
          is_idle <= True;
       end
