@@ -16,6 +16,7 @@ import EthMac::*;
 interface Mac;
 //	interface Get#(PacketDataT#(64)) debug_sending_to_phy;
 //	interface Get#(PacketDataT#(64)) debug_received_from_phy;
+	interface Get#(Bit#(64)) mac_send_count_port_0;
     interface Get#(Bit#(64)) sop_count_port_0;
     interface Get#(Bit#(64)) eop_count_port_0;
 
@@ -24,6 +25,7 @@ interface Mac;
     (* always_ready, always_enabled *)
     method Action rx(Integer port_index, Bit#(72) v);
 
+	method Action getMacSendCountForPort0();
     method Action getSOPCountForPort0();
     method Action getEOPCountForPort0();
 endinterface
@@ -58,9 +60,16 @@ module mkMac#(Scheduler#(ReadReqType, ReadResType,
     Vector#(NUM_OF_ALTERA_PORTS, Reg#(Bit#(2))) turn
                     <- replicateM(mkReg(0, clocked_by txClock, reset_by txReset));
 
+/*------------------------------------------------------------------------------*/
 //	SyncFIFOIfc#(PacketDataT#(64)) debug_sending_to_phy_fifo
 //	               <- mkSyncFIFO(16, txClock, txReset, defaultClock);
+	SyncFIFOIfc#(Bit#(64)) mac_send_count_fifo_port_0
+	        <- mkSyncFIFO(1, txClock, txReset, defaultClock);
 
+	Vector#(NUM_OF_ALTERA_PORTS, Reg#(Bit#(64))) mac_send_count_reg
+	        <- replicateM(mkReg(0, clocked_by txClock, reset_by txReset));
+
+/*------------------------------------------------------------------------------*/
     for (Integer i = 0; i < fromInteger(valueof(NUM_OF_ALTERA_PORTS)); i = i + 1)
     begin
 		rule start_polling_tx_buffer;
@@ -116,6 +125,9 @@ module mkMac#(Scheduler#(ReadReqType, ReadResType,
         begin
             rule send_to_mac (turn[i] == fromInteger(j));
                 let d <- toGet((mac_in_buffer[i])[j]).get;
+
+				if (d.sop == 1 && d.eop == 0)
+					mac_send_count_reg[i] <= mac_send_count_reg[i] + 1;
 
 				//debug_sending_to_phy_fifo.enq(d);
 
@@ -263,6 +275,10 @@ module mkMac#(Scheduler#(ReadReqType, ReadResType,
         eth_mac[port_index].rx(v);
     endmethod
 
+	method Action getMacSendCountForPort0();
+		mac_send_count_fifo_port_0.enq(mac_send_count_reg[0]);
+	endmethod
+
     method Action getSOPCountForPort0();
         sop_count_fifo_port_0.enq(sop_count_reg[0]);
     endmethod
@@ -273,6 +289,7 @@ module mkMac#(Scheduler#(ReadReqType, ReadResType,
 
 //	interface Get debug_sending_to_phy = toGet(debug_sending_to_phy_fifo);
 //	interface Get debug_received_from_phy = toGet(debug_received_from_phy_fifo);
+	interface Get mac_send_count_port_0 = toGet(mac_send_count_fifo_port_0);
     interface Get sop_count_port_0 = toGet(sop_count_fifo_port_0);
     interface Get eop_count_port_0 = toGet(eop_count_fifo_port_0);
 endmodule

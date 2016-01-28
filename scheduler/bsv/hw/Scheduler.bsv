@@ -213,7 +213,7 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
 
 	// should be atleast as large as buffer_depth + max num of data blocks
     Vector#(NUM_OF_ALTERA_PORTS, FIFOF#(RingBufferDataT)) buffer_fifo
-	                                    <- replicateM(mkSizedFIFOF(16));
+	                    <- replicateM(mkSizedFIFOF(valueof(DEFAULT_FIFO_LEN)));
     Vector#(NUM_OF_ALTERA_PORTS, FIFOF#(ServerIndex)) ring_buffer_index_fifo
                  <- replicateM(mkSizedFIFOF((valueof(NUM_OF_ALTERA_PORTS)+1)));
     Vector#(NUM_OF_ALTERA_PORTS, Reg#(Bit#(1)))

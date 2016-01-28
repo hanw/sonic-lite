@@ -30,6 +30,7 @@ interface SchedulerTopIndication;
 	method Action display_received_pkt_count(Bit#(64) num_of_received_pkt);
 	method Action display_rxWrite_pkt_count(Bit#(64) num_of_rxWrite_pkt);
 	method Action display_dma_stats(Bit#(64) num_of_pkt_generated);
+	method Action display_mac_send_count(Bit#(64) count);
     method Action display_sop_count_from_mac_rx(Bit#(64) count);
     method Action display_eop_count_from_mac_rx(Bit#(64) count);
 //	method Action debug_dma(Bit#(32) dst_index);
@@ -138,6 +139,8 @@ module mkSchedulerTop#(DtpIndication indication1, SchedulerTopIndication indicat
 	                    <- mkReg(0, clocked_by txClock, reset_by txReset);
 	Reg#(Bit#(1)) get_rxWrite_pkt_flag
 	                    <- mkReg(0, clocked_by txClock, reset_by txReset);
+	Reg#(Bit#(1)) get_mac_send_count_flag
+	                    <- mkReg(0, clocked_by txClock, reset_by txReset);
 	Reg#(Bit#(1)) get_sop_count_flag
 	                    <- mkReg(0, clocked_by rxClock[0], reset_by rxReset[0]);
 	Reg#(Bit#(1)) get_eop_count_flag
@@ -194,7 +197,13 @@ module mkSchedulerTop#(DtpIndication indication1, SchedulerTopIndication indicat
 	rule get_rxWrite_pkt_statistics (get_rxWrite_pkt_flag == 1);
 		scheduler.rxWritePktCount();
 		get_rxWrite_pkt_flag <= 0;
-        mac_rx_debug_fifo.enq(1);
+        get_mac_send_count_flag <= 1;
+	endrule
+
+	rule get_mac_send_count (get_mac_send_count_flag == 1);
+		get_mac_send_count_flag <= 0;
+		mac.getMacSendCountForPort0();
+		mac_rx_debug_fifo.enq(1);
 	endrule
 
     rule deq_from_mac_rx_debug_fifo;
@@ -300,12 +309,12 @@ module mkSchedulerTop#(DtpIndication indication1, SchedulerTopIndication indicat
 	for (Integer i = 0; i < valueof(NUM_OF_DTP_PORTS); i = i + 1)
 	begin
 		dtp_rxClock[i] = dtp_phy.rx_clkout[i];
-		dtp_rxReset[i] <- mkSyncReset(2, defaultReset, dtp_rxClock[i]);
-		dtp_mac[i] <- mkEthMac(defaultClock, txClock, dtp_rxClock[i], txReset);
+		dtp_rxReset[i] <- mkSyncReset(2, dtp_rst, dtp_rxClock[i]);
+		dtp_mac[i] <- mkEthMac(defaultClock, txClock, dtp_rxClock[i], txReset, clocked_by txClock, reset_by dtp_rst);
 	end
 
 	Vector#(NUM_OF_DTP_PORTS, FIFOF#(Bit#(72))) macToPhy
-                  <- replicateM(mkFIFOF, clocked_by txClock, reset_by txReset);
+                  <- replicateM(mkFIFOF, clocked_by txClock, reset_by dtp_rst);
 
 	Vector#(NUM_OF_DTP_PORTS, FIFOF#(Bit#(72))) phyToMac;
 
@@ -484,6 +493,20 @@ module mkSchedulerTop#(DtpIndication indication1, SchedulerTopIndication indicat
 //		                        zeroExtend(res.eop),
 //		                        res.data);
 //	endrule
+/*-----------------------------------------------------------------------------*/
+	Reg#(Bit#(64)) mac_send_count_reg <- mkReg(0);
+	Reg#(Bit#(1)) fire_mac_send_counter_res <- mkReg(0);
+	rule mac_send_counter_rule (debug_flag == 1);
+		let res <- mac.mac_send_count_port_0.get;
+		mac_send_count_reg <= res;
+        fire_mac_send_counter_res <= 1;
+	endrule
+
+	rule mac_send_counter_res (debug_flag == 1 && fire_mac_send_counter_res == 1);
+		fire_mac_send_counter_res <= 0;
+		indication2.display_mac_send_count(mac_send_count_reg);
+	endrule
+
 /*-----------------------------------------------------------------------------*/
 	Reg#(Bit#(64)) sop_count_reg <- mkReg(0);
 	Reg#(Bit#(1)) fire_sop_counter_res <- mkReg(0);

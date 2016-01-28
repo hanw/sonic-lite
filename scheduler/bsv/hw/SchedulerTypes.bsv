@@ -6,7 +6,7 @@ import DefaultValue::*;
  typedef 3 NUM_OF_ALTERA_PORTS;
  typedef 1 NUM_OF_DTP_PORTS;
 
- typedef 8 DEFAULT_FIFO_LEN;
+ typedef 16 DEFAULT_FIFO_LEN;
 
  typedef Bit#(IP_ADDR_LEN) IP;
  typedef Bit#(MAC_ADDR_LEN) MAC;
