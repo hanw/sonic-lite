@@ -53,6 +53,7 @@ interface VAsymBRAMIfc#(    type rAddrT,type rDataT,
     method Action write(wAddrT write_addr, wDataT write_data);
 endinterface
 
+// Assume narrower write port
 // Wrapper for the verilog
 import "BVI" AsymmetricBRAM =
 module vAsymBRAM#(Bool hasOutputRegister)
@@ -72,7 +73,7 @@ module vAsymBRAM#(Bool hasOutputRegister)
     parameter   WDATA_WIDTH = valueOf(wdata_sz);
     parameter   RADDR_WIDTH = valueOf(raddr_sz);
     parameter   RDATA_WIDTH = valueOf(rdata_sz);
-    parameter   MEMSIZE     = valueOf(TExp#(raddr_sz));
+    parameter   MEMSIZE     = valueOf(TExp#(waddr_sz));
 
     method read(RADDR) enable(REN);
     method RDATA getRead();
