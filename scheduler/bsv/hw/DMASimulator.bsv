@@ -63,7 +63,8 @@ endinstance
 interface DMASimulator;
 	interface Get#(DMAStatsT) dma_stats_response;
 //	interface Get#(ServerIndex) debug_sending_pkt;
-    method Action start(ServerIndex idx, Bit#(32) rate);
+    method Action start(ServerIndex idx, Bit#(32) rate,
+		                ServerIndex num_of_servers_transmitting);
     method Action stop();
 	method Action getDMAStats();
 endinterface
@@ -78,6 +79,8 @@ module mkDMASimulator#(Scheduler#(ReadReqType, ReadResType,
     Reg#(Bool) verbose <- mkReg(False);
 
 	Reg#(ServerIndex) host_index <- mkReg(0);
+	Reg#(ServerIndex) num_of_servers_transmitting
+						<- mkReg(fromInteger(valueof(NUM_OF_SERVERS)));
 
 	SyncFIFOIfc#(DMAStatsT) dma_stats_fifo
 	         <- mkSyncFIFO(1, defaultClock, defaultReset, pcieClock);
@@ -93,8 +96,6 @@ module mkDMASimulator#(Scheduler#(ReadReqType, ReadResType,
 
 	Reg#(Bit#(1)) wait_for_pkt_trans_to_complete <- mkReg(0);
 	Reg#(Bit#(1)) start_sending_new_pkt <- mkReg(0);
-
-//	Random rand_dst_index <- mkRandom; // will return a 32-bit random number
 
     Reg#(Header) header <- mkReg(defaultValue);
     Reg#(ServerIndex) dst_index <- mkReg(0);
@@ -127,25 +128,11 @@ module mkDMASimulator#(Scheduler#(ReadReqType, ReadResType,
 		init_header <= 1;
 		block_count <= 0;
 
-//          let rand_num <- rand_dst_index.next();
-//			ServerIndex r = truncate(rand_num %
-//			                fromInteger(valueof(NUM_OF_SERVERS)));
-//            if (r == host_index)
-//            begin
-//				let x = (r + 1) % fromInteger(valueof(NUM_OF_SERVERS));
-//                dst_index <= x;
-//				debug_sending_pkt_fifo.enq(x);
-//            end
-//            else
-//            begin
-//                dst_index <= r;
-//				debug_sending_pkt_fifo.enq(r);
-//            end
-//
-		if (host_index != (fromInteger(valueof(NUM_OF_SERVERS))-1))
+		if (host_index != (num_of_servers_transmitting-1))
 			dst_index <= host_index + 1;
 		else
 			dst_index <= 0;
+
 //		debug_sending_pkt_fifo.enq(1);
 
 		num_of_blocks_to_transmit <= 4; /* 64 byte packets */
@@ -254,11 +241,13 @@ module mkDMASimulator#(Scheduler#(ReadReqType, ReadResType,
 		rate_set_flag <= 0;
 	endrule
 
-    method Action start(ServerIndex idx, Bit#(32) rate);
+    method Action start(ServerIndex idx, Bit#(32) rate, ServerIndex n);
         if (verbose)
             $display("[DMA (%d)] Starting..........................", idx);
 		rate_reg <= rate;
 		host_index <= idx;
+		if (n > 0)
+			num_of_servers_transmitting <= n;
 		rate_set_flag <= 1;
     endmethod
 

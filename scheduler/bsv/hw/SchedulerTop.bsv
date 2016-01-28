@@ -43,7 +43,8 @@ endinterface
 interface SchedulerTopRequest;
     method Action start_scheduler_and_dma(Bit#(32) idx,
 		                                  Bit#(32) dma_transmission_rate,
-		                                  Bit#(64) cycles);
+		                                  Bit#(64) cycles,
+									      Bit#(32) num_of_servers_transmitting);
 	method Action debug();
 endinterface
 
@@ -228,17 +229,22 @@ module mkSchedulerTop#(DtpIndication indication1, SchedulerTopIndication indicat
 	SyncFIFOIfc#(Bit#(32)) dma_transmission_rate_fifo
 	         <- mkSyncFIFO(1, defaultClock, defaultReset, txClock);
 
+	SyncFIFOIfc#(ServerIndex) num_of_servers_fifo
+	         <- mkSyncFIFO(1, defaultClock, defaultReset, txClock);
+
 	SyncFIFOIfc#(ServerIndex) host_index_fifo
 	         <- mkSyncFIFO(1, defaultClock, defaultReset, txClock);
 
 	Reg#(ServerIndex) host_index <- mkReg(0, clocked_by txClock, reset_by txReset);
 	Reg#(Bit#(32)) dma_trans_rate <- mkReg(0, clocked_by txClock, reset_by txReset);
+	Reg#(ServerIndex) num_of_servers <- mkReg(0, clocked_by txClock, reset_by txReset);
 
 	Reg#(Bit#(1)) host_index_ready <- mkReg(0,
 	                                       clocked_by txClock, reset_by txReset);
 	Reg#(Bit#(1)) dma_trans_rate_ready <- mkReg(0,
                                            clocked_by txClock, reset_by txReset);
-
+	Reg#(Bit#(1)) num_of_servers_ready <- mkReg(0,
+                                           clocked_by txClock, reset_by txReset);
 
 	rule deq_from_host_index_fifo;
 		let x <- toGet(host_index_fifo).get;
@@ -250,6 +256,12 @@ module mkSchedulerTop#(DtpIndication indication1, SchedulerTopIndication indicat
 		let x <- toGet(dma_transmission_rate_fifo).get;
 		dma_trans_rate <= x;
 		dma_trans_rate_ready <= 1;
+	endrule
+
+	rule deq_from_num_of_servers_fifo;
+		let x <- toGet(num_of_servers_fifo).get;
+		num_of_servers <= x;
+		num_of_servers_ready <= 1;
 	endrule
 
 	Reg#(ServerIndex) count <- mkReg(fromInteger(valueof(NUM_OF_SERVERS)),
@@ -270,9 +282,10 @@ module mkSchedulerTop#(DtpIndication indication1, SchedulerTopIndication indicat
 
 	Reg#(Bit#(1)) fire_once <- mkReg(0, clocked_by txClock, reset_by txReset);
 	rule start_dma (fire_once == 0 && done_populating_table == 1
-		            && host_index_ready == 1 && dma_trans_rate_ready == 1);
+		            && host_index_ready == 1 && dma_trans_rate_ready == 1
+					&& num_of_servers_ready == 1);
         if (dma_trans_rate != 0)
-		    dma_sim.start(host_index, dma_trans_rate);
+		    dma_sim.start(host_index, dma_trans_rate, num_of_servers);
 		scheduler.start(host_index);
 		start_counting <= 1;
 		fire_once <= 1;
@@ -541,6 +554,7 @@ module mkSchedulerTop#(DtpIndication indication1, SchedulerTopIndication indicat
 	Reg#(ServerIndex) host_index_reg <- mkReg(0);
 	Reg#(Bit#(32)) dma_transmission_rate_reg <- mkReg(0);
 	Reg#(Bit#(64)) cycles_reg <- mkReg(0);
+	Reg#(ServerIndex) num_of_servers_reg <- mkReg(0);
 
 	Reg#(Bit#(1)) fire_reset_state <- mkReg(0);
 	Reg#(Bit#(1)) fire_start_scheduler_and_dma_req <- mkReg(0);
@@ -561,6 +575,7 @@ module mkSchedulerTop#(DtpIndication indication1, SchedulerTopIndication indicat
 		dma_transmission_rate_fifo.enq(dma_transmission_rate_reg);
 		num_of_cycles_to_run_dma_for_fifo.enq(cycles_reg);
 		host_index_fifo.enq(host_index_reg);
+		num_of_servers_fifo.enq(num_of_servers_reg);
 		//host_index_fifo_mac.enq(host_index_reg);
 	endrule
 
@@ -568,12 +583,14 @@ module mkSchedulerTop#(DtpIndication indication1, SchedulerTopIndication indicat
 
     interface SchedulerTopRequest request2;
         method Action start_scheduler_and_dma(Bit#(32) idx,
-			                    Bit#(32) dma_transmission_rate,	Bit#(64) cycles);
+			                    Bit#(32) dma_transmission_rate,	Bit#(64) cycles,
+								Bit#(32) num_of_servers_transmitting);
 			fire_reset_state <= 1;
 			reset_len_count <= 0;
 			host_index_reg <= truncate(idx);
 			dma_transmission_rate_reg <= dma_transmission_rate;
 			cycles_reg <= cycles;
+			num_of_servers_reg <= truncate(num_of_servers_transmitting);
         endmethod
 
 		method Action debug();
