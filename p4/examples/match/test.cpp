@@ -163,10 +163,12 @@ int main(int argc, char **argv)
         fields.dstip = 0x0400000a;
         device->lookup_entry(fields);
         sem_wait(&cmdCompleted);
+    }
 
-//        fields.dstip = 0x0a000005;
-//        device->lookup_entry(fields);
-//        sem_wait(&cmdCompleted);
+    if (arguments.lookup) {
+        fields.dstip = 0x0400000a;
+        device->lookup_entry(fields);
+        sem_wait(&cmdCompleted);
     }
 
     if (arguments.status) {
