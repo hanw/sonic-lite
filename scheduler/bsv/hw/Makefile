@@ -1,7 +1,7 @@
 DEV_ROOT ?= $(HOME)
 CONNECTALDIR ?= $(DEV_ROOT)/connectal
 SONICDIR ?= $(DEV_ROOT)/sonic-lite
-S2H_INTERFACES = SchedulerTopRequest:SchedulerTop.request
+S2H_INTERFACES = SchedulerTopRequest:SchedulerTop.request2
 H2S_INTERFACES = SchedulerTop:SchedulerTopIndication
 BSVFILES = $(SONICDIR)/scheduler/bsv/hw/SchedulerTop.bsv
 CPPFILES = $(SONICDIR)/scheduler/cpp/test_hw.cpp

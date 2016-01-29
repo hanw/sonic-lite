@@ -46,6 +46,8 @@ interface Scheduler#(type readReqType, type readResType,
 	interface Get#(Bit#(64)) non_host_pkt_response;
 	interface Get#(Bit#(64)) received_pkt_response;
 	interface Get#(Bit#(64)) rxWrite_pkt_response;
+	interface Vector#(NUM_OF_SERVERS, Get#(Vector#(RING_BUFFER_SIZE, Bit#(64))))
+					                                               fwd_queue_len;
 //	interface Get#(RingBufferDataT) debug_consuming_pkt;
 
 	method Action start(ServerIndex serverIdx);
@@ -56,6 +58,7 @@ interface Scheduler#(type readReqType, type readResType,
 	method Action nonHostPktCount();
 	method Action receivedPktCount();
 	method Action rxWritePktCount();
+	method Action fwdQueueLen();
 endinterface
 
 (* synthesize *)
@@ -144,6 +147,37 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
 	                                     <- replicateM(mkReg(0));
 	Vector#(NUM_OF_ALTERA_PORTS, Reg#(Bit#(64))) num_of_rxWrite_pkt_reg
 	                                     <- replicateM(mkReg(0));
+
+	Vector#(NUM_OF_SERVERS, SyncFIFOIfc#(Vector#(RING_BUFFER_SIZE, Bit#(64))))
+		    fwd_queue_len_fifo <- replicateM(mkSyncFIFO(valueof(NUM_OF_SERVERS),
+								        defaultClock, defaultReset, pcieClock));
+
+	Vector#(NUM_OF_SERVERS, Vector#(RING_BUFFER_SIZE, Reg#(Bit#(64))))
+						fwd_queue_len_reg <- replicateM(replicateM(mkReg(0)));
+
+	Reg#(ServerIndex) measure <- mkReg(fromInteger(valueof(NUM_OF_SERVERS)));
+
+	for (Integer i = 0; i < valueof(NUM_OF_SERVERS); i = i + 1)
+	begin
+		rule monitor_ring_buffers (curr_state == RUN && measure == fromInteger(i));
+			let len <- ring_buffer[i].elements;
+			Bit#(5) temp = truncate(len);
+			fwd_queue_len_reg[i][temp] <= fwd_queue_len_reg[i][temp] + 1;
+			measure <= fromInteger(valueof(NUM_OF_SERVERS));
+		endrule
+	end
+
+	Vector#(NUM_OF_SERVERS, Reg#(Bit#(1))) enq_queue_length <- replicateM(mkReg(0));
+	for (Integer i = 0; i < valueof(NUM_OF_SERVERS); i = i + 1)
+	begin
+		rule enq_queue_length_rule (enq_queue_length[i] == 1);
+			enq_queue_length[i] <= 0;
+			Vector#(RING_BUFFER_SIZE, Bit#(64)) temp = replicate(0);
+			for (Integer j = 0; j < valueof(RING_BUFFER_SIZE); j = j + 1)
+				temp[j] = fwd_queue_len_reg[i][j];
+			fwd_queue_len_fifo[i].enq(temp);
+		endrule
+	end
 
 //	SyncFIFOIfc#(RingBufferDataT) debug_consuming_pkt_fifo
 //	        <- mkSyncFIFO(16, defaultClock, defaultReset, pcieClock);
@@ -435,6 +469,8 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
 			/* Get the index of the ring buffer to extract from */
 			ServerIndex index = ipToIndexMapping(dst_ip_addr);
 
+			measure <= index;
+
 			if (verbose)
 			$display("[SCHED (%d)] CLK = %d buffer index to extract from = %d %d",
 				host_index, clk.currTime(), index, ring_buffer[index].elements);
@@ -592,6 +628,10 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
 		temp4[i] = toGet(mac_write_response_fifo[i]);
 	end
 
+	Vector#(NUM_OF_SERVERS, Get#(Vector#(RING_BUFFER_SIZE, Bit#(64)))) temp;
+	for (Integer i = 0; i < valueof(NUM_OF_SERVERS); i = i + 1)
+		temp[i] = toGet(fwd_queue_len_fifo[i]);
+
 	method Action insertToSchedTable(ServerIndex index, IP ip_addr, MAC mac_addr);
 		TableData d = TableData {
 						server_ip : ip_addr,
@@ -626,6 +666,16 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
 		rxWrite_pkt_fifo.enq(rxWrite_pkt);
 	endmethod
 
+	method Action fwdQueueLen();
+		for (Integer i = 0; i < valueof(NUM_OF_SERVERS); i = i + 1)
+			enq_queue_length[i] <= 1;
+	endmethod
+
+	method Action fwdQueueLen();
+		for (Integer i = 0; i < valueof(NUM_OF_SERVERS); i = i + 1)
+			enq_queue_length[i] <= 1;
+	endmethod
+
 	method Action start(ServerIndex serverIdx);
 		curr_state <= RUN;
 	    configure <= 1;
@@ -656,6 +706,7 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
 	interface Get non_host_pkt_response = toGet(non_host_pkt_fifo);
 	interface Get received_pkt_response = toGet(received_pkt_fifo);
 	interface Get rxWrite_pkt_response = toGet(rxWrite_pkt_fifo);
+	interface fwd_queue_len = temp;
 //	interface Get debug_consuming_pkt = toGet(debug_consuming_pkt_fifo);
 
 endmodule

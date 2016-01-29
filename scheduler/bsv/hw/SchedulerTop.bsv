@@ -33,6 +33,10 @@ interface SchedulerTopIndication;
 	method Action display_mac_send_count(Bit#(64) count);
     method Action display_sop_count_from_mac_rx(Bit#(64) count);
     method Action display_eop_count_from_mac_rx(Bit#(64) count);
+	method Action display_queue_0_stats(Vector#(16, Bit#(64)) queue0_stats);
+	method Action display_queue_1_stats(Vector#(16, Bit#(64)) queue1_stats);
+	method Action display_queue_2_stats(Vector#(16, Bit#(64)) queue2_stats);
+	method Action display_queue_3_stats(Vector#(16, Bit#(64)) queue3_stats);
 //	method Action debug_dma(Bit#(32) dst_index);
 //	method Action debug_sched(Bit#(8) sop, Bit#(8) eop, Bit#(64) data_high,
 //	                          Bit#(64) data_low);
@@ -54,6 +58,7 @@ interface SchedulerTop;
     interface `PinType pins;
 endinterface
 
+//module mkSchedulerTop#(SchedulerTopIndication indication2)(SchedulerTop);
 module mkSchedulerTop#(DtpIndication indication1, SchedulerTopIndication indication2)(SchedulerTop);
     // Clocks
     Clock defaultClock <- exposeCurrentClock();
@@ -61,8 +66,6 @@ module mkSchedulerTop#(DtpIndication indication1, SchedulerTopIndication indicat
 
 //    Clock txClock <- mkAbsoluteClock(0, 64);
 //    Reset txReset <- mkSyncReset(2, defaultReset, txClock);
-//    Clock rxClock <- mkAbsoluteClock(0, 64);
-//    Reset rxReset <- mkSyncReset(2, defaultReset, rxClock);
 
     Wire#(Bit#(1)) clk_644_wire <- mkDWire(0);
     Wire#(Bit#(1)) clk_50_wire <- mkDWire(0);
@@ -95,6 +98,8 @@ module mkSchedulerTop#(DtpIndication indication1, SchedulerTopIndication indicat
 	begin
 		rxClock[i] = phys.rx_clkout;
 		rxReset[i] <- mkSyncReset(2, defaultReset, rxClock[i]);
+//		rxClock[i] <- mkAbsoluteClock(0, 64);
+//		rxReset[i] <- mkSyncReset(2, defaultReset, rxClock[i]);
 	end
 
 /*-------------------------------------------------------------------------------*/
@@ -105,10 +110,10 @@ module mkSchedulerTop#(DtpIndication indication1, SchedulerTopIndication indicat
     Scheduler#(ReadReqType, ReadResType, WriteReqType, WriteResType)
     scheduler <- mkScheduler(defaultClock, defaultReset,
 	                         txClock, txReset, rxClock, rxReset,
-                             clocked_by txClock, reset_by txReset);
+                             clocked_by txClock, reset_by scheduler_rst);
 
     DMASimulator dma_sim <- mkDMASimulator(scheduler, defaultClock, defaultReset,
-								           clocked_by txClock, reset_by txReset);
+								     clocked_by txClock, reset_by scheduler_rst);
 
     Mac mac <- mkMac(scheduler, txClock, txReset, rxClock, rxReset);
 
@@ -139,6 +144,10 @@ module mkSchedulerTop#(DtpIndication indication1, SchedulerTopIndication indicat
 	Reg#(Bit#(1)) get_received_pkt_flag
 	                    <- mkReg(0, clocked_by txClock, reset_by txReset);
 	Reg#(Bit#(1)) get_rxWrite_pkt_flag
+	                    <- mkReg(0, clocked_by txClock, reset_by txReset);
+	Reg#(Bit#(1)) get_fwd_queue_stats_flag
+	                    <- mkReg(0, clocked_by txClock, reset_by txReset);
+	Reg#(Bit#(1)) get_fwd_queue_stats_flag
 	                    <- mkReg(0, clocked_by txClock, reset_by txReset);
 	Reg#(Bit#(1)) get_mac_send_count_flag
 	                    <- mkReg(0, clocked_by txClock, reset_by txReset);
@@ -204,6 +213,12 @@ module mkSchedulerTop#(DtpIndication indication1, SchedulerTopIndication indicat
 	rule get_mac_send_count (get_mac_send_count_flag == 1);
 		get_mac_send_count_flag <= 0;
 		mac.getMacSendCountForPort0();
+		get_fwd_queue_stats_flag <= 1;
+	endrule
+
+	rule get_fwd_queue_statistics (get_fwd_queue_stats_flag == 1);
+		scheduler.fwdQueueLen();
+		get_fwd_queue_stats_flag <= 0;
 		mac_rx_debug_fifo.enq(1);
 	endrule
 
@@ -280,15 +295,13 @@ module mkSchedulerTop#(DtpIndication indication1, SchedulerTopIndication indicat
 			done_populating_table <= 1;
 	endrule
 
-	Reg#(Bit#(1)) fire_once <- mkReg(0, clocked_by txClock, reset_by txReset);
-	rule start_dma (fire_once == 0 && done_populating_table == 1
+	rule start_dma (done_populating_table == 1
 		            && host_index_ready == 1 && dma_trans_rate_ready == 1
 					&& num_of_servers_ready == 1);
         if (dma_trans_rate != 0)
 		    dma_sim.start(host_index, dma_trans_rate, num_of_servers);
 		scheduler.start(host_index);
 		start_counting <= 1;
-		fire_once <= 1;
 
 		/* reset the state */
 		host_index_ready <= 0;
@@ -350,7 +363,6 @@ module mkSchedulerTop#(DtpIndication indication1, SchedulerTopIndication indicat
 	end
 
    FIFOF#(Bit#(128)) tsFifo <- mkFIFOF(clocked_by txClock, reset_by dtp_rst);
-   // Connecting DTP request/indication and DTP-PHY looks ugly
    mkConnection(toPipeOut(tsFifo), dtp.ifc.timestamp);
    for (Integer i = 0; i < valueOf(NUM_OF_DTP_PORTS); i = i + 1) begin
       mkConnection(dtp.ifc.fromHost[i], dtp_phy.api[i].fromHost);
@@ -547,6 +559,45 @@ module mkSchedulerTop#(DtpIndication indication1, SchedulerTopIndication indicat
 		fire_eop_counter_res <= 0;
 		indication2.display_eop_count_from_mac_rx(eop_count_reg);
 	endrule
+/*------------------------------------------------------------------------------*/
+	Vector#(NUM_OF_SERVERS, Vector#(RING_BUFFER_SIZE, Reg#(Bit#(64))))
+		                   fwd_queue_len_reg <- replicateM(replicateM(mkReg(0)));
+	Vector#(NUM_OF_SERVERS, Reg#(Bit#(1))) fire_fwd_queue_len
+	                                                     <- replicateM(mkReg(0));
+	Vector#(NUM_OF_SERVERS, Reg#(Bit#(1))) start_sending <- replicateM(mkReg(0));
+
+	for (Integer i = 0; i < valueOf(NUM_OF_SERVERS); i = i + 1)
+	begin
+		rule fwd_queue_len_rule;
+			let res <- scheduler.fwd_queue_len[i].get;
+			for (Integer j = 0; j < valueOf(RING_BUFFER_SIZE); j = j + 1)
+				fwd_queue_len_reg[i][j] <= res[j];
+			fire_fwd_queue_len[i] <= 1;
+			if (i == 0)
+				start_sending[i] <= 1;
+		endrule
+
+		rule send_fwd_queue_len (fire_fwd_queue_len[i] == 1
+			                     && start_sending[i] == 1);
+			fire_fwd_queue_len[i] <= 0;
+			start_sending[i] <= 0;
+			Vector#(RING_BUFFER_SIZE, Bit#(64)) temp = replicate(0);
+			for (Integer j = 0; j < valueof(RING_BUFFER_SIZE); j = j + 1)
+				temp[j] = fwd_queue_len_reg[i][j];
+
+			if (i == 0)
+				indication2.display_queue_0_stats(temp);
+			else if (i == 1)
+				indication2.display_queue_1_stats(temp);
+			else if (i == 2)
+				indication2.display_queue_2_stats(temp);
+			else if (i == 3)
+				indication2.display_queue_3_stats(temp);
+
+			if (i < (valueof(NUM_OF_SERVERS)-1))
+				start_sending[i+1] <= 1;
+		endrule
+	end
 
 /* ------------------------------------------------------------------------------
 *                               INTERFACE METHODS
@@ -561,7 +612,7 @@ module mkSchedulerTop#(DtpIndication indication1, SchedulerTopIndication indicat
 
 	Reg#(Bit#(64)) reset_len_count <- mkReg(0);
 	rule reset_state (fire_reset_state == 1);
-		//scheduler_reset_ifc.assertReset;
+		scheduler_reset_ifc.assertReset;
 		reset_len_count <= reset_len_count + 1;
 		if (reset_len_count == 1000)
 		begin
@@ -583,8 +634,8 @@ module mkSchedulerTop#(DtpIndication indication1, SchedulerTopIndication indicat
 
     interface SchedulerTopRequest request2;
         method Action start_scheduler_and_dma(Bit#(32) idx,
-//			                    Bit#(16) num_of_servers_transmitting,
-			                    Bit#(32) dma_transmission_rate,	Bit#(64) cycles);
+			                                  Bit#(32) dma_transmission_rate,
+											  Bit#(64) cycles);
 			fire_reset_state <= 1;
 			reset_len_count <= 0;
 			host_index_reg <= truncate(idx);
