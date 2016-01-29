@@ -178,7 +178,10 @@ module mkDecoder(Decoder);
       type_ff = type_field[7] & type_field[6] & type_field[5] & type_field[4] & type_field[3] & type_field[2] & type_field[1] & type_field[0] ;
 
       // debugging
-      if (type_1e == 1'b1) begin
+      if (data_word == 1'b1) begin
+         debug_bytes <= debug_bytes + 8;
+      end
+      else if (type_1e == 1'b1) begin
          debug_errorframes <= debug_errorframes + 1;
       end
       else if (type_33 == 1'b1) begin
@@ -219,9 +222,6 @@ module mkDecoder(Decoder);
       else if (type_ff == 1'b1) begin
          debug_ends <= debug_ends + 1;
          debug_bytes <= debug_bytes + 7;
-      end
-      else if (data_word == 1'b1) begin
-         debug_bytes <= debug_bytes + 8;
       end
 
       //-------------------------------------------------------------------------------
