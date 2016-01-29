@@ -154,7 +154,7 @@ module mkBcam9b(Bcam9b#(camDepth))
       wIndxR <= wIndx;
       wAddr_indcR <= wIndx;
       wIndcR <= wIndc;
-      if (verbose) $display("bcam %d: ram9b wIndx=%x", cycle, wIndx);
+      if (verbose) $display("bcam %d: ram9b wAddr_indc=%x wIndx=%x", cycle, wIndx, wIndx);
       curr_state <= S1;
    endrule
 

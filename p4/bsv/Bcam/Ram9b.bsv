@@ -76,6 +76,7 @@ module mkRam9bx256(Ram9bx256);
    // WWID = 5, RWID = 40, WDEP = 4096, OREG = 0, INIT = 1
 `define INDXRAM AsymmetricBRAM#(Bit#(9), Bit#(16), Bit#(11), Bit#(4))
    Vector#(4, `INDXRAM) indxram <- replicateM(mkAsymmetricBRAM(True, False, "indxRam"));
+
    // DWID = 32, DDEP = 32, MRDW = "DONT_CARE", RREG=ALL, INIT=1
    BRAM_Configure bramCfg = defaultValue;
    bramCfg.memorySize = 16;
@@ -91,10 +92,11 @@ module mkRam9bx256(Ram9bx256);
    for (Integer i=0; i<4; i=i+1) begin
       rule indxram_output;
          let v <- indxram[i].readServer.response.get;
+         if (verbose) $display("indxram: read response=%x", v);
          for (Integer j=0; j<4; j=j+1) begin
             Bit#(4) addr = v[(j+1)*4-1 : j*4];
             dpmlab[i*4+j].portB.request.put(BRAMRequest{write: False, responseOnWrite: False, address: addr, datain: ?});
-            //$display("dpmlab %d: read i=%d, j=%d index=%d", cycle, i, j, i*8+j);
+            $display("dpmlab %d: read i=%d, j=%d index=%d addr=%x", cycle, i, j, i*4+j, addr);
          end
       endrule
    end
@@ -108,7 +110,7 @@ module mkRam9bx256(Ram9bx256);
             Vector#(16, Bit#(1)) ivld_vec = replicate(ivld[4*i+j]);
             Bit#(16) mIndcV = v & pack(ivld_vec);
             mIndc[(i*4+j+1)*16-1 : (i*4+j)*16] = mIndcV;
-            if (verbose) $display("dpmlab %d: read i=%d, j=%d index=%d v=%x", cycle, i, j, i*8+j, v);
+            if (verbose) $display("dpmlab %d: read i=%d, j=%d index=%d v=%x", cycle, i, j, i*4+j, v);
          end
       end
       mIndc_fifo.enq(mIndc);
@@ -143,8 +145,7 @@ module mkRam9bx256(Ram9bx256);
             for (Integer i=0; i<4; i=i+1) begin
                for (Integer j=0; j<4; j=j+1) begin
                   if ((req.wAddr_indx[3:2] == fromInteger(i)) && req.wAddr_indx[1:0] == fromInteger(j)) begin
-                     if (verbose) $display("dpmlab %d: write i=%d, j=%d index=%d, wIndc=%x", cycle, i, j, i*4+j, wIndc);
-                     //dpmlab[i*8+j].writeServer.put(tuple2(wAddr_indc, wIndc));
+                     if (verbose) $display("dpmlab %d: write i=%d, j=%d index=%d, addr=%x, wIndc=%x", cycle, i, j, i*4+j, wAddr_indc, wIndc);
                      dpmlab[i*4+j].portA.request.put(BRAMRequest{write:True, responseOnWrite:False, address: wAddr_indc, datain: wIndc});
                   end
                end
@@ -158,6 +159,7 @@ module mkRam9bx256(Ram9bx256);
          vldram.readServer.request.put(mPatt);
          for (Integer i=0; i<4; i=i+1) begin
             indxram[i].readServer.request.put(mPatt);
+            if (verbose) $display("indxram: read patt=%x", mPatt);
          end
       endmethod
    endinterface
