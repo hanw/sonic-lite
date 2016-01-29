@@ -36,8 +36,8 @@ import Pipe::*;
 
 import MemServerIndication::*;
 import MemMgmt::*;
-import MemMgmtIndication::*;
 `ifdef DEBUG
+import MemMgmtIndication::*;
 import MMUIndication::*;
 `endif
 import MemTypes::*;
