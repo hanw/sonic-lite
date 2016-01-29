@@ -83,6 +83,7 @@ module mkNullTest#(NullTestIndication indication)(NullTest);
    NullAPI api <- mkNullAPI(indication);
 
    interface request = api.request;
+`ifdef SYNTHESIS
    interface `PinType pins;
       method Action osc_50(Bit#(1) b3d, Bit#(1) b4a, Bit#(1) b4d, Bit#(1) b7a, Bit#(1) b7d, Bit#(1) b8a, Bit#(1) b8d);
          clk_50_wire <= b4a;
@@ -102,6 +103,7 @@ module mkNullTest#(NullTestIndication indication)(NullTest);
       interface deleteme_unused_clock3 = defaultClock;
       interface deleteme_unused_reset = defaultReset;
    endinterface
+`endif
 endmodule
 endpackage
 
