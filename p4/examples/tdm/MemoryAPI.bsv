@@ -100,7 +100,7 @@ module mkMemoryAPI#(MemoryTestIndication indication, TdmPipeline tdm)(MemoryAPI)
       endmethod
 
       method Action readRingBuffCntrs(Bit#(8) id);
-         if (id < 2) begin
+         if (id < 3) begin
             let v <- tdm.pktBuffDbg(id);
             indication.readRingBuffCntrsResp(v.sopEnq, v.eopEnq, v.sopDeq, v.eopDeq);
          end

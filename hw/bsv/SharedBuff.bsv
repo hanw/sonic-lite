@@ -42,17 +42,49 @@ import PhysMemToBram::*;
 import Ethernet::*;
 import DbgTypes::*;
 
-interface SharedBuffer#(numeric type addrWidth, numeric type busWidth, numeric type nMasters);
-   interface MemServerRequest memServerRequest;
+interface MemAllocServer;
    interface Put#(Bit#(EtherLen)) mallocReq;
    interface Get#(Maybe#(PktId)) mallocDone;
+endinterface
+
+interface MemAllocClient;
+   interface Get#(Bit#(EtherLen)) mallocReq;
+   interface Put#(Maybe#(PktId)) mallocDone;
+endinterface
+
+interface MemFreeServer;
    interface Put#(PktId) freeReq;
    interface Get#(Bool) freeDone;
+endinterface
+
+interface MemFreeClient;
+   interface Get#(PktId) freeReq;
+   interface Put#(Bool) freeDone;
+endinterface
+
+instance Connectable#(MemAllocClient, MemAllocServer);
+   module mkConnection#(MemAllocClient client, MemAllocServer server)(Empty);
+      mkConnection(client.mallocReq, server.mallocReq);
+      mkConnection(server.mallocDone, client.mallocDone);
+   endmodule
+endinstance
+
+instance Connectable#(MemFreeClient, MemFreeServer);
+   module mkConnection#(MemFreeClient client, MemFreeServer server)(Empty);
+      mkConnection(client.freeReq, server.freeReq);
+      mkConnection(server.freeDone, client.freeDone);
+   endmodule
+endinstance
+
+interface SharedBuffer#(numeric type addrWidth, numeric type busWidth, numeric type nMasters);
+   interface MemServerRequest memServerRequest;
    method MemMgmtDbgRec dbg;
 endinterface
 
 module mkSharedBuffer#(Vector#(numReadClients, MemReadClient#(busWidth)) readClients
+                       ,Vector#(numReadClients, MemFreeClient) memFreeClients
                        ,Vector#(numWriteClients, MemWriteClient#(busWidth)) writeClients
+                       ,Vector#(numWriteClients, MemAllocClient) memAllocClients
                        ,MemServerIndication memServerInd
 `ifdef DEBUG
                        ,MemMgmtIndication memTestInd
@@ -69,12 +101,12 @@ module mkSharedBuffer#(Vector#(numReadClients, MemReadClient#(busWidth)) readCli
             ,Mul#(TDiv#(busWidth, ByteEnableSize), ByteEnableSize, busWidth)
             ,Add#(`DataBusWidth, 0, busWidth)
 	    );
-   MemMgmt#(addrWidth) alloc <- mkMemMgmt(
+   MemMgmt#(addrWidth, numWriteClients, numReadClients) alloc <- mkMemMgmt(
 `ifdef DEBUG
-                                          memTestInd
-                                         ,mmuInd
+                                                                           memTestInd
+                                                                          ,mmuInd
 `endif
-                                         );
+                                                                          );
    MemServer#(addrWidth, busWidth, nMasters) dma <- mkMemServer(readClients, writeClients, cons(alloc.mmu, nil), memServerInd);
 
    // TODO: use two ports to improve throughput
@@ -90,11 +122,50 @@ module mkSharedBuffer#(Vector#(numReadClients, MemReadClient#(busWidth)) readCli
 
    mkConnection(dma.masters, memSlaves);
 
+   FIFO#(MemMgmtAllocResp#(numWriteClients)) mallocDoneFifo <- mkFIFO;
+
+   rule fill_malloc_done;
+      let v <- alloc.mallocDone.get;
+      mallocDoneFifo.enq(v);
+   endrule
+
+   Vector#(numWriteClients, MemAllocServer) memAllocServers = newVector;
+   for (Integer i=0; i<valueOf(numWriteClients); i=i+1) begin
+      memAllocServers[i] = (interface MemAllocServer;
+         interface Put mallocReq;
+            method Action put(Bit#(EtherLen) req);
+               alloc.mallocReq.put(MemMgmtAllocReq{req: req, clients:fromInteger(i)});
+            endmethod
+         endinterface
+         interface Get mallocDone;
+            method ActionValue#(Maybe#(PktId)) get if (mallocDoneFifo.first.clients == fromInteger(i));
+               mallocDoneFifo.deq;
+               return mallocDoneFifo.first.id;
+            endmethod
+         endinterface
+      endinterface);
+   end
+
+   Vector#(numReadClients, MemFreeServer) memFreeServers = newVector;
+   for (Integer i=0; i<valueOf(numReadClients); i=i+1) begin
+      memFreeServers[i] = (interface MemFreeServer;
+         interface Put freeReq;
+            method Action put(PktId id);
+               alloc.freeReq.put(MemMgmtFreeReq{id: id, clients: fromInteger(i)});
+            endmethod
+         endinterface
+         interface Get freeDone;
+            method ActionValue#(Bool) get;
+               return True;
+            endmethod
+         endinterface
+      endinterface);
+   end
+
+   mkConnection(memAllocClients, memAllocServers);
+   mkConnection(memFreeClients, memFreeServers);
+
    interface MemServerRequest memServerRequest = dma.request;
-   interface Put mallocReq = alloc.mallocReq;
-   interface Get mallocDone = alloc.mallocDone;
-   interface Put freeReq = alloc.freeReq;
-   interface Get freeDone = alloc.freeDone;
    method MemMgmtDbgRec dbg = alloc.dbg;
 endmodule
 

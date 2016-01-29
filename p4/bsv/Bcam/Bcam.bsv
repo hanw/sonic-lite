@@ -84,7 +84,7 @@ module mkBcam9b(Bcam9b#(camDepth))
             ,Add#(wAddrHWidth, c__, camSz)
          );
 
-   let verbose = True;
+   let verbose = False;
    let verbose_setram = verbose && True;
    let verbose_idxram = verbose && True;
    let verbose_vacram = verbose && True;

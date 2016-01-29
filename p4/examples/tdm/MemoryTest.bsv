@@ -104,6 +104,9 @@ module mkMemoryTest#(MemoryTestIndication indication
    function Put#(Bit#(72)) getRx(EthMacIfc _mac); return _mac.rx; endfunction
    mapM(uncurry(mkConnection), zip(map(getTx, mac), phys.tx));
    mapM(uncurry(mkConnection), zip(phys.rx, map(getRx, mac)));
+`else
+   Clock rxClock = txClock;
+   Reset rxReset = txReset;
 `endif
 
    // Host Packet Generator
@@ -111,13 +114,14 @@ module mkMemoryTest#(MemoryTestIndication indication
    SyncFIFOIfc#(EtherData) txSyncFifo <- mkSyncBRAMFIFO(6, txClock, txReset, defaultClock, defaultReset);
 
    TdmPipeline tdm <- mkTdmPipeline(txClock, txReset
-                                    ,indication
-                                    ,memServerInd
-`ifdef DEBUG
-                                    ,memTestInd
-                                    ,mmuInd
+                                 ,rxClock, rxReset
+                                 ,indication
+                                 ,memServerInd
+`ifdef DEBUG 
+                                 ,memTestInd
+                                 ,mmuInd
 `endif
-                                   );
+                                 );
 
    function PktWriteServer genWriteServer = (interface PktWriteServer;
       interface writeData = toPut(txSyncFifo);
@@ -131,6 +135,7 @@ module mkMemoryTest#(MemoryTestIndication indication
    // connect mac to tdm
 `ifdef SYNTHESIS
    mkConnection(tdm.macTx, mac[0].packet_tx);
+   mkConnection(mac[0].packet_rx, tdm.macRx);
 `else
    rule drainMac;
       let v <- tdm.macTx.get;

@@ -203,6 +203,8 @@ void read_status () {
     sem_wait(&cmdCompleted);
     device->readRingBuffCntrs(1);
     sem_wait(&cmdCompleted);
+    device->readRingBuffCntrs(2);
+    sem_wait(&cmdCompleted);
     device->readTDMCntrs();
     sem_wait(&cmdCompleted);
     device->readMemMgmtCntrs();

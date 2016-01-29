@@ -52,6 +52,21 @@ typedef struct {
    Bit#(32) id;
 } MemMgmtError deriving (Bits);
 
+typedef struct {
+   Bit#(EtherLen) req;
+   Bit#(TLog#(TMax#(1, numClients))) clients;
+} MemMgmtAllocReq#(numeric type numClients) deriving (Bits);
+
+typedef struct {
+   Maybe#(PktId) id;
+   Bit#(TLog#(TMax#(1, numClients))) clients;
+} MemMgmtAllocResp#(numeric type numClients) deriving (Bits);
+
+typedef struct {
+   PktId id;
+   Bit#(TLog#(TMax#(1, numClients))) clients;
+} MemMgmtFreeReq#(numeric type numClients) deriving (Bits);
+
 interface MemMgmtIndication;
    method Action memory_allocated(Bit#(32) id);
    method Action packet_committed(Bit#(32) tag);
@@ -91,12 +106,12 @@ module mkMMUIndicationProxy
    interface Get idResponse = toGet(idresponse_fifo);
 endmodule
 
-interface MemMgmt#(numeric type addrWidth);
+interface MemMgmt#(numeric type addrWidth, numeric type numWriteClients, numeric type numReadClients);
    method Action init_mem();
    interface MMU#(addrWidth) mmu;
-   interface Put#(Bit#(EtherLen)) mallocReq;
-   interface Get#(Maybe#(PktId)) mallocDone;
-   interface Put#(PktId) freeReq;
+   interface Put#(MemMgmtAllocReq#(numWriteClients)) mallocReq;
+   interface Get#(MemMgmtAllocResp#(numWriteClients)) mallocDone;
+   interface Put#(MemMgmtFreeReq#(numReadClients)) freeReq;
    interface Get#(Bool) freeDone;
    method MemMgmtDbgRec dbg;
 endinterface
@@ -104,7 +119,7 @@ module mkMemMgmt
 `ifdef DEBUG
                 #(MemMgmtIndication indication, MMUIndication mmuInd)
 `endif
-                (MemMgmt#(addrWidth))
+                (MemMgmt#(addrWidth, numWriteClients, numReadClients))
    provisos(Add#(a__, addrWidth, 44));
    let verbose = False;
 
@@ -124,8 +139,10 @@ module mkMemMgmt
    Reg#(Bool) invalidSegment <- mkReg(False);
 
    Reg#(Bool) inited <- mkReg(False);
-   FIFOF#(Bit#(EtherLen)) outstanding_malloc <- mkFIFOF;
-   FIFOF#(PktId) outstanding_free <- mkFIFOF;
+   FIFO#(MemMgmtAllocReq#(numWriteClients)) mallcRequestFifo <- mkSizedFIFO(16);
+   FIFO#(MemMgmtAllocReq#(numWriteClients)) currRequestFIfo <- mkFIFO;
+   FIFO#(MemMgmtAllocResp#(numWriteClients)) mallocDoneFifo <- mkFIFO;
+   FIFOF#(PktId) freeRequestFifo <- mkFIFOF;
 
    FIFOF#(Bit#(PageIdx)) freePageList <- mkSizedFIFOF(freeQueueDepth);
 
@@ -151,7 +168,6 @@ module mkMemMgmt
    Reg#(PktId) packetId <- mkReg(0);
    Reg#(Bit#(64)) barr0 <- mkReg(0);
 
-   FIFO#(Maybe#(PktId)) mallocDoneFifo <- mkFIFO;
    FIFO#(Bool) freeDoneFifo <- mkFIFO;
    FIFO#(MemMgmtError) memMgmtErrorFifo <- mkFIFO;
    FIFO#(Bit#(PageIdx)) pagePointerFifo <- mkFIFO;
@@ -182,24 +198,25 @@ module mkMemMgmt
 
    // assign available pages to packet id.
    rule handle_alloc_req;
-      let v <- toGet(outstanding_malloc).get;
+      let v <- toGet(mallcRequestFifo).get;
       let id <- proxy.idResponse.get;
-      $display("MemMgmt:: %d Allocating pages for packet id %d packet size %d", cycle, id, v);
+      $display("MemMgmt:: %d Allocating pages for packet id %d packet size %d", cycle, id, v.req);
       // Corner case when v is close to 4kb.
       let mask = (1 << valueOf(PageAddrLen)) - 1;
-      Bit#(PageIdx) nPages = truncate(((v + mask) & (~mask)) >> valueOf(PageAddrLen));
+      Bit#(PageIdx) nPages = truncate(((v.req + mask) & (~mask)) >> valueOf(PageAddrLen));
       $display("MemMgmt:: %d handle_malloc allocate nPage=%d", cycle, nPages);
       let hasSpace <- freePageCount.maybeDecrement(unpack(nPages));
       if (hasSpace) begin
          reqBurstLen <= nPages;
          reqSglIndex <= 0;
          lastSegment <= tagged Invalid;
-         barr0 <= extend(((v+mask) & (~mask)) >> valueOf(PageAddrLen));
+         barr0 <= extend(((v.req + mask) & (~mask)) >> valueOf(PageAddrLen));
          packetId <= truncate(id); // MaxNumPkts defined in SharedBuffMMU;
+         currRequestFIfo.enq(v);
       end
       else begin
          $display("Error:: insufficient space %d instead of %d", freePageCount.read, nPages);
-         mallocDoneFifo.enq(tagged Invalid);
+         mallocDoneFifo.enq(MemMgmtAllocResp{id: tagged Invalid, clients: v.clients});
          errorCode <= extend(pack(MemMgmtErrorOutOfSpace));
       end
    endrule
@@ -218,7 +235,8 @@ module mkMemMgmt
          iommu.request.region(extend(packetId), 0, 0, 0, 0, 0, 0, barr0, 0);
          // map id to linked-list of pages
          portsel(idmap, 0).request.put(BRAMRequest{write:True, responseOnWrite:False, address:packetId, datain:tagged Valid segment});
-         mallocDoneFifo.enq(tagged Valid packetId);
+         mallocDoneFifo.enq(MemMgmtAllocResp{id: tagged Valid packetId, clients: currRequestFIfo.first.clients});
+         currRequestFIfo.deq;
          allocCompleted <= allocCompleted + 1;
          lastIdAllocated <= extend(packetId);
 `ifdef DEBUG
@@ -229,7 +247,7 @@ module mkMemMgmt
    endrule
 
    rule handle_free_req if (!free_started);
-      let sglId <- toGet(outstanding_free).get;
+      let sglId <- toGet(freeRequestFifo).get;
       free_started <= True;
       portsel(idmap, 1).request.put(BRAMRequest{write:False, responseOnWrite:False, address:sglId, datain:?});
       idToFree <= sglId;
@@ -296,19 +314,19 @@ module mkMemMgmt
       inited <= False;
    endmethod
    interface Put mallocReq;
-      method Action put(Bit#(EtherLen) sz);
+      method Action put(MemMgmtAllocReq#(numWriteClients) req);
          $display("MemMgmt:: %d req page=%d", cycle, freePageCount.read);
-         outstanding_malloc.enq(sz);
-         iommu.request.idRequest(0);
+         mallcRequestFifo.enq(req);
+         iommu.request.idRequest(0); //FIXME
          allocCnt <= allocCnt + 1;
       endmethod
    endinterface
    interface Get mallocDone = toGet(mallocDoneFifo);
    interface Put freeReq;
-      method Action put(PktId id);
-         $display("MemMgmt:: %d free request %h", cycle, id);
-         iommu.request.idReturn(extend(id));
-         outstanding_free.enq(id);
+      method Action put(MemMgmtFreeReq#(numReadClients) req);
+         $display("MemMgmt:: %d free request %h", cycle, req.id);
+         iommu.request.idReturn(extend(req.id));
+         freeRequestFifo.enq(req.id);
          freeCnt <= freeCnt + 1;
       endmethod
    endinterface

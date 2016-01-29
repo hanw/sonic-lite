@@ -189,10 +189,6 @@ module mkModifyMac(ModifyMac);
 endmodule
 
 interface TDM;
-   // To Rings, doubt if we need these.
-   interface Vector#(4, PktWriteClient) writeClients;
-   // From Rings, doubt if we need these.
-   interface Vector#(4, PktReadServer) readServers;
    method TDMDbgRec dbg;
 endinterface
 

@@ -63,21 +63,23 @@ interface TdmPipeline;
 endinterface
 
 module mkTdmPipeline#(Clock txClock, Reset txReset
-                       ,MemoryTestIndication indication
-                       ,ConnectalMemory::MemServerIndication memServerInd
+                     ,Clock rxClock, Reset rxReset
+                     ,MemoryTestIndication indication
+                     ,ConnectalMemory::MemServerIndication memServerInd
 `ifdef DEBUG
-                       ,MemMgmtIndication memTestInd
-                       ,ConnectalMemory::MMUIndication mmuInd
+                     ,MemMgmtIndication memTestInd
+                     ,ConnectalMemory::MMUIndication mmuInd
 `endif
    )(TdmPipeline);
 
    // Ethernet Port
-   PacketBuffer incoming_buff <- mkPacketBuffer();
-   PacketBuffer outgoing_buff <- mkPacketBuffer();
+   PacketBuffer hostPktBuff <- mkPacketBuffer();
+   PacketBuffer txPktBuff <- mkPacketBuffer();
+   PacketBuffer rxPktBuff <- mkPacketBuffer();
 
    // Ethernet Parser
-   TapPktRead tap <- mkTapPktRead();
-   Parser ipv4Parser <- mkParser();
+   TapPktRead txTap <- mkTapPktRead();
+   Parser txParser <- mkParser();
 
    // Ingress Pipeline
    MatchTable#(256, 36) matchTable <- mkMatchTable();
@@ -85,16 +87,21 @@ module mkTdmPipeline#(Clock txClock, Reset txReset
    // Egress Pipeline
    ModifyMac modMac <- mkModifyMac();
 
-   StoreAndFwdFromRingToMem ingress <- mkStoreAndFwdFromRingToMem(
-`ifdef DEBUG
-                                                                  memTestInd
-`endif
-                                                                 );
+   StoreAndFwdFromRingToMem txIngress <- mkStoreAndFwdFromRingToMem();
+   StoreAndFwdFromRingToMem rxIngress <- mkStoreAndFwdFromRingToMem();
+
+   // Network Ingress
+   StoreAndFwdFromMacToRing rxMacToRing <- mkStoreAndFwdFromMacToRing(rxClock, rxReset);
+
+   // Egress
    StoreAndFwdFromMemToRing egress <- mkStoreAndFwdFromMemToRing();
-   StoreAndFwdFromRingToMac ringToMac <- mkStoreAndFwdFromRingToMac(txClock, txReset);
+   StoreAndFwdFromRingToMac egressRingToMac <- mkStoreAndFwdFromRingToMac(txClock, txReset);
+
 
    SharedBuffer#(12, 128, 1) mem <- mkSharedBuffer(vec(egress.readClient)
-                                                  ,vec(ingress.writeClient, modMac.writeClient)
+                                                  ,vec(egress.free)
+                                                  ,vec(txIngress.writeClient, modMac.writeClient)
+                                                  ,vec(txIngress.malloc, rxIngress.malloc)
                                                   ,memServerInd
 `ifdef DEBUG
                                                   ,memTestInd
@@ -102,46 +109,42 @@ module mkTdmPipeline#(Clock txClock, Reset txReset
 `endif
                                                   );
 
+   // Host Tx Ingress
+   mkConnection(txTap.readClient, hostPktBuff.readServer);
+   mkConnection(txIngress.readClient, txTap.readServer);
+   mkConnection(txTap.tap_out, toPut(txParser.frameIn));
 
-   //mkConnection(ingress.readClient, incoming_buff.readServer);
-   mkConnection(tap.readClient, incoming_buff.readServer);
-   mkConnection(ingress.readClient, tap.readServer);
-   mkConnection(tap.tap_out, toPut(ipv4Parser.frameIn));
+   // Network Rx Ingress
+   mkConnection(rxMacToRing.writeClient, rxPktBuff.writeServer);
+   //mkConnection(rxIngress.readClient, rxPktBuff.readServer);
 
-   // alloc
-   mkConnection(ingress.mallocReq, mem.mallocReq);
-   mkConnection(mem.mallocDone, ingress.mallocDone);
+   // Network Tx Egress
+   mkConnection(egress.writeClient, txPktBuff.writeServer);
+   mkConnection(egressRingToMac.readClient, txPktBuff.readServer);
 
-   // free
-   mkConnection(egress.freeReq, mem.freeReq);
-   //mkConnection(mem.freeDone, egress.freeDone);
-
-   mkConnection(egress.writeClient, outgoing_buff.writeServer);
-   mkConnection(ringToMac.readClient, outgoing_buff.readServer);
-
-   // Null Forwarding bypass pipeline
-   //mkConnection(ingress.eventPktCommitted, egress.eventPktSend);
-
-   TDM sched <- mkTDM(ingress, egress, ipv4Parser, matchTable, modMac);
+   TDM sched <- mkTDM(txIngress, egress, txParser, matchTable, modMac);
 
    rule read_flow_id;
       let v <- toGet(matchTable.entry_added).get;
       indication.addEntryResp(v);
    endrule
 
-   interface macTx = ringToMac.macTx;
-   interface writeServer = incoming_buff.writeServer;
+   interface macRx = rxMacToRing.macRx;
+   interface macTx = egressRingToMac.macTx;
+   interface writeServer = hostPktBuff.writeServer;
    interface add_entry = matchTable.add_entry;
    interface delete_entry = matchTable.delete_entry;
    interface modify_entry = matchTable.modify_entry;
    method matchTableDbg = matchTable.dbg;
    method memMgmtDbg = mem.dbg;
    method tdmDbg = sched.dbg;
+   method ringToMacDbg = egressRingToMac.dbg;
    method ActionValue#(PktBuffDbgRec) pktBuffDbg(Bit#(8) id);
       PktBuffDbgRec v = defaultValue;
       case (id) matches
-         0: v = PktBuffDbgRec{sopEnq: incoming_buff.dbg.sopEnq, eopEnq: incoming_buff.dbg.eopEnq, sopDeq: incoming_buff.dbg.sopDeq, eopDeq: incoming_buff.dbg.eopDeq};
-         1: v = PktBuffDbgRec{sopEnq: outgoing_buff.dbg.sopEnq, eopEnq: outgoing_buff.dbg.eopEnq, sopDeq: outgoing_buff.dbg.sopDeq, eopDeq: outgoing_buff.dbg.eopDeq};
+         0: v = PktBuffDbgRec{sopEnq: hostPktBuff.dbg.sopEnq, eopEnq: hostPktBuff.dbg.eopEnq, sopDeq: hostPktBuff.dbg.sopDeq, eopDeq: hostPktBuff.dbg.eopDeq};
+         1: v = PktBuffDbgRec{sopEnq: txPktBuff.dbg.sopEnq, eopEnq: txPktBuff.dbg.eopEnq, sopDeq: txPktBuff.dbg.sopDeq, eopDeq: txPktBuff.dbg.eopDeq};
+         2: v = PktBuffDbgRec{sopEnq: rxPktBuff.dbg.sopEnq, eopEnq: rxPktBuff.dbg.eopEnq, sopDeq: rxPktBuff.dbg.sopDeq, eopDeq: rxPktBuff.dbg.eopDeq};
          default: $display("invalid buffer");
       endcase
       return v;

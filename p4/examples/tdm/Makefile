@@ -14,7 +14,7 @@ SCHEDDIR?=$(DEV_ROOT)/sonic-lite/scheduler
 ########################################################
 S2H_INTERFACES=MemoryTestRequest:MemoryTest.request
 
-ifeq ($(DEBUG), )
+ifeq ($(DEBUG),)
 H2S_INTERFACES=MemoryTest:MemoryTestIndication,MemServerIndication
 else
 H2S_INTERFACES=MemoryTest:MemoryTestIndication,MemServerIndication,MemMgmtIndication,MMUIndication

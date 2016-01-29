@@ -60,7 +60,7 @@ interface Ram9bx256;
    interface Get#(Ram9bReadResponse) readResp;
 endinterface
 module mkRam9bx256(Ram9bx256);
-   let verbose = True;
+   let verbose = False;
    Reg#(Bit#(32)) cycle <- mkReg(0);
    rule every1 if (verbose);
       cycle <= cycle + 1;
@@ -96,7 +96,7 @@ module mkRam9bx256(Ram9bx256);
          for (Integer j=0; j<4; j=j+1) begin
             Bit#(4) addr = v[(j+1)*4-1 : j*4];
             dpmlab[i*4+j].portB.request.put(BRAMRequest{write: False, responseOnWrite: False, address: addr, datain: ?});
-            $display("dpmlab %d: read i=%d, j=%d index=%d addr=%x", cycle, i, j, i*4+j, addr);
+            if (verbose) $display("dpmlab %d: read i=%d, j=%d index=%d addr=%x", cycle, i, j, i*4+j, addr);
          end
       endrule
    end

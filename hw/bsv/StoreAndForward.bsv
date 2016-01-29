@@ -57,17 +57,12 @@ typedef struct {
 
 interface StoreAndFwdFromRingToMem;
    interface PktReadClient readClient;
-   interface Get#(Bit#(EtherLen)) mallocReq;
-   interface Put#(Maybe#(PktId)) mallocDone;
+   interface MemAllocClient malloc;
    interface MemWriteClient#(`DataBusWidth) writeClient;
    interface Get#(PacketInstance) eventPktCommitted;
 endinterface
 
-module mkStoreAndFwdFromRingToMem
-`ifdef DEBUG
-                                 #(MemMgmtIndication memTestInd)
-`endif
-                                 (StoreAndFwdFromRingToMem)
+module mkStoreAndFwdFromRingToMem(StoreAndFwdFromRingToMem)
    provisos (Div#(`DataBusWidth, 8, bytesPerBeat)
             ,Log#(bytesPerBeat, beatShift));
 
@@ -146,9 +141,6 @@ module mkStoreAndFwdFromRingToMem
    rule packetReadDone;
       let v <- toGet(writeDoneFifo).get;
       let recvd <- toGet(eventPktReceivedFifo).get;
-`ifdef DEBUG
-      memTestInd.packet_committed(extend(recvd.id));
-`endif
       eventPktCommittedFifo.enq(recvd);
       if (verbose) $display("StoreAndForward::packetReadDone %d: packet written to memory %h", cycle, v);
    endrule
@@ -159,8 +151,10 @@ module mkStoreAndFwdFromRingToMem
       interface readReq = toGet(readReqFifo);
    endinterface
 
-   interface Get mallocReq = toGet(mallocReqFifo);
-   interface Put mallocDone = toPut(mallocDoneFifo);
+   interface malloc = (interface MemAllocClient;
+      interface Get mallocReq = toGet(mallocReqFifo);
+      interface Put mallocDone = toPut(mallocDoneFifo);
+   endinterface);
    interface writeClient = dmaWriteClient;
    interface Get eventPktCommitted = toGet(eventPktCommittedFifo);
 endmodule
@@ -169,7 +163,7 @@ interface StoreAndFwdFromMemToRing;
    interface PktWriteClient writeClient;
    interface MemReadClient#(`DataBusWidth) readClient;
    interface Put#(PacketInstance) eventPktSend;
-   interface Get#(PktId) freeReq;
+   interface MemFreeClient free;
 endinterface
 
 module mkStoreAndFwdFromMemToRing(StoreAndFwdFromMemToRing)
@@ -253,7 +247,9 @@ module mkStoreAndFwdFromMemToRing(StoreAndFwdFromMemToRing)
    endinterface
    interface readClient = dmaReadClient;
    interface Put eventPktSend = toPut(eventPktSendFifo);
-   interface Get freeReq = toGet(freeReqFifo);
+   interface free = (interface MemFreeClient;
+      interface Get freeReq = toGet(freeReqFifo);
+   endinterface);
 endmodule
 
 interface StoreAndFwdFromRingToMac;
