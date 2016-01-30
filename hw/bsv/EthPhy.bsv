@@ -80,6 +80,7 @@ endfunction
 
 //(* synthesize *)
 module mkEthPhy#(Clock mgmt_clk, Clock clk_156_25, Clock clk_644)(DtpPhyIfc#(numPorts));
+   let verbose = True;
 
    Reg#(Bit#(32)) cycle <- mkReg(0);
    Reset defaultReset <- exposeCurrentReset;
@@ -177,8 +178,10 @@ module mkEthPhy#(Clock mgmt_clk, Clock clk_156_25, Clock clk_644)(DtpPhyIfc#(num
       lpbkSyncPipeOut[i] = toPipeOut(lpbkSyncFifo[i]);
       lpbkSyncPipeIn[i] = toPipeIn(lpbkSyncFifo[i]);
 
-      pcs_rx[i]    <- mkEthPcsRxTop(clocked_by rxClock, reset_by rxReset);
-      pcs_tx[i]    <- mkEthPcsTxTop(clocked_by clk_156_25, reset_by rst_156_25_n);
+      //pcs_rx[i]    <- mkEthPcsRxTop(clocked_by rxClock, reset_by rxReset);
+      //pcs_tx[i]    <- mkEthPcsTxTop(clocked_by clk_156_25, reset_by rst_156_25_n);
+      pcs_rx[i]    <- mkEthPcsRx(i, clocked_by rxClock, reset_by rxReset);
+      pcs_tx[i]    <- mkEthPcsTx(i, clocked_by clk_156_25, reset_by rst_156_25_n);
       dtp_rx[i]    <- mkDtpRxTop(clocked_by rxClock, reset_by rxReset);
       dtp_tx[i]    <- mkDtpTxTop(clocked_by clk_156_25, reset_by rst_156_25_n);
 
@@ -340,6 +343,7 @@ module mkEthPhy#(Clock mgmt_clk, Clock clk_156_25, Clock clk_644)(DtpPhyIfc#(num
    for (Integer i=0; i<valueOf(numPorts); i=i+1) begin
       rule receive;
          let v <- toGet(pcs_rx[i].decoderOut).get;
+         if (verbose) $display("EthPhy %d: decoderOut=%h", i, v);
          vRxPipeIn[i].enq(v);
       endrule
    end

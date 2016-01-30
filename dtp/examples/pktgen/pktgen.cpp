@@ -124,7 +124,7 @@ int main(int argc, char **argv)
     if (arguments.rate && arguments.tracelen) {
         int idle = compute_idle(&pcap_info, arguments.rate, LINK_SPEED);
         device->start(arguments.tracelen, idle);
-        sleep(5);
+        sleep(50);
         device->stop();
     }
 

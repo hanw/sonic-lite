@@ -68,9 +68,9 @@ module mkEthPcsRx#(Integer id)(EthPcsRx);
    PipeIn#(Bit#(66)) dtpRxInPipeIn = toPipeIn(dtpRxInFifo);
    PipeOut#(Bit#(66)) dtpRxOutPipeOut = toPipeOut(dtpRxOutFifo);
 
-   Decoder decoder     <- mkDecoder();
-   Descrambler descram <- mkDescrambler();
-   BlockSync bsync     <- mkBlockSync();
+   Decoder decoder     <- mkDecoder(id);
+   Descrambler descram <- mkDescrambler(id);
+   BlockSync bsync     <- mkBlockSync(id);
 
    if (!bypass_dtp) begin
       mkConnection(dtpRxOutPipeOut, decoder.decoderIn);

@@ -40,8 +40,8 @@ interface Descrambler;
 endinterface
 
 // Scrambler poly G(x) = 1 + x^39 + x^58;
-(* synthesize *)
-module mkDescrambler(Descrambler);
+//(* synthesize *)
+module mkDescrambler#(Integer id)(Descrambler);
 
    let verbose = False;
    Clock defaultClock <- exposeCurrentClock();
@@ -64,7 +64,7 @@ module mkDescrambler(Descrambler);
       Bit#(122) history = {pre_descramble, scram_state};
       Vector#(64, Bit#(1)) dout_w;
       Bit#(66) descramble_out;
-      if(verbose) $display("%d: descrambler %h input=%h synchdr=%h", cycle, v, pre_descramble, v[1:0]);
+      if(verbose) $display("%d: descrambler%d %h input=%h synchdr=%h", cycle, id, v, pre_descramble, v[1:0]);
 
       for (Integer i=0; i<64; i=i+1) begin
          dout_w[i] = history[58+i-58] ^ history[58+i-39] ^ history[58+i];
@@ -73,7 +73,7 @@ module mkDescrambler(Descrambler);
 
       descramble_out = {pack(dout_w), sync_hdr};
       fifo_out.enq(descramble_out);
-      if(verbose) $display("%d: descrambler dataout=%h", cycle, descramble_out);
+      if(verbose) $display("%d: descrambler%d dataout=%h", cycle, id, descramble_out);
    endrule
 
    method Action rx_ready (Bool v);

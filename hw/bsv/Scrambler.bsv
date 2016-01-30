@@ -40,8 +40,8 @@ interface Scrambler;
 endinterface
 
 // Scrambler poly G(x) = 1 + x^39 + x^58;
-(* synthesize *)
-module mkScrambler(Scrambler);
+//(* synthesize *)
+module mkScrambler#(Integer id)(Scrambler);
 
    let verbose = False;
 
@@ -63,7 +63,7 @@ module mkScrambler(Scrambler);
       Bit#(2) sync_hdr      = v[1:0];
       Vector#(122, Bit#(1)) scram_history;
 
-      if(verbose) $display("%d: scrambler %h input=%h synchdr=%h", cycle, v, pre_scramble, v[1:0]);
+      if(verbose) $display("%d: scrambler%d %h input=%h synchdr=%h", cycle, id, v, pre_scramble, v[1:0]);
 
       for(Integer i=0; i<58; i=i+1) begin
          scram_history[i] = scram_state[i];
@@ -73,7 +73,7 @@ module mkScrambler(Scrambler);
          scram_history[i] = scram_history[i-58] ^ scram_history[i-39] ^ pre_scramble[i-58];
       end
 
-      if(verbose) $display("%d: scrambler scram_history=%h", cycle, scram_history);
+      if(verbose) $display("%d: scrambler%d scram_history=%h", cycle, id, scram_history);
 
       cfFifo.enq(pack(scram_history));
       shFifo.enq(sync_hdr);
@@ -88,8 +88,8 @@ module mkScrambler(Scrambler);
       scram_state <= v[121:64];
       dataout = {v[121:58], sh};
       fifo_out.enq(dataout);
-      if(verbose) $display("%d: scrambler dataout = %h", cycle, v[121:58]);
-      if(verbose) $display("%d: scrambler history=%h synchdr=%h", cycle, v, sh);
+      if(verbose) $display("%d: scrambler%d dataout = %h", cycle, id, v[121:58]);
+      if(verbose) $display("%d: scrambler%d history=%h synchdr=%h", cycle, id, v, sh);
    endrule
 
    method Action tx_ready (Bool v);

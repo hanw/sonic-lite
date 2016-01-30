@@ -16,6 +16,8 @@ CPPFILES += $(PROJTOP)/../../../sw/lpcap.c
 CONNECTALFLAGS += -I $(PROJTOP)/../../../sw/ 
 
 CONNECTALFLAGS += -D DataBusWidth=128
+CONNECTALFLAGS += -D BYTE_ENABLES
+
 ifeq ($(BOARD), vsim)
 CONNECTALFLAGS += --verilog $(IPDIR)/$(BOARD)/simulation/mac_10gbe
 CONNECTALFLAGS += --verilog $(IPDIR)/$(BOARD)/simulation/altera_xcvr_10gbaser_wrapper
@@ -64,5 +66,8 @@ ifeq ($(BOARD), vsim)
 	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) $(QUARTUS_SH) -t $(PROJTOP)/../../../hw/scripts/connectal-synth-phy.tcl)
 endif
 endif
+
+run-sim:
+	(cd vsim; ./bin/ubuntu.exe -n 10 -r 1 -p ../udp-large.pcap)
 
 include $(CONNECTALDIR)/Makefile.connectal

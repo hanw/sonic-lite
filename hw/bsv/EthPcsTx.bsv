@@ -65,8 +65,8 @@ module mkEthPcsTx#(Integer id)(EthPcsTx);
    PipeIn#(Bit#(66)) dtpTxInPipeIn = toPipeIn(dtpTxInFifo);
    PipeOut#(Bit#(66)) dtpTxOutPipeOut = toPipeOut(dtpTxOutFifo);
 
-   Encoder encoder     <- mkEncoder   ();
-   Scrambler scram     <- mkScrambler ();
+   Encoder encoder     <- mkEncoder   (id);
+   Scrambler scram     <- mkScrambler (id);
 
    if (!bypass_dtp) begin
       mkConnection(encoder.encoderOut, dtpTxInPipeIn);

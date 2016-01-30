@@ -45,10 +45,10 @@ endinterface
 typedef enum {CONTROL, START, DATA, TERMINATE, ERROR} State
 deriving (Bits, Eq);
 
-(* synthesize *)
-module mkDecoder(Decoder);
+//(* synthesize *)
+module mkDecoder#(Integer id)(Decoder);
 
-   let verbose = False;
+   let verbose = True;
    Clock defaultClock <- exposeCurrentClock();
    Reset defaultReset <- exposeCurrentReset();
 
@@ -119,7 +119,7 @@ module mkDecoder(Decoder);
       type_field = v[9:2];
       data_field = v;
 
-      if(verbose) $display("%d: data in %h", cycle, v);
+      if(verbose) $display("%d: decoder%d data in %h", cycle, id, v);
       Vector#(8, Bit#(8)) ctrl;
       for (Integer i=0; i<8; i=i+1) begin
          Integer idx_hi = (i+1)*7+9;
@@ -231,15 +231,17 @@ module mkDecoder(Decoder);
       //-------------------------------------------------------------------------------
       type_reg = ({(control_word & type_ff), (control_word & type_e1), (control_word & type_d2), (control_word & type_cc), (control_word & type_b4), (control_word & type_aa), (control_word & type_99), (control_word & type_87), (control_word & type_4b), (control_word & type_78), (control_word & type_55), (control_word & type_66), (control_word & type_33), (control_word & type_2d), (control_word & type_1e)}) ;
 
-      if(verbose) $display("data_field %h", data_field);
-      if(verbose) $display("typereg %h", type_reg);
+      if(verbose) $display("%d decoder%d data_field %h", cycle, id, data_field);
+      if(verbose) $display("%d decoder%d typereg %h", cycle, id, type_reg);
+      if(verbose) $display("%d decoder%d debug_bytes %d", cycle, id, debug_bytes);
+      if(verbose) $display("%d decoder%d debug_starts %d", cycle, id, debug_starts);
 
       lane0Seq9c = (sync_field[0] & ~(sync_field[1])) & ((type_66 | type_55 | type_4b) & ~(data_field[35]) & ~(data_field[34]) & ~(data_field[33]) & ~(data_field[32])) ;
       lane0Seq5c = (sync_field[0] & ~(sync_field[1])) & ((type_66 | type_55 | type_4b) & data_field[35] & data_field[34] & data_field[33] & data_field[32]) ;
       lane4Seq9c = (sync_field[0] & ~(sync_field[1])) & ((type_2d | type_55) & ~(data_field[39]) & ~(data_field[38]) & ~(data_field[37]) & ~(data_field[36])) ;
       lane4Seq5c = (sync_field[0] & ~(sync_field[1])) & ((type_2d | type_55) & data_field[39] & data_field[38] & data_field[37] & data_field[36]) ;
 
-      if(verbose) $display("laneseq %d %d %d %d", lane0Seq9c, lane0Seq5c, lane4Seq9c, lane4Seq5c);
+      if(verbose) $display("%d decoder%d laneseq %d %d %d %d", cycle, id, lane0Seq9c, lane0Seq5c, lane4Seq9c, lane4Seq5c);
  
       for (Integer i=0; i<8; i=i+1) begin
          dataFieldFifo[i].enq(data_field);
@@ -635,6 +637,7 @@ module mkDecoder(Decoder);
 
       fifo_out.enq({ctrl7,data7,ctrl6,data6,ctrl5,data5,ctrl4,data4,
                     ctrl3,data3,ctrl2,data2,ctrl1,data1,ctrl0,data0});
+      if (verbose) $display("%d: decoder%d xgmii_rxd=%h, rxc=%h", cycle, id, {data7,data6,data5,data4,data3,data2,data1,data0}, {ctrl7, ctrl6, ctrl5, ctrl4, ctrl3, ctrl2, ctrl1, ctrl0});
    endrule
 
    method Action rx_ready(Bool v);

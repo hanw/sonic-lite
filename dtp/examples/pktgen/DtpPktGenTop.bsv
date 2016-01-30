@@ -149,6 +149,7 @@ module mkDtpPktGenTop#(DtpIndication indication1, DtpPktGenIndication indication
 
    rule drain_mac_rx;
       let v <- toGet(mac[0].packet_rx).get;
+      $display("DtpPktGenTop:: received %h", v);
    endrule
 
    DtpPktGenAPI api <- mkDtpPktGenAPI(indication2, pktgen);

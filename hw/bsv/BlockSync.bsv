@@ -44,8 +44,8 @@ endinterface
 typedef enum {LOCK_INIT, RESET_CNT, TEST_SH, GOOD_64, SLIP} State
 deriving (Bits, Eq);
 
-(* synthesize *)
-module mkBlockSync(BlockSync);
+//(* synthesize *)
+module mkBlockSync#(Integer id)(BlockSync);
 
    let verbose = False;
 
@@ -103,7 +103,7 @@ module mkBlockSync(BlockSync);
       slip_done <= False;
       curr_state <= TEST_SH;
       fifo_out.enq(v);
-      if(verbose) $display("%d: state_reset_cnt", cycle);
+      if(verbose) $display("%d blocksync%d state_reset_cnt", cycle, id);
    endrule
 
    // Optimized-away VALID_SH and INVALID_SH state
@@ -147,7 +147,7 @@ module mkBlockSync(BlockSync);
       end
 
       fifo_out.enq(v);
-      if(verbose) $display("%d: blocksync state_test_sh v=%h, vld=%d, lock=%d, sh_cnt=%d, invld_cnt=%d", cycle, v, pack(sh_valid), pack(block_lock), sh_cnt, sh_invalid_cnt);
+      if(verbose) $display("%d: blocksync%d state_test_sh v=%h, vld=%d, lock=%d, sh_cnt=%d, invld_cnt=%d", cycle, id, v, pack(sh_valid), pack(block_lock), sh_cnt, sh_invalid_cnt);
    endrule
 
    rule slip (curr_state == SLIP);
@@ -161,7 +161,7 @@ module mkBlockSync(BlockSync);
       end
       curr_state <= RESET_CNT;
       fifo_out.enq(v);
-      if(verbose) $display("%d: blocksync state_slip offset=%d", cycle, offset);
+      if(verbose) $display("%d: blocksync%d state_slip offset=%d", cycle, id, offset);
    endrule
 
    rule state_good_64 (curr_state == GOOD_64);
@@ -172,7 +172,7 @@ module mkBlockSync(BlockSync);
       fifo_out.enq(v);
       //end
       curr_state <= RESET_CNT;
-      if(verbose) $display("%d: blocksync state_good_64 %d, %d, enqueue %h", cycle, curr_state, pack(block_lock), v);
+      if(verbose) $display("%d: blocksync%d state_good_64 %d, %d, enqueue %h", cycle, id, curr_state, pack(block_lock), v);
    endrule
 
    method Action rx_ready (Bool v);

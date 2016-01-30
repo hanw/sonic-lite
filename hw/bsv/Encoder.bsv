@@ -79,8 +79,8 @@ typedef struct {
    Bit#(8)  xgmiiTxc;
 } TypeInfo deriving (Eq, Bits, FShow);
 
-(* synthesize *)
-module mkEncoder(Encoder);
+//(* synthesize *)
+module mkEncoder#(Integer id)(Encoder);
 
    let verbose = True;
 
@@ -244,11 +244,11 @@ module mkEncoder(Encoder);
 //
 //      xgmiiTxdFifo1.enq(xgmii_txd);
 //      xgmiiTxcFifo1.enq(xgmii_txc);
-      if(verbose) $display("%d: encoder xgmii_txd=%h, txc=%h", cycle, xgmii_txd, xgmii_txc);
-      if(verbose) $display("%d: encoder lane_data = %h", cycle, lane_data);
-      if(verbose) $display("%d: encoder lane_control = %h", cycle, lane_control);
-      if(verbose) $display("%d: encoder lane_seq = %h", cycle, lane_seq);
-      if(verbose) $display("%d: encoder lane_idle = %h", cycle, lane_idle);
+      if(verbose) $display("%d: encoder%d xgmii_txd=%h, txc=%h", cycle, id, xgmii_txd, xgmii_txc);
+      if(verbose) $display("%d: encoder%d lane_data = %h", cycle, id, lane_data);
+      if(verbose) $display("%d: encoder%d lane_control = %h", cycle, id, lane_control);
+      if(verbose) $display("%d: encoder%d lane_seq = %h", cycle, id, lane_seq);
+      if(verbose) $display("%d: encoder%d lane_idle = %h", cycle, id, lane_idle);
    endrule
 
    //-------------------------------------------------------------------------------
@@ -609,7 +609,9 @@ module mkEncoder(Encoder);
       end
 
       data_out = {data_field, type_field, sync_field};
-      if(verbose) $display("%d: encoder data=%h type=%h sync=%h", cycle, data_field, type_field, sync_field);
+      if(verbose) $display("%d: encoder%d data=%h type=%h sync=%h", cycle, id, data_field, type_field, sync_field);
+      if(verbose) $display("%d encoder%d debug_bytes %d", cycle, id, debug_bytes);
+      if(verbose) $display("%d encoder%d debug_starts %d", cycle, id, debug_starts);
       fifo_out.enq(data_out);
    endrule
 
