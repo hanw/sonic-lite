@@ -38,11 +38,10 @@ import ClientServer::*;
 import ConnectalMemory::*;
 import ConnectalCompletionBuffer::*;
 import MMU::*;
+import Ethernet::*;
 
 `include "ConnectalProjectConfig.bsv"
 
-typedef 32 MaxNumPkts;
-typedef Bit#(TLog#(MaxNumPkts)) PktId;
 typedef 8 PktPageShift0;
 typedef 12 PktPageShift4;
 typedef 16 PktPageShift8;

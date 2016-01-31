@@ -49,11 +49,7 @@ import SpecialFIFOs::*;
 import Vector::*;
 import Pipe::*;
 import DbgTypes::*;
-
-typedef struct {
-   PktId id;
-   Bit#(EtherLen) size;
-} PacketInstance deriving(Bits, Eq);
+import PacketTypes::*;
 
 interface StoreAndFwdFromRingToMem;
    interface PktReadClient readClient;

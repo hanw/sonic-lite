@@ -49,16 +49,12 @@ instance DefaultValue#(MemMgmtDbgRec);
 endinstance
 
 typedef struct {
-   Bit#(64) lookupCnt;
-   Bit#(64) modifyMacCnt;
    Bit#(64) fwdReqCnt;
    Bit#(64) sendCnt;
 } TDMDbgRec deriving (Bits, Eq);
 instance DefaultValue#(TDMDbgRec);
    defaultValue =
    TDMDbgRec {
-      lookupCnt: 0,
-      modifyMacCnt: 0,
       fwdReqCnt: 0,
       sendCnt: 0
    };
@@ -91,6 +87,16 @@ instance DefaultValue#(TxThruDbgRec);
    TxThruDbgRec {
       goodputCount: 0,
       idleCount: 0
+   };
+endinstance
+
+typedef struct {
+   Bit#(64) lookupCnt;
+} IPv4RouteDbgRec deriving (Bits, Eq);
+instance DefaultValue#(IPv4RouteDbgRec);
+   defaultValue = 
+   IPv4RouteDbgRec {
+      lookupCnt: 0
    };
 endinstance
 

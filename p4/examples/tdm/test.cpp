@@ -70,8 +70,8 @@ public:
         fprintf(stderr, "MemMgmt: lastIdFreed=0x%lx, lastIdAllocated=0x%lx, freeStarted=%ld, firstSegment=0x%lx, lastSegment=0x%lx, currSegment=0x%lx, invalidSegment=%ld\n", lastIdFreed, lastIdAllocated, freeStarted, firstSegment, lastSegment, currSegment, invalidSegment);
         sem_post(&cmdCompleted);
     }
-    virtual void readTDMCntrsResp(uint64_t lookupCnt, uint64_t modifyMacCnt, uint64_t fwdReqCnt, uint64_t sendCnt) {
-        fprintf(stderr, "TDM: lookup=%ld, modifyMac=%ld, fwdReq=%ld, sent=%ld\n", lookupCnt, modifyMacCnt, fwdReqCnt, sendCnt);
+    virtual void readTDMCntrsResp(uint64_t fwdReqCnt, uint64_t sendCnt) {
+        fprintf(stderr, "TDM: fwdReq=%ld, sent=%ld\n", fwdReqCnt, sendCnt);
         sem_post(&cmdCompleted);
     }
     virtual void readMatchTableCntrsResp(uint64_t matchRequestCount, uint64_t matchResponseCount, uint64_t matchValidCount, uint64_t lastMatchIdx, uint64_t lastMatchRequest) {

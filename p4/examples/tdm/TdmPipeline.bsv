@@ -38,7 +38,12 @@ import DbgTypes::*;
 import Ethernet::*;
 import EthMac::*;
 import GenericMatchTable::*;
+import HostChannel::*;
+import TxChannel::*;
+import RxChannel::*;
+import ModifyMac::*;
 import IPv4Parser::*;
+import IPv4Route::*;
 import MMU::*;
 import MemMgmt::*;
 import PacketBuffer::*;
@@ -72,36 +77,18 @@ module mkTdmPipeline#(Clock txClock, Reset txReset
 `endif
    )(TdmPipeline);
 
-   // Ethernet Port
-   PacketBuffer hostPktBuff <- mkPacketBuffer();
-   PacketBuffer txPktBuff <- mkPacketBuffer();
-   PacketBuffer rxPktBuff <- mkPacketBuffer();
+   RxChannel rxchan <- mkRxChannel(rxClock, rxReset);
+   HostChannel hostchan <- mkHostChannel();
+   TxChannel txchan <- mkTxChannel(txClock, txReset);
 
-   // Ethernet Parser
-   TapPktRead txTap <- mkTapPktRead();
-   Parser txParser <- mkParser();
+   IPv4Route ipv4Route <- mkIPv4Route(hostchan.next);
+   ModifyMac modMac <- mkModifyMac(ipv4Route.next);
+   TDM sched <- mkTDM(modMac.next, txchan);
 
-   // Ingress Pipeline
-   MatchTable#(256, 36) matchTable <- mkMatchTable();
-
-   // Egress Pipeline
-   ModifyMac modMac <- mkModifyMac();
-
-   StoreAndFwdFromRingToMem txIngress <- mkStoreAndFwdFromRingToMem();
-   StoreAndFwdFromRingToMem rxIngress <- mkStoreAndFwdFromRingToMem();
-
-   // Network Ingress
-   StoreAndFwdFromMacToRing rxMacToRing <- mkStoreAndFwdFromMacToRing(rxClock, rxReset);
-
-   // Egress
-   StoreAndFwdFromMemToRing egress <- mkStoreAndFwdFromMemToRing();
-   StoreAndFwdFromRingToMac egressRingToMac <- mkStoreAndFwdFromRingToMac(txClock, txReset);
-
-
-   SharedBuffer#(12, 128, 1) mem <- mkSharedBuffer(vec(egress.readClient)
-                                                  ,vec(egress.free)
-                                                  ,vec(txIngress.writeClient, modMac.writeClient)
-                                                  ,vec(txIngress.malloc, rxIngress.malloc)
+   SharedBuffer#(12, 128, 1) mem <- mkSharedBuffer(vec(txchan.readClient)
+                                                  ,vec(txchan.freeClient)
+                                                  ,vec(hostchan.writeClient, modMac.writeClient)
+                                                  ,vec(hostchan.mallocClient)
                                                   ,memServerInd
 `ifdef DEBUG
                                                   ,memTestInd
@@ -109,43 +96,27 @@ module mkTdmPipeline#(Clock txClock, Reset txReset
 `endif
                                                   );
 
-   // Host Tx Ingress
-   mkConnection(txTap.readClient, hostPktBuff.readServer);
-   mkConnection(txIngress.readClient, txTap.readServer);
-   mkConnection(txTap.tap_out, toPut(txParser.frameIn));
-
-   // Network Rx Ingress
-   mkConnection(rxMacToRing.writeClient, rxPktBuff.writeServer);
-   //mkConnection(rxIngress.readClient, rxPktBuff.readServer);
-
-   // Network Tx Egress
-   mkConnection(egress.writeClient, txPktBuff.writeServer);
-   mkConnection(egressRingToMac.readClient, txPktBuff.readServer);
-
-   TDM sched <- mkTDM(txIngress, egress, txParser, matchTable, modMac);
-
    rule read_flow_id;
-      let v <- toGet(matchTable.entry_added).get;
+      let v <- toGet(ipv4Route.entry_added).get;
       indication.addEntryResp(v);
    endrule
 
-   interface macRx = rxMacToRing.macRx;
-   interface macTx = egressRingToMac.macTx;
-   interface writeServer = hostPktBuff.writeServer;
-   interface add_entry = matchTable.add_entry;
-   interface delete_entry = matchTable.delete_entry;
-   interface modify_entry = matchTable.modify_entry;
-   method matchTableDbg = matchTable.dbg;
+   interface macRx = rxchan.macRx;
+   interface macTx = txchan.macTx;
+   interface writeServer = hostchan.writeServer;
+   interface add_entry = ipv4Route.add_entry;
+   interface delete_entry = ipv4Route.delete_entry;
+   interface modify_entry = ipv4Route.modify_entry;
+   method matchTableDbg = ipv4Route.mdbg;
    method memMgmtDbg = mem.dbg;
    method tdmDbg = sched.dbg;
-   method ringToMacDbg = egressRingToMac.dbg;
+   //method ringToMacDbg = txchan.dbg;
    method ActionValue#(PktBuffDbgRec) pktBuffDbg(Bit#(8) id);
       PktBuffDbgRec v = defaultValue;
       case (id) matches
-         0: v = PktBuffDbgRec{sopEnq: hostPktBuff.dbg.sopEnq, eopEnq: hostPktBuff.dbg.eopEnq, sopDeq: hostPktBuff.dbg.sopDeq, eopDeq: hostPktBuff.dbg.eopDeq};
-         1: v = PktBuffDbgRec{sopEnq: txPktBuff.dbg.sopEnq, eopEnq: txPktBuff.dbg.eopEnq, sopDeq: txPktBuff.dbg.sopDeq, eopDeq: txPktBuff.dbg.eopDeq};
-         2: v = PktBuffDbgRec{sopEnq: rxPktBuff.dbg.sopEnq, eopEnq: rxPktBuff.dbg.eopEnq, sopDeq: rxPktBuff.dbg.sopDeq, eopDeq: rxPktBuff.dbg.eopDeq};
-         default: $display("invalid buffer");
+         0: v = hostchan.dbg;
+         1: v = txchan.dbg;
+         2: v = rxchan.dbg;
       endcase
       return v;
    endmethod

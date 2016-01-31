@@ -19,34 +19,34 @@ all_pkts = collections.OrderedDict()
 
 def gen_udp_pkts():
     # ETH|VLAN|VLAN|IP|UDP
-    all_pkts['vlan2-udp'] = Ether(src="01:02:03:04:05:06", dst="00:60:dd:45:38:f5") / \
+    all_pkts['vlan2-udp'] = Ether(src="34:17:eb:96:bf:1b", dst="34:17:eb:96:bf:1c") / \
                            Dot1Q(vlan=3393) / Dot1Q(vlan=2000) / IP(src="10.0.0.1", dst="10.0.0.2") /   \
                            UDP(sport=6000, dport=6639)
 
     # ETH|VLAN|IP|UDP
-    all_pkts['vlan-udp'] = Ether(src="01:02:03:04:05:06", dst="00:60:dd:45:38:f5") / \
+    all_pkts['vlan-udp'] = Ether(src="34:17:eb:96:bf:1b", dst="34:17:eb:96:bf:1c") / \
                            Dot1Q(vlan=3393) / IP(src="10.0.0.1", dst="10.0.0.2") /   \
                            UDP(sport=6000, dport=20000)
 
     # ETH|VLAN|IP|UDP
-    all_pkts['udp-small'] = Ether(src="01:02:03:04:05:06", dst="00:60:dd:45:38:f5") / \
+    all_pkts['udp-small'] = Ether(src="34:17:eb:96:bf:1b", dst="34:17:eb:96:bf:1c") / \
                            IP(src="10.0.0.1", dst="10.0.0.2") /   \
                            UDP(sport=6000, dport=20000)
     # ETH|VLAN|IP|UDP|PAYLOAD
     data = bytearray(os.urandom(1000))
-    all_pkts['udp-large'] = Ether(src="01:02:03:04:05:06", dst="00:60:dd:45:38:f5") / \
+    all_pkts['udp-large'] = Ether(src="34:17:eb:96:bf:1b", dst="34:17:eb:96:bf:1c") / \
                             IP(src="10.0.0.1", dst="10.0.0.2") /   \
                             UDP(sport=6000, dport=20000) / Raw(data)
 
     data = bytearray(os.urandom(500))
-    all_pkts['udp-mid'] = Ether(src="01:02:03:04:05:06", dst="00:60:dd:45:38:f5") / \
+    all_pkts['udp-mid'] = Ether(src="34:17:eb:96:bf:1b", dst="34:17:eb:96:bf:1c") / \
                             IP(src="10.0.0.1", dst="10.0.0.2") /   \
                             UDP(sport=6000, dport=20000) / Raw(data)
 
     # ETH|VLAN|IP|UDP
     sweep_small = PacketList()
     for i in range(8):
-        sweep_small.append(Ether(src="01:02:03:04:05:06", dst="00:60:dd:45:38:f5") / \
+        sweep_small.append(Ether(src="34:17:eb:96:bf:1b", dst="34:17:eb:96:bf:1c") / \
                            IP(src="10.0.0.12", dst="10.0.0.{}".format(i)) /   \
                            UDP(sport=6000, dport=20000))
     all_pkts['udp-sweep-small'] = sweep_small
@@ -55,7 +55,7 @@ def gen_udp_pkts():
     udp_10 = PacketList()
     for i in range(10):
         data = bytearray(os.urandom(random.randint(1,100)))
-        udp_10.append(Ether(src="01:02:03:04:05:06", dst="00:60:dd:45:38:f5") / \
+        udp_10.append(Ether(src="34:17:eb:96:bf:1b", dst="34:17:eb:96:bf:1c") / \
                  IP(src="10.0.0.1", dst="10.0.0.2") /   \
                  UDP(sport=6000, dport=20000) / Raw(data))
     all_pkts['udp-burst'] = udp_10
@@ -63,7 +63,7 @@ def gen_udp_pkts():
     vlan_10 = PacketList()
     for i in range(10):
         data = bytearray(os.urandom(random.randint(1,100)))
-        vlan_10.append(Ether(src="01:02:03:04:05:06", dst="00:60:dd:45:38:f5") / \
+        vlan_10.append(Ether(src="34:17:eb:96:bf:1b", dst="34:17:eb:96:bf:1c") / \
                 Dot1Q(vlan=3393) / IP(src="10.0.0.1", dst="10.0.0.2") /   \
                 UDP(sport=6000, dport=20000) / Raw(data))
     all_pkts['vlan-burst'] = vlan_10
@@ -72,7 +72,7 @@ def gen_udp_pkts():
     udp_5 = PacketList()
     for i in range(5):
         data = bytearray(os.urandom(random.randint(1,100)))
-        udp_5.append(Ether(src="01:02:03:04:05:06", dst="00:60:dd:45:38:f5") / \
+        udp_5.append(Ether(src="34:17:eb:96:bf:1b", dst="34:17:eb:96:bf:1c") / \
                  IP(src="10.0.0.1", dst="10.0.0.2") /   \
                  UDP(sport=6000, dport=20000) / Raw(data))
     all_pkts['udp-burst-5'] = udp_5

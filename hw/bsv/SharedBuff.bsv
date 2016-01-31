@@ -42,6 +42,8 @@ import PhysMemToBram::*;
 import Ethernet::*;
 import DbgTypes::*;
 
+// FIXME: Client#(Bit#(EtherLen), Maybe#(PktId))
+// FIXME: Server#(Bit#(EtherLen), Maybe#(PktId))
 interface MemAllocServer;
    interface Put#(Bit#(EtherLen)) mallocReq;
    interface Get#(Maybe#(PktId)) mallocDone;
@@ -52,6 +54,8 @@ interface MemAllocClient;
    interface Put#(Maybe#(PktId)) mallocDone;
 endinterface
 
+// FIXME: Client#(PktId, Bool)
+// FIXME: Server#(PktId, Bool)
 interface MemFreeServer;
    interface Put#(PktId) freeReq;
    interface Get#(Bool) freeDone;
@@ -84,7 +88,7 @@ endinterface
 module mkSharedBuffer#(Vector#(numReadClients, MemReadClient#(busWidth)) readClients
                        ,Vector#(numReadClients, MemFreeClient) memFreeClients
                        ,Vector#(numWriteClients, MemWriteClient#(busWidth)) writeClients
-                       ,Vector#(numWriteClients, MemAllocClient) memAllocClients
+                       ,Vector#(numAllocClients, MemAllocClient) memAllocClients
                        ,MemServerIndication memServerInd
 `ifdef DEBUG
                        ,MemMgmtIndication memTestInd
@@ -97,11 +101,12 @@ module mkSharedBuffer#(Vector#(numReadClients, MemReadClient#(busWidth)) readCli
 	    ,Add#(d__, addrWidth, MemOffsetSize)
 	    ,Add#(numWriteClients, a__, TMul#(TDiv#(numWriteClients, nMasters),nMasters))
 	    ,Add#(numReadClients, b__, TMul#(TDiv#(numReadClients, nMasters),nMasters))
+	    ,Add#(numAllocClients, b__, TMul#(TDiv#(numAllocClients, nMasters),nMasters))
             ,Mul#(TDiv#(busWidth, TDiv#(busWidth, 8)), TDiv#(busWidth, 8), busWidth)
             ,Mul#(TDiv#(busWidth, ByteEnableSize), ByteEnableSize, busWidth)
             ,Add#(`DataBusWidth, 0, busWidth)
 	    );
-   MemMgmt#(addrWidth, numWriteClients, numReadClients) alloc <- mkMemMgmt(
+   MemMgmt#(addrWidth, numAllocClients, numReadClients) alloc <- mkMemMgmt(
 `ifdef DEBUG
                                                                            memTestInd
                                                                           ,mmuInd
@@ -122,15 +127,15 @@ module mkSharedBuffer#(Vector#(numReadClients, MemReadClient#(busWidth)) readCli
 
    mkConnection(dma.masters, memSlaves);
 
-   FIFO#(MemMgmtAllocResp#(numWriteClients)) mallocDoneFifo <- mkFIFO;
+   FIFO#(MemMgmtAllocResp#(numAllocClients)) mallocDoneFifo <- mkFIFO;
 
    rule fill_malloc_done;
       let v <- alloc.mallocDone.get;
       mallocDoneFifo.enq(v);
    endrule
 
-   Vector#(numWriteClients, MemAllocServer) memAllocServers = newVector;
-   for (Integer i=0; i<valueOf(numWriteClients); i=i+1) begin
+   Vector#(numAllocClients, MemAllocServer) memAllocServers = newVector;
+   for (Integer i=0; i<valueOf(numAllocClients); i=i+1) begin
       memAllocServers[i] = (interface MemAllocServer;
          interface Put mallocReq;
             method Action put(Bit#(EtherLen) req);

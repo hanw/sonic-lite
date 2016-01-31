@@ -37,6 +37,9 @@ typedef 4 NumPorts;
 typedef 64 AVALON_DATA_WIDTH;
 typedef 8  SYMBOL_SIZE;
 typedef TLog#(AVALON_DATA_WIDTH) AVALON_EMPTY_WIDTH;
+typedef 10   PktAddrWidth;
+typedef 128  PktDataWidth;
+typedef 16   EtherLen;
 
 typedef struct {
    Bool                    sop;
@@ -46,7 +49,6 @@ typedef struct {
    Bit#(dataT_width)       data;
    Bool                    valid;
 } PacketData#(numeric type dataT_width) deriving (Bits, Eq);
-
 instance DefaultValue#(PacketData#(n));
    defaultValue =
    PacketData {
@@ -101,13 +103,23 @@ interface NetToConnectalIfc;
 endinterface
 
 typedef struct {
+   Bit#(PktAddrWidth) addr;
+   EtherData          data;
+} AddrTransRequest deriving (Eq, Bits);
+instance FShow#(AddrTransRequest);
+   function Fmt fshow (AddrTransRequest req);
+      return ($format(" addr=0x%x ", req.addr)
+              + $format(" data=0x%x ", req.data.data)
+              + $format(" sop= %d ", req.data.sop)
+              + $format(" eop= %d ", req.data.eop));
+   endfunction
+endinstance
+
+typedef struct {
    Bit#(3)  e; //event
    Bit#(53) t; //timestamp
 } DtpEvent deriving (Eq, Bits, FShow);
 
-typedef 10   PktAddrWidth;
-typedef 128  PktDataWidth;
-typedef 16   EtherLen;
 typedef struct {
    Bit#(PktDataWidth) data;
    Bit#(TDiv#(PktDataWidth, 8)) mask;
@@ -122,7 +134,6 @@ instance FShow#(EtherData);
               + $format("data=%x", v.data));
    endfunction
 endinstance
-
 instance DefaultValue#(EtherData);
    defaultValue =
    EtherData {
@@ -138,23 +149,20 @@ typedef struct {
 } EtherReq deriving (Eq, Bits);
 
 typedef struct {
-   Bit#(PktAddrWidth) addr;
-   EtherData          data;
-} AddrTransRequest deriving (Eq, Bits);
-instance FShow#(AddrTransRequest);
-   function Fmt fshow (AddrTransRequest req);
-      return ($format(" addr=0x%x ", req.addr)
-              + $format(" data=0x%x ", req.data.data)
-              + $format(" sop= %d ", req.data.sop)
-              + $format(" eop= %d ", req.data.eop));
-   endfunction
-endinstance
-
-typedef struct {
    Bit#(64) bytes;
    Bit#(64) starts;
    Bit#(64) ends;
    Bit#(64) errorframes;
 } PcsDbgRec deriving (Bits, Eq);
+
+// ===========================
+// Shared Packet Memory Types
+// ===========================
+typedef 32 MaxNumPkts; // Maximum in-flight packet in pipeline
+typedef Bit#(TLog#(MaxNumPkts)) PktId;
+typedef struct {
+   PktId id;
+   Bit#(EtherLen) size;
+} PacketInstance deriving(Bits, Eq);
 
 endpackage: Ethernet

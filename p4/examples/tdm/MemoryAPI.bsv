@@ -116,7 +116,7 @@ module mkMemoryAPI#(MemoryTestIndication indication, TdmPipeline tdm)(MemoryAPI)
 
       method Action readTDMCntrs();
          let v = tdm.tdmDbg();
-         indication.readTDMCntrsResp(v.lookupCnt, v.modifyMacCnt, v.fwdReqCnt, v.sendCnt);
+         indication.readTDMCntrsResp(v.fwdReqCnt, v.sendCnt);
       endmethod
 
       method Action readMatchTableCntrs();

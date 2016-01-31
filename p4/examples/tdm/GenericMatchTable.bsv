@@ -20,7 +20,7 @@ import DbgTypes::*;
 interface MatchTable#(numeric type depth, numeric type keySz);
    interface Server#(MatchField, ActionArg) lookupPort;
    interface Server#(Bit#(TLog#(depth)), Bit#(keySz)) readPort;
-   interface PipeOut#(FlowId) entry_added;
+   interface Get#(FlowId) entry_added;
    interface Put#(TableEntry) add_entry;
    interface Put#(FlowId) delete_entry;
    interface Put#(Tuple2#(FlowId, ActionArg)) modify_entry;
@@ -156,7 +156,7 @@ module mkMatchTable(MatchTable#(depth, keySz))
          writeReqFifo.enq(entry);
       endmethod
    endinterface
-   interface PipeOut entry_added = toPipeOut(entryAddDoneFifo);
+   interface Get entry_added = toGet(entryAddDoneFifo);
    interface Put delete_entry;
       method Action put (FlowId id);
          BcamWriteReq#(depthSz, keySz) req_bcam = BcamWriteReq{addr: truncate(id), data: 0};

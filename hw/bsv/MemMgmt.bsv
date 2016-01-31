@@ -106,11 +106,11 @@ module mkMMUIndicationProxy
    interface Get idResponse = toGet(idresponse_fifo);
 endmodule
 
-interface MemMgmt#(numeric type addrWidth, numeric type numWriteClients, numeric type numReadClients);
+interface MemMgmt#(numeric type addrWidth, numeric type numAllocClients, numeric type numReadClients);
    method Action init_mem();
    interface MMU#(addrWidth) mmu;
-   interface Put#(MemMgmtAllocReq#(numWriteClients)) mallocReq;
-   interface Get#(MemMgmtAllocResp#(numWriteClients)) mallocDone;
+   interface Put#(MemMgmtAllocReq#(numAllocClients)) mallocReq;
+   interface Get#(MemMgmtAllocResp#(numAllocClients)) mallocDone;
    interface Put#(MemMgmtFreeReq#(numReadClients)) freeReq;
    interface Get#(Bool) freeDone;
    method MemMgmtDbgRec dbg;
@@ -119,7 +119,7 @@ module mkMemMgmt
 `ifdef DEBUG
                 #(MemMgmtIndication indication, MMUIndication mmuInd)
 `endif
-                (MemMgmt#(addrWidth, numWriteClients, numReadClients))
+                (MemMgmt#(addrWidth, numAllocClients, numReadClients))
    provisos(Add#(a__, addrWidth, 44));
    let verbose = False;
 
@@ -139,9 +139,9 @@ module mkMemMgmt
    Reg#(Bool) invalidSegment <- mkReg(False);
 
    Reg#(Bool) inited <- mkReg(False);
-   FIFO#(MemMgmtAllocReq#(numWriteClients)) mallcRequestFifo <- mkSizedFIFO(16);
-   FIFO#(MemMgmtAllocReq#(numWriteClients)) currRequestFIfo <- mkFIFO;
-   FIFO#(MemMgmtAllocResp#(numWriteClients)) mallocDoneFifo <- mkFIFO;
+   FIFO#(MemMgmtAllocReq#(numAllocClients)) mallcRequestFifo <- mkSizedFIFO(16);
+   FIFO#(MemMgmtAllocReq#(numAllocClients)) currRequestFIfo <- mkFIFO;
+   FIFO#(MemMgmtAllocResp#(numAllocClients)) mallocDoneFifo <- mkFIFO;
    FIFOF#(PktId) freeRequestFifo <- mkFIFOF;
 
    FIFOF#(Bit#(PageIdx)) freePageList <- mkSizedFIFOF(freeQueueDepth);
@@ -314,7 +314,7 @@ module mkMemMgmt
       inited <= False;
    endmethod
    interface Put mallocReq;
-      method Action put(MemMgmtAllocReq#(numWriteClients) req);
+      method Action put(MemMgmtAllocReq#(numAllocClients) req);
          $display("MemMgmt:: %d req page=%d", cycle, freePageCount.read);
          mallcRequestFifo.enq(req);
          iommu.request.idRequest(0); //FIXME

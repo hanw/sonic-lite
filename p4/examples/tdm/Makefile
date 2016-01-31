@@ -20,7 +20,7 @@ else
 H2S_INTERFACES=MemoryTest:MemoryTestIndication,MemServerIndication,MemMgmtIndication,MMUIndication
 endif
 
-BSVFILES=MemoryTest.bsv MemoryAPI.bsv $(SONICDIR)/hw/bsv/MemMgmt.bsv GenericMatchTable.bsv TdmPipeline.bsv TdmTypes.bsv
+BSVFILES=MemoryTest.bsv MemoryAPI.bsv $(SONICDIR)/hw/bsv/MemMgmt.bsv GenericMatchTable.bsv TdmPipeline.bsv TdmTypes.bsv IPv4Route.bsv
 CPPFILES=test.cpp
 
 #######################################################
