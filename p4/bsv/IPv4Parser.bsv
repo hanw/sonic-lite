@@ -71,7 +71,7 @@ instance FShow#(ParserState);
    endfunction
 endinstance
 
-module mkInitialState#(Reg#(ParserState) state, FIFOF#(EtherData) datain, Wire#(Bool) start_fsm)(Empty);
+module mkStart#(Reg#(ParserState) state, FIFOF#(EtherData) datain, Wire#(Bool) start_fsm)(Empty);
    let verbose = True;
    Reg#(Cycle_t) cycle <- mkReg(defaultValue);
    rule every if (verbose);
@@ -100,6 +100,9 @@ module mkParseEthernet#(Reg#(ParserState) state, FIFOF#(EtherData) datain)(Parse
    Wire#(Bit#(128)) packet_in_wire <- mkDWire(0);
    Vector#(1, Wire#(Maybe#(ParserState))) next_state_wire <- replicateM(mkDWire(tagged Invalid));
 
+   PulseWire start_wire <- mkPulseWire();
+   PulseWire stop_wire <- mkPulseWire();
+
    let verbose = True;
    Reg#(Cycle_t) cycle <- mkReg(defaultValue);
    rule cycleRule if (verbose);
@@ -120,6 +123,22 @@ module mkParseEthernet#(Reg#(ParserState) state, FIFOF#(EtherData) datain)(Parse
       end
    endrule
 
+   function ParserState compute_next_state(Bit#(16) etherType);
+      ParserState nextState = S0;
+      case (byteSwap(etherType)) matches
+         'h_8100: begin
+            nextState = S2;
+         end
+         'h_9100: begin
+            nextState = S2;
+         end
+         'h_0800: begin
+            nextState = S3;
+         end
+      endcase
+      return nextState;
+   endfunction
+
    rule load_packet_in if (state == S1);
       let data_current <- toGet(datain).get;
       packet_in_wire <= data_current.data;
@@ -131,41 +150,38 @@ module mkParseEthernet#(Reg#(ParserState) state, FIFOF#(EtherData) datain)(Parse
    action // parse_ethernet
       let data = packet_in_wire;
       Vector#(128, Bit#(1)) dataVec = unpack(data);
-      let ethernet = extrace_ethernet(pack(takeAt(0, dataVec)));
+      let ethernet = extract_ethernet(pack(takeAt(0, dataVec)));
       Vector#(16, Bit#(1)) unparsed = takeAt(112, dataVec);
       if (verbose) $display("Parser:: ", fshow(cycle)
                             +fshow(" ether.dstAddr=")+fshow(ethernet.dstAddr)
                             +fshow(" ether.srcAddr=")+fshow(ethernet.srcAddr)
                             +fshow(" ether.etherType=")+fshow(ethernet.etherType));
-
-      ParserState nextState = S0;
-      case (byteSwap2B(ethernet.etherType)) matches
-         'h_8100: begin
-            unparsed_out_parse_vlan_fifo.enq(pack(unparsed));
-            nextState = S2;
-         end
-         'h_9100: begin
-            nextState = S2;
-         end
-         'h_0800: begin
-            unparsed_out_parse_ipv4_fifo.enq(pack(unparsed));
-            nextState = S3;
-         end
-         default: begin
-            $display("null");
-         end
-      endcase
+      let nextState = compute_next_state(ethernet.etherType);
+      if (nextState == S3) begin
+         unparsed_out_parse_ipv4_fifo.enq(pack(unparsed));
+      end
+      if (nextState == S2) begin
+         unparsed_out_parse_vlan_fifo.enq(pack(unparsed));
+      end
       next_state_wire[0] <= tagged Valid nextState;
    endaction
    endseq;
 
    FSM fsm_parse_ethernet <- mkFSM(parse_ethernet);
 
-   method Action start();
+   rule start_fsm (start_wire);
       fsm_parse_ethernet.start;
+   endrule
+
+   rule stop_fsm (stop_wire);
+      fsm_parse_ethernet.abort;
+   endrule
+
+   method Action start();
+      start_wire.send();
    endmethod
    method Action clear();
-      fsm_parse_ethernet.abort;
+      stop_wire.send();
    endmethod
    interface unparsedOutIpv4 = toPipeOut(unparsed_out_parse_ipv4_fifo);
    interface unparsedOutVlan = toPipeOut(unparsed_out_parse_vlan_fifo);
@@ -180,6 +196,9 @@ module mkParseVlan#(Reg#(ParserState) state, FIFOF#(EtherData) datain)(ParseVlan
 
    Wire#(Bit#(128)) packet_in_wire <- mkDWire(0);
    Vector#(2, Wire#(Maybe#(ParserState))) next_state_wire <- replicateM(mkDWire(tagged Invalid));
+
+   PulseWire start_wire <- mkPulseWire();
+   PulseWire stop_wire <- mkPulseWire();
 
    let verbose = True;
    Reg#(Cycle_t) cycle <- mkReg(defaultValue);
@@ -203,7 +222,7 @@ module mkParseVlan#(Reg#(ParserState) state, FIFOF#(EtherData) datain)(ParseVlan
 
    function ParserState compute_next_state(Bit#(16) etherType);
       ParserState nextState = S0;
-      case (byteSwap2B(etherType)) matches
+      case (byteSwap(etherType)) matches
          'h_8100: begin
             nextState = S2;
          end
@@ -251,13 +270,18 @@ module mkParseVlan#(Reg#(ParserState) state, FIFOF#(EtherData) datain)(ParseVlan
 
    FSM fsm_parse_vlan_0 <- mkFSM(parse_vlan_0);
 
-   method Action start;
+   rule start_fsm (start_wire);
       fsm_parse_vlan_0.start;
-   endmethod
-   method Action clear;
+   endrule
+   rule stop_fsm (stop_wire);
       fsm_parse_vlan_0.abort;
+   endrule
+   method Action start();
+      start_wire.send();
    endmethod
-
+   method Action clear();
+      stop_wire.send();
+   endmethod
    interface unparsedIn = toPipeIn(unparsed_in_fifo);
    interface unparsedOutVlan0 = toPipeOut(unparsed_out_parse_vlan0_fifo);
 endmodule
@@ -273,6 +297,9 @@ module mkParseIpv4#(Reg#(ParserState) state, FIFOF#(EtherData) datain)(ParseIpv4
 
    Wire#(Bit#(128)) packet_in_wire <- mkDWire(0);
    Vector#(3, Wire#(Maybe#(ParserState))) next_state_wire <- replicateM(mkDWire(tagged Invalid));
+
+   PulseWire start_wire <- mkPulseWire();
+   PulseWire stop_wire <- mkPulseWire();
 
    let verbose = True;
    Reg#(Cycle_t) cycle <- mkReg(defaultValue);
@@ -307,16 +334,16 @@ module mkParseIpv4#(Reg#(ParserState) state, FIFOF#(EtherData) datain)(ParseIpv4
    // IP
    seq
    action // parse_ipv4
-      let residue_last <- toGet(unparsed_in_fifo).get; // 16-bit
       let data_current = packet_in_wire;
+      let residue_last <- toGet(unparsed_in_fifo).get; // 16-bit
       Bit#(144) data = {data_current, residue_last};
       Vector#(144, Bit#(1)) dataVec = unpack(data);
       internal_fifo.enq(data);
       if (verbose) $display("Parser:: ", fshow(cycle) + fshow("wait one cycle!"));
    endaction
    action // parse_ipv4 0
-      let data_delayed <- toGet(internal_fifo).get;
       let data_current = packet_in_wire;
+      let data_delayed <- toGet(internal_fifo).get;
       Bit#(272) data = {data_current, data_delayed};
       Vector#(272, Bit#(1)) dataVec = unpack(data);
       Vector#(112, Bit#(1)) residue = takeAt(160, dataVec);
@@ -331,11 +358,19 @@ module mkParseIpv4#(Reg#(ParserState) state, FIFOF#(EtherData) datain)(ParseIpv4
 
    FSM fsm_parse_ipv4_0 <- mkFSM(parse_ipv4_0);
 
-   method Action start();
+   rule start_fsm (start_wire);
       fsm_parse_ipv4_0.start;
+   endrule
+
+   rule stop_fsm (stop_wire);
+      fsm_parse_ipv4_0.abort;
+   endrule
+
+   method Action start();
+      start_wire.send();
    endmethod
    method Action clear();
-      fsm_parse_ipv4_0.abort;
+      stop_wire.send();
    endmethod
    interface unparsedIn = toPipeIn(unparsed_in_fifo);
    interface unparsedOut = toPipeOut(unparsed_out_fifo);
@@ -349,11 +384,10 @@ module mkParser(Parser);
    FIFOF#(EtherData) data_in_fifo <- mkFIFOF;
    Wire#(Bool) start_fsm <- mkDWire(False);
 
-   Empty init_state <- mkInitialState(curr_state, data_in_fifo, start_fsm);
+   Empty init_state <- mkStart(curr_state, data_in_fifo, start_fsm);
    ParseEthernet parse_ethernet <- mkParseEthernet(curr_state, data_in_fifo);
    ParseVlan parse_vlan <- mkParseVlan(curr_state, data_in_fifo);
    ParseIpv4 parse_ipv4 <- mkParseIpv4(curr_state, data_in_fifo);
-
 
    List#(Reg#(Vlan_tag_t)) vlan_tag_stack <- List::replicateM(2, mkReg(defaultValue));
 

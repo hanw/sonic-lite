@@ -126,7 +126,7 @@ module mkParseEthernet(ParseEthernet);
       //parsed_out_ethernet_srcAddr_fifo.enq(ethernet.srcAddr);
       //parsed_out_ethernet_dstAddr_fifo.enq(ethernet.dstAddr);
       ParserState nextState = S0;
-      case (byteSwap2B(ethernet.etherType)) matches
+      case (byteSwap(ethernet.etherType)) matches
          'h_8100: begin
             unparsed_out_parse_vlan_fifo.enq(pack(unparsed));
             nextState = S2;
@@ -210,7 +210,7 @@ module mkParseVlan(ParseVlan);
 
    function ParserState compute_next_state(Bit#(16) etherType);
       ParserState nextState = S0;
-      case (byteSwap2B(etherType)) matches
+      case (byteSwap(etherType)) matches
          'h_8100: begin
             nextState = S2;
          end

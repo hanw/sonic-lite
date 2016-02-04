@@ -26,16 +26,16 @@ import Vector::*;
 import DefaultValue::*;
 import PCIE::*;
 
-// Very easy to generate
-function Bit#(32) byteSwap4B(Bit#(32) v);
-   Vector#(4, Bit#(8)) bytes = unpack(v);
-   return pack(reverse(bytes));
-endfunction
+typeclass ByteSwap#(type a);
+   function a byteSwap(a x);
+endtypeclass
 
-function Bit#(16) byteSwap2B(Bit#(16) v);
-   Vector#(2, Bit#(8)) bytes = unpack(v);
-   return pack(reverse(bytes));
-endfunction
+instance ByteSwap#(Bit#(16));
+   function Bit#(16) byteSwap(Bit#(16) x);
+      Vector#(2, Bit#(8)) bytes = unpack(x);
+      return pack(reverse(bytes));
+   endfunction
+endinstance
 
 typedef struct {
    Bit#(32) cnt;
@@ -65,6 +65,12 @@ instance DefaultValue#(Ethernet_t);
      etherType : 0
    };
 endinstance
+instance FShow#(Ethernet_t);
+   function Fmt fshow (Ethernet_t p);
+      return $format("Ethernet: dstAddr=%h, srcAddr=%h, etherType=%h", p.dstAddr, p.srcAddr, p.etherType);
+   endfunction
+endinstance
+
 typedef struct {
    Bit#(3) pcp;
    Bit#(1) cfi;
@@ -80,6 +86,12 @@ instance DefaultValue#(Vlan_tag_t);
      etherType : 0
    };
 endinstance
+instance FShow#(Vlan_tag_t);
+   function Fmt fshow (Vlan_tag_t p);
+      return $format("Vlan: pcp=%h, cfi=%h, vid=%h, etherType=%h", p.pcp, p.cfi, p.vid, p.etherType);
+   endfunction
+endinstance
+
 typedef struct {
    Bit#(4) version;
    Bit#(4) ihl;
@@ -111,6 +123,12 @@ instance DefaultValue#(Ipv4_t);
      dstAddr : 0
    };
 endinstance
+instance FShow#(Ipv4_t);
+   function Fmt fshow (Ipv4_t p);
+      return $format("Ipv4: version=%h, srcAddr=%h, dstAddr=%h", p.version, p.srcAddr, p.dstAddr);
+   endfunction
+endinstance
+
 typedef struct {
    Bit#(9) ingress_port;
    Bit#(32) packet_length;
@@ -540,7 +558,7 @@ instance DefaultValue#(MatchInput_rewrite_mac);
    };
 endinstance
 
-function Ethernet_t extrace_ethernet(Bit#(112) data);
+function Ethernet_t extract_ethernet(Bit#(112) data);
    Vector#(112, Bit#(1)) dataVec = unpack(data);
    Vector#(48, Bit#(1)) dstAddr = takeAt(0, dataVec);
    Vector#(48, Bit#(1)) srcAddr = takeAt(48, dataVec);
