@@ -72,6 +72,7 @@ module mkDecoder#(Integer id)(Decoder);
    Reg#(Bit#(64)) debug_starts <- mkReg(0);
    Reg#(Bit#(64)) debug_ends <- mkReg(0);
    Reg#(Bit#(64)) debug_errorframes <- mkReg(0);
+   Reg#(Bit#(64)) debug_frames <- mkReg(0);
 
    rule cyc;
       cycle <= cycle + 1;
@@ -178,6 +179,7 @@ module mkDecoder#(Integer id)(Decoder);
       type_ff = type_field[7] & type_field[6] & type_field[5] & type_field[4] & type_field[3] & type_field[2] & type_field[1] & type_field[0] ;
 
       // debugging
+      debug_frames <= debug_frames + 1;
       if (data_word == 1'b1) begin
          debug_bytes <= debug_bytes + 8;
       end
@@ -647,7 +649,7 @@ module mkDecoder#(Integer id)(Decoder);
    interface decoderIn=toPipeIn(fifo_in);
    interface decoderOut=toPipeOut(fifo_out);
    method PcsDbgRec dbg;
-      return PcsDbgRec{bytes:debug_bytes, starts:debug_starts, ends:debug_ends, errorframes:debug_errorframes};
+      return PcsDbgRec{bytes:debug_bytes, starts:debug_starts, ends:debug_ends, errorframes:debug_errorframes, frames:debug_frames};
    endmethod
 endmodule
 

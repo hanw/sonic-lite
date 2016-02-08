@@ -77,8 +77,8 @@ interface DtpIndication;
    method Action dtp_debug_sent_msg_resp(Bit#(8) port_no, Bit#(32) lwrite_cnt_enq, Bit#(32) lwrite_cnt_deq1, Bit#(32) lwrite_cnt_deq2);
    method Action dtp_debug_rcvd_err_resp(Bit#(8) port_no, Bit#(32) err_cnt);
    method Action dtp_get_mode_resp(Bit#(8) mode);
-   method Action dtp_debug_tx_pcs_resp(Bit#(8) port_no, Bit#(64) bytes, Bit#(64) starts, Bit#(64) ends, Bit#(64) errorframes);
-   method Action dtp_debug_rx_pcs_resp(Bit#(8) port_no, Bit#(64) bytes, Bit#(64) starts, Bit#(64) ends, Bit#(64) errorframes);
+   method Action dtp_debug_tx_pcs_resp(Bit#(8) port_no, Bit#(64) bytes, Bit#(64) starts, Bit#(64) ends, Bit#(64) errorframes, Bit#(64) frames);
+   method Action dtp_debug_rx_pcs_resp(Bit#(8) port_no, Bit#(64) bytes, Bit#(64) starts, Bit#(64) ends, Bit#(64) errorframes, Bit#(64) frames);
 endinterface
 
 interface DtpIfc;
@@ -314,6 +314,7 @@ module mkDtpController#(DtpIndication indication, Clock clk_156_25, Reset rst_15
    Vector#(4, Reg#(Bit#(64))) tx_debug_starts <- replicateM(mkReg(0));
    Vector#(4, Reg#(Bit#(64))) tx_debug_ends <- replicateM(mkReg(0));
    Vector#(4, Reg#(Bit#(64))) tx_debug_errorframes <- replicateM(mkReg(0));
+   Vector#(4, Reg#(Bit#(64))) tx_debug_frames <- replicateM(mkReg(0));
    for (Integer i=0; i<4; i = i+1) begin
       rule snapshot_tx_debug;
          let v <- toGet(txDbgFifo[i]).get;
@@ -321,6 +322,7 @@ module mkDtpController#(DtpIndication indication, Clock clk_156_25, Reset rst_15
          tx_debug_starts[i] <= v.starts;
          tx_debug_ends[i] <= v.ends;
          tx_debug_errorframes[i] <= v.errorframes;
+         tx_debug_frames[i] <= v.frames;
       endrule
    end
 
@@ -328,6 +330,7 @@ module mkDtpController#(DtpIndication indication, Clock clk_156_25, Reset rst_15
    Vector#(4, Reg#(Bit#(64))) rx_debug_starts <- replicateM(mkReg(0));
    Vector#(4, Reg#(Bit#(64))) rx_debug_ends <- replicateM(mkReg(0));
    Vector#(4, Reg#(Bit#(64))) rx_debug_errorframes <- replicateM(mkReg(0));
+   Vector#(4, Reg#(Bit#(64))) rx_debug_frames <- replicateM(mkReg(0));
    for (Integer i=0; i<4; i = i+1) begin
       rule snapshot_rx_debug;
          let v <- toGet(rxDbgFifo[i]).get;
@@ -335,6 +338,7 @@ module mkDtpController#(DtpIndication indication, Clock clk_156_25, Reset rst_15
          rx_debug_starts[i] <= v.starts;
          rx_debug_ends[i] <= v.ends;
          rx_debug_errorframes[i] <= v.errorframes;
+         rx_debug_frames[i] <= v.frames;
       endrule
    end
 
@@ -462,12 +466,12 @@ module mkDtpController#(DtpIndication indication, Clock clk_156_25, Reset rst_15
    endmethod
    method Action dtp_debug_tx_pcs(Bit#(8) port_no);
       if (port_no <4) begin
-         indication.dtp_debug_tx_pcs_resp(port_no, tx_debug_bytes[port_no], tx_debug_starts[port_no], tx_debug_ends[port_no], tx_debug_errorframes[port_no]);
+         indication.dtp_debug_tx_pcs_resp(port_no, tx_debug_bytes[port_no], tx_debug_starts[port_no], tx_debug_ends[port_no], tx_debug_errorframes[port_no], tx_debug_frames[port_no]);
       end
    endmethod
    method Action dtp_debug_rx_pcs(Bit#(8) port_no);
       if (port_no <4) begin
-         indication.dtp_debug_rx_pcs_resp(port_no, rx_debug_bytes[port_no], rx_debug_starts[port_no], rx_debug_ends[port_no], rx_debug_errorframes[port_no]);
+         indication.dtp_debug_rx_pcs_resp(port_no, rx_debug_bytes[port_no], rx_debug_starts[port_no], rx_debug_ends[port_no], rx_debug_errorframes[port_no], rx_debug_frames[port_no]);
       end
    endmethod
    endinterface

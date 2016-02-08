@@ -95,6 +95,7 @@ module mkEncoder#(Integer id)(Encoder);
    Reg#(Bit#(64)) debug_starts <- mkReg(0);
    Reg#(Bit#(64)) debug_ends <- mkReg(0);
    Reg#(Bit#(64)) debug_errorframes <- mkReg(0);
+   Reg#(Bit#(64)) debug_frames <- mkReg(0);
 
    // TODO: remove all these fifos.
    //---------------------------------------------------------------------------------
@@ -452,6 +453,7 @@ module mkEncoder#(Integer id)(Encoder);
       lane_code[6] = typeinfo.laneCode6;
       lane_code[7] = typeinfo.laneCode7;
 
+      debug_frames <= debug_frames + 1;
       if ((type_reg[0]) == 1'b1) begin
          type_field =  8'b00011110 ;
          debug_errorframes <= debug_errorframes + 1;
@@ -621,7 +623,7 @@ module mkEncoder#(Integer id)(Encoder);
    interface encoderIn = toPipeIn(fifo_in);
    interface encoderOut = toPipeOut(fifo_out);
    method PcsDbgRec dbg;
-      return PcsDbgRec{bytes:debug_bytes, starts:debug_starts, ends:debug_ends, errorframes:debug_errorframes};
+      return PcsDbgRec{bytes:debug_bytes, starts:debug_starts, ends:debug_ends, errorframes:debug_errorframes, frames:debug_frames};
    endmethod
 endmodule
 
