@@ -1,19 +1,20 @@
+#include <cstdlib>
 #include <stdio.h>
 #include <stdlib.h>
+#include <semaphore.h>
 #include <string.h>
 #include <unistd.h>
 #include <sys/mman.h>
 #include <fstream>
 #include <sstream>
 #include <iostream>
-#include <string>
 
 #include "MemServerRequest.h"
 #include "TestRequest.h"
 #include "TestIndication.h"
 #include "GeneratedTypes.h"
-#include "utils.h"
-#include "sonic_pcap_utils.h"
+#include "lutils.h"
+#include "lpcap.h"
 
 using namespace std;
 
@@ -21,6 +22,10 @@ using namespace std;
 
 sem_t test_sem;
 static TestRequestProxy *device=0;
+
+void device_writePacketData(uint64_t* data, uint8_t* mask, int sop, int eop) {
+    device->writePacketData(data, mask, sop, eop);
+}
 
 class TestIndication : public TestIndicationWrapper {
 public:
@@ -30,66 +35,22 @@ public:
   TestIndication(int id) : TestIndicationWrapper(id){}
 };
 
-void mem_copy(const void *buff, int packet_size) {
-
-    int i, sop, eop;
-    uint64_t data[2];
-    uint8_t mask[2];
-    int numBeats;
-
-    numBeats = packet_size / 8; // 16 bytes per beat for 128-bit datawidth;
-    if (packet_size % 8) numBeats++;
-    PRINT_INFO("nBeats=%d, packetSize=%d\n", numBeats, packet_size);
-    for (i=0; i<numBeats; i++) {
-        data[i%2] = *(static_cast<const uint64_t *>(buff) + i);
-        if (packet_size > 8) {
-            mask[i%2] = 0xff;
-            packet_size -= 8; // 64-bit
-        } else {
-            mask[i%2] = ((1 << packet_size) - 1) & 0xff;
-            packet_size = 0;
-        }
-        sop = (i/2 == 0);
-        eop = (i/2 == (numBeats-1)/2);
-        if (i%2) {
-            device->writePacketData(data, mask, sop, eop);
-            PRINT_INFO("%016lx %016lx %0x %0x %d %d\n", data[1], data[0], mask[1], mask[0], sop, eop);
-        }
-
-        // last beat, padding with zero
-        if ((numBeats%2!=0) && (i==numBeats-1)) {
-            sop = (i/2 == 0) ? 1 : 0;
-            eop = 1;
-            data[1] = 0;
-            mask[1] = 0;
-            device->writePacketData(data, mask, sop, eop);
-            PRINT_INFO("%016lx %016lx %0x %0x %d %d\n", data[1], data[0], mask[1], mask[0], sop, eop);
-        }
-    }
-}
-
 void usage (const char *program_name) {
     printf("%s: p4fpga tester\n"
      "usage: %s [OPTIONS] \n",
      program_name, program_name);
     printf("\nOther options:\n"
-    " -b, --shared-buffer              demo shared buffer\n");
+    " -p, --parser=FILE                demo parsing pcap log\n"
+    );
 }
 
-int main(int argc, char **argv) {
-    const char *program_name = get_exe_name(argv[0]);
-    const char *pcap_file="";
-    void *buffer;
-    long length;
+static void
+parse_options(int argc, char *argv[], char **pcap_file) {
     int c, option_index;
-    bool load_pcap = false;
-
-    TestIndication deviceIndication(IfcNames_TestIndicationH2S);
-    device = new TestRequestProxy(IfcNames_TestRequestS2H);
 
     static struct option long_options [] = {
-        {"packet",  required_argument, 0, 'p'},
         {"help",                no_argument, 0, 'h'},
+        {"parser-test",         required_argument, 0, 'p'},
         {0, 0, 0, 0}
     };
 
@@ -104,28 +65,30 @@ int main(int argc, char **argv) {
 
         switch (c) {
             case 'h':
-                usage(program_name);
+                usage(get_exe_name(argv[0]));
                 break;
             case 'p':
-                load_pcap = true;
-                pcap_file = optarg;
+                *pcap_file = optarg;
                 break;
-         }
+            default:
+                exit(EXIT_FAILURE);
+        }
     }
+}
 
-    if (load_pcap) {
+
+int main(int argc, char **argv) {
+    char *pcap_file= NULL;
+    struct pcap_trace_info pcap_info = {0, 0};
+
+    TestIndication deviceIndication(IfcNames_TestIndicationH2S);
+    device = new TestRequestProxy(IfcNames_TestRequestS2H);
+
+    parse_options(argc, argv, &pcap_file);
+
+    if (pcap_file) {
         fprintf(stderr, "Attempts to read pcap file %s\n", pcap_file);
-
-        if (!read_pcap_file(pcap_file, &buffer, &length)) {
-            perror("Failed to read file!");
-            exit(-1);
-        }
-
-        if (int err = load_pcap_file(buffer, length)) {
-            fprintf(stderr, "Error: %s\n", strerror(err));
-        }
+        load_pcap_file(pcap_file, &pcap_info);
     }
-
-    sem_wait(&test_sem);
     return 0;
 }

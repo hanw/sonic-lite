@@ -57,23 +57,23 @@ module mkTest#(TestIndication indication) (Test);
    endrule
 
    rule tx_mac1;
-      let v = mac1.tx;
+      let v <- mac1.tx.get;
       lpbk_fifo1.enq(v);
    endrule
 
    rule tx_mac2;
-      let v = mac2.tx;
+      let v <- mac2.tx.get;
       lpbk_fifo2.enq(v);
    endrule
 
    rule rx_mac1;
       let v <- toGet(lpbk_fifo2).get;
-      mac1.rx(v);
+      mac1.rx.put(v);
    endrule
 
    rule rx_mac2;
       let v <- toGet(lpbk_fifo1).get;
-      mac2.rx(v);
+      mac2.rx.put(v);
    endrule
 
    rule readDataStart;
