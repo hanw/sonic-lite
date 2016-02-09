@@ -11,7 +11,6 @@ P4FPGADIR?=$(DEV_ROOT)/sonic-lite/p4
 CONNECTALFLAGS += --bsvpath=$(P4FPGADIR)/bsv/
 CONNECTALFLAGS += --bsvpath=$(P4FPGADIR)/bsv/AsymmetricBRAM
 CONNECTALFLAGS += --bsvpath=$(P4FPGADIR)/bsv/Bcam
-CONNECTALFLAGS += --bsvpath=$(P4FPGADIR)/bsv/MatchTable
 #
 PIN_BINDINGS?=PCIE:PCIE LED:LED OSC:OSC SFPA:SFPA SFPB:SFPB SFPC:SFPC SFPD:SFPD SFP:SFP I2C:I2C BUTTON:BUTTON
 PINOUT_FILE=$(P4FPGADIR)/boards/de5.json
@@ -22,10 +21,13 @@ PINOUT_FILE=$(P4FPGADIR)/boards/de5.json
 S2H_INTERFACES=ParserTestRequest:ParserTest.request
 H2S_INTERFACES=ParserTest:ParserTestIndication
 CPPFILES=test.cpp
-BSVFILES=ParserTest.bsv $(P4FPGADIR)/bsv/MatchTable/MatchTable.bsv $(P4FPGADIR)/bsv/MatchTable/MatchTableTypes.bsv
+BSVFILES=ParserTest.bsv
 FPGAMAKE_CONNECTALFLAGS += -P mkPcieHostTop
 
 CONNECTALFLAGS += -m $(P4FPGADIR)/bsv/AsymmetricBRAM/mem_model.c
+
+run:
+	(cd bluesim; ./bin/ubuntu.exe -p $(P4FPGADIR)/tests/pcap/udp-small.pcap)
 
 include $(SONICDIR)/p4/Makefile.common
 include $(CONNECTALDIR)/Makefile.connectal

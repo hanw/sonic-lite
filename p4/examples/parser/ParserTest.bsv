@@ -12,7 +12,7 @@ import ConnectalMemory::*;
 
 import Ethernet::*;
 import PacketBuffer::*;
-import Parser::*;
+import IPv4Parser::*;
 import MemTypes::*;
 import MemServerIndication::*;
 import MMUIndication::*;
