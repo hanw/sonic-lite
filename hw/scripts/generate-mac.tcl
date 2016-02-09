@@ -53,16 +53,28 @@ proc generate_mac_core {core_version ip_name mode} {
     }
 }
 
-regexp {[\.0-9]+} $quartus(version) core_version
-puts $core_version
-
-if {[info exists SYNTHESIS]} {
-    puts "Generate synthesis model.."
-    generate_mac_core $core_version mac_10gbe synthesis
+proc generate_xilinx_10g_mac {core_version ip_name mode} {
+    global ipdir boardname partname
+    connectal_synth_ip ten_gig_eth_mac $core_version $ip_name [list CONFIG.Management_Interface {true} CONFIG.Statistics_Gathering {true} CONFIG.Physical_Interface {Internal} CONFIG.Low_Latency_32_bit_MAC {64bit} CONFIG.SupportLevel {0}]
 }
 
-if {[info exists SIMULATION]} {
-    puts "Generate simulation model.."
-    generate_mac_core $core_version mac_10gbe simulation
+if {[info exists ALTERA]} {
+    regexp {[\.0-9]+} $quartus(version) core_version
+    puts $core_version
+
+    if {[info exists SYNTHESIS]} {
+        puts "Generate synthesis model.."
+        generate_mac_core $core_version mac_10gbe synthesis
+    }
+
+    if {[info exists SIMULATION]} {
+        puts "Generate simulation model.."
+        generate_mac_core $core_version mac_10gbe simulation
+    }
+}
+
+if {[info exists XILINX]} {
+    puts "Generate synthesis model.."
+    generate_xilinx_10g_mac 15.0 ten_gig_eth_mac_0 synthesis
 }
 

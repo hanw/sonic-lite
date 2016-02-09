@@ -49,7 +49,6 @@ import SpecialFIFOs::*;
 import Vector::*;
 import Pipe::*;
 import DbgTypes::*;
-import PacketTypes::*;
 
 interface StoreAndFwdFromRingToMem;
    interface PktReadClient readClient;

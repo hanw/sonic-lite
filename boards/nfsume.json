@@ -1,0 +1,14 @@
+{
+	"leds[0]": {
+		"LED": "LED[0]"
+	},
+	"leds[1]": {
+		"LED": "LED[1]"
+	},
+    "sfp_refclk_p": {
+        "SFP": "SFP_REFCLK_P"
+    },
+    "sfp_refclk_n": {
+        "SFP": "SFP_REFCLK_N"
+    }
+}
