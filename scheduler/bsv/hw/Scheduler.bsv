@@ -156,15 +156,27 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
 						fwd_queue_len_reg <- replicateM(replicateM(mkReg(0)));
 
 	Reg#(ServerIndex) measure <- mkReg(fromInteger(valueof(NUM_OF_SERVERS)));
+    Vector#(NUM_OF_SERVERS, Reg#(Bit#(5))) len_index
+                <- replicateM(mkReg(fromInteger(valueof(RING_BUFFER_SIZE))));
 
 	for (Integer i = 0; i < valueof(NUM_OF_SERVERS); i = i + 1)
 	begin
 		rule monitor_ring_buffers (curr_state == RUN && measure == fromInteger(i));
 			let len <- ring_buffer[i].elements;
-			Bit#(5) temp = truncate(len);
-			fwd_queue_len_reg[i][temp] <= fwd_queue_len_reg[i][temp] + 1;
-			measure <= fromInteger(valueof(NUM_OF_SERVERS));
+            len_index[i] <= truncate(len);
+            measure <= fromInteger(valueof(NUM_OF_SERVERS));
 		endrule
+
+        for (Integer j = 0; j < valueof(RING_BUFFER_SIZE); j = j + 1)
+        begin
+            rule update_counter (curr_state == RUN
+                                 && len_index[i] == fromInteger(j));
+                fwd_queue_len_reg[i][j] <= fwd_queue_len_reg[i][j] + 1;
+                len_index[i] <= fromInteger(valueof(RING_BUFFER_SIZE));
+//              if (i == 1 && (len == 0 || len == 1))
+//                  num_of_time_slots_used_reg <= num_of_time_slots_used_reg + 1;
+            endrule
+        end
 	end
 
 	Vector#(NUM_OF_SERVERS, Reg#(Bit#(1))) enq_queue_length <- replicateM(mkReg(0));
@@ -345,8 +357,6 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
 						if (index >= fromInteger(valueof(NUM_OF_SERVERS)))
                         begin
                             ring_buffer_index_fifo[i].enq(0);
-							//num_of_rxWrite_pkt_reg[i] <=
-							//               num_of_rxWrite_pkt_reg[i] + 1;
                         end
                         else
                             ring_buffer_index_fifo[i].enq(index);
@@ -440,8 +450,8 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
     rule get_dst_addr (curr_state == RUN && start_tx_scheduling == 1);
 		Bit#(64) curr_time = clk.currTime();
 
-		Bit#(3) clock_lsb_four_bits = curr_time[2:0];
-		if (clock_lsb_four_bits == 0)
+		Bit#(3) clock_lsb_three_bits = curr_time[2:0];
+		if (clock_lsb_three_bits == 0)
 		begin
 			ServerIndex slot = 0;
             if (valueof(NUM_OF_SERVERS) == 1)
@@ -504,7 +514,7 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
     Vector#(NUM_OF_SERVERS, FIFO#(ReadResType)) data_fifo
 	                                           <- replicateM(mkBypassFIFO);
 	Vector#(NUM_OF_SERVERS, Wire#(PortIndex)) correct_tx_index
-	                <- replicateM(mkDWire(fromInteger(valueof(NUM_OF_ALTERA_PORTS))));
+	             <- replicateM(mkDWire(fromInteger(valueof(NUM_OF_ALTERA_PORTS))));
 
     for (Integer i = 0; i < valueof(NUM_OF_SERVERS); i = i + 1)
     begin
@@ -664,11 +674,6 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
 		for (Integer i = 0; i < valueof(NUM_OF_ALTERA_PORTS); i = i + 1)
 			rxWrite_pkt = rxWrite_pkt + num_of_rxWrite_pkt_reg[i];
 		rxWrite_pkt_fifo.enq(rxWrite_pkt);
-	endmethod
-
-	method Action fwdQueueLen();
-		for (Integer i = 0; i < valueof(NUM_OF_SERVERS); i = i + 1)
-			enq_queue_length[i] <= 1;
 	endmethod
 
 	method Action fwdQueueLen();

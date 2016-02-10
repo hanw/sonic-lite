@@ -32,9 +32,10 @@ endinterface
 
 module mkMac#(Scheduler#(ReadReqType, ReadResType,
                          WriteReqType, WriteResType) scheduler,
-              Clock txClock, Reset txReset,
+              Clock txClock, Reset txReset, Reset tx_reset,
 			  Vector#(NUM_OF_ALTERA_PORTS, Clock) rxClock,
-		      Vector#(NUM_OF_ALTERA_PORTS, Reset) rxReset) (Mac);
+		      Vector#(NUM_OF_ALTERA_PORTS, Reset) rxReset,
+              Vector#(NUM_OF_ALTERA_PORTS, Reset) rx_reset) (Mac);
 
     Clock defaultClock <- exposeCurrentClock();
     Reset defaultReset <- exposeCurrentReset();
@@ -64,10 +65,10 @@ module mkMac#(Scheduler#(ReadReqType, ReadResType,
 //	SyncFIFOIfc#(PacketDataT#(64)) debug_sending_to_phy_fifo
 //	               <- mkSyncFIFO(16, txClock, txReset, defaultClock);
 	SyncFIFOIfc#(Bit#(64)) mac_send_count_fifo_port_0
-	        <- mkSyncFIFO(1, txClock, txReset, defaultClock);
+	        <- mkSyncFIFO(1, txClock, tx_reset, defaultClock);
 
 	Vector#(NUM_OF_ALTERA_PORTS, Reg#(Bit#(64))) mac_send_count_reg
-	        <- replicateM(mkReg(0, clocked_by txClock, reset_by txReset));
+	        <- replicateM(mkReg(0, clocked_by txClock, reset_by tx_reset));
 
 /*------------------------------------------------------------------------------*/
     for (Integer i = 0; i < fromInteger(valueof(NUM_OF_ALTERA_PORTS)); i = i + 1)
@@ -164,19 +165,20 @@ module mkMac#(Scheduler#(ReadReqType, ReadResType,
 
 /*------------------------------------------------------------------------------*/
 	SyncFIFOIfc#(Bit#(64)) sop_count_fifo_port_0
-	               <- mkSyncFIFO(1, rxClock[0], rxReset[0], defaultClock);
+	               <- mkSyncFIFO(1, rxClock[0], rx_reset[0], defaultClock);
 
 	SyncFIFOIfc#(Bit#(64)) eop_count_fifo_port_0
-	               <- mkSyncFIFO(1, rxClock[0], rxReset[0], defaultClock);
+	               <- mkSyncFIFO(1, rxClock[0], rx_reset[0], defaultClock);
 
     Vector#(NUM_OF_ALTERA_PORTS, Reg#(Bit#(64))) sop_count_reg;
     Vector#(NUM_OF_ALTERA_PORTS, Reg#(Bit#(64))) eop_count_reg;
 
 	for (Integer i = 0; i < valueof(NUM_OF_ALTERA_PORTS); i = i + 1)
 	begin
-		sop_count_reg[i] <- mkReg(0, clocked_by rxClock[i], reset_by rxReset[i]);
-		eop_count_reg[i] <- mkReg(0, clocked_by rxClock[i], reset_by rxReset[i]);
+		sop_count_reg[i] <- mkReg(0, clocked_by rxClock[i], reset_by rx_reset[i]);
+		eop_count_reg[i] <- mkReg(0, clocked_by rxClock[i], reset_by rx_reset[i]);
 	end
+
 /*------------------------------------------------------------------------------*/
 
     for (Integer i = 0; i < valueof(NUM_OF_ALTERA_PORTS); i = i + 1)

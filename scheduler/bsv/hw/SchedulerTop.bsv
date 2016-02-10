@@ -65,7 +65,7 @@ module mkSchedulerTop#(DtpIndication indication1, SchedulerTopIndication indicat
     Reset defaultReset <- exposeCurrentReset();
 
 //    Clock txClock <- mkAbsoluteClock(0, 64);
-//    Reset txReset <- mkSyncReset(2, defaultReset, txClock);
+//    Reset txReset <- mkAsyncReset(2, defaultReset, txClock);
 
     Wire#(Bit#(1)) clk_644_wire <- mkDWire(0);
     Wire#(Bit#(1)) clk_50_wire <- mkDWire(0);
@@ -74,9 +74,9 @@ module mkSchedulerTop#(DtpIndication indication1, SchedulerTopIndication indicat
     Clock txClock = clocks.clock_156_25;
     Clock phyClock = clocks.clock_644_53;
     Clock mgmtClock = clocks.clock_50;
-    Reset txReset <- mkSyncReset(2, defaultReset, txClock);
-    Reset phyReset <- mkSyncReset(2, defaultReset, phyClock);
-    Reset mgmtReset <- mkSyncReset(2, defaultReset, mgmtClock);
+    Reset txReset <- mkAsyncReset(2, defaultReset, txClock);
+    Reset phyReset <- mkAsyncReset(2, defaultReset, phyClock);
+    Reset mgmtReset <- mkAsyncReset(2, defaultReset, mgmtClock);
 
     //DE5 Pins
     De5Leds leds <- mkDe5Leds(defaultClock, txClock, mgmtClock, phyClock);
@@ -86,7 +86,7 @@ module mkSchedulerTop#(DtpIndication indication1, SchedulerTopIndication indicat
     // Phy
     //EthPhyIfc phys <- mkAlteraEthPhy(defaultClock, phyClock, txClock, defaultReset);
     DtpController dtp <- mkDtpController(indication1, txClock, txReset, clocked_by defaultClock);
-    Reset rst_api <- mkSyncReset(0, dtp.ifc.rst, txClock);
+    Reset rst_api <- mkAsyncReset(0, dtp.ifc.rst, txClock);
     Reset dtp_rst <- mkResetEither(txReset, rst_api, clocked_by txClock);
     EthPhyIfc phys <- mkAlteraEthPhy(mgmtClock, phyClock, txClock, defaultReset, clocked_by mgmtClock, reset_by mgmtReset);
     DtpPhyIfc#(NUM_OF_DTP_PORTS) dtp_phy <- mkEthPhy(mgmtClock, txClock, phyClock, clocked_by txClock, reset_by dtp_rst);
@@ -97,25 +97,36 @@ module mkSchedulerTop#(DtpIndication indication1, SchedulerTopIndication indicat
 	for (Integer i = 0; i < valueOf(NUM_OF_ALTERA_PORTS); i = i + 1)
 	begin
 		rxClock[i] = phys.rx_clkout;
-		rxReset[i] <- mkSyncReset(2, defaultReset, rxClock[i]);
+		rxReset[i] <- mkAsyncReset(2, defaultReset, rxClock[i]);
 //		rxClock[i] <- mkAbsoluteClock(0, 64);
-//		rxReset[i] <- mkSyncReset(2, defaultReset, rxClock[i]);
+//		rxReset[i] <- mkAsyncReset(2, defaultReset, rxClock[i]);
 	end
 
 /*-------------------------------------------------------------------------------*/
-    MakeResetIfc scheduler_reset_ifc <- mkResetSync(0, False, defaultClock);
-    Reset rst <- mkSyncReset(0, scheduler_reset_ifc.new_rst, txClock);
-    Reset scheduler_rst <- mkResetEither(txReset, rst, clocked_by txClock);
+    MakeResetIfc tx_reset_ifc <- mkResetSync(0, False, defaultClock);
+    Reset tx_rst_sig <- mkAsyncReset(0, tx_reset_ifc.new_rst, txClock);
+    Reset tx_rst <- mkResetEither(txReset, tx_rst_sig, clocked_by txClock);
+
+    Vector#(NUM_OF_ALTERA_PORTS, MakeResetIfc) rx_reset_ifc;
+    Vector#(NUM_OF_ALTERA_PORTS, Reset) rx_rst_sig;
+    Vector#(NUM_OF_ALTERA_PORTS, Reset) rx_rst;
+
+    for (Integer i = 0; i < valueof(NUM_OF_ALTERA_PORTS); i = i + 1)
+    begin
+        rx_reset_ifc[i] <- mkResetSync(0, False, defaultClock);
+        rx_rst_sig[i] <- mkAsyncReset(0, rx_reset_ifc[i].new_rst, rxClock[i]);
+        rx_rst[i] <- mkResetEither(rxReset[i], rx_rst_sig[i], clocked_by rxClock[i]);
+    end
 
     Scheduler#(ReadReqType, ReadResType, WriteReqType, WriteResType)
     scheduler <- mkScheduler(defaultClock, defaultReset,
 	                         txClock, txReset, rxClock, rxReset,
-                             clocked_by txClock, reset_by scheduler_rst);
+                             clocked_by txClock, reset_by tx_rst);
 
     DMASimulator dma_sim <- mkDMASimulator(scheduler, defaultClock, defaultReset,
-								     clocked_by txClock, reset_by scheduler_rst);
+								     clocked_by txClock, reset_by tx_rst);
 
-    Mac mac <- mkMac(scheduler, txClock, txReset, rxClock, rxReset);
+    Mac mac <- mkMac(scheduler, txClock, txReset, tx_rst, rxClock, rxReset, rx_rst);
 
 /*-------------------------------------------------------------------------------*/
 	Reg#(Bit#(1)) debug_flag <- mkReg(0);
@@ -144,8 +155,6 @@ module mkSchedulerTop#(DtpIndication indication1, SchedulerTopIndication indicat
 	Reg#(Bit#(1)) get_received_pkt_flag
 	                    <- mkReg(0, clocked_by txClock, reset_by txReset);
 	Reg#(Bit#(1)) get_rxWrite_pkt_flag
-	                    <- mkReg(0, clocked_by txClock, reset_by txReset);
-	Reg#(Bit#(1)) get_fwd_queue_stats_flag
 	                    <- mkReg(0, clocked_by txClock, reset_by txReset);
 	Reg#(Bit#(1)) get_fwd_queue_stats_flag
 	                    <- mkReg(0, clocked_by txClock, reset_by txReset);
@@ -335,7 +344,7 @@ module mkSchedulerTop#(DtpIndication indication1, SchedulerTopIndication indicat
 	for (Integer i = 0; i < valueof(NUM_OF_DTP_PORTS); i = i + 1)
 	begin
 		dtp_rxClock[i] = dtp_phy.rx_clkout[i];
-		dtp_rxReset[i] <- mkSyncReset(2, dtp_rst, dtp_rxClock[i]);
+		dtp_rxReset[i] <- mkAsyncReset(2, dtp_rst, dtp_rxClock[i]);
 		dtp_mac[i] <- mkEthMac(defaultClock, txClock, dtp_rxClock[i], txReset, clocked_by txClock, reset_by dtp_rst);
 	end
 
@@ -612,7 +621,9 @@ module mkSchedulerTop#(DtpIndication indication1, SchedulerTopIndication indicat
 
 	Reg#(Bit#(64)) reset_len_count <- mkReg(0);
 	rule reset_state (fire_reset_state == 1);
-		scheduler_reset_ifc.assertReset;
+		tx_reset_ifc.assertReset;
+        for (Integer i = 0; i < valueof(NUM_OF_ALTERA_PORTS); i = i + 1)
+            rx_reset_ifc[i].assertReset;
 		reset_len_count <= reset_len_count + 1;
 		if (reset_len_count == 1000)
 		begin
