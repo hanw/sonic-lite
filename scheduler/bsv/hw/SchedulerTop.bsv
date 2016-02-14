@@ -307,6 +307,7 @@ module mkSchedulerTop#(DtpIndication indication1, SchedulerTopIndication indicat
 		/* reset the state */
 		host_index_ready <= 0;
 		dma_trans_rate_ready <= 0;
+        num_of_servers_ready <= 0;
 		count <= fromInteger(valueof(NUM_OF_SERVERS));
 		table_idx <= 0;
 		done_populating_table <= 0;
