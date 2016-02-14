@@ -4,7 +4,7 @@ SONICDIR ?= $(DEV_ROOT)/sonic-lite
 S2H_INTERFACES = SchedulerTopRequest:SchedulerTop.request
 H2S_INTERFACES = SchedulerTop:SchedulerTopIndication
 BSVFILES = $(SONICDIR)/scheduler/bsv/sim/SchedulerTop.bsv
-CPPFILES = $(SONICDIR)/scheduler/cpp/test_sim.cpp
+CPPFILES = $(SONICDIR)/scheduler/cpp/test_sim_1.cpp
 
 CONNECTALFLAGS += -D DataBusWidth=128
 CONNECTALFLAGS += --bsvpath=$(CONNECTALDIR)/bsv

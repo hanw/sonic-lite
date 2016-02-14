@@ -15,15 +15,10 @@ import RingBufferTypes::*;
 import RingBuffer::*;
 import Addresses::*;
 
-import DtpController::*;
-import Ethernet::*;
 import AlteraMacWrap::*;
 import EthMac::*;
-import EthPhy::*;
-import AlteraEthPhy::*;
-import DE5Pins::*;
 
-interface SchedulerTopIndication;
+interface SchedulerTopSimIndication;
 	method Action display_time_slots_count(Bit#(64) num_of_time_slots);
 	method Action display_host_pkt_count(Bit#(64) num_of_host_pkt);
 	method Action display_non_host_pkt_count(Bit#(64) num_of_non_host_pkt);
@@ -44,53 +39,32 @@ interface SchedulerTopIndication;
 //	method Action debug_mac_rx(Bit#(8) sop, Bit#(8) eop, Bit#(64) data);
 endinterface
 
-interface SchedulerTopRequest;
+interface SchedulerTopSimRequest;
     method Action start_scheduler_and_dma(Bit#(32) idx,
 		                                  Bit#(32) dma_transmission_rate,
 		                                  Bit#(64) cycles);
 	method Action debug();
 endinterface
 
-interface SchedulerTop;
-	interface DtpRequest request1;
-    interface SchedulerTopRequest request2;
+interface SchedulerTopSim;
+    interface SchedulerTopSimRequest request2;
     interface `PinType pins;
 endinterface
 
-module mkSchedulerTop#(DtpIndication indication1, SchedulerTopIndication indication2)(SchedulerTop);
+module mkSchedulerTopSim#(SchedulerTopSimIndication indication2)(SchedulerTopSim);
     // Clocks
     Clock defaultClock <- exposeCurrentClock();
     Reset defaultReset <- exposeCurrentReset();
 
-    Wire#(Bit#(1)) clk_644_wire <- mkDWire(0);
-    Wire#(Bit#(1)) clk_50_wire <- mkDWire(0);
-    De5Clocks clocks <- mkDe5Clocks(clk_50_wire, clk_644_wire);
-
-    Clock txClock = clocks.clock_156_25;
-    Clock phyClock = clocks.clock_644_53;
-    Clock mgmtClock = clocks.clock_50;
+    Clock txClock <- mkAbsoluteClock(0, 64);
     Reset txReset <- mkAsyncReset(2, defaultReset, txClock);
-    Reset phyReset <- mkAsyncReset(2, defaultReset, phyClock);
-    Reset mgmtReset <- mkAsyncReset(2, defaultReset, mgmtClock);
-
-    //DE5 Pins
-    De5Leds leds <- mkDe5Leds(defaultClock, txClock, mgmtClock, phyClock);
-    De5SfpCtrl#(4) sfpctrl <- mkDe5SfpCtrl();
-    De5Buttons#(4) buttons <- mkDe5Buttons(clocked_by mgmtClock, reset_by mgmtReset);
-
-    // Phy
-    DtpController dtp <- mkDtpController(indication1, txClock, txReset, clocked_by defaultClock);
-    Reset rst_api <- mkAsyncReset(0, dtp.ifc.rst, txClock);
-    Reset dtp_rst <- mkResetEither(txReset, rst_api, clocked_by txClock);
-    EthPhyIfc phys <- mkAlteraEthPhy(mgmtClock, phyClock, txClock, defaultReset, clocked_by mgmtClock, reset_by mgmtReset);
-    DtpPhyIfc#(NUM_OF_DTP_PORTS) dtp_phy <- mkEthPhy(mgmtClock, txClock, phyClock, clocked_by txClock, reset_by dtp_rst);
 
     Vector#(NUM_OF_ALTERA_PORTS, Clock) rxClock;
     Vector#(NUM_OF_ALTERA_PORTS, Reset) rxReset;
 
 	for (Integer i = 0; i < valueOf(NUM_OF_ALTERA_PORTS); i = i + 1)
 	begin
-		rxClock[i] = phys.rx_clkout;
+		rxClock[i] <- mkAbsoluteClock(0, 64);
 		rxReset[i] <- mkAsyncReset(2, defaultReset, rxClock[i]);
 	end
 
@@ -313,68 +287,7 @@ module mkSchedulerTop#(DtpIndication indication1, SchedulerTopIndication indicat
 	endrule
 
 /*------------------------------------------------------------------------------*/
-    // PHY port to MAC port mapping for Altera PHY
 
-    for (Integer i = 0; i < valueof(NUM_OF_ALTERA_PORTS); i = i + 1)
-    begin
-        rule mac_phy_tx;
-            phys.tx[i].put(mac.tx(i));
-        endrule
-
-        rule mac_phy_rx;
-            let v <- phys.rx[i].get;
-            mac.rx(i, v);
-        endrule
-    end
-
-	// PHY port to MAC port mapping for DTP PHY
-
-	Vector#(NUM_OF_DTP_PORTS, Clock) dtp_rxClock;
-	Vector#(NUM_OF_DTP_PORTS, Reset) dtp_rxReset;
-	Vector#(NUM_OF_DTP_PORTS, EthMacIfc) dtp_mac;
-
-	for (Integer i = 0; i < valueof(NUM_OF_DTP_PORTS); i = i + 1)
-	begin
-		dtp_rxClock[i] = dtp_phy.rx_clkout[i];
-		dtp_rxReset[i] <- mkAsyncReset(2, dtp_rst, dtp_rxClock[i]);
-		dtp_mac[i] <- mkEthMac(defaultClock, txClock, dtp_rxClock[i], txReset, clocked_by txClock, reset_by dtp_rst);
-	end
-
-	Vector#(NUM_OF_DTP_PORTS, FIFOF#(Bit#(72))) macToPhy
-                  <- replicateM(mkFIFOF, clocked_by txClock, reset_by dtp_rst);
-
-	Vector#(NUM_OF_DTP_PORTS, FIFOF#(Bit#(72))) phyToMac;
-
-	for (Integer i = 0 ; i < valueOf(NUM_OF_DTP_PORTS) ; i = i + 1)
-	begin
-		phyToMac[i] <- mkFIFOF(clocked_by dtp_rxClock[i], reset_by dtp_rxReset[i]);
-
-		mkConnection(toPipeOut(macToPhy[i]), dtp_phy.tx[i]);
-		mkConnection(dtp_phy.rx[i], toPipeIn(phyToMac[i]));
-
-		rule mac_dtpphy_tx;
-			macToPhy[i].enq(dtp_mac[i].tx);
-		endrule
-
-		rule mac_dtpphy_rx;
-			let v = phyToMac[i].first;
-			dtp_mac[i].rx(v);
-			phyToMac[i].deq;
-		endrule
-	end
-
-   FIFOF#(Bit#(128)) tsFifo <- mkFIFOF(clocked_by txClock, reset_by dtp_rst);
-   mkConnection(toPipeOut(tsFifo), dtp.ifc.timestamp);
-   for (Integer i = 0; i < valueOf(NUM_OF_DTP_PORTS); i = i + 1) begin
-      mkConnection(dtp.ifc.fromHost[i], dtp_phy.api[i].fromHost);
-      mkConnection(dtp_phy.api[i].toHost, dtp.ifc.toHost[i]);
-      mkConnection(dtp_phy.api[i].delayOut, dtp.ifc.delay[i]);
-      mkConnection(dtp_phy.api[i].stateOut, dtp.ifc.state[i]);
-      mkConnection(dtp_phy.api[i].jumpCount, dtp.ifc.jumpCount[i]);
-      mkConnection(dtp_phy.api[i].cLocalOut, dtp.ifc.cLocal[i]);
-      mkConnection(dtp.ifc.interval[i], dtp_phy.api[i].interval);
-      mkConnection(dtp_phy.api[i].dtpErrCnt, dtp.ifc.dtpErrCnt[i]);
-   end
 /* ------------------------------------------------------------------------------
 *                               INDICATION RULES
 * ------------------------------------------------------------------------------*/
@@ -632,9 +545,7 @@ module mkSchedulerTop#(DtpIndication indication1, SchedulerTopIndication indicat
 		num_of_servers_fifo.enq(num_of_servers_reg);
 	endrule
 
-	interface DtpRequest request1 = dtp.request;
-
-    interface SchedulerTopRequest request2;
+    interface SchedulerTopSimRequest request2;
         method Action start_scheduler_and_dma(Bit#(32) idx,
 			                                  Bit#(32) dma_transmission_rate,
 											  Bit#(64) cycles);
@@ -659,33 +570,4 @@ module mkSchedulerTop#(DtpIndication indication1, SchedulerTopIndication indicat
 		endmethod
     endinterface
 
-    interface `PinType pins;
-        method Action osc_50 (Bit#(1) b3d, Bit#(1) b4a, Bit#(1) b4d, Bit#(1) b7a,
-                              Bit#(1) b7d, Bit#(1) b8a, Bit#(1) b8d);
-			clk_50_wire <= b4a;
-        endmethod
-        method Vector#(4, Bit#(1)) serial_tx_data;
-			Bit#(4) tx_data = {phys.serial_tx[2],
-			        phys.serial_tx[1], phys.serial_tx[0], dtp_phy.serial_tx[0]};
-			return unpack(tx_data);
-        endmethod
-        method Action serial_rx (Vector#(4, Bit#(1)) v);
-            dtp_phy.serial_rx(takeAt(0, v));
-            phys.serial_rx(takeAt(1, v));
-        endmethod
-//        method serial_tx_data = phys.serial_tx;
-//        method serial_rx = phys.serial_rx;
-        method Action sfp(Bit#(1) refclk);
-			clk_644_wire <= refclk;
-        endmethod
-		interface i2c = clocks.i2c;
-        interface led = leds.led_out;
-        interface led_bracket = leds.led_out;
-        interface sfpctrl = sfpctrl;
-        interface buttons = buttons.pins;
-        interface deleteme_unused_clock = defaultClock;
-        interface deleteme_unused_clock2 = clocks.clock_50;
-        interface deleteme_unused_clock3 = defaultClock;
-        interface deleteme_unused_reset = defaultReset;
-    endinterface
 endmodule
