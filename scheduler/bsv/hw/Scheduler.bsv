@@ -13,6 +13,7 @@ import RingBuffer::*;
 import MachineToPortMapping::*;
 import GlobalClock::*;
 import Addresses::*;
+import MaxMinFairness::*;
 
 typedef struct {
 	ReadResType data;
@@ -103,9 +104,9 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
 
     Reg#(State) curr_state <- mkReg(CONFIG);
 
-	Vector#(NUM_OF_SERVERS, Reg#(TableData)) sched_table
-	                                    <- replicateM(mkReg(defaultValue));
-/*------------------------------------------------------------------------------*/
+/*-------------------------------------------------------------------------------*/
+                        // Ring buffers and Schedule table
+/*-------------------------------------------------------------------------------*/
     Vector#(NUM_OF_ALTERA_PORTS,
             RingBuffer#(ReadReqType, ReadResType, WriteReqType, WriteResType))
     rx_ring_buffer <- replicateM(mkRingBuffer(valueof(RING_BUFFER_SIZE)));
@@ -121,7 +122,12 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
     RingBuffer#(ReadReqType, ReadResType, WriteReqType, WriteResType)
         src_rx_ring_buffer <- mkRingBuffer(valueof(RING_BUFFER_SIZE));
 
+	Vector#(NUM_OF_SERVERS, Reg#(TableData)) sched_table
+	                                    <- replicateM(mkReg(defaultValue));
+
     Vector#(NUM_OF_SERVERS, Reg#(ServerIndex)) schedule_list <- replicateM(mkReg(0));
+
+    MaxMinFairness mmf <- mkMaxMinFairness;
 
     /* Flags */
     Reg#(Bit#(1)) configure <- mkReg(0);
@@ -129,7 +135,9 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
     Reg#(Bit#(1)) start_polling_rx_buffer <- mkReg(0);
 	Reg#(Bit#(1)) start_tx_scheduling <- mkReg(0);
 
-    /* Stats */
+/*-------------------------------------------------------------------------------*/
+                                 // Statistics
+/*-------------------------------------------------------------------------------*/
 	SyncFIFOIfc#(Bit#(64)) time_slots_fifo
 	        <- mkSyncFIFO(1, defaultClock, defaultReset, pcieClock);
 	SyncFIFOIfc#(Bit#(64)) host_pkt_fifo
@@ -173,8 +181,6 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
                                  && len_index[i] == fromInteger(j));
                 fwd_queue_len_reg[i][j] <= fwd_queue_len_reg[i][j] + 1;
                 len_index[i] <= fromInteger(valueof(RING_BUFFER_SIZE));
-//              if (i == 1 && (len == 0 || len == 1))
-//                  num_of_time_slots_used_reg <= num_of_time_slots_used_reg + 1;
             endrule
         end
 	end
@@ -194,21 +200,22 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
 //	SyncFIFOIfc#(RingBufferDataT) debug_consuming_pkt_fifo
 //	        <- mkSyncFIFO(16, defaultClock, defaultReset, pcieClock);
 
-    /*
-    * Here the assumption is that since it is our own
-    * network, so we assign the IP addresses to the
-    * machines in such a way that the mapping IP -> index
-    * is trivial. For eg. currently I am assuming that the
-    * IP addresses have been assigned such as the mapping
-    * is index = least significant byte of IP address - 1.
-    * So the IP addrs may be like 192.168.0.1, 192.168.0.2,
-    * 192.168.0.3 etc. Note that this is just to make processing
-    * faster and saving memory resources. If this approach is not
-    * viable in a particular setting, then we can rely back on
-    * storing the mapping in a table in BRAM memory, and traversing
-    * the table every time we need to know the index of a ring
-    * buffer.
-    */
+/*-------------------------------------------------------------------------------*/
+
+//     Here the assumption is that since it is our own
+//     network, so we assign the IP addresses to the
+//     machines in such a way that the mapping IP -> index
+//     is trivial. For eg. currently I am assuming that the
+//     IP addresses have been assigned such as the mapping
+//     is index = least significant byte of IP address - 1.
+//     So the IP addrs may be like 192.168.0.1, 192.168.0.2,
+//     192.168.0.3 etc. Note that this is just to make processing
+//     faster and saving memory resources. If this approach is not
+//     viable in a particular setting, then we can rely back on
+//     storing the mapping in a table in BRAM memory, and traversing
+//     the table every time we need to know the index of a ring
+//     buffer.
+
     function ServerIndex ipToIndexMapping (IP ip_addr);
 		ServerIndex index = 0;
 		Bit#(24) msb = ip_addr[31:8];
@@ -229,15 +236,14 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
         return index;
     endfunction
 
-    /*
-    * 0th entry in the schedule table will always contain the info of the
-    * host server. Entries 1 to NUM_OF_SERVERS-1 will contain info of the
-    * remaining servers. As there will be a total of NUM_OF_SERVERS-1 time
-    * slots, so the size of schedule_list is NUM_OF_SERVERS-1.
-    *
-    * schedule_list[i] = j means in time slot i, send pkt to server at index
-    * j in the schedule table.
-    */
+//     0th entry in the schedule table will always contain the info of the
+//     host server. Entries 1 to NUM_OF_SERVERS-1 will contain info of the
+//     remaining servers. As there will be a total of NUM_OF_SERVERS-1 time
+//     slots, so the size of schedule_list is NUM_OF_SERVERS-1.
+//
+//     schedule_list[i] = j means in time slot i, send pkt to server at index
+//     j in the schedule table.
+
     rule configure_scheduling (curr_state == RUN && configure == 1);
         configure <= 0;
         for (Integer i = 0; i < valueof(NUM_OF_SERVERS)-1; i = i + 1)
@@ -249,14 +255,15 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
         start_scheduling_flag <= 1;
     endrule
 
-    rule get_host_mac_addr (curr_state == RUN && start_scheduling_flag == 1);
+    rule start_scheduling (curr_state == RUN && start_scheduling_flag == 1);
         start_scheduling_flag <= 0;
         start_polling_rx_buffer <= 1;
 		start_tx_scheduling <= 1;
     endrule
 
-/*------------------------------------------------------------------------------*/
-
+/*-------------------------------------------------------------------------------*/
+                                  // Rx Path
+/*-------------------------------------------------------------------------------*/
 	// should be atleast as large as buffer_depth + max num of data blocks
     Vector#(NUM_OF_ALTERA_PORTS, FIFOF#(RingBufferDataT)) buffer_fifo
 	                    <- replicateM(mkSizedFIFOF(valueof(DEFAULT_FIFO_LEN)));
@@ -270,14 +277,14 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
     /* Stores the number of data blocks to buffer */
     Vector#(NUM_OF_ALTERA_PORTS, Reg#(int)) buffer_depth <- replicateM(mkReg(3));
 
-    /* Have to buffer first 3 data blocks to get to dst IP addr
-    *
-    * Assumption here is that the MAC Frame structure is as shown
-    *  ------------------------------------------------------
-    * | dst MAC | src MAC | ether type | IP header | Payload |
-    *  ------------------------------------------------------
-    * So, no VLAN tags etc.
-    */
+//     Have to buffer first 3 data blocks to get to dst IP addr
+//
+//     Assumption here is that the MAC Frame structure is as shown
+//      ------------------------------------------------------
+//     | dst MAC | src MAC | ether type | IP header | Payload |
+//      ------------------------------------------------------
+//     So, no VLAN tags etc.
+
     Vector#(NUM_OF_ALTERA_PORTS, Reg#(Bit#(384))) buffered_data <- replicateM(mkReg(0));
 
     Vector#(NUM_OF_ALTERA_PORTS, Reg#(Bit#(1))) stop_polling <- replicateM(mkReg(0));
@@ -301,6 +308,13 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
 				stop_polling[i] <= 1;
             end
         endrule
+
+
+// Buf Reg 383    336 337   289              175   144 143    112         0
+//          ---------------------------------------------------------------
+//         | dst MAC | src MAC | .....|..... | src IP | dst | IP | Payload |
+//          ---------------------------------------------------------------
+// Memory  0                       127  128              255  256        383
 
         rule buffer_and_parse_incoming_data (curr_state == RUN);
             let d <- rx_ring_buffer[i].read_response.get;
@@ -347,7 +361,31 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
                         buffer_depth[i] <= buffer_depth[i] - 1;
 
                     /* Find the index of the ring buffer to insert to. */
-                    Bit#(32) dst_ip = (buffered_data[i])[143:112]; /* dst IP */
+                    IP dst_ip = (buffered_data[i])[143:112];
+                    IP src_ip = (buffered_data[i])[175:144];
+
+                    Bit#(1) end_of_flow_bit = (buffered_data[i])[111];
+
+                    /* Check if the flow already exits */
+                    ServerIndex src = host_id(src_ip);
+                    ServerIndex dst = host_id(dst_ip);
+
+                    if (src < fromInteger(valueof(NUM_OF_SERVERS))
+                        && dst < fromInteger(valueof(NUM_OF_SERVERS)))
+                    begin
+                        if (end_of_flow_bit == 1)
+                        begin
+                            mmf.removeFlow(src, dst);
+                            mmf.remFromFlowCountMatrix(src, dst);
+                        end
+
+                        else if (!mmf.flowExists(src, dst))
+                        begin
+                            mmf.addFlow(src, dst);
+                            mmf.addToFlowCountMatrix(src, dst);
+                        end
+
+                    end
 
                     if (dst_ip == ip_address(host_index))
                         ring_buffer_index_fifo[i].enq(0);
@@ -445,7 +483,13 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
     end
 
 /*-------------------------------------------------------------------------------*/
+                                  // Tx Path
+/*-------------------------------------------------------------------------------*/
     Reg#(MAC) dst_mac_addr <- mkReg(0);
+    Reg#(Bit#(1)) blast_phase <- mkReg(0);
+    Reg#(ServerIndex) blast_phase_count <- mkReg(0);
+    Reg#(Bit#(1)) remove_phase <- mkReg(0);
+    Reg#(ServerIndex) remove_phase_count <- mkReg(0);
 
     rule get_dst_addr (curr_state == RUN && start_tx_scheduling == 1);
 		Bit#(64) curr_time = clk.currTime();
@@ -491,7 +535,7 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
 			 * Only if the forwarding ring buffer is empty, extract packet from
 			 * the host tx buffer.
 			 */
-			if (!is_empty)
+			if (!is_empty && blast_phase == 0)
 				ring_buffer[index].read_request.put(makeReadReq(READ));
 			else
 			begin
@@ -503,6 +547,12 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
 													  ring_buffer[0].elements);
 				end
 				ring_buffer[0].read_request.put(makeReadReq(READ));
+                if (blast_phase == 1)
+                begin
+                    blast_phase_count <= blast_phase_count + 1;
+                    if (blast_phase_count == fromInteger(valueof(NUM_OF_SERVERS))-2)
+                        blast_phase <= 0;
+                end
 			end
 		end
     endrule
@@ -516,10 +566,62 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
 	Vector#(NUM_OF_SERVERS, Wire#(PortIndex)) correct_tx_index
 	             <- replicateM(mkDWire(fromInteger(valueof(NUM_OF_ALTERA_PORTS))));
 
+    Reg#(Bit#(2)) c <- mkReg(0);
+    Reg#(Bit#(256)) buf_data <- mkReg(0);
+
     for (Integer i = 0; i < valueof(NUM_OF_SERVERS); i = i + 1)
     begin
         rule modify_mac_headers_and_put_to_tx (curr_state == RUN);
             let d <- ring_buffer[i].read_response.get;
+
+            // Check for start of flow / end of flow
+            if (i == 0)
+            begin
+                if (d.data.sop == 1 && d.data.eop == 0)
+                begin
+                    c <= 1;
+                    buf_data <= 0;
+                end
+                else if (c == 1) //2nd data block
+                begin
+                    c <= c + 1;
+                    Bit#(256) temp = zeroExtend(d.data.payload);
+                    buf_data <= buf_data
+                                   | (temp << fromInteger(valueof(BUS_WIDTH)));
+                end
+                else if (c == 2) //3rd data block
+                begin
+                    c <= c + 1;
+                    buf_data <= buf_data | (zeroExtend(d.data.payload));
+                    IP src_ip = buf_data[143:112];
+                    IP dst_ip = buf_data[175:144];
+                    Bit#(1) end_of_flow_bit = buf_data[111];
+
+                    ServerIndex src = host_id(src_ip);
+                    ServerIndex dst = host_id(dst_ip);
+
+                    if (src == host_index
+                        && dst < fromInteger(valueof(NUM_OF_SERVERS)))
+                    begin
+                        if (end_of_flow_bit == 1)
+                        begin
+                            mmf.removeFlow(src, dst);
+                            mmf.remFromFlowCountMatrix(src, dst);
+                            remove_phase <= 1;
+                            remove_phase_count <= 0;
+                        end
+
+                        else if (!mmf.flowExists(src, dst))
+                        begin
+                            mmf.addFlow(src, dst);
+                            mmf.addToFlowCountMatrix(src, dst);
+                            blast_phase <= 1;
+                            blast_phase_count <= 0;
+                        end
+
+                    end
+                end
+            end
 
             if (d.data.sop == 1 && d.data.eop == 0)
             begin
@@ -579,6 +681,8 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
     end
 
 /*-------------------------------------------------------------------------------*/
+                            // MAC and DMA Req handlers
+/*-------------------------------------------------------------------------------*/
     for (Integer i = 0; i < valueof(NUM_OF_ALTERA_PORTS); i = i + 1)
     begin
         rule handle_rx_buffer_write_req_from_mac;
@@ -624,7 +728,9 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
 		//debug_consuming_pkt_fifo.enq(d.data);
     endrule
 
-/*-----------------------------------------------------------------------------*/
+/*-------------------------------------------------------------------------------*/
+                      // Interface and Method definitions
+/*-------------------------------------------------------------------------------*/
 	Vector#(NUM_OF_ALTERA_PORTS, Put#(ReadReqType)) temp1;
 	Vector#(NUM_OF_ALTERA_PORTS, Get#(ReadResType)) temp2;
 	Vector#(NUM_OF_ALTERA_PORTS, Put#(WriteReqType)) temp3;
