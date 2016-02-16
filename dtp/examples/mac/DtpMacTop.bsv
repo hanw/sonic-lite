@@ -35,13 +35,16 @@ import Pipe ::*;
 import SpecialFIFOs ::*;
 import Vector ::*;
 import ConnectalConfig::*;
+//import PktGen::*;
+//import StoreAndForward::*;
 
-import NetTop::*;
-import EthPorts::*;
+//import NetTop::*;
+//import EthPorts::*;
 import Ethernet::*;
 import EthPhy::*;
 import EthMac::*;
 import DtpController::*;
+import PacketBuffer::*;
 import MemTypes::*;
 import MemReadEngine::*;
 import MemWriteEngine::*;
@@ -54,12 +57,12 @@ import ALTERA_SI570_WRAPPER::*;
 import AlteraExtra::*;
 import LedController::*;
 
-interface DtpTop;
-   interface DtpRequest request;
+interface DtpMacTop;
+   interface DtpRequest request1;
    interface `PinType pins;
 endinterface
 
-module mkDtpTop#(DtpIndication indication)(DtpTop);
+module mkDtpMacTop#(DtpIndication indication1)(DtpMacTop);
    Clock defaultClock <- exposeCurrentClock();
    Reset defaultReset <- exposeCurrentReset();
 
@@ -69,30 +72,39 @@ module mkDtpTop#(DtpIndication indication)(DtpTop);
    De5Clocks clocks <- mkDe5Clocks(clk_50_wire, clk_644_wire);
    Clock txClock = clocks.clock_156_25;
    Clock phyClock = clocks.clock_644_53;
-   Clock clock_50 = clocks.clock_50;
-   Reset txReset <- mkSyncReset(2, defaultReset, txClock);
-   Reset phyReset <- mkSyncReset(2, defaultReset, phyClock);
+   Clock mgmtClock = clocks.clock_50;
+   Reset txReset <- mkAsyncReset(2, defaultReset, txClock);
+   Reset phyReset <- mkAsyncReset(2, defaultReset, phyClock);
+   Reset mgmtReset <- mkAsyncReset(2, defaultReset, mgmtClock);
 
    De5SfpCtrl#(4) sfpctrl <- mkDe5SfpCtrl();
 
-   DtpController dtp <- mkDtpController(indication, txClock, txReset, clocked_by defaultClock);
+   DtpController dtp <- mkDtpController(indication1, txClock, txReset, clocked_by defaultClock);
 
-   Reset rst_api <- mkSyncReset(0, dtp.ifc.rst, txClock);
+   Reset rst_api <- mkSyncReset(2, dtp.ifc.rst, txClock);
    Reset dtp_rst <- mkResetEither(txReset, rst_api, clocked_by txClock);
 
-   DtpPhyIfc#(NumPorts) phys <- mkEthPhy(clock_50, txClock, phyClock, clocked_by txClock, reset_by dtp_rst);
+//   NetTopIfc net <- mkNetTop(mgmtClock, txClock, phyClock, clocked_by txClock, reset_by dtp_rst);
+   DtpPhyIfc#(4) phys <- mkEthPhy(mgmtClock, txClock, phyClock, mgmtReset, clocked_by txClock, reset_by dtp_rst);
 
    Vector#(NumPorts, EthMacIfc) mac ;
-   Vector#(NumPorts, FIFOF#(Bit#(72))) macToPhy <- replicateM(mkFIFOF, clocked_by txClock, reset_by dtp_rst);
-   Vector#(NumPorts, FIFOF#(Bit#(72))) phyToMac;// <- replicateM(mkFIFOF, clocked_by txClock);
-   Reg#(Bit#(128)) cycle <- mkReg(0, clocked_by txClock, reset_by dtp_rst);
-   FIFOF#(Bit#(128)) tsFifo <- mkFIFOF(clocked_by txClock, reset_by dtp_rst);
-
+//   Vector#(NumPorts, FIFOF#(Bit#(72))) macToPhy <- replicateM(mkFIFOF, clocked_by txClock, reset_by dtp_rst);
+//   Vector#(NumPorts, FIFOF#(Bit#(72))) phyToMac;
    for (Integer i = 0 ; i < valueOf(NumPorts) ; i=i+1) begin
-      mac[i] <- mkEthMac(defaultClock, txClock, phys.rx_clkout[i], dtp_rst);
-      Reset rx_rst<- mkSyncReset(2, dtp_rst, phys.rx_clkout[i]);
-      phyToMac[i] <- mkFIFOF(clocked_by phys.rx_clkout[i], reset_by rx_rst);
+      /*
+      rule source;
+         phys.tx[i].enq(72'h83c1e0f0783c1e0f07);
+      endrule
+      rule drain;
+         let v0 <- toGet(phys.rx[i]).get;
+      endrule
+      */
 
+      mac[i] <- mkEthMac(mgmtClock, txClock, phys.rx_clkout[i], dtp_rst, clocked_by txClock, reset_by dtp_rst);
+/*
+      Reset rx_rst<- mkAsyncReset(0, dtp_rst, phys.rx_clkout[i]);
+      phyToMac[i] <- mkFIFOF(clocked_by phys.rx_clkout[i], reset_by rx_rst);
+   
       mkConnection(toPipeOut(macToPhy[i]), phys.tx[i]);
       mkConnection(phys.rx[i], toPipeIn(phyToMac[i]));
 
@@ -106,8 +118,18 @@ module mkDtpTop#(DtpIndication indication)(DtpTop);
          mac[i].rx.put(v);
          phyToMac[i].deq;
       endrule
+*/
+      // mac and phy
+      mkConnection(mac[i].tx, toPut(phys.tx[i]));
+      mkConnection(toGet(phys.rx[i]), mac[i].rx);
+
+      rule drain_mac_rx;
+         let v <- toGet(mac[i].packet_rx).get;
+      endrule
    end
 
+   Reg#(Bit#(128)) cycle <- mkReg(0, clocked_by txClock, reset_by dtp_rst);
+   FIFOF#(Bit#(128)) tsFifo <- mkFIFOF(clocked_by txClock, reset_by dtp_rst);
    rule cyc;
       cycle <= cycle + 1;
    endrule
@@ -133,7 +155,7 @@ module mkDtpTop#(DtpIndication indication)(DtpTop);
       mkConnection(phys.rx_dbg[i], dtp.ifc.rxPcsDbg[i]);
    end
 
-   interface request = dtp.request;
+   interface request1 = dtp.request;
 
    interface `PinType pins;
       // Clocks
@@ -148,7 +170,7 @@ module mkDtpTop#(DtpIndication indication)(DtpTop);
       interface i2c = clocks.i2c;
       interface sfpctrl = sfpctrl;
       interface deleteme_unused_clock = defaultClock;
-      interface deleteme_unused_clock2 = clock_50;
+      interface deleteme_unused_clock2 = mgmtClock;
       interface deleteme_unused_clock3 = defaultClock;
       interface deleteme_unused_reset = defaultReset;
    endinterface
