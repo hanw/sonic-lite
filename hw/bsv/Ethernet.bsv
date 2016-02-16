@@ -153,6 +153,7 @@ typedef struct {
    Bit#(64) starts;
    Bit#(64) ends;
    Bit#(64) errorframes;
+   Bit#(64) frames;
 } PcsDbgRec deriving (Bits, Eq);
 
 // ===========================
