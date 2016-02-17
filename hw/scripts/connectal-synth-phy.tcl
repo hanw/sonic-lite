@@ -55,20 +55,38 @@ proc create_altera_10gber_phy {core_version ip_name channels mode} {
     }
 }
 
-regexp {[\.0-9]+} $quartus(version) core_version
-
-if {[info exists NUMBER_OF_ALTERA_PORTS]} {
-    set portCount $NUMBER_OF_ALTERA_PORTS
-} else {
-    set portCount 4
+proc generate_xilinx_10g_pcs_pma_shared {core_version ip_name mode} {
+    global ipdir boardname partname
+    connectal_synth_ip ten_gig_eth_pcs_pma $core_version $ip_name [list CONFIG.MDIO_Management {true} CONFIG.base_kr {BASE-R} CONFIG.TransceiverControl {false} CONFIG.SupportLevel {1}]
 }
 
-if {[info exists SYNTHESIS]} {
-    puts "Generate synthesis model.."
-    create_altera_10gber_phy $core_version altera_xcvr_10gbaser_wrapper $portCount synthesis
+proc generate_xilinx_10g_pcs_pma_non_shared {core_version ip_name mode} {
+    global ipdir boardname partname
+    connectal_synth_ip ten_gig_eth_pcs_pma $core_version $ip_name [list CONFIG.MDIO_Management {true} CONFIG.base_kr {BASE-R} CONFIG.TransceiverControl {false} CONFIG.SupportLevel {0}]
 }
 
-if {[info exists SIMULATION]} {
-    puts "Generate simulation model.."
-    create_altera_10gber_phy $core_version altera_xcvr_10gbaser_wrapper $portCount simulation
+if {[info exists ALTERA]} {
+    regexp {[\.0-9]+} $quartus(version) core_version
+
+    if {[info exists NUMBER_OF_ALTERA_PORTS]} {
+        set portCount $NUMBER_OF_ALTERA_PORTS
+    } else {
+        set portCount 4
+    }
+
+    if {[info exists SYNTHESIS]} {
+        puts "Generate synthesis model.."
+        create_altera_10gber_phy $core_version altera_xcvr_10gbaser_wrapper $portCount synthesis
+    }
+
+    if {[info exists SIMULATION]} {
+        puts "Generate simulation model.."
+        create_altera_10gber_phy $core_version altera_xcvr_10gbaser_wrapper $portCount simulation
+    }
+}
+
+if {[info exists XILINX]} {
+    puts "Generate synthesis model..."
+    generate_xilinx_10g_pcs_pma_shared 6.0 ten_gig_eth_pcs_pma_shared synthesis
+    generate_xilinx_10g_pcs_pma_non_shared 6.0 ten_gig_eth_pcs_pma_non_shared synthesis
 }

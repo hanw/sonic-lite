@@ -12,6 +12,10 @@ interface NfsumePins;
 `ifndef SIMULATION
    method Action sfp(Bit#(1) refclk_p, Bit#(1) refclk_n);
    method Bit#(2) leds;
+   method Bit#(4) serial_tx_p;
+   method Bit#(4) serial_tx_n;
+   method Action serial_rx_p(Vector#(4, Bit#(1)) v);
+   method Action serial_rx_n(Vector#(4, Bit#(1)) v);
    interface Clock deleteme_unused_clock;
 `endif
 endinterface

@@ -17,6 +17,7 @@ import MemTypes::*;
 import Ethernet::*;
 import PacketBuffer::*;
 import XilinxMacWrap::*;
+import XilinxEthPhy::*;
 import EthMac::*;
 import StoreAndForward::*;
 import NfsumePins::*;
@@ -38,32 +39,24 @@ module mkTest#(HostInterface host, TestIndication indication) (Test);
    let verbose = True;
    Clock defaultClock <- exposeCurrentClock();
    Reset defaultReset <- exposeCurrentReset();
-   Wire#(Bit#(1)) sfp_refclk_p_w <- mkDWire(0);
-   Wire#(Bit#(1)) sfp_refclk_n_w <- mkDWire(0);
 
-   Clock txClock <- mkConnectalClockIBUFDS_GTE2(True, sfp_refclk_p_w, sfp_refclk_n_w);
    Clock mgmtClock = host.tsys_clk_200mhz_buf;
-
-   Reset txReset <- mkSyncReset(2, defaultReset, txClock);
    Reset mgmtReset <- mkSyncReset(2, defaultReset, mgmtClock);
-
-   Reg#(Bit#(32)) cycle <- mkReg(0, clocked_by txClock, reset_by txReset);
+   //Reg#(Bit#(32)) cycle <- mkReg(0, clocked_by txClock, reset_by txReset);
 
 `ifndef SIMULATION
-   NfsumeLeds leds <- mkNfsumeLeds(mgmtClock, txClock);
-   //De5SfpCtrl#(4) sfpctrl <- mkDe5SfpCtrl();
-   //De5Buttons#(4) buttons <- mkDe5Buttons(clocked_by mgmtClock, reset_by mgmtReset);
-
-   //EthPhyIfc phys <- mkAlteraEthPhy(mgmtClock, phyClock, txClock, defaultReset);
-//   Clock rxClock = phys.rx_clkout;
-//   Reset rxReset <- mkSyncReset(2, defaultReset, rxClock);
-//   Vector#(4, EthMacIfc) mac <- replicateM(mkEthMac(mgmtClock, txClock, rxClock, txReset, clocked_by txClock, reset_by txReset));
-   Vector#(4, EthMacIfc) mac <- replicateM(mkEthMac(defaultClock, txClock, txClock, txReset, clocked_by txClock, reset_by txReset));
-
+   EthPhyIfc phys <- mkXilinxEthPhy(mgmtClock);
+   Clock txClock = phys.tx_clkout;
+   Reset txReset <- mkSyncReset(2, defaultReset, txClock);
+   Vector#(4, EthMacIfc) mac = newVector;
+   for (Integer i=0; i<4; i=i+1) begin
+      mac[i] <- mkEthMac(mgmtClock, txClock, phys.rx_clkout[i], txReset, clocked_by txClock, reset_by txReset);
+   end
 //   function Get#(Bit#(72)) getTx(EthMacIfc _mac); return _mac.tx; endfunction
 //   function Put#(Bit#(72)) getRx(EthMacIfc _mac); return _mac.rx; endfunction
 //   mapM(uncurry(mkConnection), zip(map(getTx, mac), phys.tx));
 //   mapM(uncurry(mkConnection), zip(phys.rx, map(getRx, mac)));
+   NfsumeLeds leds <- mkNfsumeLeds(mgmtClock, txClock);
 `endif
 
    PacketBuffer buff <- mkPacketBuffer();
@@ -84,14 +77,13 @@ module mkTest#(HostInterface host, TestIndication indication) (Test);
 `ifndef SIMULATION
    interface `PinType pins;
       method Action sfp(Bit#(1) refclk_p, Bit#(1) refclk_n);
-         sfp_refclk_p_w <= refclk_p;
-         sfp_refclk_n_w <= refclk_n;
+         phys.refclk(refclk_p, refclk_n);
       endmethod
-//      method serial_tx_data = phys.serial_tx;
-//      method serial_rx = phys.serial_rx;
+      method serial_tx_p = pack(phys.serial_tx_p);
+      method serial_tx_n = pack(phys.serial_tx_n);
+      method serial_rx_p = phys.serial_rx_p;
+      method serial_rx_n = phys.serial_rx_n;
       interface leds = leds.led_out;
-//      interface sfpctrl = sfpctrl;
-//      interface buttons = buttons.pins;
       interface deleteme_unused_clock = defaultClock;
 //      interface deleteme_unused_clock2 = clocks.clock_50;
 //      interface deleteme_unused_clock3 = defaultClock;
