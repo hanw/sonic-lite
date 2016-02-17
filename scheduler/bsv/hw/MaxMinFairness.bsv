@@ -10,6 +10,7 @@ interface MaxMinFairness;
     method Action addToFlowCountMatrix(ServerIndex src, ServerIndex dst);
     method Action remFromFlowCountMatrix(ServerIndex src, ServerIndex dst);
     method ServerIndex getFlowCount(ServerIndex src, ServerIndex dst);
+    method Action printMatrix(ServerIndex host_index);
 endinterface
 
 (* synthesize *)
@@ -85,5 +86,17 @@ module mkMaxMinFairness (MaxMinFairness);
 
     method ServerIndex getFlowCount(ServerIndex src, ServerIndex dst);
         return flow_count_matrix[src][dst];
+    endmethod
+
+    method Action printMatrix(ServerIndex host_index);
+        $display("[SCHED (%d)] Flow count matrix");
+        for (Integer i = 0; i < valueof(NUM_OF_SERVERS); i = i + 1)
+        begin
+            for (Integer j = 0; j < valueof(NUM_OF_SERVERS); j = j + 1)
+            begin
+                $display("%d", flow_count_matrix[i][j]);
+            end
+        end
+        $display("\n");
     endmethod
 endmodule

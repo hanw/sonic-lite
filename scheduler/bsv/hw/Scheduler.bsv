@@ -919,6 +919,7 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
 
 	method Action stop();
 		curr_state <= CONFIG;
+        mmf.printMatrix(host_index);
 	endmethod
 
     /* MAC interfaces */
