@@ -7,6 +7,8 @@ import LedController::*;
 import ConnectalClocks::*;
 import ConnectalXilinxCells::*;
 
+import XilinxEthPhy::*;
+
 (* always_ready, always_enabled *)
 interface NfsumePins;
 `ifndef SIMULATION
@@ -16,6 +18,9 @@ interface NfsumePins;
    method Bit#(4) serial_tx_n;
    method Action serial_rx_p(Vector#(4, Bit#(1)) v);
    method Action serial_rx_n(Vector#(4, Bit#(1)) v);
+   method Bit#(4) led_grn;
+   method Bit#(4) led_ylw;
+   interface NfsumeSfpCtrl sfpctrl;
    interface Clock deleteme_unused_clock;
 `endif
 endinterface
@@ -48,38 +53,49 @@ module mkNfsumeLeds#(Clock clk0, Clock clk1)(NfsumeLeds);
                      };
 endmodule
 
-//(* synthesize *)
-//module mkNfsumeClocks#(Clock sys_clk)(NfsumeClocks);
-//`ifndef SIMULATION
-//   ClockGenerator7AdvParams clockParams = defaultValue;
-//   clockParams.bandwidth          = "OPTIMIZED";
-//   clockParams.compensation       = "ZHOLD";
-//   clockParams.clkfbout_mult_f    = 9.375;
-//   clockParams.clkfbout_phase     = 0.0;
-//   clockParams.clkin1_period      = 5.000;
-//   clockParams.clkin2_period      = 10.0;
-//   clockParams.clkout0_divide_f   = 18.75;
-//   clockParams.clkout0_duty_cycle = 0.5;
-//   clockParams.clkout0_phase      = 0.0000;
-//   clockParams.clkout1_divide     = 6;
-//   clockParams.clkout1_duty_cycle = 0.5;
-//   clockParams.clkout1_phase      = 0.0000;
-//   clockParams.divclk_divide      = 2;
-//   clockParams.ref_jitter1        = 0.010;
-//   clockParams.ref_jitter2        = 0.010;
-//   XClockGenerator7 clockGen <- mkClockGenerator7Adv(clockParams, clocked_by sys_clk);
-//   C2B c2b_fb <- mkC2B(clockGen.clkfbout, clocked_by clockGen.clkfbout);
-//   rule txoutrule5;
-//      clockGen.clkfbin(c2b_fb.o());
-//   endrule
-//   Clock clk_50 <- mkClockBUFG(clocked_by clockGen.clkout0); // 156.25 MHz
-//   Clock clk_156_25 <- mkClockBUFG(clocked_by clockGen.clkout1);    // 50 MHz
-//`else
-//
-//   Clock defaultClock <- exposeCurrentClock();
-//   interface clock_50 = defaultClock;
-//   interface clock_156_25 = defaultClock;
-//`endif
-//   interface clock_50 = clk_50;
-//   interface clock_156_25 = clk_156_25;
-//endmodule
+interface NfsumeSfpCtrl;
+   method Action los (Vector#(4, Bit#(1)) v);
+   method Action mod0_presnt_n (Vector#(4, Bit#(1)) v);
+   method Action txfault (Vector#(4, Bit#(1)) v);
+(* prefix="", result="ratesel0" *)   method Vector#(4, Bit#(1)) ratesel0;
+(* prefix="", result="ratesel1" *)   method Vector#(4, Bit#(1)) ratesel1;
+(* prefix="", result="txdisable" *)  method Vector#(4, Bit#(1)) txdisable;
+endinterface
+
+module mkNfsumeSfpCtrl#(EthPhyIfc phys)(NfsumeSfpCtrl);
+   Vector#(4, Wire#(Bit#(1))) los_wire <- replicateM(mkDWire(0));
+   Vector#(4, Wire#(Bit#(1))) mod0_presnt_n_wire <- replicateM(mkDWire(0));
+   Vector#(4, Wire#(Bit#(1))) txfault_wire <- replicateM(mkDWire(0));
+   Vector#(4, Wire#(Bit#(1))) ratesel0_wire <- replicateM(mkDWire(0));
+   Vector#(4, Wire#(Bit#(1))) ratesel1_wire <- replicateM(mkDWire(0));
+   Vector#(4, Wire#(Bit#(1))) txdisable_wire <- replicateM(mkDWire(0));
+   Vector#(4, Wire#(Bit#(1))) signal_detect_wire <- replicateM(mkDWire(0));
+
+   for (Integer i=0; i<4; i=i+1) begin
+      rule set_output;
+         ratesel0_wire[i] <= 1'b1;
+         ratesel1_wire[i] <= 1'b1;
+         txdisable_wire[i] <= 1'b0;
+      endrule
+
+      rule set_sd;
+         signal_detect_wire[i] <= (~los_wire[i]) & (~mod0_presnt_n_wire[i]);
+      endrule
+   end
+
+   rule conn_sd;
+      phys.signal_detect(readVReg(signal_detect_wire));
+   endrule
+
+   rule conn_txfault;
+      phys.tx_fault(readVReg(txfault_wire));
+   endrule
+
+   method los = writeVReg(los_wire);
+   method mod0_presnt_n = writeVReg(mod0_presnt_n_wire);
+   method txfault = writeVReg(txfault_wire);
+   method ratesel0 = readVReg(ratesel0_wire);
+   method ratesel1 = readVReg(ratesel1_wire);
+   method txdisable = readVReg(txdisable_wire);
+endmodule
+

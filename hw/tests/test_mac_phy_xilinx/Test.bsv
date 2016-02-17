@@ -42,7 +42,6 @@ module mkTest#(HostInterface host, TestIndication indication) (Test);
 
    Clock mgmtClock = host.tsys_clk_200mhz_buf;
    Reset mgmtReset <- mkSyncReset(2, defaultReset, mgmtClock);
-   //Reg#(Bit#(32)) cycle <- mkReg(0, clocked_by txClock, reset_by txReset);
 
 `ifndef SIMULATION
    EthPhyIfc phys <- mkXilinxEthPhy(mgmtClock);
@@ -52,11 +51,12 @@ module mkTest#(HostInterface host, TestIndication indication) (Test);
    for (Integer i=0; i<4; i=i+1) begin
       mac[i] <- mkEthMac(mgmtClock, txClock, phys.rx_clkout[i], txReset, clocked_by txClock, reset_by txReset);
    end
-//   function Get#(Bit#(72)) getTx(EthMacIfc _mac); return _mac.tx; endfunction
-//   function Put#(Bit#(72)) getRx(EthMacIfc _mac); return _mac.rx; endfunction
-//   mapM(uncurry(mkConnection), zip(map(getTx, mac), phys.tx));
-//   mapM(uncurry(mkConnection), zip(phys.rx, map(getRx, mac)));
+   function Get#(Bit#(72)) getTx(EthMacIfc _mac); return _mac.tx; endfunction
+   function Put#(Bit#(72)) getRx(EthMacIfc _mac); return _mac.rx; endfunction
+   mapM(uncurry(mkConnection), zip(map(getTx, mac), phys.tx));
+   mapM(uncurry(mkConnection), zip(phys.rx, map(getRx, mac)));
    NfsumeLeds leds <- mkNfsumeLeds(mgmtClock, txClock);
+   NfsumeSfpCtrl sfpctrl <- mkNfsumeSfpCtrl(phys);
 `endif
 
    PacketBuffer buff <- mkPacketBuffer();
@@ -84,7 +84,10 @@ module mkTest#(HostInterface host, TestIndication indication) (Test);
       method serial_rx_p = phys.serial_rx_p;
       method serial_rx_n = phys.serial_rx_n;
       interface leds = leds.led_out;
+      interface led_grn = phys.tx_leds;
+      interface led_ylw = phys.rx_leds;
       interface deleteme_unused_clock = defaultClock;
+      interface sfpctrl = sfpctrl;
 //      interface deleteme_unused_clock2 = clocks.clock_50;
 //      interface deleteme_unused_clock3 = defaultClock;
 //      interface deleteme_unused_reset = defaultReset;

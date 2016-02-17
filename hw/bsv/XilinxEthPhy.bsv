@@ -44,6 +44,10 @@ interface EthPhyIfc;
    interface Vector#(4, Clock) rx_clkout;
    interface Clock tx_clkout;
    method Action refclk(Bit#(1) p, Bit#(1) n);
+   method Action signal_detect (Vector#(4, Bit#(1)) v);
+   method Action tx_fault (Vector#(4, Bit#(1)) v);
+   method Bit#(4) tx_leds;
+   method Bit#(4) rx_leds;
 endinterface
 
 module mkXilinxEthPhy#(Clock mgmtClock)(EthPhyIfc);
@@ -65,6 +69,9 @@ module mkXilinxEthPhy#(Clock mgmtClock)(EthPhyIfc);
    Wire#(Bit#(1)) gtrxreset_w <- mkDWire(0);
    Wire#(Bit#(1)) gttxreset_w <- mkDWire(0);
    Wire#(Bit#(1)) reset_counter_done_w <- mkDWire(0);
+
+   Vector#(4, Wire#(Bit#(1))) signal_detect_wire <- replicateM(mkDWire(0));
+   Vector#(4, Wire#(Bit#(1))) tx_fault_wire <- replicateM(mkDWire(0));
 
    Reset invertedReset <- mkResetInverter(defaultReset, clocked_by defaultClock);
    PhyWrapNonShared phy1 <- mkPhyWrapNonShared(clk_156_25, mgmtClock, invertedReset, invertedReset);
@@ -253,6 +260,37 @@ module mkXilinxEthPhy#(Clock mgmtClock)(EthPhyIfc);
    rxClocks[2] = phy2.rxrecclk;
    rxClocks[3] = phy3.rxrecclk;
 
+   rule set_sd;
+      phy0.sfp.signal_detect(signal_detect_wire[0]);
+      phy1.sfp.signal_detect(signal_detect_wire[1]);
+      phy2.sfp.signal_detect(signal_detect_wire[2]);
+      phy3.sfp.signal_detect(signal_detect_wire[3]);
+   endrule
+
+   rule set_txfault;
+      phy0.sfp.tx_fault(tx_fault_wire[0]);
+      phy1.sfp.tx_fault(tx_fault_wire[1]);
+      phy2.sfp.tx_fault(tx_fault_wire[2]);
+      phy3.sfp.tx_fault(tx_fault_wire[3]);
+   endrule
+
+   module drpLoopback#(PhywrapCoreGtDrp core, PhywrapUserGtDrp user)(Empty);
+      rule conn;
+         user.drp_daddr_i(core.drp_daddr_o);
+         user.drp_den_i(core.drp_den_o);
+         user.drp_di_i(core.drp_di_o);
+         user.drp_drdy_i(core.drp_drdy_o);
+         user.drp_drpdo_i(core.drp_drpdo_o);
+         user.drp_dwe_i(core.drp_dwe_o);
+         core.drp_gnt(user.drp_req);
+      endrule
+   endmodule
+   /* no access to drp is required PG068: p94 */
+   drpLoopback(phy0.core_drp, phy0.user_drp);
+   drpLoopback(phy1.core_drp, phy1.user_drp);
+   drpLoopback(phy2.core_drp, phy2.user_drp);
+   drpLoopback(phy3.core_drp, phy3.user_drp);
+
    interface tx = map(toPut, txFifo);
    interface rx = map(toGet, rxFifo);
    method serial_tx_p = readVReg(tx_serial_p);
@@ -265,5 +303,11 @@ module mkXilinxEthPhy#(Clock mgmtClock)(EthPhyIfc);
       phy0.refclk_p(p);
       phy0.refclk_n(n);
    endmethod
+   method signal_detect = writeVReg(signal_detect_wire);
+   method tx_fault = writeVReg(tx_fault_wire);
+   method tx_leds = {phy3.xcvr.tx_resetdone, phy2.xcvr.tx_resetdone,
+                     phy1.xcvr.tx_resetdone, phy0.resetdone_out};
+   method rx_leds = {phy3.xcvr.rx_resetdone, phy2.xcvr.rx_resetdone,
+                     phy1.xcvr.rx_resetdone, phy0.resetdone_out};
 endmodule
 endpackage
