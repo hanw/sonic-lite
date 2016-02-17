@@ -264,6 +264,14 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
 /*-------------------------------------------------------------------------------*/
                                   // Rx Path
 /*-------------------------------------------------------------------------------*/
+    Vector#(NUM_OF_ALTERA_PORTS, Reg#(IP)) recvd_pkt_src_ip <- replicateM(mkReg(0));
+    Vector#(NUM_OF_ALTERA_PORTS, Reg#(IP)) recvd_pkt_dst_ip <- replicateM(mkReg(0));
+    Vector#(NUM_OF_ALTERA_PORTS, Reg#(Bit#(1)))
+                                        recvd_pkt_ctrl_bits <- replicateM(mkReg(0));
+    Vector#(NUM_OF_ALTERA_PORTS, Reg#(Bit#(1)))
+                              check_flow_add_remove_rx_flag <- replicateM(mkReg(0));
+
+
 	// should be atleast as large as buffer_depth + max num of data blocks
     Vector#(NUM_OF_ALTERA_PORTS, FIFOF#(RingBufferDataT)) buffer_fifo
 	                    <- replicateM(mkSizedFIFOF(valueof(DEFAULT_FIFO_LEN)));
@@ -297,6 +305,30 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
 
     for (Integer i = 0; i < valueof(NUM_OF_ALTERA_PORTS); i = i + 1)
     begin
+        rule check_flow_add_remove_rx (check_flow_add_remove_rx_flag[i] == 1);
+            check_flow_add_remove_rx_flag[i] <= 0;
+
+            /* Check if the flow already exits */
+            ServerIndex src = host_id(recvd_pkt_src_ip[i]);
+            ServerIndex dst = host_id(recvd_pkt_dst_ip[i]);
+
+            if (src < fromInteger(valueof(NUM_OF_SERVERS))
+                && dst < fromInteger(valueof(NUM_OF_SERVERS)))
+            begin
+                if (recvd_pkt_ctrl_bits[i] == 'b1 && mmf.flowExists(src, dst))
+                begin
+                    mmf.removeFlow(src, dst);
+                    mmf.remFromFlowCountMatrix(src, dst);
+                end
+
+                else if (!mmf.flowExists(src, dst))
+                begin
+                    mmf.addFlow(src, dst);
+                    mmf.addToFlowCountMatrix(src, dst);
+                end
+            end
+        endrule
+
         rule start_polling_rx (curr_state == RUN && start_polling_rx_buffer == 1
                                && stop_polling[i] == 0);
             let ring_buf_empty <- rx_ring_buffer[i].empty;
@@ -363,29 +395,13 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
                     /* Find the index of the ring buffer to insert to. */
                     IP dst_ip = (buffered_data[i])[143:112];
                     IP src_ip = (buffered_data[i])[175:144];
+                    Bit#(1) ctrl_bits = (buffered_data[i])[111];
 
-                    Bit#(1) end_of_flow_bit = (buffered_data[i])[111];
-
-                    /* Check if the flow already exits */
-                    ServerIndex src = host_id(src_ip);
-                    ServerIndex dst = host_id(dst_ip);
-
-                    if (src < fromInteger(valueof(NUM_OF_SERVERS))
-                        && dst < fromInteger(valueof(NUM_OF_SERVERS)))
-                    begin
-                        if (end_of_flow_bit == 1)
-                        begin
-                            mmf.removeFlow(src, dst);
-                            mmf.remFromFlowCountMatrix(src, dst);
-                        end
-
-                        else if (!mmf.flowExists(src, dst))
-                        begin
-                            mmf.addFlow(src, dst);
-                            mmf.addToFlowCountMatrix(src, dst);
-                        end
-
-                    end
+                    /* Check if a flow is to be added or removed */
+                    recvd_pkt_src_ip[i] <= src_ip;
+                    recvd_pkt_dst_ip[i] <= dst_ip;
+                    recvd_pkt_ctrl_bits[i] <= ctrl_bits;
+                    check_flow_add_remove_rx_flag[i] <= 1;
 
                     if (dst_ip == ip_address(host_index))
                         ring_buffer_index_fifo[i].enq(0);
@@ -486,10 +502,48 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
                                   // Tx Path
 /*-------------------------------------------------------------------------------*/
     Reg#(MAC) dst_mac_addr <- mkReg(0);
-    Reg#(Bit#(1)) blast_phase <- mkReg(0);
-    Reg#(ServerIndex) blast_phase_count <- mkReg(0);
-    Reg#(Bit#(1)) remove_phase <- mkReg(0);
-    Reg#(ServerIndex) remove_phase_count <- mkReg(0);
+    Reg#(Bit#(1)) flow_add_blast_phase <- mkReg(0);
+    Reg#(ServerIndex) flow_add_blast_phase_count <- mkReg(0);
+    Reg#(Bit#(1)) flow_rem_blast_phase <- mkReg(0);
+    Reg#(ServerIndex) flow_rem_blast_phase_count <- mkReg(0);
+
+    Reg#(Bit#(1)) check_flow_add_remove_tx_flag <- mkReg(0);
+    Reg#(Bit#(256)) buf_data <- mkReg(0);
+
+    FIFO#(Bit#(1)) send_flow_rem_pkt_fifo <- mkSizedFIFO(valueof(DEFAULT_FIFO_LEN));
+
+    Reg#(Bit#(1)) check_to_end_flow_add_blast_flag <- mkReg(0);
+
+    rule check_flow_add_remove_tx (check_flow_add_remove_tx_flag == 1);
+        check_flow_add_remove_tx_flag <= 0;
+
+        IP src_ip = buf_data[143:112];
+        IP dst_ip = buf_data[175:144];
+        Bit#(1) ctrl_bits = buf_data[111];
+
+        ServerIndex src = host_id(src_ip);
+        ServerIndex dst = host_id(dst_ip);
+
+        if (src == host_index
+            && dst < fromInteger(valueof(NUM_OF_SERVERS)))
+        begin
+            if (ctrl_bits == 'b1 && mmf.flowExists(src, dst))
+            begin
+                mmf.removeFlow(src, dst);
+                mmf.remFromFlowCountMatrix(src, dst);
+                flow_rem_blast_phase <= 1;
+                flow_rem_blast_phase_count <= 0;
+            end
+
+            else if (!mmf.flowExists(src, dst))
+            begin
+                mmf.addFlow(src, dst);
+                mmf.addToFlowCountMatrix(src, dst);
+                flow_add_blast_phase <= 1;
+                flow_add_blast_phase_count <= 0;
+            end
+        end
+    endrule
 
     rule get_dst_addr (curr_state == RUN && start_tx_scheduling == 1);
 		Bit#(64) curr_time = clk.currTime();
@@ -535,9 +589,10 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
 			 * Only if the forwarding ring buffer is empty, extract packet from
 			 * the host tx buffer.
 			 */
-			if (!is_empty && blast_phase == 0)
+            if (!is_empty && flow_add_blast_phase == 0 && flow_rem_blast_phase == 0)
 				ring_buffer[index].read_request.put(makeReadReq(READ));
-			else
+
+			else if (flow_rem_blast_phase == 0)
 			begin
 				if (verbose)
 				begin
@@ -547,14 +602,39 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
 													  ring_buffer[0].elements);
 				end
 				ring_buffer[0].read_request.put(makeReadReq(READ));
-                if (blast_phase == 1)
-                begin
-                    blast_phase_count <= blast_phase_count + 1;
-                    if (blast_phase_count == fromInteger(valueof(NUM_OF_SERVERS))-2)
-                        blast_phase <= 0;
-                end
+                check_to_end_flow_add_blast_flag <= 1;
 			end
+
+            else
+            begin
+                send_flow_rem_pkt_fifo.enq(1);
+            end
 		end
+    endrule
+
+    rule check_to_end_flow_add_blast (check_to_end_flow_add_blast_flag == 1);
+        check_to_end_flow_add_blast_flag <= 0;
+        if (flow_add_blast_phase == 1)
+        begin
+            flow_add_blast_phase_count <= flow_add_blast_phase_count + 1;
+            if(flow_add_blast_phase_count == fromInteger(valueof(NUM_OF_SERVERS))-2)
+                flow_add_blast_phase <= 0;
+        end
+    endrule
+
+    rule send_flow_rem_pkt;
+        let x <- toGet(send_flow_rem_pkt_fifo).get;
+        if (flow_rem_blast_phase == 1)
+        begin
+            flow_rem_blast_phase_count <= flow_rem_blast_phase_count + 1;
+            if(flow_rem_blast_phase_count == fromInteger(valueof(NUM_OF_SERVERS))-2)
+            begin
+                ring_buffer[0].read_request.put(makeReadReq(READ));
+                flow_rem_blast_phase <= 0;
+            end
+            else
+                ring_buffer[0].read_request.put(makeReadReq(PEEK));
+        end
     endrule
 
     Vector#(NUM_OF_SERVERS, FIFO#(DataToPutInTx)) data_to_put
@@ -567,7 +647,6 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
 	             <- replicateM(mkDWire(fromInteger(valueof(NUM_OF_ALTERA_PORTS))));
 
     Reg#(Bit#(2)) c <- mkReg(0);
-    Reg#(Bit#(256)) buf_data <- mkReg(0);
 
     for (Integer i = 0; i < valueof(NUM_OF_SERVERS); i = i + 1)
     begin
@@ -575,7 +654,7 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
             let d <- ring_buffer[i].read_response.get;
 
             // Check for start of flow / end of flow
-            if (i == 0)
+            if (i == 0 && flow_add_blast_phase == 0 && flow_rem_blast_phase == 0)
             begin
                 if (d.data.sop == 1 && d.data.eop == 0)
                 begin
@@ -593,33 +672,7 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
                 begin
                     c <= c + 1;
                     buf_data <= buf_data | (zeroExtend(d.data.payload));
-                    IP src_ip = buf_data[143:112];
-                    IP dst_ip = buf_data[175:144];
-                    Bit#(1) end_of_flow_bit = buf_data[111];
-
-                    ServerIndex src = host_id(src_ip);
-                    ServerIndex dst = host_id(dst_ip);
-
-                    if (src == host_index
-                        && dst < fromInteger(valueof(NUM_OF_SERVERS)))
-                    begin
-                        if (end_of_flow_bit == 1)
-                        begin
-                            mmf.removeFlow(src, dst);
-                            mmf.remFromFlowCountMatrix(src, dst);
-                            remove_phase <= 1;
-                            remove_phase_count <= 0;
-                        end
-
-                        else if (!mmf.flowExists(src, dst))
-                        begin
-                            mmf.addFlow(src, dst);
-                            mmf.addToFlowCountMatrix(src, dst);
-                            blast_phase <= 1;
-                            blast_phase_count <= 0;
-                        end
-
-                    end
+                    check_flow_add_remove_tx_flag <= 1;
                 end
             end
 
