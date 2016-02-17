@@ -48,7 +48,8 @@ module mkMaxMinFairness (MaxMinFairness);
     endrule
 
     method Action addFlow(ServerIndex src, ServerIndex dst);
-        flow_matrix[src][dst] <= 1;
+        if (flow_matrix[src][dst] == 0)
+            flow_matrix[src][dst] <= 1;
     endmethod
 
     method Bool flowExists(ServerIndex src, ServerIndex dst);
@@ -58,21 +59,28 @@ module mkMaxMinFairness (MaxMinFairness);
     endmethod
 
     method Action removeFlow(ServerIndex src, ServerIndex dst);
-        flow_matrix[src][dst] <= 0;
+        if (flow_matrix[src][dst] == 1)
+            flow_matrix[src][dst] <= 0;
     endmethod
 
     method Action addToFlowCountMatrix(ServerIndex src, ServerIndex dst);
-        s <= src;
-        d <= dst;
-        add_to_matrix <= True;
-        stop_adding_removing_flag <= 1;
+        if (flow_matrix[src][dst] == 0)
+        begin
+            s <= src;
+            d <= dst;
+            add_to_matrix <= True;
+            stop_adding_removing_flag <= 1;
+        end
     endmethod
 
     method Action remFromFlowCountMatrix(ServerIndex src, ServerIndex dst);
-        s <= src;
-        d <= dst;
-        add_to_matrix <= False;
-        stop_adding_removing_flag <= 1;
+        if (flow_matrix[src][dst] == 1)
+        begin
+            s <= src;
+            d <= dst;
+            add_to_matrix <= False;
+            stop_adding_removing_flag <= 1;
+        end
     endmethod
 
     method ServerIndex getFlowCount(ServerIndex src, ServerIndex dst);
