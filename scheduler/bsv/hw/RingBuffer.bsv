@@ -142,6 +142,7 @@ module mkRingBuffer#(Integer size)
     Reg#(Address) r_offset <- mkReg(0);
     Reg#(Address) r_offset_1 <- mkReg(0);
     Reg#(Address) r_max_offset <- mkReg(0);
+    Reg#(Bit#(1)) peek <- mkReg(0);
 
     rule read_req (read_in_progress == 0);
         let r_req <- toGet(read_request_fifo).get;
@@ -154,6 +155,10 @@ module mkRingBuffer#(Integer size)
 			r_max_offset <= 0;
             Address addr = (truncate(tail) & (fromInteger(size)-1)) << 5;
             len_buffer.portB.request.put(makeBRAMLenRequest(False, addr, 0));
+            if (r_req.op == PEEK)
+                peek <= 1;
+            else
+                peek <= 0;
         end
         //else
         //    read_response_fifo.enq(makeReadRes(unpack(0)));
@@ -210,19 +215,8 @@ module mkRingBuffer#(Integer size)
                              };
             read_response_fifo.enq(makeReadRes(data));
             read_in_progress <= 0;
-            tail <= tail + 1;
-        end
-
-        else if (r_offset_1 - 1 == 0 && r_offset_1 == r_max_offset)
-        begin
-            RingBufferDataT data = RingBufferDataT {
-                              sop : 1,
-                              eop : 1,
-                              payload : d
-                             };
-            read_response_fifo.enq(makeReadRes(data));
-            read_in_progress <= 0;
-            tail <= tail + 1;
+            if (peek == 0)
+                tail <= tail + 1;
         end
     endrule
 
