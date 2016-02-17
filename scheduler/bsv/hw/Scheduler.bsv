@@ -519,6 +519,7 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
 /*-------------------------------------------------------------------------------*/
                                   // Tx Path
 /*-------------------------------------------------------------------------------*/
+    Reg#(ServerIndex) curr_slot <- mkReg(0);
     Reg#(MAC) dst_mac_addr <- mkReg(0);
     Reg#(Bit#(1)) flow_add_blast_phase <- mkReg(0);
     Reg#(ServerIndex) flow_add_blast_phase_count <- mkReg(0);
@@ -581,10 +582,15 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
 		begin
 			ServerIndex slot = 0;
             if (valueof(NUM_OF_SERVERS) == 1)
-                slot = fromInteger(valueof(NUM_OF_SERVERS))-1;
+                slot = 0;
             else
-			    slot = curr_time[6:3] %
-			                   (fromInteger(valueof(NUM_OF_SERVERS))-1);
+            begin
+			    slot = curr_slot;
+                if (curr_slot == (fromInteger(valueof(NUM_OF_SERVERS))-2))
+                    curr_slot <= 0;
+                else
+                    curr_slot <= curr_slot + 1;
+            end
 
 			if (verbose)
             $display("[SCHED (%d)] CLK = %d  schedule_list[%d] = %d", host_index,
