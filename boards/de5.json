@@ -1,273 +1,326 @@
 {
 	"PCIE_tx_p[0]": {
+		"PIO_DIRECTION": "OUTPUT",
 		"PCIE": "PCIE_TX_p[0]"
 	},
 	"PCIE_tx_p[1]": {
+		"PIO_DIRECTION": "OUTPUT",
 		"PCIE": "PCIE_TX_p[1]"
 	},
 	"PCIE_tx_p[2]": {
+		"PIO_DIRECTION": "OUTPUT",
 		"PCIE": "PCIE_TX_p[2]"
 	},
 	"PCIE_tx_p[3]": {
+		"PIO_DIRECTION": "OUTPUT",
 		"PCIE": "PCIE_TX_p[3]"
 	},
 	"PCIE_tx_p[4]": {
+		"PIO_DIRECTION": "OUTPUT",
 		"PCIE": "PCIE_TX_p[4]"
 	},
 	"PCIE_tx_p[5]": {
+		"PIO_DIRECTION": "OUTPUT",
 		"PCIE": "PCIE_TX_p[5]"
 	},
 	"PCIE_tx_p[6]": {
+		"PIO_DIRECTION": "OUTPUT",
 		"PCIE": "PCIE_TX_p[6]"
 	},
 	"PCIE_tx_p[7]": {
+		"PIO_DIRECTION": "OUTPUT",
 		"PCIE": "PCIE_TX_p[7]"
 	},
 	"PCIE_rx_p[0]": {
+		"PIO_DIRECTION": "INPUT",
 		"PCIE": "PCIE_RX_p[0]"
 	},
 	"PCIE_rx_p[1]": {
+		"PIO_DIRECTION": "INPUT",
 		"PCIE": "PCIE_RX_p[1]"
 	},
 	"PCIE_rx_p[2]": {
+		"PIO_DIRECTION": "INPUT",
 		"PCIE": "PCIE_RX_p[2]"
 	},
 	"PCIE_rx_p[3]": {
+		"PIO_DIRECTION": "INPUT",
 		"PCIE": "PCIE_RX_p[3]"
 	},
 	"PCIE_rx_p[4]": {
+		"PIO_DIRECTION": "INPUT",
 		"PCIE": "PCIE_RX_p[4]"
 	},
 	"PCIE_rx_p[5]": {
+		"PIO_DIRECTION": "INPUT",
 		"PCIE": "PCIE_RX_p[5]"
 	},
 	"PCIE_rx_p[6]": {
+		"PIO_DIRECTION": "INPUT",
 		"PCIE": "PCIE_RX_p[6]"
 	},
 	"PCIE_rx_p[7]": {
+		"PIO_DIRECTION": "INPUT",
 		"PCIE": "PCIE_RX_p[7]"
 	},
 	"pcie_refclk_p": {
+		"PIO_DIRECTION": "INPUT",
 		"PCIE": "PCIE_REFCLK_p"
 	},
 	"pcie_perst_n": {
+		"PIO_DIRECTION": "INPUT",
 		"PCIE": "PCIE_PERST_n"
 	},
 	"osc_50_b3b": {
+		"PIO_DIRECTION": "INPUT",
 		"OSC": "OSC_50_B3B"
 	},
 	"osc_50_b3d": {
+		"PIO_DIRECTION": "INPUT",
 		"OSC": "OSC_50_B3D"
 	},
 	"osc_50_b4a": {
+		"PIO_DIRECTION": "INPUT",
 		"OSC": "OSC_50_B4A"
 	},
 	"osc_50_b4d": {
+		"PIO_DIRECTION": "INPUT",
 		"OSC": "OSC_50_B4D"
 	},
 	"osc_50_b7a": {
+		"PIO_DIRECTION": "INPUT",
 		"OSC": "OSC_50_B7A"
 	},
 	"osc_50_b7d": {
+		"PIO_DIRECTION": "INPUT",
 		"OSC": "OSC_50_B7D"
 	},
 	"osc_50_b8a": {
+		"PIO_DIRECTION": "INPUT",
 		"OSC": "OSC_50_B8A"
 	},
 	"osc_50_b8d": {
+		"PIO_DIRECTION": "INPUT",
 		"OSC": "OSC_50_B8D"
 	},
-	"led[0]": {
+	"led0": {
+		"PIO_DIRECTION": "OUTPUT",
 		"LED": "LED[0]"
 	},
-	"led[1]": {
+	"led1": {
+		"PIO_DIRECTION": "OUTPUT",
 		"LED": "LED[1]"
 	},
-	"led[2]": {
+	"led2": {
+		"PIO_DIRECTION": "OUTPUT",
 		"LED": "LED[2]"
 	},
-	"led[3]": {
+	"led3": {
+		"PIO_DIRECTION": "OUTPUT",
 		"LED": "LED[3]"
 	},
 	"led_bracket[0]": {
+		"PIO_DIRECTION": "OUTPUT",
 		"LED": "LED_BRACKET[0]"
 	},
 	"led_bracket[1]": {
+		"PIO_DIRECTION": "OUTPUT",
 		"LED": "LED_BRACKET[1]"
 	},
 	"led_bracket[2]": {
+		"PIO_DIRECTION": "OUTPUT",
 		"LED": "LED_BRACKET[2]"
 	},
 	"led_bracket[3]": {
+		"PIO_DIRECTION": "OUTPUT",
 		"LED": "LED_BRACKET[3]"
 	},
 	"serial_rx_data[0]": {
-		"XCVR_RX_DC_GAIN": 4,
-		"XCVR_RX_LINEAR_EQUALIZER_CONTROL": 5,
+		"PIO_DIRECTION": "INPUT",
 		"SFPA": "SFPA_RX_p"
 	},
 	"serial_tx_data[0]": {
-		"XCVR_TX_VOD": 55,
-		"XCVR_TX_PRE_EMP_1ST_POST_TAP": 10,
-		"XCVR_TX_PRE_EMP_PRE_TAP": 10,
-		"XCVR_TX_PRE_EMP_INV_PRE_TAP": "ON",
-		"XCVR_TX_PRE_EMP_2ND_POST_TAP": 0,
+		"PIO_DIRECTION": "OUTPUT",
 		"SFPA": "SFPA_TX_p"
 	},
 	"sfpctrl_los_v[0]": {
+		"PIO_DIRECTION": "INPUT",
 		"SFPA": "SFPA_LOS"
 	},
 	"sfpctrl_mod0_presnt_n_v[0]": {
+		"PIO_DIRECTION": "INPUT",
 		"SFPA": "SFPA_MOD0_PRSNT_n"
 	},
 	"sfpctrl_txfault_v[0]": {
+		"PIO_DIRECTION": "INPUT",
 		"SFPA": "SFPA_TXFAULT"
 	},
 	"sfpctrl_txdisable[0]": {
+		"PIO_DIRECTION": "OUTPUT",
 		"SFPA": "SFPA_TXDISABLE"
 	},
 	"sfpctrl_ratesel0[0]": {
+		"PIO_DIRECTION": "OUTPUT",
 		"SFPA": "SFPA_RATESEL[0]"
 	},
 	"sfpctrl_ratesel1[0]": {
+		"PIO_DIRECTION": "OUTPUT",
 		"SFPA": "SFPA_RATESEL[1]"
 	},
 	"serial_rx_data[1]": {
-		"XCVR_RX_DC_GAIN": 4,
-		"XCVR_RX_LINEAR_EQUALIZER_CONTROL": 5,
+		"PIO_DIRECTION": "INPUT",
 		"SFPB": "SFPB_RX_p"
 	},
 	"serial_tx_data[1]": {
-		"XCVR_TX_VOD": 55,
-		"XCVR_TX_PRE_EMP_1ST_POST_TAP": 10,
-		"XCVR_TX_PRE_EMP_PRE_TAP": 10,
-		"XCVR_TX_PRE_EMP_INV_PRE_TAP": "ON",
-		"XCVR_TX_PRE_EMP_2ND_POST_TAP": 0,
+		"PIO_DIRECTION": "OUTPUT",
 		"SFPB": "SFPB_TX_p"
 	},
 	"sfpctrl_los_v[1]": {
+		"PIO_DIRECTION": "INPUT",
 		"SFPB": "SFPB_LOS"
 	},
 	"sfpctrl_mod0_presnt_n_v[1]": {
+		"PIO_DIRECTION": "INPUT",
 		"SFPB": "SFPB_MOD0_PRSNT_n"
 	},
 	"sfpctrl_txfault_v[1]": {
+		"PIO_DIRECTION": "INPUT",
 		"SFPB": "SFPB_TXFAULT"
 	},
 	"sfpctrl_txdisable[1]": {
+		"PIO_DIRECTION": "OUTPUT",
 		"SFPB": "SFPB_TXDISABLE"
 	},
 	"sfpctrl_ratesel0[1]": {
+		"PIO_DIRECTION": "OUTPUT",
 		"SFPB": "SFPB_RATESEL[0]"
 	},
 	"sfpctrl_ratesel1[1]": {
+		"PIO_DIRECTION": "OUTPUT",
 		"SFPB": "SFPB_RATESEL[1]"
 	},
 	"serial_rx_data[2]": {
-		"XCVR_RX_DC_GAIN": 4,
-		"XCVR_RX_LINEAR_EQUALIZER_CONTROL": 5,
+		"PIO_DIRECTION": "INPUT",
 		"SFPC": "SFPC_RX_p"
 	},
 	"serial_tx_data[2]": {
-		"XCVR_TX_VOD": 55,
-		"XCVR_TX_PRE_EMP_1ST_POST_TAP": 10,
-		"XCVR_TX_PRE_EMP_PRE_TAP": 10,
-		"XCVR_TX_PRE_EMP_INV_PRE_TAP": "ON",
-		"XCVR_TX_PRE_EMP_2ND_POST_TAP": 0,
+		"PIO_DIRECTION": "OUTPUT",
 		"SFPC": "SFPC_TX_p"
 	},
 	"sfpctrl_los_v[2]": {
+		"PIO_DIRECTION": "INPUT",
 		"SFPC": "SFPC_LOS"
 	},
 	"sfpctrl_mod0_presnt_n_v[2]": {
+		"PIO_DIRECTION": "INPUT",
 		"SFPC": "SFPC_MOD0_PRSNT_n"
 	},
 	"sfpctrl_txfault_v[2]": {
+		"PIO_DIRECTION": "INPUT",
 		"SFPC": "SFPC_TXFAULT"
 	},
 	"sfpctrl_txdisable[2]": {
+		"PIO_DIRECTION": "OUTPUT",
 		"SFPC": "SFPC_TXDISABLE"
 	},
 	"sfpctrl_ratesel0[2]": {
+		"PIO_DIRECTION": "OUTPUT",
 		"SFPC": "SFPC_RATESEL[0]"
 	},
 	"sfpctrl_ratesel1[2]": {
+		"PIO_DIRECTION": "OUTPUT",
 		"SFPC": "SFPC_RATESEL[1]"
 	},
 	"serial_rx_data[3]": {
-		"XCVR_RX_DC_GAIN": 4,
-		"XCVR_RX_LINEAR_EQUALIZER_CONTROL": 5,
+		"PIO_DIRECTION": "INPUT",
 		"SFPD": "SFPD_RX_p"
 	},
 	"serial_tx_data[3]": {
-		"XCVR_TX_VOD": 55,
-		"XCVR_TX_PRE_EMP_1ST_POST_TAP": 10,
-		"XCVR_TX_PRE_EMP_PRE_TAP": 10,
-		"XCVR_TX_PRE_EMP_INV_PRE_TAP": "ON",
-		"XCVR_TX_PRE_EMP_2ND_POST_TAP": 0,
+		"PIO_DIRECTION": "OUTPUT",
 		"SFPD": "SFPD_TX_p"
 	},
 	"sfpctrl_los_v[3]": {
+		"PIO_DIRECTION": "INPUT",
 		"SFPD": "SFPD_LOS"
 	},
 	"sfpctrl_mod0_presnt_n_v[3]": {
+		"PIO_DIRECTION": "INPUT",
 		"SFPD": "SFPD_MOD0_PRSNT_n"
 	},
 	"sfpctrl_txfault_v[3]": {
+		"PIO_DIRECTION": "INPUT",
 		"SFPD": "SFPD_TXFAULT"
 	},
 	"sfpctrl_txdisable[3]": {
+		"PIO_DIRECTION": "OUTPUT",
 		"SFPD": "SFPD_TXDISABLE"
 	},
 	"sfpctrl_ratesel0[3]": {
+		"PIO_DIRECTION": "OUTPUT",
 		"SFPD": "SFPD_RATESEL[0]"
 	},
 	"sfpctrl_ratesel1[3]": {
+		"PIO_DIRECTION": "OUTPUT",
 		"SFPD": "SFPD_RATESEL[1]"
 	},
 	"sfp_refclk": {
+		"PIO_DIRECTION": "INPUT",
 		"SFP": "SFP_REFCLK_p"
 	},
 	"i2c_clk": {
+		"PIO_DIRECTION": "INPUT",
 		"I2C": "CLOCK_SCL"
 	},
 	"i2c_data": {
+		"PIO_DIRECTION": "BIDIR",
 		"I2C": "CLOCK_SDA"
 	},
 	"buttons_v[0]": {
+		"PIO_DIRECTION": "INPUT",
 		"BUTTON": "BUTTON[0]"
 	},
 	"buttons_v[1]": {
+		"PIO_DIRECTION": "INPUT",
 		"BUTTON": "BUTTON[1]"
 	},
 	"buttons_v[2]": {
+		"PIO_DIRECTION": "INPUT",
 		"BUTTON": "BUTTON[2]"
 	},
 	"buttons_v[3]": {
+		"PIO_DIRECTION": "INPUT",
 		"BUTTON": "BUTTON[3]"
 	},
 	"sw_switch0_v": {
+		"PIO_DIRECTION": "INPUT",
 		"SW": "SW[0]"
 	},
 	"sw_switch1_v": {
+		"PIO_DIRECTION": "INPUT",
 		"SW": "SW[1]"
 	},
 	"sw_switch2_v": {
+		"PIO_DIRECTION": "INPUT",
 		"SW": "SW[2]"
 	},
 	"loopback_lpbk_en_en": {
+		"PIO_DIRECTION": "INPUT",
 		"SW": "SW[3]"
 	},
 	"rzq_0_rzqin_v": {
+		"PIO_DIRECTION": "INPUT",
 		"RZQ": "RZQ_0"
 	},
 	"rzq_1_rzqin_v": {
+		"PIO_DIRECTION": "INPUT",
 		"RZQ": "RZQ_1"
 	},
 	"rzq_4_rzqin_v": {
+		"PIO_DIRECTION": "INPUT",
 		"RZQ": "RZQ_4"
 	},
 	"rzq_5_rzqin_v": {
+		"PIO_DIRECTION": "INPUT",
 		"RZQ": "RZQ_5"
 	}
 }
