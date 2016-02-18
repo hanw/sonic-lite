@@ -30,6 +30,13 @@ typeclass ByteSwap#(type a);
    function a byteSwap(a x);
 endtypeclass
 
+instance ByteSwap#(Bit#(8));
+   function Bit#(8) byteSwap(Bit#(8) x);
+      Vector#(1, Bit#(8)) bytes = unpack(x);
+      return pack(reverse(bytes));
+   endfunction
+endinstance
+
 instance ByteSwap#(Bit#(16));
    function Bit#(16) byteSwap(Bit#(16) x);
       Vector#(2, Bit#(8)) bytes = unpack(x);
