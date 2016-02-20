@@ -44,7 +44,7 @@ typedef enum {S0, S1, S2} StateType
    deriving (Bits, Eq);
 
 interface Bcam9b#(numeric type camDepth);
-   interface Put#(BcamWriteReq#(TLog#(camDepth), 9)) writeServer;
+   interface Put#(BcamWriteReq#(Bit#(TLog#(camDepth)), Bit#(9))) writeServer;
    interface Put#(ReadRequest) mPatt;
    interface Get#(ReadResponse#(TSub#(TLog#(camDepth), 7))) mIndc;
 endinterface
@@ -376,7 +376,7 @@ module mkBcam9b(Bcam9b#(camDepth))
 
    interface Put writeServer;
       // Cycle 0.
-      method Action put(BcamWriteReq#(camSz, 9) req);
+      method Action put(BcamWriteReq#(Bit#(camSz), Bit#(9)) req);
          Bit#(camSz) wAddr = req.addr;
          Bit#(9) wData = req.data;
          Vector#(wAddrHWidth, Bit#(1)) wAddrH = takeAt(4, unpack(wAddr));
@@ -409,7 +409,7 @@ endmodule
 
 interface BinaryCam#(numeric type camDepth, numeric type pattWidth);
    //interface Put#(Tuple2#(Bit#(TLog#(camDepth)), Bit#(pattWidth))) writeServer;
-   interface Put#(BcamWriteReq#(TLog#(camDepth), pattWidth)) writeServer;
+   interface Put#(BcamWriteReq#(Bit#(TLog#(camDepth)), Bit#(pattWidth))) writeServer;
    interface Server#(Bit#(pattWidth), Maybe#(Bit#(TLog#(camDepth)))) readServer;
    interface Server#(Bit#(TLog#(camDepth)), Maybe#(Bit#(pattWidth))) printServer;
 endinterface
@@ -478,10 +478,10 @@ module mkBinaryCam(BinaryCam#(camDepth, pattWidth))
       interface Get response = toGet(readFifo);
    endinterface
    interface Put writeServer;
-      method Action put(BcamWriteReq#(camSz, pattWidth) v);
+      method Action put(BcamWriteReq#(Bit#(camSz), Bit#(pattWidth)) v);
          for (Integer i=0; i<valueOf(pwid); i=i+1) begin
             Vector#(9, Bit#(1)) data = takeAt(fromInteger(i) * 9, unpack(v.data));
-            BcamWriteReq#(camSz, 9) req = BcamWriteReq{addr: v.addr, data: pack(data)};
+            let req = BcamWriteReq{addr: v.addr, data: pack(data)};
             cam9b[i].writeServer.put(req);
          end
       endmethod

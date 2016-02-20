@@ -8,27 +8,46 @@ import DefaultValue::*;
 import BRAM::*;
 import FShow::*;
 import Pipe::*;
-
-import MatchTableTypes::*;
 import Bcam::*;
 import BcamTypes::*;
 
-typedef 9 KeyLen;
-typedef 10 ValueLen;
-typedef 10 AddrIdx;
+typedef struct {
+   Bit#(9) key_field;
+} MatchFieldSourceMac deriving (Bits, Eq);
 
-typedef Bit#(16) FlowId;
+typedef enum {
+   MacLearn = 0,
+   Nop
+} ActionSourceMac deriving (Bits, Eq);
 
-interface MatchTable#(numeric type depth, numeric type keySz);
-   interface Server#(Bit#(KeyLen), ActionSpec_t) lookupPort;
-   interface Server#(Bit#(depth), Bit#(keySz)) readPort;
-   interface PipeOut#(FlowId) entry_added;
-   interface Put#(MatchSpec_t) add_entry;
-   interface Put#(FlowId) delete_entry;
-   interface Put#(Tuple2#(FlowId, ActionSpec_t)) modify_entry;
+typedef struct {
+   MatchFieldSourceMac key;
+   ActionSourceMac    actions;
+} MatchTableIfc deriving (Bits, Eq);
+
+interface MatchTable#(numeric type depth, type keys, type actions);
+   interface Server#(keys, actions) lookupPort;
+   interface Put#(keys) add_entry;
+   interface Put#(Bit#(TLog#(depth))) delete_entry;
+   interface Put#(Tuple2#(Bit#(TLog#(depth)), actions)) modify_entry;
 endinterface
 
-module mkMatchTable(MatchTable);
+module mkMatchTable(MatchTable#(depth, keys, actions))
+   provisos (Bits#(keys, keySz),
+             Bits#(actions, actionSz),
+             NumAlias#(depthSz, TLog#(depth)),
+             Mul#(a__, 256, b__),
+             Add#(a__, 7, depthSz),
+             Log#(b__, depthSz),
+             Mul#(c__, 9, keySz),
+             Add#(TAdd#(TLog#(a__), 4), 2, TLog#(TDiv#(depth, 4))),
+             Log#(TDiv#(depth, 16), TAdd#(TLog#(a__), 4)),
+             Add#(9, d__, keySz),
+             PriorityEncoder::PEncoder#(b__),
+             Add#(2, e__, TLog#(depth)),
+             Add#(4, f__, TLog#(depth)),
+             Add#(TAdd#(TLog#(a__), 4), g__, TLog#(depth))
+            );
    let verbose = True;
    Reg#(Bit#(32)) cycle <- mkReg(0);
 
@@ -36,18 +55,17 @@ module mkMatchTable(MatchTable);
       cycle <= cycle + 1;
    endrule
 
-   FIFOF#(FlowId) entry_added_fifo <- mkSizedFIFOF(1);
-   BinaryCam#(depth, keySz) bcam <- mkBinaryCam;
+   BinaryCam#(depth, keySz) bcam <- mkBinaryCam();
 
    BRAM_Configure cfg = defaultValue;
    cfg.latency = 2;
-   BRAM2Port#(Bit#(10), ActionSpec_t) ram <- mkBRAM2Server(cfg);
+   BRAM2Port#(Bit#(depthSz), Bit#(actionSz)) ram <- mkBRAM2Server(cfg);
 
-   Reg#(Bit#(AddrIdx)) addrIdx <- mkReg(0);
+   Reg#(Bit#(depthSz)) addrIdx <- mkReg(0);
 
    rule handle_bcam_response;
       let v <- bcam.readServer.response.get;
-      if (verbose) $display("matchTable %d: recv bcam response ", cycle, fshow(v));
+      //if (verbose) $display("matchTable %d: recv bcam response ", cycle, fshow(v));
       if (isValid(v)) begin
          let address = fromMaybe(?, v);
          ram.portA.request.put(BRAMRequest{write:False, responseOnWrite: False, address: address, datain:?});
@@ -57,63 +75,48 @@ module mkMatchTable(MatchTable);
    // Interface for lookup from data-plane modules
    interface Server lookupPort;
       interface Put request;
-         method Action put (Bit#(KeyLen) v);
-            BcamReadReq#(KeyLen) req_bcam = BcamReadReq{data: v};
+         method Action put (keys v);
+            BcamReadReq#(keys) req_bcam = BcamReadReq{data: v};
             bcam.readServer.request.put(pack(req_bcam));
-            if (verbose) $display("matchTable %d: lookup ", cycle, fshow(req_bcam));
+            //if (verbose) $display("matchTable %d: lookup ", cycle, fshow(req_bcam));
          endmethod
       endinterface
       interface Get response;
-         method ActionValue#(ActionSpec_t) get();
+         method ActionValue#(actions) get();
             let v <- ram.portA.response.get;
-            if (verbose) $display("matchTable %d: recv ram response ", cycle, fshow(v));
-            return v;
-         endmethod
-      endinterface
-   endinterface
-
-   // Interface for read from control-plane
-   interface Server readPort;
-      interface Put request;
-         method Action put (Bit#(8) addr);
-
-         endmethod
-      endinterface
-      interface Get response;
-         method ActionValue#(Bit#(9)) get();
-            return 0;
+            //if (verbose) $display("matchTable %d: recv ram response ", cycle, fshow(v));
+            return unpack(v);
          endmethod
       endinterface
    endinterface
 
    // Interface for write from control-plane
    interface Put add_entry;
-      method Action put (MatchSpec_t m);
-         BcamWriteReq#(10, KeyLen) req_bcam = BcamWriteReq{addr: addrIdx, data: m.data};
-         BRAMRequest#(Bit#(10), ActionSpec_t) req_ram = BRAMRequest{write: True, responseOnWrite: False, address: addrIdx, datain: m.param};
+      method Action put (keys m);
+         BcamWriteReq#(Bit#(depthSz), Bit#(keySz)) req_bcam = BcamWriteReq{addr: addrIdx, data: pack(m)};
+         BRAMRequest#(Bit#(depthSz), Bit#(actionSz)) req_ram = BRAMRequest{write: True, responseOnWrite: False, address: addrIdx, datain: 0};
          bcam.writeServer.put(req_bcam);
          ram.portA.request.put(req_ram);
          $display("match_table %d: add flow %x", cycle, addrIdx);
          addrIdx <= addrIdx + 1; //FIXME: currently no reuse of address.
-         entry_added_fifo.enq(extend(addrIdx));
       endmethod
    endinterface
-   interface PipeOut entry_added = toPipeOut(entry_added_fifo);
    interface Put delete_entry;
-      method Action put (FlowId id);
-         BcamWriteReq#(10, KeyLen) req_bcam = BcamWriteReq{addr: truncate(id), data: 0};
-         BRAMRequest#(Bit#(10), ActionSpec_t) req_ram = BRAMRequest{write: True, responseOnWrite: False, address: truncate(id), datain: ActionSpec_t{op:0}};
+      method Action put (Bit#(depthSz) id);
+         BcamWriteReq#(Bit#(depthSz), Bit#(keySz)) req_bcam = BcamWriteReq{addr: id, data: 0};
+         BRAMRequest#(Bit#(depthSz), Bit#(actionSz)) req_ram = BRAMRequest{write: True, responseOnWrite: False, address: id, datain: 0};
          bcam.writeServer.put(req_bcam);
          ram.portA.request.put(req_ram);
          $display("match_table %d: delete flow %x", cycle, id);
       endmethod
    endinterface
    interface Put modify_entry;
-      method Action put (Tuple2#(FlowId, ActionSpec_t) v);
+      method Action put (Tuple2#(Bit#(depthSz), actions) v);
          match { .flowid, .act} = v;
-         $display("match_table %d: modify flow %x with action %x", cycle, flowid, act);
-         BRAMRequest#(Bit#(10), ActionSpec_t) req_ram = BRAMRequest{write: True, responseOnWrite: False, address: truncate(flowid), datain: ActionSpec_t{ op : act.op } };
+         //$display("match_table %d: modify flow %x with action %x", cycle, flowid, act);
+         BRAMRequest#(Bit#(depthSz), Bit#(actionSz)) req_ram = BRAMRequest{write: True, responseOnWrite: False, address: flowid, datain: pack(act)};
          ram.portA.request.put(req_ram);
       endmethod
    endinterface
 endmodule
+

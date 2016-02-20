@@ -30,11 +30,11 @@ typedef struct {
 } RamWriteRequest#(numeric type camDepth) deriving (Bits);
 
 typedef struct {
-   Bit#(addrWidth) addr;
-   Bit#(dataWidth) data;
-} BcamWriteReq#(numeric type addrWidth, numeric type dataWidth) deriving (Bits, Eq, FShow);
+   addrT addr;
+   dataT data;
+} BcamWriteReq#(type addrT, type dataT) deriving (Bits, Eq, FShow);
 
 typedef struct {
-   Bit#(dataWidth) data;
-} BcamReadReq#(numeric type dataWidth) deriving (Bits, Eq, FShow);
+   dataT data;
+} BcamReadReq#(type dataT) deriving (Bits, Eq, FShow);
 
