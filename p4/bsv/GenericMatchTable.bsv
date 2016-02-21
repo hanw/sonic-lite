@@ -105,7 +105,7 @@ module mkMatchTable(MatchTable#(depth, keySz))
    rule handle_bcam_write_request;
       let req <- toGet(writeReqFifo).get;
       let addrIdx <- toGet(addrFifo).get;
-      BcamWriteReq#(depthSz, keySz) req_bcam = BcamWriteReq{addr: addrIdx, data: extend(req.field.dstip)};
+      BcamWriteReq#(Bit#(depthSz), Bit#(keySz)) req_bcam = BcamWriteReq{addr: addrIdx, data: extend(req.field.dstip)};
       let actionArg = ActionArg{egress_index: req.argument.egress_index};
       BRAMRequest#(Bit#(depthSz), ActionArg) req_ram = BRAMRequest{write: True, responseOnWrite: False, address: addrIdx, datain: actionArg};
       bcam.writeServer.put(req_bcam);
@@ -118,7 +118,7 @@ module mkMatchTable(MatchTable#(depth, keySz))
    interface Server lookupPort;
       interface Put request;
          method Action put (MatchField field);
-            BcamReadReq#(keySz) req_bcam = BcamReadReq{data: extend(field.dstip)};
+            BcamReadReq#(Bit#(keySz)) req_bcam = BcamReadReq{data: extend(field.dstip)};
             bcam.readServer.request.put(pack(req_bcam));
             matchRequestCount <= matchRequestCount + 1;
             if (verbose) $display("GenericMatchTable:: %d: bcam lookup ", cycle, fshow(req_bcam));
@@ -159,7 +159,7 @@ module mkMatchTable(MatchTable#(depth, keySz))
    interface Get entry_added = toGet(entryAddDoneFifo);
    interface Put delete_entry;
       method Action put (FlowId id);
-         BcamWriteReq#(depthSz, keySz) req_bcam = BcamWriteReq{addr: truncate(id), data: 0};
+         BcamWriteReq#(Bit#(depthSz), Bit#(keySz)) req_bcam = BcamWriteReq{addr: truncate(id), data: 0};
          BRAMRequest#(Bit#(depthSz), ActionArg) req_ram = BRAMRequest{write: True, responseOnWrite: False, address: truncate(id), datain: ActionArg{egress_index: 0}};
          bcam.writeServer.put(req_bcam);
          ram.portA.request.put(req_ram);

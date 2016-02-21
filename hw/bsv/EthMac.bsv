@@ -34,6 +34,21 @@ import DefaultValue::*;
 import OInt::*;
 import Ethernet::*;
 
+typedef struct {
+   Bit#(n) data;
+   Bit#(TDiv#(n, 8)) mask;
+   Bit#(1) sop;
+   Bit#(1) eop;
+} PacketDataT#(numeric type n) deriving (Bits,Eq);
+instance DefaultValue#(PacketDataT#(64));
+    defaultValue = PacketDataT {
+        data : 0,
+        mask : 0,
+        sop : 0,
+        eop : 0
+    };
+endinstance
+
 `ifdef ALTERA
 import AlteraMacWrap::*;
 
@@ -45,22 +60,6 @@ interface EthMacIfc;
    interface Put#(PacketDataT#(64)) packet_tx;
    interface Get#(PacketDataT#(64)) packet_rx;
 endinterface
-
-typedef struct {
-   Bit#(n) data;
-   Bit#(TDiv#(n, 8)) mask;
-   Bit#(1) sop;
-   Bit#(1) eop;
-} PacketDataT#(numeric type n) deriving (Bits,Eq);
-
-instance DefaultValue#(PacketDataT#(64));
-    defaultValue = PacketDataT {
-        data : 0,
-        mask : 0,
-        sop : 0,
-        eop : 0
-    };
-endinstance
 
 // Mac Wrapper
 (* synthesize *)
@@ -163,22 +162,6 @@ interface EthMacIfc;
    interface Put#(PacketDataT#(64)) packet_tx;
    interface Get#(PacketDataT#(64)) packet_rx;
 endinterface
-
-typedef struct {
-   Bit#(n) data;
-   Bit#(TDiv#(n, 8)) mask;
-   Bit#(1) sop;
-   Bit#(1) eop;
-} PacketDataT#(numeric type n) deriving (Bits,Eq);
-
-instance DefaultValue#(PacketDataT#(64));
-    defaultValue = PacketDataT {
-        data : 0,
-        mask : 0,
-        sop : 0,
-        eop : 0
-    };
-endinstance
 
 // Mac Wrapper
 (* synthesize *)
