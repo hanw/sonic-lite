@@ -50,6 +50,7 @@ import LedController::*;
 
 interface PmaTestRequest;
    method Action read_version();
+   method Action dtp_reset(Bit#(32) cnt);
 endinterface
 
 interface PmaTestTop;
@@ -72,13 +73,24 @@ module mkPmaTestTop#(PmaTestIndication indication)(PmaTestTop);
    Clock txClock = clocks.clock_156_25;
    Clock phyClock = clocks.clock_644_53;
    Clock mgmtClock = clocks.clock_50;
+ 
+   SyncFIFOIfc#(Bit#(32)) rst_fifo <- mkSyncFIFO(8, defaultClock, defaultReset, mgmtClock);
+
    Reset txReset <- mkAsyncReset(2, defaultReset, txClock);
-   Reset phyReset <- mkAsyncReset(2, defaultReset, phyClock);
+   //Reset phyReset <- mkAsyncReset(2, defaultReset, phyClock);
+//   Reset netReset <- mkAsyncReset(3, defaultReset, txClock);
+//   Reset portReset <- mkAsyncReset(8, defaultReset, txClock);
    Reset mgmtReset <- mkAsyncReset(2, defaultReset, mgmtClock);
+   Reset phyReset <- mkAsyncReset(2, defaultReset, phyClock);
+
+   Reg#(Bit#(32)) dtp_rst_cntr <- mkReg(0, clocked_by mgmtClock, reset_by mgmtReset);
+   MakeResetIfc dtpResetOut <- mkResetSync(0, False, mgmtClock, clocked_by mgmtClock, reset_by mgmtReset);
+
+   Reset pmaReset <- mkResetEither(mgmtReset, dtpResetOut.new_rst, clocked_by mgmtClock);
 
    De5SfpCtrl#(4) sfpctrl <- mkDe5SfpCtrl();
 
-   EthSonicPma#(4) pma4 <- mkEthSonicPma(mgmtClock, phyClock, txClock, mgmtReset, clocked_by mgmtClock, reset_by mgmtReset);
+   EthSonicPma#(4) pma4 <- mkEthSonicPma(mgmtClock, phyClock, txClock, pmaReset, phyReset, clocked_by mgmtClock, reset_by pmaReset);
 
    for(Integer i=0 ; i < 4 ; i=i+1) begin
       rule rx_pma;
@@ -91,10 +103,24 @@ module mkPmaTestTop#(PmaTestIndication indication)(PmaTestTop);
       endrule
    end
 
+   rule assert_reset (dtp_rst_cntr == 0); 
+      let v = rst_fifo.first;
+      dtp_rst_cntr <= v;
+      rst_fifo.deq;
+   endrule
+
+   rule assert_mgmt_reset (dtp_rst_cntr > 0);
+      dtpResetOut.assertReset;
+      dtp_rst_cntr <= dtp_rst_cntr -1;
+   endrule
+
    interface PmaTestRequest request;
       method Action read_version();
          let v = `DtpVersion; //Defined in Makefile as time of compilation.
          indication.read_version_resp(v);
+      endmethod
+      method Action dtp_reset(Bit#(32) cnt);
+         rst_fifo.enq(cnt);
       endmethod
    endinterface
 
@@ -111,7 +137,7 @@ module mkPmaTestTop#(PmaTestIndication indication)(PmaTestTop);
       interface i2c = clocks.i2c;
       interface sfpctrl = sfpctrl;
       interface deleteme_unused_clock = defaultClock;
-      interface deleteme_unused_clock2 = mgmtClock;
+      interface deleteme_unused_clock2 = clocks.clock_50;
       interface deleteme_unused_clock3 = defaultClock;
       interface deleteme_unused_reset = defaultReset;
    endinterface

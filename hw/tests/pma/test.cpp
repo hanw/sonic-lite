@@ -22,11 +22,28 @@
 #include <stdio.h>
 #include <assert.h>
 
+#include "PmaTestRequest.h"
+#include "PmaTestIndication.h"
 #include "GeneratedTypes.h"
 
-#define NUMBER_OF_TESTS 1
+static PmaTestRequestProxy *device = 0;
+
+class PmaTestTop : public PmaTestIndicationWrapper
+{
+   public:
+      virtual void read_version_resp(uint32_t a) {
+         fprintf(stderr, "read version %x\n", a);
+      }
+
+      PmaTestTop (unsigned int id) : PmaTestIndicationWrapper(id) {}
+};
 
 int main(int argc, const char **argv)
 {
+   PmaTestTop indication(IfcNames_PmaTestIndicationH2S);
+   device = new PmaTestRequestProxy (IfcNames_PmaTestRequestS2H);
+   device->pint.busyType = BUSY_SPIN;
+
+   device->dtp_reset(32);
    return 0;
 }
