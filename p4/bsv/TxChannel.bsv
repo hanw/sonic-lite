@@ -25,7 +25,6 @@ import DbgTypes::*;
 import Ethernet::*;
 import EthMac::*;
 import GetPut::*;
-import IPv4Parser::*;
 import MemMgmt::*;
 import MemTypes::*;
 import PacketBuffer::*;
