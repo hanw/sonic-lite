@@ -3,20 +3,46 @@ import DefaultValue::*;
 
 import SchedulerTypes::*;
 
+typedef struct {
+    Bit#(1) active;
+    Bit#(16) flow_id;
+    Bit#(16) seq_num;
+} FlowElement deriving(Bits, Eq);
+
+instance DefaultValue#(FlowElement);
+    defaultValue = FlowElement {
+                    active  : 0,
+                    flow_id : 0,
+                    seq_num : 0
+                };
+endinstance
+
 interface MaxMinFairness;
-    method Action addFlow(ServerIndex src, ServerIndex dst);
-    method Bool flowExists(ServerIndex src, ServerIndex dst);
-    method Action removeFlow(ServerIndex src, ServerIndex dst);
-    method Action addToFlowCountMatrix(ServerIndex src, ServerIndex dst);
-    method Action remFromFlowCountMatrix(ServerIndex src, ServerIndex dst);
-    method ServerIndex getFlowCount(ServerIndex src, ServerIndex dst);
+    method Action addFlow(ServerIndex src,
+                          ServerIndex dst,
+                          Bit#(16) flow_id,
+                          Bit#(16) seq_num);
+    method Bool flowExists(ServerIndex src,
+                           ServerIndex dst);
+    method Action removeFlow(ServerIndex src,
+                             ServerIndex dst,
+                             Bit#(16) flow_id,
+                             Bit#(16) seq_num);
+    method Action addToFlowCountMatrix(ServerIndex src,
+                                       ServerIndex dst,
+                                       Bit#(16) flow_id,
+                                       Bit#(16) seq_num);
+    method Action remFromFlowCountMatrix(ServerIndex src,
+                                         ServerIndex dst);
+    method ServerIndex getFlowCount(ServerIndex src,
+                                    ServerIndex dst);
     method Action printMatrix(ServerIndex host_index);
 endinterface
 
 (* synthesize *)
 module mkMaxMinFairness (MaxMinFairness);
-    Vector#(NUM_OF_SERVERS, Vector#(NUM_OF_SERVERS, Reg#(Bit#(1))))
-                                  flow_matrix <- replicateM(replicateM(mkReg(0)));
+    Vector#(NUM_OF_SERVERS, Vector#(NUM_OF_SERVERS, Reg#(FlowElement)))
+                       flow_matrix <- replicateM(replicateM(mkReg(defaultValue)));
     Vector#(NUM_OF_SERVERS, Vector#(NUM_OF_SERVERS, Reg#(ServerIndex)))
                             flow_count_matrix <- replicateM(replicateM(mkReg(0)));
 
@@ -30,7 +56,8 @@ module mkMaxMinFairness (MaxMinFairness);
     begin
         for (Integer j = 0; j < valueof(NUM_OF_SERVERS); j = j + 1)
         begin
-            rule update_flow_count (s == fromInteger(i) || d == fromInteger(j));
+            rule update_flow_count ((s == fromInteger(i) || d == fromInteger(j))
+                                    && (i != j));
                 if (add_to_matrix)
                     flow_count_matrix[i][j] <= flow_count_matrix[i][j] + 1;
                 else
@@ -48,24 +75,45 @@ module mkMaxMinFairness (MaxMinFairness);
         d <= fromInteger(valueof(NUM_OF_SERVERS));
     endrule
 
-    method Action addFlow(ServerIndex src, ServerIndex dst);
-        if (flow_matrix[src][dst] == 0)
-            flow_matrix[src][dst] <= 1;
+    method Action addFlow(ServerIndex src, ServerIndex dst, Bit#(16) flow_id,
+                          Bit#(16) seq_num);
+        if (flow_matrix[src][dst].active == 0
+            && (flow_matrix[src][dst].flow_id != flow_id
+               || flow_matrix[src][dst].seq_num < seq_num))
+        begin
+            FlowElement f = FlowElement {
+                                active : 1,
+                                flow_id : 0,
+                                seq_num : 0
+                            };
+            flow_matrix[src][dst] <= f;
+        end
     endmethod
 
     method Bool flowExists(ServerIndex src, ServerIndex dst);
-        if (flow_matrix[src][dst] == 1)
+        if (flow_matrix[src][dst].active == 1)
             return True;
         else return False;
     endmethod
 
-    method Action removeFlow(ServerIndex src, ServerIndex dst);
-        if (flow_matrix[src][dst] == 1)
-            flow_matrix[src][dst] <= 0;
+    method Action removeFlow(ServerIndex src, ServerIndex dst, Bit#(16) flow_id,
+                             Bit#(16) seq_num);
+        if (flow_matrix[src][dst].active == 1)
+        begin
+            FlowElement f = FlowElement {
+                                active : 1,
+                                flow_id : flow_id,
+                                seq_num : seq_num
+                            };
+            flow_matrix[src][dst] <= f;
+        end
     endmethod
 
-    method Action addToFlowCountMatrix(ServerIndex src, ServerIndex dst);
-        if (flow_matrix[src][dst] == 0)
+    method Action addToFlowCountMatrix(ServerIndex src, ServerIndex dst,
+                                       Bit#(16) flow_id, Bit#(16) seq_num);
+        if (flow_matrix[src][dst].active == 0
+            && (flow_matrix[src][dst].flow_id != flow_id
+               || flow_matrix[src][dst].seq_num < seq_num))
         begin
             s <= src;
             d <= dst;
@@ -75,7 +123,7 @@ module mkMaxMinFairness (MaxMinFairness);
     endmethod
 
     method Action remFromFlowCountMatrix(ServerIndex src, ServerIndex dst);
-        if (flow_matrix[src][dst] == 1)
+        if (flow_matrix[src][dst].active == 1)
         begin
             s <= src;
             d <= dst;
@@ -89,7 +137,7 @@ module mkMaxMinFairness (MaxMinFairness);
     endmethod
 
     method Action printMatrix(ServerIndex host_index);
-        $display("[SCHED (%d)] Flow count matrix");
+        $display("[SCHED (%d)] Flow count matrix", host_index);
         for (Integer i = 0; i < valueof(NUM_OF_SERVERS); i = i + 1)
         begin
             for (Integer j = 0; j < valueof(NUM_OF_SERVERS); j = j + 1)

@@ -185,7 +185,7 @@ module mkSchedulerTopSim#(SchedulerTopSimIndication indication2)(SchedulerTopSim
 
         rule get_mac_send_count (get_mac_send_count_flag[i] == 1);
             get_mac_send_count_flag[i] <= 0;
-            mac[i].getMacSendCountForPort0();
+            //mac[i].getMacSendCountForPort0();
             get_fwd_queue_stats_flag[i] <= 1;
         endrule
 
@@ -201,13 +201,13 @@ module mkSchedulerTopSim#(SchedulerTopSimIndication indication2)(SchedulerTopSim
         endrule
 
         rule get_sop_count (get_sop_count_flag[i] == 1);
-            mac[i].getSOPCountForPort0();
+            //mac[i].getSOPCountForPort0();
             get_sop_count_flag[i] <= 0;
             get_eop_count_flag[i] <= 1;
         endrule
 
         rule get_eop_count (get_eop_count_flag[i] == 1);
-            mac[i].getEOPCountForPort0();
+            //mac[i].getEOPCountForPort0();
             get_eop_count_flag[i] <= 0;
         endrule
     end

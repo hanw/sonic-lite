@@ -46,7 +46,7 @@ instance DefaultValue#(Header);
                             header_checksum : 'h43ab,
                             src_ip          : 0,
                             dst_ip          : 0,
-                            payload         : 'h8475920bacccfe5463488baccef4
+                            payload         : 'h1475920bacccfe5463488baccef4
                           };
 endinstance
 
@@ -106,6 +106,10 @@ module mkDMASimulator#(Scheduler#(ReadReqType, ReadResType,
 
 	Reg#(Bit#(32)) rate_reg <- mkReg(0);
 
+    Reg#(Bit#(64)) flow_length <- mkReg(10);
+    Reg#(Bit#(16)) flow_id <- mkReg(1);
+    Reg#(Bit#(16)) seq_num <- mkReg(1);
+
 	rule counter_increment (start_flag == 1
 		                    && wait_for_pkt_trans_to_complete == 0);
 		if (count == num_of_cycles_to_wait)
@@ -123,7 +127,12 @@ module mkDMASimulator#(Scheduler#(ReadReqType, ReadResType,
     rule prepare_pkt_transmission (start_flag == 1 && start_sending_new_pkt == 1
 			                       && transmission_in_progress == 0);
 
-		stats.pkt_count <= stats.pkt_count + 1;
+        if (stats.pkt_count == flow_length - 1)
+        begin
+            start_flag <= 0;
+        end
+        stats.pkt_count <= stats.pkt_count + 1;
+
 		transmission_in_progress <= 1;
 		init_header <= 1;
 		block_count <= 0;
@@ -157,16 +166,30 @@ module mkDMASimulator#(Scheduler#(ReadReqType, ReadResType,
         Bit#(384) header_data = pack(header);
         if (block_count == 0)
         begin
+            if (stats.pkt_count == flow_length)
+            begin
+                stats.pkt_count <= 0;
+                header_data[258] = 1;
+                header_data[259] = 1;
+            end
             scheduler.dma_write_request.put
                     (makeWriteReq(1, 0, header_data[383:256]));
         end
         else if (block_count == 1)
         begin
+            Bit#(32) temp = {flow_id, seq_num};
+            header_data[255:224] = temp;
+            seq_num <= seq_num + 1;
             scheduler.dma_write_request.put
                     (makeWriteReq(0, 0, header_data[255:128]));
         end
         else if (block_count == 2)
         begin
+            if (stats.pkt_count == flow_length)
+            begin
+                flow_id <= flow_id + 1;
+                seq_num <= 1;
+            end
             scheduler.dma_write_request.put
                     (makeWriteReq(0, 0, header_data[127:0]));
         end

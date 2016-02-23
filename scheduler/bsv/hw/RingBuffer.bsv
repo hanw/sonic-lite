@@ -142,7 +142,9 @@ module mkRingBuffer#(Integer size)
     Reg#(Address) r_offset <- mkReg(0);
     Reg#(Address) r_offset_1 <- mkReg(0);
     Reg#(Address) r_max_offset <- mkReg(0);
+
     Reg#(Bit#(1)) peek <- mkReg(0);
+    Reg#(Bit#(1)) remove <- mkReg(0);
 
     rule read_req (read_in_progress == 0);
         let r_req <- toGet(read_request_fifo).get;
@@ -150,15 +152,21 @@ module mkRingBuffer#(Integer size)
         if (!is_empty)
         begin
             read_in_progress <= 1;
-			r_offset <= 0;
-			r_offset_1 <= 1;
-			r_max_offset <= 0;
+            r_offset <= 0;
+            r_offset_1 <= 0;
+            r_max_offset <= 0;
             Address addr = (truncate(tail) & (fromInteger(size)-1)) << 5;
             len_buffer.portB.request.put(makeBRAMLenRequest(False, addr, 0));
             if (r_req.op == PEEK)
                 peek <= 1;
             else
                 peek <= 0;
+
+            // Specific to the scheduler; not part of generic ring buffer
+            if (r_req.op == REMOVE)
+                remove <= 1;
+            else
+                remove <= 0;
         end
         //else
         //    read_response_fifo.enq(makeReadRes(unpack(0)));
@@ -186,7 +194,7 @@ module mkRingBuffer#(Integer size)
 
 		r_offset_1 <= r_offset_1 + 1;
 
-        if (r_offset_1 - 1 == 0 && r_offset_1 < r_max_offset)
+        if (r_offset_1 == 0 && r_offset_1 < r_max_offset - 1)
         begin
             RingBufferDataT data = RingBufferDataT {
                               sop : 1,
@@ -194,9 +202,13 @@ module mkRingBuffer#(Integer size)
                               payload : d
                              };
             read_response_fifo.enq(makeReadRes(data));
+
+            // Specific to the scheduler; not part of generic ring buffer
+            if (d[3:2] == 'b11 && remove != 1)
+                peek <= 1;
         end
 
-        else if (r_offset_1 - 1 > 0 && r_offset_1 < r_max_offset)
+        else if (r_offset_1  > 0 && r_offset_1 < r_max_offset - 1)
         begin
             RingBufferDataT data = RingBufferDataT {
                               sop : 0,
@@ -206,7 +218,7 @@ module mkRingBuffer#(Integer size)
             read_response_fifo.enq(makeReadRes(data));
         end
 
-        else if (r_offset_1 - 1 > 0 && r_offset_1 == r_max_offset)
+        else if (r_offset_1 > 0 && r_offset_1 == r_max_offset - 1)
         begin
             RingBufferDataT data = RingBufferDataT {
                               sop : 0,
@@ -218,6 +230,7 @@ module mkRingBuffer#(Integer size)
             if (peek == 0)
                 tail <= tail + 1;
         end
+
     endrule
 
 /*-------------------------------------------------------------------------------*/
