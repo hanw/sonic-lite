@@ -16,6 +16,7 @@ import MemTypes::*;
 import MemServerIndication::*;
 import MMUIndication::*;
 import Paxos::*;
+import RoleTable::*;
 
 typedef 12 PktSize; // maximum 4096b
 typedef TDiv#(`DataBusWidth, 32) WordsPerBeat;

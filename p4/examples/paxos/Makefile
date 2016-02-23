@@ -27,7 +27,7 @@ FPGAMAKE_CONNECTALFLAGS += -P mkPcieHostTop
 CONNECTALFLAGS += -m $(P4FPGADIR)/bsv/AsymmetricBRAM/mem_model.c
 
 run:
-	(cd bluesim; ./bin/ubuntu.exe -p $(P4FPGADIR)/tests/pcap/udp-small.pcap)
+	(cd bluesim; ./bin/ubuntu.exe -p ../paxos.pcap)
 
 include $(SONICDIR)/p4/Makefile.common
 include $(CONNECTALDIR)/Makefile.connectal

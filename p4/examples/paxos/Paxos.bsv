@@ -404,6 +404,7 @@ function SwitchMetadataT extract_switch_metadata(Bit#(8) data);
     return switch_metadata_t;
 endfunction
 
+import ClientServer::*;
 import Connectable::*;
 import DefaultValue::*;
 import FIFO::*;
@@ -615,7 +616,7 @@ module mkStateParseIpv4#(Reg#(ParserState) state, FIFOF#(EtherData) datain)(Pars
     function ParserState compute_next_state(Bit#(8) protocol);
         ParserState nextState = StateStart;
         case (byteSwap(protocol)) matches
-            'h39: begin //FIXME
+            'h8f: begin
                 nextState=StateParseCpuHeader;
             end
             'h11: begin
@@ -930,3 +931,125 @@ module mkParser(Parser);
     endrule
     interface frameIn = toPut(data_in_fifo);
 endmodule
+
+import PaxosTypes::*;
+
+/* generate tables */
+typedef struct {
+    Bit#(48) key_field_0;
+} MatchFieldSmacTable deriving (Bits, Eq, FShow);
+
+typedef enum {
+    MacLearn = 1,
+    Nop = 2
+} ActionSmacTableValue2 deriving (Bits, Eq);
+
+typedef struct {
+    Bit#(48) key_field_0;
+} MatchFieldDmacTable deriving (Bits, Eq, FShow);
+
+typedef enum {
+    Forward = 1,
+    Broadcast = 2
+} ActionDmacTableValue5 deriving (Bits, Eq);
+
+typedef struct {
+    Bit#(9) port;
+} ActionArguments_forward;
+
+typedef struct {
+    Bit#(4) group;
+} ActionArguments_broadcast;
+
+typedef struct {
+    Bit#(32) key_field_0;
+} MatchFieldMcastSrcPruning deriving (Bits, Eq, FShow);
+
+typedef enum {
+    Nop = 1,
+    Drop = 2
+} ActionMcastSrcPruningValue8 deriving (Bits, Eq);
+
+typedef struct {
+} MatchFieldEncapTbl deriving (Bits, Eq, FShow);
+
+typedef enum {
+    EncapCpuHeader = 1
+} ActionEncapTblValue11 deriving (Bits, Eq);
+
+typedef struct {
+    Bit#(8) key_field_0;
+} MatchFieldSequenceTbl deriving (Bits, Eq, FShow);
+
+typedef enum {
+    IncreaseInstance = 1,
+    Nop = 2
+} ActionSequenceTblValue14 deriving (Bits, Eq);
+
+typedef struct {
+} MatchFieldRoundTbl deriving (Bits, Eq, FShow);
+
+typedef enum {
+    ReadRound = 1
+} ActionRoundTblValue17 deriving (Bits, Eq);
+
+typedef struct {
+    Bit#(8) key_field_0;
+} MatchFieldAcceptorTbl deriving (Bits, Eq, FShow);
+
+typedef enum {
+    Handle1A = 1,
+    Handle2A = 2,
+    Drop = 3
+} ActionAcceptorTblValue20 deriving (Bits, Eq);
+
+typedef struct {
+} MatchFieldDropTbl deriving (Bits, Eq, FShow);
+
+typedef enum {
+    Drop = 1
+} ActionDropTblValue23 deriving (Bits, Eq);
+
+typedef struct {
+} MatchFieldRoleTbl deriving (Bits, Eq, FShow);
+
+typedef enum {
+    ReadRole = 1
+} ActionRoleTblValue26 deriving (Bits, Eq);
+
+interface ActionModifyField;
+   //interface Client#(MetadataRequest, MetadataResponse) next;
+   //interface MemWriteClient#(`DataBusWidth) writeClient;
+endinterface
+
+module mkActionModifyField#(Client#(MetadataRequest, MetadataResponse) md)(ActionModifyField);
+endmodule
+
+interface ActionRegisterRead;
+
+endinterface
+
+module mkActionRegisterRead(ActionRegisterRead);
+
+endmodule
+
+interface ActionAddToField;
+
+endinterface
+
+interface ActionRegisterWrite;
+
+endinterface
+
+interface ActionDrop;
+
+endinterface
+
+interface ActionRemoveHeader;
+
+endinterface
+
+interface ActionAddHeader;
+
+endinterface
+
