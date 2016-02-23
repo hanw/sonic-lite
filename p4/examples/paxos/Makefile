@@ -19,7 +19,7 @@ PINOUT_FILE=$(P4FPGADIR)/boards/de5.json
 # Connectal Support
 ########################################################
 S2H_INTERFACES=ParserTestRequest:ParserTest.request
-H2S_INTERFACES=ParserTest:ParserTestIndication
+H2S_INTERFACES=ParserTest:ParserTestIndication,MemServerIndication
 CPPFILES=test.cpp
 BSVFILES=ParserTest.bsv
 FPGAMAKE_CONNECTALFLAGS += -P mkPcieHostTop

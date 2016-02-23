@@ -26,45 +26,29 @@ import Ethernet::*;
 import FIFO::*;
 import GetPut::*;
 import PaxosTypes::*;
+import RegFile::*;
 
-typedef enum {
-   Acceptor = 1,
-   Coordinator = 2
-} Role deriving (Bits);
 
-interface RoleLookup;
+interface RoundTable;
    interface Client#(MetadataRequest, MetadataResponse) next;
    interface Client#(RegRequest, RegResponse) regAccess;
 endinterface
 
-module mkRoleLookup#(Client#(MetadataRequest, MetadataResponse) md)(RoleLookup);
+module mkRoundTable#(Client#(MetadataRequest, MetadataResponse) md)(RoundTable);
    Reg#(Bit#(64)) lookupCnt <- mkReg(0);
-   Reg#(Role) role <- mkReg(Acceptor);
 
    FIFO#(MetadataRequest) outReqFifo <- mkFIFO;
    FIFO#(MetadataResponse) inRespFifo <- mkFIFO;
    FIFO#(PacketInstance) currPacketFifo <- mkFIFO;
 
-   rule tableLookupRequest;
-      let v <- md.request.get;
-      case (v) matches
-         tagged RoleLookupRequest {pkt: .pkt}: begin
-            case (role) matches
-               Acceptor: begin
-                  MetadataRequest nextReq = tagged RoundTblRequest {pkt: pkt};
-                  outReqFifo.enq(nextReq);
-               end
-               Coordinator: begin
-                  MetadataRequest nextReq = tagged SequenceTblRequest {pkt: pkt};
-                  outReqFifo.enq(nextReq);
-               end
-            endcase
-            lookupCnt <= lookupCnt + 1;
-         end
-         default: begin
-            $display ("Role Lookup: Unhandled Packet, drop or punt!");
-         end
-      endcase
+   // read round register from register file
+   rule readRound;
+      // issue read request;
+   endrule
+
+   rule readRoundResp;
+      // issue write to metadata
+      // metadata identified with packet id
    endrule
 
    interface next = (interface Client#(MetadataRequest, MetadataResponse);
@@ -72,3 +56,4 @@ module mkRoleLookup#(Client#(MetadataRequest, MetadataResponse) md)(RoleLookup);
       interface response = toPut(inRespFifo);
    endinterface);
 endmodule
+
