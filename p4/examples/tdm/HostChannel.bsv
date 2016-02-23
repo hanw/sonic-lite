@@ -30,7 +30,7 @@ import IPv4Parser::*;
 import MemMgmt::*;
 import MemTypes::*;
 import PacketBuffer::*;
-import PacketTypes::*;
+//import PacketTypes::*;
 import StoreAndForward::*;
 import SharedBuff::*;
 import Tap::*;

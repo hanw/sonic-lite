@@ -47,3 +47,4 @@ typedef union tagged {
 typedef struct {
    Bool done;
 } MetadataResponse deriving (Bits, Eq);
+
