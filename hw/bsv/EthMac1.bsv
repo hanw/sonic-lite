@@ -142,4 +142,4 @@ module mkEthMac#(Clock clk_50, Clock clk_156_25, Clock rx_clk, Reset rst_156_25_
    endinterface
    interface Get packet_rx = toGet(rx_fifo);
 endmodule
-endpackage: EthMac
+endpackage: EthMac1
