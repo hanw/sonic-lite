@@ -5,6 +5,7 @@ import GetPut::*;
 import DefaultValue::*;
 
 import RingBufferTypes::*;
+import GlobalClock::*;
 
 interface RingBuffer#(type readReqType, type readResType,
                       type writeReqType, type writeResType);
@@ -34,7 +35,6 @@ module mkRingBuffer#(Integer size)
     BRAM_Configure cfg = defaultValue;
     cfg.memorySize = fromInteger(size)
                    * fromInteger(valueof(MAX_PKT_LEN));
-	cfg.outFIFODepth = 8;
 
     BRAM2Port#(Address, Payload) ring_buffer <- mkBRAM2Server(cfg);
 
@@ -51,7 +51,6 @@ module mkRingBuffer#(Integer size)
 
     BRAM_Configure cfg1 = defaultValue;
     cfg1.memorySize = fromInteger(size) * 32;
-	cfg1.outFIFODepth = 8;
 
     BRAM2Port#(Address, Bit#(32)) len_buffer <- mkBRAM2Server(cfg1);
 
@@ -60,13 +59,14 @@ module mkRingBuffer#(Integer size)
     Reg#(Bit#(64)) tail <- mkReg(0);
 
     Bool is_empty = (head == tail);
-    Bool is_full = (head == (tail + fromInteger(size)));
+    Bool is_full = (head == tail + fromInteger(size));
 
     FIFO#(ReadReqType) read_request_fifo <- mkSizedFIFO(8);
     FIFO#(ReadResType) read_response_fifo <- mkSizedFIFO(8);
     FIFO#(WriteReqType) write_request_fifo <- mkSizedFIFO(8);
     FIFO#(WriteResType) write_response_fifo <- mkSizedFIFO(8);
 
+	GlobalClock clk <- mkGlobalClock;
 /*-------------------------------------------------------------------------------*/
     Reg#(Bit#(1)) write_in_progress <- mkReg(0);
     Reg#(Address) w_offset <- mkReg(0);
@@ -79,32 +79,34 @@ module mkRingBuffer#(Integer size)
 
         if (!is_full)
         begin
-            if ((w_req.data.sop == 1 && w_req.data.eop == 0)
-               && write_in_progress == 0)
+            if (w_req.data.sop == 1 && w_req.data.eop == 0)
             begin
                 write_in_progress <= 1;
-                write_flag = True;
-                w_offset <= w_offset + 1;
-                length <= length + fromInteger(valueof(BUS_WIDTH));
+                write_flag = False;
+                w_offset <= 1;
+                length <= fromInteger(valueof(BUS_WIDTH));
+                Address addr = ((truncate(head) & (fromInteger(size)-1))
+					     << fromInteger(valueof(MAX_PKT_LEN_POW_OF_2)));
+                ring_buffer.portA.request.put(makeBRAMDataRequest(True, addr,
+                                                        w_req.data.payload));
             end
 
             else if ((w_req.data.sop == 0 && w_req.data.eop == 0)
                     && write_in_progress == 1)
             begin
-				if (length == ((fromInteger(valueof(MAX_PKT_LEN)) >>
-				                fromInteger(valueof(BUS_WIDTH_POW_OF_2)))-1))
-				begin
-					w_offset <= 0;
-					write_in_progress <= 0;
-					length <= 0;
-					write_flag = False;
-				end
-				else
-				begin
-					write_flag = True;
-					w_offset <= w_offset + 1;
-					length <= length + fromInteger(valueof(BUS_WIDTH));
-				end
+                if (length == ((fromInteger(valueof(MAX_PKT_LEN)) >>
+                         fromInteger(valueof(BUS_WIDTH_POW_OF_2)))-1))
+                begin
+                    write_flag = False;
+                    write_in_progress <= 0;
+                end
+
+                else
+                begin
+                    write_flag = True;
+                    w_offset <= w_offset + 1;
+                    length <= length + fromInteger(valueof(BUS_WIDTH));
+                end
             end
 
             else if ((w_req.data.sop == 0 && w_req.data.eop == 1)
@@ -113,24 +115,9 @@ module mkRingBuffer#(Integer size)
                 write_in_progress <= 0;
                 write_flag = True;
                 head <= head + 1;
-                w_offset <= 0;
-                length <= 0;
                 Address addr = (truncate(head) & (fromInteger(size)-1)) << 5;
                 len_buffer.portA.request.put(makeBRAMLenRequest(True, addr,
                                         length + fromInteger(valueof(BUS_WIDTH))));
-                //write_response_fifo.enq(makeWriteRes(SUCCESS));
-            end
-
-            else if ((w_req.data.sop == 1 && w_req.data.eop == 1)
-                    && write_in_progress == 0)
-            begin
-                write_flag = True;
-                head <= head + 1;
-                w_offset <= 0;
-                length <= 0;
-                Address addr = (truncate(head) & (fromInteger(size)-1)) << 5;
-                len_buffer.portA.request.put(makeBRAMLenRequest(True, addr,
-                                         length + fromInteger(valueof(BUS_WIDTH))));
                 //write_response_fifo.enq(makeWriteRes(SUCCESS));
             end
 
@@ -143,7 +130,7 @@ module mkRingBuffer#(Integer size)
 					     << fromInteger(valueof(MAX_PKT_LEN_POW_OF_2)))
                          + (w_offset << fromInteger(valueof(BUS_WIDTH_POW_OF_2)));
             ring_buffer.portA.request.put(makeBRAMDataRequest(True, addr,
-                                                             w_req.data.payload));
+                                                               w_req.data.payload));
             end
         end
         //else
@@ -156,17 +143,30 @@ module mkRingBuffer#(Integer size)
     Reg#(Address) r_offset_1 <- mkReg(0);
     Reg#(Address) r_max_offset <- mkReg(0);
 
+    Reg#(Bit#(1)) peek <- mkReg(0);
+    Reg#(Bit#(1)) remove <- mkReg(0);
+
     rule read_req (read_in_progress == 0);
         let r_req <- toGet(read_request_fifo).get;
 
         if (!is_empty)
         begin
             read_in_progress <= 1;
-			r_offset <= 0;
-			r_offset_1 <= 1;
-			r_max_offset <= 0;
+            r_offset <= 0;
+            r_offset_1 <= 0;
+            r_max_offset <= 0;
             Address addr = (truncate(tail) & (fromInteger(size)-1)) << 5;
             len_buffer.portB.request.put(makeBRAMLenRequest(False, addr, 0));
+            if (r_req.op == PEEK)
+                peek <= 1;
+            else
+                peek <= 0;
+
+            // Specific to the scheduler; not part of generic ring buffer
+            if (r_req.op == REMOVE)
+                remove <= 1;
+            else
+                remove <= 0;
         end
         //else
         //    read_response_fifo.enq(makeReadRes(unpack(0)));
@@ -194,7 +194,7 @@ module mkRingBuffer#(Integer size)
 
 		r_offset_1 <= r_offset_1 + 1;
 
-        if (r_offset_1 - 1 == 0 && r_offset_1 < r_max_offset)
+        if (r_offset_1 == 0 && r_offset_1 < r_max_offset - 1)
         begin
             RingBufferDataT data = RingBufferDataT {
                               sop : 1,
@@ -202,9 +202,13 @@ module mkRingBuffer#(Integer size)
                               payload : d
                              };
             read_response_fifo.enq(makeReadRes(data));
+
+            // Specific to the scheduler; not part of generic ring buffer
+            if (d[3:2] == 'b11 && remove != 1)
+                peek <= 1;
         end
 
-        else if (r_offset_1 - 1 > 0 && r_offset_1 < r_max_offset)
+        else if (r_offset_1  > 0 && r_offset_1 < r_max_offset - 1)
         begin
             RingBufferDataT data = RingBufferDataT {
                               sop : 0,
@@ -214,7 +218,7 @@ module mkRingBuffer#(Integer size)
             read_response_fifo.enq(makeReadRes(data));
         end
 
-        else if (r_offset_1 - 1 > 0 && r_offset_1 == r_max_offset)
+        else if (r_offset_1 > 0 && r_offset_1 == r_max_offset - 1)
         begin
             RingBufferDataT data = RingBufferDataT {
                               sop : 0,
@@ -223,20 +227,10 @@ module mkRingBuffer#(Integer size)
                              };
             read_response_fifo.enq(makeReadRes(data));
             read_in_progress <= 0;
-            tail <= tail + 1;
+            if (peek == 0)
+                tail <= tail + 1;
         end
 
-        else if (r_offset_1 - 1 == 0 && r_offset_1 == r_max_offset)
-        begin
-            RingBufferDataT data = RingBufferDataT {
-                              sop : 1,
-                              eop : 1,
-                              payload : d
-                             };
-            read_response_fifo.enq(makeReadRes(data));
-            read_in_progress <= 0;
-            tail <= tail + 1;
-        end
     endrule
 
 /*-------------------------------------------------------------------------------*/

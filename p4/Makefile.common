@@ -10,7 +10,7 @@ CONNECTALFLAGS += -D PcieHostIF
 CONNECTALFLAGS += -D DataBusWidth=128
 #FPGAMAKE_CONNECTALFLAGS += -P mkPcieHostTop
 
-CPPFILES += $(SONICDIR)/sw/lpcap.c
+#CPPFILES += $(SONICDIR)/sw/lpcap.c
 
 #CONNECTALFLAGS += -m $(P4FPGADIR)/bsv/AsymmetricBRAM/mem_model.c
 

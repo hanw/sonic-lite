@@ -1,10 +1,10 @@
 DEV_ROOT ?= $(HOME)
 CONNECTALDIR ?= $(DEV_ROOT)/connectal
 SONICDIR ?= $(DEV_ROOT)/sonic-lite
-S2H_INTERFACES = SchedulerTopRequest:SchedulerTop.request
-H2S_INTERFACES = SchedulerTop:SchedulerTopIndication
-BSVFILES = $(SONICDIR)/scheduler/bsv/hw/SchedulerTop.bsv
-CPPFILES = $(SONICDIR)/scheduler/cpp/test_hw.cpp
+S2H_INTERFACES = SchedulerTopSimRequest:SchedulerTopSim.request2
+H2S_INTERFACES = SchedulerTopSim:SchedulerTopSimIndication
+BSVFILES = $(SONICDIR)/scheduler/bsv/hw/SchedulerTopSim.bsv
+CPPFILES = $(SONICDIR)/scheduler/cpp/test_sim.cpp
 
 CONNECTALFLAGS += -D DataBusWidth=128
 CONNECTALFLAGS += --bsvpath=$(CONNECTALDIR)/bsv

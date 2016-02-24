@@ -34,6 +34,15 @@ import DefaultValue::*;
 import OInt::*;
 import Ethernet::*;
 
+interface EthMacIfc;
+   (* always_ready, always_enabled *)
+   method Bit#(72) tx;
+   (* always_ready, always_enabled *)
+   method Action rx (Bit#(72) v);
+   interface Put#(PacketDataT#(64)) packet_tx;
+   interface Get#(PacketDataT#(64)) packet_rx;
+endinterface
+
 typedef struct {
    Bit#(n) data;
    Bit#(TDiv#(n, 8)) mask;
@@ -127,16 +136,8 @@ module mkEthMac#(Clock clk_50, Clock clk_156_25, Clock rx_clk, Reset rst_156_25_
       mac.rx.fifo_out_ready(pack(rx_fifo.notFull));
    endrule
 
-   interface Get tx;
-      method ActionValue#(Bit#(72)) get;
-         return mac.xgmii.tx_data;
-      endmethod
-   endinterface
-   interface Put rx;
-      method Action put(Bit#(72) v);
-         mac.xgmii.rx_data(v);
-      endmethod
-   endinterface
+   method tx = mac.xgmii.tx_data;
+   method Action rx(x) = mac.xgmii.rx_data(x);
    interface Put packet_tx;
       method Action put(PacketDataT#(64) d) if (tx_ready_w != 0);
          Bit#(3) tx_empty = truncate(pack(countOnes(maxBound-unpack(d.mask))));

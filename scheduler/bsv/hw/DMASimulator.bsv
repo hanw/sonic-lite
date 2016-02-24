@@ -2,7 +2,6 @@ import FIFO::*;
 import FIFOF::*;
 import Vector::*;
 import DefaultValue::*;
-import Random::*;
 import GetPut::*;
 import Clocks::*;
 
@@ -47,7 +46,7 @@ instance DefaultValue#(Header);
                             header_checksum : 'h43ab,
                             src_ip          : 0,
                             dst_ip          : 0,
-                            payload         : 'h8475920bacccfe5463488baccef4
+                            payload         : 'h1475920bacccfe5463488baccef4
                           };
 endinstance
 
@@ -64,7 +63,8 @@ endinstance
 interface DMASimulator;
 	interface Get#(DMAStatsT) dma_stats_response;
 //	interface Get#(ServerIndex) debug_sending_pkt;
-    method Action start(ServerIndex idx, Bit#(32) rate);
+    method Action start(ServerIndex idx, Bit#(32) rate,
+		                ServerIndex num_of_servers_transmitting);
     method Action stop();
 	method Action getDMAStats();
 endinterface
@@ -79,6 +79,8 @@ module mkDMASimulator#(Scheduler#(ReadReqType, ReadResType,
     Reg#(Bool) verbose <- mkReg(False);
 
 	Reg#(ServerIndex) host_index <- mkReg(0);
+	Reg#(ServerIndex) num_of_servers_transmitting
+						<- mkReg(fromInteger(valueof(NUM_OF_SERVERS)));
 
 	SyncFIFOIfc#(DMAStatsT) dma_stats_fifo
 	         <- mkSyncFIFO(1, defaultClock, defaultReset, pcieClock);
@@ -88,23 +90,25 @@ module mkDMASimulator#(Scheduler#(ReadReqType, ReadResType,
 //	         <- mkSyncFIFO(10, defaultClock, defaultReset, pcieClock);
 
     Reg#(Bit#(32)) count <- mkReg(0);
-	Reg#(Bit#(32)) num_of_cycles_to_wait <- mkReg(3);
+	Reg#(Bit#(32)) num_of_cycles_to_wait <- mkReg(0);
 
     Reg#(Bit#(1)) start_flag <- mkReg(0);
 
 	Reg#(Bit#(1)) wait_for_pkt_trans_to_complete <- mkReg(0);
 	Reg#(Bit#(1)) start_sending_new_pkt <- mkReg(0);
 
-//	Random rand_dst_index <- mkRandom; // will return a 32-bit random number
-
     Reg#(Header) header <- mkReg(defaultValue);
     Reg#(ServerIndex) dst_index <- mkReg(0);
     Reg#(Bit#(7)) block_count <- mkReg(0);
-    Reg#(Bit#(7)) num_of_blocks_to_transmit <- mkReg(4);
+    Reg#(Bit#(7)) num_of_blocks_to_transmit <- mkReg(0);
     Reg#(Bit#(1)) transmission_in_progress <- mkReg(0);
     Reg#(Bit#(1)) init_header <- mkReg(0);
 
 	Reg#(Bit#(32)) rate_reg <- mkReg(0);
+
+    Reg#(Bit#(64)) flow_length <- mkReg(10);
+    Reg#(Bit#(16)) flow_id <- mkReg(1);
+    Reg#(Bit#(16)) seq_num <- mkReg(1);
 
 	rule counter_increment (start_flag == 1
 		                    && wait_for_pkt_trans_to_complete == 0);
@@ -123,30 +127,21 @@ module mkDMASimulator#(Scheduler#(ReadReqType, ReadResType,
     rule prepare_pkt_transmission (start_flag == 1 && start_sending_new_pkt == 1
 			                       && transmission_in_progress == 0);
 
-		stats.pkt_count <= stats.pkt_count + 1;
+        if (stats.pkt_count == flow_length - 1)
+        begin
+            start_flag <= 0;
+        end
+        stats.pkt_count <= stats.pkt_count + 1;
+
 		transmission_in_progress <= 1;
 		init_header <= 1;
 		block_count <= 0;
 
-//          let rand_num <- rand_dst_index.next();
-//			ServerIndex r = truncate(rand_num %
-//			                fromInteger(valueof(NUM_OF_SERVERS)));
-//            if (r == host_index)
-//            begin
-//				let x = (r + 1) % fromInteger(valueof(NUM_OF_SERVERS));
-//                dst_index <= x;
-//				debug_sending_pkt_fifo.enq(x);
-//            end
-//            else
-//            begin
-//                dst_index <= r;
-//				debug_sending_pkt_fifo.enq(r);
-//            end
-//
-		if (host_index != (fromInteger(valueof(NUM_OF_SERVERS))-1))
+		if (host_index != (num_of_servers_transmitting-1))
 			dst_index <= host_index + 1;
 		else
 			dst_index <= 0;
+
 //		debug_sending_pkt_fifo.enq(1);
 
 		num_of_blocks_to_transmit <= 4; /* 64 byte packets */
@@ -171,16 +166,30 @@ module mkDMASimulator#(Scheduler#(ReadReqType, ReadResType,
         Bit#(384) header_data = pack(header);
         if (block_count == 0)
         begin
+            if (stats.pkt_count == flow_length)
+            begin
+                stats.pkt_count <= 0;
+                header_data[258] = 1;
+                header_data[259] = 1;
+            end
             scheduler.dma_write_request.put
                     (makeWriteReq(1, 0, header_data[383:256]));
         end
         else if (block_count == 1)
         begin
+            Bit#(32) temp = {flow_id, seq_num};
+            header_data[255:224] = temp;
+            seq_num <= seq_num + 1;
             scheduler.dma_write_request.put
                     (makeWriteReq(0, 0, header_data[255:128]));
         end
         else if (block_count == 2)
         begin
+            if (stats.pkt_count == flow_length)
+            begin
+                flow_id <= flow_id + 1;
+                seq_num <= 1;
+            end
             scheduler.dma_write_request.put
                     (makeWriteReq(0, 0, header_data[127:0]));
         end
@@ -255,11 +264,13 @@ module mkDMASimulator#(Scheduler#(ReadReqType, ReadResType,
 		rate_set_flag <= 0;
 	endrule
 
-    method Action start(ServerIndex idx, Bit#(32) rate);
+    method Action start(ServerIndex idx, Bit#(32) rate, ServerIndex n);
         if (verbose)
             $display("[DMA (%d)] Starting..........................", idx);
 		rate_reg <= rate;
 		host_index <= idx;
+		if (n > 0)
+			num_of_servers_transmitting <= n;
 		rate_set_flag <= 1;
     endmethod
 

@@ -8,6 +8,8 @@ import SchedulerTypes::*;
 import RingBufferTypes::*;
 import Addresses::*;
 
+typedef 2 NUM_OF_SERVERS_1;
+
 typedef struct {
     MAC dst_mac;
     MAC src_mac;
@@ -62,7 +64,7 @@ module mkDMASimulator#(Integer host_index,
 
     Reg#(Bool) verbose <- mkReg(False);
 
-    Reg#(Bit#(32)) count <- mkReg(9);
+    Reg#(Bit#(32)) count <- mkReg(1);
     Reg#(Bit#(1)) start_flag <- mkReg(0);
 
 	Reg#(Bit#(1)) wait_for_pkt_trans_to_complete <- mkReg(0);
@@ -83,7 +85,7 @@ module mkDMASimulator#(Integer host_index,
 
 	rule counter_increment (start_flag == 1
 		                    && wait_for_pkt_trans_to_complete == 0);
-		if (count == 9)
+		if (count == 1)
 		begin
 			count <= 0;
 			start_sending_new_pkt <= 1;
@@ -123,9 +125,9 @@ module mkDMASimulator#(Integer host_index,
 //                    $display("[DMA (%d)] dst index = %d", host_index, r);
 //				counter[r] <= counter[r] + 1;
 //            end
-			dst_index <= (fromInteger(host_index) + 1) % fromInteger(valueof(NUM_OF_SERVERS));
-				counter[((fromInteger(host_index)+1) % fromInteger(valueof(NUM_OF_SERVERS)))] <=
-				     counter[((fromInteger(host_index)+1) % fromInteger(valueof(NUM_OF_SERVERS)))] + 1;
+			dst_index <= (fromInteger(host_index) + 1) % fromInteger(valueof(NUM_OF_SERVERS_1));
+				counter[((fromInteger(host_index)+1) % fromInteger(valueof(NUM_OF_SERVERS_1)))] <=
+				     counter[((fromInteger(host_index)+1) % fromInteger(valueof(NUM_OF_SERVERS_1)))] + 1;
             num_of_blocks_to_transmit <= 4; /* 64 byte packets */
 
     endrule

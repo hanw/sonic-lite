@@ -17,6 +17,23 @@ function IP ip_address (ServerIndex index);
     return addr;
 endfunction
 
+function ServerIndex host_id (IP ip_address);
+    ServerIndex idx = fromInteger(valueof(NUM_OF_SERVERS));
+    case (ip_address)
+        'hc0a80001 : idx = 0;
+        'hc0a80002 : idx = 1;
+        'hc0a80003 : idx = 2;
+        'hc0a80004 : idx = 3;
+        'hc0a80005 : idx = 4;
+        'hc0a80006 : idx = 5;
+        'hc0a80007 : idx = 6;
+        'hc0a80008 : idx = 7;
+        'hc0a80009 : idx = 8;
+        'hc0a8000a : idx = 9;
+    endcase
+    return idx;
+endfunction
+
 function MAC mac_address (ServerIndex index);
     MAC addr = 'h000000000000;
     case (index)
