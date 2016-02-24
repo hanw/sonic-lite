@@ -16,7 +16,7 @@ import RingBuffer::*;
 import Addresses::*;
 
 import AlteraMacWrap::*;
-import EthMac::*;
+import EthMac1::*;
 
 interface SchedulerTopSimIndication;
 	method Action display_time_slots_count(Bit#(64) num_of_time_slots);

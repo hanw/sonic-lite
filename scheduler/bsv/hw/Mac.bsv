@@ -11,7 +11,7 @@ import RingBufferTypes::*;
 import Addresses::*;
 
 import AlteraMacWrap::*;
-import EthMac::*;
+import EthMac1::*;
 
 interface Mac;
 //	interface Get#(PacketDataT#(64)) debug_sending_to_phy;

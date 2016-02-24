@@ -18,7 +18,7 @@ import Addresses::*;
 import DtpController::*;
 import Ethernet::*;
 import AlteraMacWrap::*;
-import EthMac::*;
+import EthMac1::*;
 import EthPhy::*;
 import AlteraEthPhy::*;
 import DE5Pins::*;
