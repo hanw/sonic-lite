@@ -31,7 +31,7 @@ import RegFile::*;
 
 interface RoundTable;
    interface Client#(MetadataRequest, MetadataResponse) next;
-   interface Client#(RegRequest, RegResponse) regAccess;
+   interface Client#(RoundRegRequest, RoundRegResponse) regAccess;
 endinterface
 
 module mkRoundTable#(Client#(MetadataRequest, MetadataResponse) md)(RoundTable);

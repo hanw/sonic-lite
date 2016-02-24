@@ -34,7 +34,7 @@ typedef enum {
 
 interface RoleLookup;
    interface Client#(MetadataRequest, MetadataResponse) next;
-   interface Client#(RegRequest, RegResponse) regAccess;
+   interface Client#(RoundRegRequest, RoundRegResponse) regAccess;
 endinterface
 
 module mkRoleLookup#(Client#(MetadataRequest, MetadataResponse) md)(RoleLookup);

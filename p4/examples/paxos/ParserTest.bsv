@@ -23,7 +23,11 @@ import SharedBuff::*;
 import HostChannel::*;
 import TxChannel::*;
 import RoleTable::*;
+import RoundTable::*;
 import Sims::*;
+import PaxosTypes::*;
+//import RoundRegister::*;
+//import RoleRegister::*;
 
 typedef 12 PktSize; // maximum 4096b
 typedef TDiv#(`DataBusWidth, 32) WordsPerBeat;
@@ -64,7 +68,10 @@ module mkParserTest#(ParserTestIndication indication
                                                   ,memServerInd
                                                   );
 
-   RoleLookup roleTable <- mkRoleLookup(hostchan.next);
+   //RoleLookup roleTable <- mkRoleLookup(hostchan.next);
+   //RoundTable roundTable <- mkRoundTable(roleTable.next);
+   //P4Register#(InstanceSize, RoundSize) roundRegs <- mkP4RoundRegister(vec(roleTable.regAccess));
+   //P4Register#(1, 8) roleRegs <- mkP4RoleRegister(vec(roundTable.regAccess));
 
    interface ParserTestRequest request;
       method Action read_version();
