@@ -21,6 +21,7 @@ PINOUT_FILE=$(SONICDIR)/boards/de5.json
 S2H_INTERFACES=ParserTestRequest:ParserTest.request
 H2S_INTERFACES=ParserTest:ParserTestIndication,MemServerIndication
 CPPFILES=test.cpp
+CPPFILES+=$(SONICDIR)/sw/lpcap.c
 BSVFILES=ParserTest.bsv
 FPGAMAKE_CONNECTALFLAGS += -P mkPcieHostTop
 
