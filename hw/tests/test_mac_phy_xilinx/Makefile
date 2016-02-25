@@ -18,6 +18,7 @@ BSVFILES=Test.bsv
 CPPFILES=test.cpp
 
 CONNECTALFLAGS += -I $(SONICDIR)/sw/
+CPPFILES += $(SONICDIR)/sw/lpcap.c
 
 ifeq ($(BOARD), nfsume)
 AUTOTOP = --interface pins:Test.pins
