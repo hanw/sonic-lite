@@ -26,49 +26,37 @@ import Ethernet::*;
 import FIFO::*;
 import GetPut::*;
 import PaxosTypes::*;
+import RegFile::*;
 
-typedef enum {
-   Acceptor = 1,
-   Coordinator = 2
-} Role deriving (Bits);
+interface PaxosIngressPipeline;
 
-interface RoleTable;
-   interface Client#(MetadataRequest, MetadataResponse) next0;
-   interface Client#(MetadataRequest, MetadataResponse) next1;
-   interface Client#(RoundRegRequest, RoundRegResponse) regAccess;
 endinterface
 
-module mkRoleTable#(Client#(MetadataRequest, MetadataResponse) md)(RoleTable);
-   Reg#(Bit#(64)) lookupCnt <- mkReg(0);
-   Reg#(Role) role <- mkReg(Acceptor);
+module mkPaxosIngressPipeline#(Client#(MetadataRequest, MetadataResponse) md)(PaxosIngressPipeline);
+   let verbose = True;
 
    FIFO#(MetadataRequest) outReqFifo <- mkFIFO;
    FIFO#(MetadataResponse) inRespFifo <- mkFIFO;
    FIFO#(PacketInstance) currPacketFifo <- mkFIFO;
 
-   rule tableLookupRequest;
+   DstMacTable dstMacTable <- mkDstMacTable(hostchan.next0);
+   RoleTable roleTable <- mkRoleTable(dstMacTable.next);
+   RoundTable roundTable <- mkRoundTable(roleTable.next0);
+   AcceptorTable acceptorTable <- mkAcceptorTable(roundTable.next);
+   SequenceTable sequenceTable <- mkSequenceTable(roleTable.next1);
+
+   rule checkValidPaxos;
       let v <- md.request.get;
-      $display("Role: table lookup request");
       case (v) matches
-         tagged RoleLookupRequest {pkt: .pkt}: begin
-            case (role) matches
-               Acceptor: begin
-                  $display("Role: Acceptor %h", pkt.id);
-                  MetadataRequest nextReq = tagged RoundTblRequest {pkt: pkt};
-                  outReqFifo.enq(nextReq);
-               end
-               Coordinator: begin
-                  $display("Role: Coordinator %h", pkt.id);
-                  MetadataRequest nextReq = tagged SequenceTblRequest {pkt: pkt};
-                  outReqFifo.enq(nextReq);
-               end
-            endcase
-            lookupCnt <= lookupCnt + 1;
+         tagged ValidPaxosRequest { pkt: .pkt }: begin
+            // enqueue to role table
          end
-      endcase
+         default: begin
+            // enqueue to forward queue
+         end
    endrule
 
-   interface next0 = (interface Client#(MetadataRequest, MetadataResponse);
+   interface next = (interface Client#(MetadataRequest, MetadataResponse);
       interface request = toGet(outReqFifo);
       interface response = toPut(inRespFifo);
    endinterface);

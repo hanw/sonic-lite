@@ -13,19 +13,8 @@ typedef union tagged {
 
    struct {
       PacketInstance pkt;
-      Bit#(4) queue;
-      Bit#(2) port;
-   } QueueRequest;
-
-   struct {
-      PacketInstance pkt;
-      Bit#(48) mac;
-   } ModifyMacRequest;
-
-   struct {
-      PacketInstance pkt;
-      Bit#(32) dstip;
-   } RouteLookupRequest;
+      Bit#(48) dstMac;
+   } DstMacLookupRequest;
 
    struct {
       PacketInstance pkt;
@@ -38,6 +27,11 @@ typedef union tagged {
    struct {
       PacketInstance pkt;
    } SequenceTblRequest;
+
+   struct {
+      PacketInstance pkt;
+      Bit#(8) msgtype;
+   } AcceptorTblRequest;
 } MetadataRequest deriving (Bits, Eq);
 
 typedef struct {
@@ -244,4 +238,135 @@ instance MkP4Register#(Bit#(InstanceSize), Bit#(ValueSize), ValueRegRequest, Val
    endmodule
 endinstance
 
+/* generate tables */
+typedef struct {
+    Bit#(48) srcAddr;
+    Bit#(6) padding;
+} MatchFieldSmacTable deriving (Bits, Eq, FShow);
+
+typedef enum {
+    MacLearn = 1,
+    Nop = 2
+} ActionSmacTableValue2 deriving (Bits, Eq);
+
+typedef struct {
+    Bit#(48) dstAddr;
+    Bit#(6) padding;
+} MatchFieldDmacTable deriving (Bits, Eq, FShow);
+
+typedef enum {
+    Forward = 1,
+    Broadcast = 2
+} ActionDmacTableValue5 deriving (Bits, Eq);
+
+typedef union tagged {
+    struct {
+        Bit#(9) port;
+    } Forward;
+    struct {
+        Bit#(4) group;
+    } Broadcast;
+} ActionArgsDmacTable deriving (Bits, Eq);
+
+typedef struct {
+    Bit#(32) key_field_0;
+} MatchFieldMcastSrcPruning deriving (Bits, Eq, FShow);
+
+typedef enum {
+    Nop = 1,
+    Drop = 2
+} ActionMcastSrcPruningValue8 deriving (Bits, Eq);
+
+typedef struct {
+} MatchFieldEncapTbl deriving (Bits, Eq, FShow);
+
+typedef enum {
+    EncapCpuHeader = 1
+} ActionEncapTblValue11 deriving (Bits, Eq);
+
+typedef struct {
+    Bit#(8) key_field_0;
+    Bit#(1) padding;
+} MatchFieldSequenceTbl deriving (Bits, Eq, FShow);
+
+typedef enum {
+    IncreaseInstance = 1,
+    Nop = 2
+} ActionSequenceTable deriving (Bits, Eq);
+
+typedef struct {
+   ActionSequenceTable act;
+} ActionArgsSequenceTbl deriving (Bits, Eq);
+
+typedef struct {
+} MatchFieldRoundTbl deriving (Bits, Eq, FShow);
+
+typedef enum {
+    ReadRound = 1
+} ActionRoundTblValue17 deriving (Bits, Eq);
+
+typedef struct {
+    Bit#(8) key_field_0;
+    Bit#(1) padding;
+} MatchFieldAcceptorTbl deriving (Bits, Eq, FShow);
+
+typedef enum {
+    Handle1A = 1,
+    Handle2A = 2,
+    Drop = 3
+} ActionAcceptorTable deriving (Bits, Eq);
+
+typedef struct {
+   ActionAcceptorTable act;
+} ActionArgsAcceptorTbl deriving (Bits, Eq);
+
+typedef struct {
+} MatchFieldDropTbl deriving (Bits, Eq, FShow);
+
+typedef enum {
+    Drop = 1
+} ActionDropTblValue23 deriving (Bits, Eq);
+
+typedef struct {
+} MatchFieldRoleTbl deriving (Bits, Eq, FShow);
+
+typedef enum {
+    ReadRole = 1
+} ActionRoleTblValue26 deriving (Bits, Eq);
+
+interface ActionModifyField;
+   //interface Client#(MetadataRequest, MetadataResponse) next;
+   //interface MemWriteClient#(`DataBusWidth) writeClient;
+endinterface
+
+module mkActionModifyField#(Client#(MetadataRequest, MetadataResponse) md)(ActionModifyField);
+endmodule
+
+interface ActionRegisterRead;
+
+endinterface
+
+module mkActionRegisterRead(ActionRegisterRead);
+
+endmodule
+
+interface ActionAddToField;
+
+endinterface
+
+interface ActionRegisterWrite;
+
+endinterface
+
+interface ActionDrop;
+
+endinterface
+
+interface ActionRemoveHeader;
+
+endinterface
+
+interface ActionAddHeader;
+
+endinterface
 

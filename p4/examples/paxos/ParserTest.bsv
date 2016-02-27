@@ -22,8 +22,11 @@ import Paxos::*;
 import SharedBuff::*;
 import HostChannel::*;
 import TxChannel::*;
+import DstMacTable::*;
 import RoleTable::*;
 import RoundTable::*;
+import AcceptorTable::*;
+import SequenceTable::*;
 import Sims::*;
 import PaxosTypes::*;
 //import RoundRegister::*;
@@ -60,16 +63,15 @@ module mkParserTest#(ParserTestIndication indication
    HostChannel hostchan <- mkHostChannel();
    TxChannel txchan <- mkTxChannel(txClock, txReset);
    SyncFIFOIfc#(EtherData) txSyncFifo <- mkSyncBRAMFIFO(6, txClock, txReset, defaultClock, defaultReset);
+   PaxosIngressPipeline ingress <- mkPaxosIngressPipeline(hostchan.next);
 
    SharedBuffer#(12, 128, 1) mem <- mkSharedBuffer(vec(txchan.readClient)
                                                   ,vec(txchan.freeClient)
-                                                  ,vec(hostchan.writeClient)
+                                                  ,vec(hostchan.writeClient, dstMacTable.writeClient)
                                                   ,vec(hostchan.mallocClient)
                                                   ,memServerInd
                                                   );
 
-   //RoleLookup roleTable <- mkRoleLookup(hostchan.next);
-   //RoundTable roundTable <- mkRoundTable(roleTable.next);
    //P4Register#(InstanceSize, RoundSize) roundRegs <- mkP4RoundRegister(vec(roleTable.regAccess));
    //P4Register#(1, 8) roleRegs <- mkP4RoleRegister(vec(roundTable.regAccess));
 

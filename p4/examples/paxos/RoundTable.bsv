@@ -44,6 +44,8 @@ module mkRoundTable#(Client#(MetadataRequest, MetadataResponse) md)(RoundTable);
    // read round register from register file
    rule readRound;
       // issue read request;
+      let v <- md.request.get;
+      $display("RoundTable");
    endrule
 
    rule readRoundResp;
