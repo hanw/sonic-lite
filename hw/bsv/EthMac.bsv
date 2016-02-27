@@ -165,11 +165,12 @@ endinterface
 
 // Mac Wrapper
 (* synthesize *)
-module mkEthMac#(Clock clk_50, Clock clk_156_25, Clock rx_clk, Reset rst_156_25_n)(EthMacIfc);
+module mkEthMac#(Clock clk_50, Clock clk_156_25, Reset rst_156_25_n)(EthMacIfc);
    Clock defaultClock <- exposeCurrentClock;
    Reset defaultReset <- exposeCurrentReset;
 
-   Reset rx_rst_n <- mkAsyncReset(2, rst_156_25_n, rx_clk);
+   Clock rx_clk = clk_156_25;
+   Reset rx_rst_n = rst_156_25_n;
    Reset rst_50_n <- mkAsyncReset(2, defaultReset, clk_50);
    Reset rst_50 <- mkResetInverter(rst_50_n, clocked_by clk_50);
 
@@ -182,6 +183,16 @@ module mkEthMac#(Clock clk_50, Clock clk_156_25, Clock rx_clk, Reset rst_156_25_
    Wire#(Bit#(1)) tx_last_w <- mkDWire(0, clocked_by clk_156_25, reset_by rst_156_25_n);
    Wire#(Bit#(8)) tx_keep_w <- mkDWire(0, clocked_by clk_156_25, reset_by rst_156_25_n);
    Wire#(Bit#(1)) tx_user_w <- mkDWire(0, clocked_by clk_156_25, reset_by rst_156_25_n);
+   Wire#(Bit#(1)) rx_dcm_locked <- mkDWire(1, clocked_by clk_156_25, reset_by rst_156_25_n);
+   Wire#(Bit#(1)) tx_dcm_locked <- mkDWire(1, clocked_by clk_156_25, reset_by rst_156_25_n);
+
+   rule dcm_locked_rx;
+      mac.rx.dcm_locked(rx_dcm_locked);
+   endrule
+
+   rule dcm_locked_tx;
+      mac.tx.dcm_locked(tx_dcm_locked);
+   endrule
 
    rule tx_ready;
       tx_ready_w <= mac.tx_axis.tready();

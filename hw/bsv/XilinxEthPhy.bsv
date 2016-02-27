@@ -41,7 +41,6 @@ interface EthPhyIfc;
    method Vector#(4, Bit#(1)) serial_tx_n;
    method Action serial_rx_p(Vector#(4, Bit#(1)) v);
    method Action serial_rx_n(Vector#(4, Bit#(1)) v);
-   interface Vector#(4, Clock) rx_clkout;
    interface Clock tx_clkout;
    method Action refclk(Bit#(1) p, Bit#(1) n);
    method Action signal_detect (Vector#(4, Bit#(1)) v);
@@ -51,15 +50,13 @@ interface EthPhyIfc;
 endinterface
 
 module mkXilinxEthPhy#(Clock mgmtClock)(EthPhyIfc);
-   Vector#(4, FIFOF#(Bit#(72))) txFifo = newVector;
-   Vector#(4, FIFOF#(Bit#(72))) rxFifo = newVector;
-   Vector#(4, Clock) rxClocks = newVector;
    Clock defaultClock <- exposeCurrentClock;
    Reset defaultReset <- exposeCurrentReset;
 
    PhyWrapShared phy0 <- mkPhyWrapShared(mgmtClock);
    Clock clk_156_25 = phy0.coreclk;
-
+   Vector#(4, FIFOF#(Bit#(72))) txFifo <- replicateM(mkUGFIFOF(clocked_by clk_156_25, reset_by noReset));
+   Vector#(4, FIFOF#(Bit#(72))) rxFifo <- replicateM(mkUGFIFOF(clocked_by clk_156_25, reset_by noReset));
    Wire#(Bit#(1)) qplllock_w <- mkDWire(0);
    Wire#(Bit#(1)) qplloutclk_w <- mkDWire(0);
    Wire#(Bit#(1)) qplloutrefclk_w <- mkDWire(0);
@@ -193,10 +190,6 @@ module mkXilinxEthPhy#(Clock mgmtClock)(EthPhyIfc);
       endrule
    end
 
-   rxFifo[0] <- mkUGFIFOF(clocked_by phy0.rxrecclk, reset_by noReset);
-   rxFifo[1] <- mkUGFIFOF(clocked_by phy1.rxrecclk, reset_by noReset);
-   rxFifo[2] <- mkUGFIFOF(clocked_by phy2.rxrecclk, reset_by noReset);
-   rxFifo[3] <- mkUGFIFOF(clocked_by phy3.rxrecclk, reset_by noReset);
    for (Integer i=0; i<4; i=i+1) begin
       rule rx_mac;
          case(i)
@@ -255,11 +248,6 @@ module mkXilinxEthPhy#(Clock mgmtClock)(EthPhyIfc);
       phy3.rx_serial.rxn(rx_serial_wire_n[3]);
    endrule
 
-   rxClocks[0] = phy0.rxrecclk;
-   rxClocks[1] = phy1.rxrecclk;
-   rxClocks[2] = phy2.rxrecclk;
-   rxClocks[3] = phy3.rxrecclk;
-
    rule set_sd;
       phy0.sfp.signal_detect(signal_detect_wire[0]);
       phy1.sfp.signal_detect(signal_detect_wire[1]);
@@ -297,7 +285,6 @@ module mkXilinxEthPhy#(Clock mgmtClock)(EthPhyIfc);
    method serial_tx_n = readVReg(tx_serial_n);
    method serial_rx_p = writeVReg(rx_serial_wire_p);
    method serial_rx_n = writeVReg(rx_serial_wire_n);
-   interface rx_clkout = rxClocks;
    interface tx_clkout = phy0.coreclk;
    method Action refclk (Bit#(1) p, Bit#(1) n);
       phy0.refclk_p(p);

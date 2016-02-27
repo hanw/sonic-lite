@@ -47,10 +47,7 @@ module mkTest#(HostInterface host, TestIndication indication) (Test);
    EthPhyIfc phys <- mkXilinxEthPhy(mgmtClock);
    Clock txClock = phys.tx_clkout;
    Reset txReset <- mkSyncReset(2, defaultReset, txClock);
-   Vector#(4, EthMacIfc) mac = newVector;
-   for (Integer i=0; i<4; i=i+1) begin
-      mac[i] <- mkEthMac(mgmtClock, txClock, phys.rx_clkout[i], txReset, clocked_by txClock, reset_by txReset);
-   end
+   Vector#(4, EthMacIfc) mac <- replicateM(mkEthMac(mgmtClock, txClock, txReset, clocked_by txClock, reset_by txReset));
    function Get#(Bit#(72)) getTx(EthMacIfc _mac); return _mac.tx; endfunction
    function Put#(Bit#(72)) getRx(EthMacIfc _mac); return _mac.rx; endfunction
    mapM(uncurry(mkConnection), zip(map(getTx, mac), phys.tx));

@@ -155,9 +155,9 @@ module mkMacWrap#(Clock s_axi_aclk, Clock tx_clk0, Clock rx_clk0, Reset reset, R
         method rx_axis_tvalid tvalid() clocked_by (rx_clk0) reset_by (rx_axis_aresetn);
     endinterface
     interface MacwrapRx     rx;
-        method dcm_locked(rx_dcm_locked) enable((*inhigh*) EN_rx_dcm_locked);
-        method rx_statistics_valid statistics_valid();
-        method rx_statistics_vector statistics_vector();
+        method dcm_locked(rx_dcm_locked) enable((*inhigh*) EN_rx_dcm_locked) clocked_by (rx_clk0) reset_by (rx_axis_aresetn);
+        method rx_statistics_valid statistics_valid() clocked_by (rx_clk0) reset_by (rx_axis_aresetn);
+        method rx_statistics_vector statistics_vector() clocked_by (rx_clk0) reset_by (rx_axis_aresetn);
     endinterface
     interface MacwrapS_axi     s_axi;
         method araddr(s_axi_araddr) clocked_by (s_axi_aclk) reset_by (s_axi_aresetn) enable((*inhigh*) EN_s_axi_araddr);
