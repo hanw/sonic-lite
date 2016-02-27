@@ -153,12 +153,13 @@ endmodule
 
 `elsif XILINX
 import XilinxMacWrap::*;
+import Xilinx10GE::*;
 
 interface EthMacIfc;
    (* always_ready, always_enabled *)
-   interface Get#(Bit#(72)) tx;
+   interface Get#(XGMIIData) tx;
    (* always_ready, always_enabled *)
-   interface Put#(Bit#(72)) rx;
+   interface Put#(XGMIIData) rx;
    interface Put#(PacketDataT#(64)) packet_tx;
    interface Get#(PacketDataT#(64)) packet_rx;
 endinterface
@@ -232,14 +233,14 @@ module mkEthMac#(Clock clk_50, Clock clk_156_25, Reset rst_156_25_n)(EthMacIfc);
    endrule
 
    interface Get tx;
-      method ActionValue#(Bit#(72)) get;
-         return {mac.xgmii.txd, mac.xgmii.txc};
+      method ActionValue#(XGMIIData) get;
+         return XGMIIData{ data: mac.xgmii.txd, ctrl: mac.xgmii.txc };
       endmethod
    endinterface
    interface Put rx;
-      method Action put(Bit#(72) v);
-         mac.xgmii.rxd(v[71:8]);
-         mac.xgmii.rxc(v[7:0]);
+      method Action put(XGMIIData v);
+         mac.xgmii.rxd(v.data);
+         mac.xgmii.rxc(v.ctrl);
       endmethod
    endinterface
    interface Put packet_tx;
@@ -253,5 +254,5 @@ module mkEthMac#(Clock clk_50, Clock clk_156_25, Reset rst_156_25_n)(EthMacIfc);
    interface Get packet_rx = toGet(rx_fifo);
 endmodule
 `endif
-
 endpackage: EthMac
+

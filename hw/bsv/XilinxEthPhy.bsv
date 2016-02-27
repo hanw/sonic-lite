@@ -31,12 +31,13 @@ import SpecialFIFOs::*;
 import Connectable::*;
 import GetPut::*;
 import Pipe::*;
+import Xilinx10GE::*;
 import XilinxPhyWrap::*; 
 
 (*always_ready, always_enabled*)
 interface EthPhyIfc;
-   interface Vector#(4, Put#(Bit#(72))) tx;
-   interface Vector#(4, Get#(Bit#(72))) rx;
+   interface Vector#(4, Put#(XGMIIData)) tx;
+   interface Vector#(4, Get#(XGMIIData)) rx;
    method Vector#(4, Bit#(1)) serial_tx_p;
    method Vector#(4, Bit#(1)) serial_tx_n;
    method Action serial_rx_p(Vector#(4, Bit#(1)) v);
@@ -55,8 +56,8 @@ module mkXilinxEthPhy#(Clock mgmtClock)(EthPhyIfc);
 
    PhyWrapShared phy0 <- mkPhyWrapShared(mgmtClock);
    Clock clk_156_25 = phy0.coreclk;
-   Vector#(4, FIFOF#(Bit#(72))) txFifo <- replicateM(mkUGFIFOF(clocked_by clk_156_25, reset_by noReset));
-   Vector#(4, FIFOF#(Bit#(72))) rxFifo <- replicateM(mkUGFIFOF(clocked_by clk_156_25, reset_by noReset));
+   Vector#(4, FIFOF#(XGMIIData)) txFifo <- replicateM(mkUGFIFOF(clocked_by clk_156_25, reset_by noReset));
+   Vector#(4, FIFOF#(XGMIIData)) rxFifo <- replicateM(mkUGFIFOF(clocked_by clk_156_25, reset_by noReset));
    Wire#(Bit#(1)) qplllock_w <- mkDWire(0);
    Wire#(Bit#(1)) qplloutclk_w <- mkDWire(0);
    Wire#(Bit#(1)) qplloutrefclk_w <- mkDWire(0);
@@ -171,20 +172,20 @@ module mkXilinxEthPhy#(Clock mgmtClock)(EthPhyIfc);
          let v <- toGet(txFifo[i]).get;
          case (i)
             0: begin
-               phy0.xgmii.txd(v[71:8]);
-               phy0.xgmii.txc(v[7:0]);
+               phy0.xgmii.txd(v.data);
+               phy0.xgmii.txc(v.ctrl);
             end
             1: begin
-               phy1.xgmii.txd(v[71:8]);
-               phy1.xgmii.txc(v[7:0]);
+               phy1.xgmii.txd(v.data);
+               phy1.xgmii.txc(v.ctrl);
             end
             2: begin
-               phy2.xgmii.txd(v[71:8]);
-               phy2.xgmii.txc(v[7:0]);
+               phy2.xgmii.txd(v.data);
+               phy2.xgmii.txc(v.ctrl);
             end
             3: begin
-               phy3.xgmii.txd(v[71:8]);
-               phy3.xgmii.txc(v[7:0]);
+               phy3.xgmii.txd(v.data);
+               phy3.xgmii.txc(v.ctrl);
             end
          endcase
       endrule
@@ -194,16 +195,16 @@ module mkXilinxEthPhy#(Clock mgmtClock)(EthPhyIfc);
       rule rx_mac;
          case(i)
             0: begin
-               rxFifo[0].enq({phy0.xgmii.rxd, phy0.xgmii.rxc});
+               rxFifo[0].enq(XGMIIData{ data: phy0.xgmii.rxd, ctrl: phy0.xgmii.rxc });
             end
             1: begin
-               rxFifo[1].enq({phy1.xgmii.rxd, phy1.xgmii.rxc});
+               rxFifo[1].enq(XGMIIData{ data: phy1.xgmii.rxd, ctrl: phy1.xgmii.rxc });
             end
             2: begin
-               rxFifo[2].enq({phy2.xgmii.rxd, phy2.xgmii.rxc});
+               rxFifo[2].enq(XGMIIData{ data: phy2.xgmii.rxd, ctrl: phy2.xgmii.rxc });
             end
             3: begin
-               rxFifo[3].enq({phy3.xgmii.rxd, phy3.xgmii.rxc});
+               rxFifo[3].enq(XGMIIData{ data: phy3.xgmii.rxd, ctrl: phy3.xgmii.rxc });
             end
          endcase
       endrule

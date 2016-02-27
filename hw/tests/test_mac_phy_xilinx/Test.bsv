@@ -9,6 +9,7 @@ import Connectable::*;
 import Clocks::*;
 import Gearbox::*;
 import LedController::*;
+import Xilinx10GE::*;
 
 import HostInterface::*;
 import ConnectalXilinxCells::*;
@@ -21,13 +22,19 @@ import XilinxEthPhy::*;
 import EthMac::*;
 import StoreAndForward::*;
 import NfsumePins::*;
+import DbgTypes::*;
 
 interface TestIndication;
-   method Action done(Bit#(32) matchCount);
+   method Action read_version_resp(Bit#(32) version);
+   method Action readRingBuffCntrsResp(Bit#(64) sopEnq, Bit#(64) eopEnq, Bit#(64) sopDeq, Bit#(64) eopDeq);
+   method Action readTxThruCntrsResp(Bit#(64) goodputCount, Bit#(64) idleCount);
 endinterface
 
 interface TestRequest;
+   method Action read_version();
    method Action writePacketData(Vector#(2, Bit#(64)) data, Vector#(2, Bit#(8)) mask, Bit#(1) sop, Bit#(1) eop);
+   method Action readRingBuffCntrs(Bit#(8) id);
+   method Action readTxThruCntrs();
 endinterface
 
 interface Test;
@@ -48,8 +55,8 @@ module mkTest#(HostInterface host, TestIndication indication) (Test);
    Clock txClock = phys.tx_clkout;
    Reset txReset <- mkSyncReset(2, defaultReset, txClock);
    Vector#(4, EthMacIfc) mac <- replicateM(mkEthMac(mgmtClock, txClock, txReset, clocked_by txClock, reset_by txReset));
-   function Get#(Bit#(72)) getTx(EthMacIfc _mac); return _mac.tx; endfunction
-   function Put#(Bit#(72)) getRx(EthMacIfc _mac); return _mac.rx; endfunction
+   function Get#(XGMIIData) getTx(EthMacIfc _mac); return _mac.tx; endfunction
+   function Put#(XGMIIData) getRx(EthMacIfc _mac); return _mac.rx; endfunction
    mapM(uncurry(mkConnection), zip(map(getTx, mac), phys.tx));
    mapM(uncurry(mkConnection), zip(phys.rx, map(getRx, mac)));
    NfsumeLeds leds <- mkNfsumeLeds(mgmtClock, txClock);
@@ -61,7 +68,15 @@ module mkTest#(HostInterface host, TestIndication indication) (Test);
    mkConnection(ringToMac.readClient, buff.readServer);
    mkConnection(ringToMac.macTx, mac[0].packet_tx);
 
+   rule rx_packet;
+      let v <- mac[0].packet_rx.get;
+   endrule
+
    interface TestRequest request;
+      method Action read_version();
+         let v= `NicVersion;
+         indication.read_version_resp(v);
+      endmethod
       method Action writePacketData(Vector#(2, Bit#(64)) data, Vector#(2, Bit#(8)) mask, Bit#(1) sop, Bit#(1) eop);
          EtherData beat = defaultValue;
          beat.data = pack(reverse(data));
@@ -69,6 +84,14 @@ module mkTest#(HostInterface host, TestIndication indication) (Test);
          beat.sop = unpack(sop);
          beat.eop = unpack(eop);
          buff.writeServer.writeData.put(beat);
+      endmethod
+      method Action readRingBuffCntrs(Bit#(8) id);
+         let v = buff.dbg();
+         indication.readRingBuffCntrsResp(v.sopEnq, v.eopEnq, v.sopDeq, v.eopDeq);
+      endmethod
+      method Action readTxThruCntrs();
+         let v = ringToMac.dbg();
+         indication.readTxThruCntrsResp(v.goodputCount, v.idleCount);
       endmethod
    endinterface
 `ifndef SIMULATION
@@ -85,9 +108,6 @@ module mkTest#(HostInterface host, TestIndication indication) (Test);
       interface led_ylw = phys.rx_leds;
       interface deleteme_unused_clock = defaultClock;
       interface sfpctrl = sfpctrl;
-//      interface deleteme_unused_clock2 = clocks.clock_50;
-//      interface deleteme_unused_clock3 = defaultClock;
-//      interface deleteme_unused_reset = defaultReset;
    endinterface
 `endif
 endmodule

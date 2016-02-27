@@ -20,8 +20,8 @@ using namespace std;
 
 #define ITERATION 100
 
-sem_t test_sem;
 static TestRequestProxy *device=0;
+sem_t cmdCompleted;
 
 void device_writePacketData(uint64_t* data, uint8_t* mask, int sop, int eop) {
     device->writePacketData(data, mask, sop, eop);
@@ -29,9 +29,19 @@ void device_writePacketData(uint64_t* data, uint8_t* mask, int sop, int eop) {
 
 class TestIndication : public TestIndicationWrapper {
 public:
-  virtual void done(uint32_t v){
-      sem_post(&test_sem);
-  }
+    virtual void read_version_resp(uint32_t a) {
+        fprintf(stderr, "version %x\n", a);
+        sem_post(&cmdCompleted);
+    }
+    virtual void readRingBuffCntrsResp(uint64_t sopEnq, uint64_t eopEnq, uint64_t sopDeq, uint64_t eopDeq) {
+        fprintf(stderr, "RingBufferStatus:\n Rx sop=%ld, eop=%ld \n Tx sop=%ld, eop=%ld \n", sopEnq, eopEnq, sopDeq, eopDeq);
+        sem_post(&cmdCompleted);
+    }
+    virtual void readTxThruCntrsResp(uint64_t goodputCount, uint64_t idleCount) {
+        double utilization = (double) goodputCount / (goodputCount + idleCount);
+        fprintf(stderr, "TxThru: GoodputCount=%ld, IdleCount=%ld, utilization=%f\n", goodputCount, idleCount, utilization);
+        sem_post(&cmdCompleted);
+    }
   TestIndication(int id) : TestIndicationWrapper(id){}
 };
 
@@ -76,6 +86,12 @@ parse_options(int argc, char *argv[], char **pcap_file) {
     }
 }
 
+void read_status () {
+    device->readRingBuffCntrs(0);
+    sem_wait(&cmdCompleted);
+    device->readTxThruCntrs();
+    sem_wait(&cmdCompleted);
+}
 
 int main(int argc, char **argv) {
     char *pcap_file= NULL;
@@ -86,9 +102,16 @@ int main(int argc, char **argv) {
 
     parse_options(argc, argv, &pcap_file);
 
+    device->read_version();
+    sem_wait(&cmdCompleted);
+
     if (pcap_file) {
         fprintf(stderr, "Attempts to read pcap file %s\n", pcap_file);
         load_pcap_file(pcap_file, &pcap_info);
     }
+
+    sleep(1);
+    read_status();
+
     return 0;
 }
