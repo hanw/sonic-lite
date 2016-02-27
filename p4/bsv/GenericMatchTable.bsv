@@ -12,7 +12,6 @@ import Pipe::*;
 import Bcam::*;
 import BcamTypes::*;
 import PriorityEncoder::*;
-import TdmTypes::*;
 import DbgTypes::*;
 
 // depthSz is multiple of 8 for 256 entries
