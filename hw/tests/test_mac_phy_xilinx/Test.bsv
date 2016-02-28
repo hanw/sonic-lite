@@ -50,6 +50,7 @@ module mkTest#(HostInterface host, TestIndication indication) (Test);
    Clock mgmtClock = host.tsys_clk_200mhz_buf;
    Reset mgmtReset <- mkSyncReset(2, defaultReset, mgmtClock);
 
+   // Synthesis
 `ifndef SIMULATION
    EthPhyIfc phys <- mkXilinxEthPhy(mgmtClock);
    Clock txClock = phys.tx_clkout;
@@ -63,13 +64,27 @@ module mkTest#(HostInterface host, TestIndication indication) (Test);
    NfsumeSfpCtrl sfpctrl <- mkNfsumeSfpCtrl(phys);
 `endif
 
+   // Simulation
+`ifdef SIMULATION
+   Clock txClock = defaultClock;
+   Reset txReset <- mkSyncReset(2, defaultReset, txClock);
+   Vector#(4, EthMacIfc) mac <- replicateM(mkEthMac(mgmtClock, txClock, txReset, clocked_by txClock, reset_by txReset));
+   mkConnection(mac[0].tx, mac[1].rx);
+   mkConnection(mac[1].tx, mac[0].rx);
+`endif
+
    PacketBuffer buff <- mkPacketBuffer();
    StoreAndFwdFromRingToMac ringToMac <- mkStoreAndFwdFromRingToMac(txClock, txReset);
    mkConnection(ringToMac.readClient, buff.readServer);
    mkConnection(ringToMac.macTx, mac[0].packet_tx);
 
-   rule rx_packet;
-      let v <- mac[0].packet_rx.get;
+   rule rx_packet0;
+      let v <- toGet(mac[0].packet_rx).get;
+   endrule
+
+   rule rx_packet1;
+      let v <- toGet(mac[1].packet_rx).get;
+      $display("rx1: v=", fshow(v));
    endrule
 
    interface TestRequest request;

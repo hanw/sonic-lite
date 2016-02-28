@@ -249,7 +249,7 @@ endmodule
 
 interface StoreAndFwdFromRingToMac;
    interface PktReadClient readClient;
-   interface Get#(PacketDataT#(64)) macTx;
+   interface PipeOut#(PacketDataT#(64)) macTx;
    method TxThruDbgRec dbg; 
 endinterface
 
@@ -270,7 +270,7 @@ module mkStoreAndFwdFromRingToMac#(Clock txClock, Reset txReset)(StoreAndFwdFrom
    FIFO#(EtherReq) readReqFifo <- mkFIFO;
 
    // Mac Facing Fifo
-   FIFO#(PacketDataT#(64)) writeMacFifo <- mkFIFO(clocked_by txClock, reset_by txReset);
+   FIFOF#(PacketDataT#(64)) writeMacFifo <- mkFIFOF(clocked_by txClock, reset_by txReset);
    Gearbox#(2, 1, PacketDataT#(64)) fifoTxData <- mkNto1Gearbox(txClock, txReset, txClock, txReset);
    SyncFIFOIfc#(EtherData) tx_fifo <- mkSyncFIFO(5, defaultClock, defaultReset, txClock);
 
@@ -333,7 +333,7 @@ module mkStoreAndFwdFromRingToMac#(Clock txClock, Reset txReset)(StoreAndFwdFrom
       interface readLen = toPut(readLenFifo);
       interface readReq = toGet(readReqFifo);
    endinterface
-   interface Get macTx = toGet(writeMacFifo);
+   interface PipeOut macTx = toPipeOut(writeMacFifo);
    method TxThruDbgRec dbg;
       return TxThruDbgRec {goodputCount: goodputCount, idleCount: idleCount};
    endmethod
