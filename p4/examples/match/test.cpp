@@ -30,7 +30,7 @@ using namespace std;
 
 MatchTestRequestProxy *device = 0;
 static sem_t cmdCompleted;
-uint16_t flowid;
+uint8_t flowid;
 
 void device_writePacketData(uint64_t* data, uint8_t* mask, int sop, int eop) {
 }
@@ -41,7 +41,7 @@ public:
     virtual void read_version_resp(uint32_t a) {
         fprintf(stderr, "version %x\n", a);
     }
-    virtual void add_entry_resp(uint16_t id) {
+    virtual void add_entry_resp(uint8_t id) {
         fprintf(stderr, "flow id %d\n", id);
         flowid = id;
         sem_post(&cmdCompleted);
@@ -129,7 +129,7 @@ void erase_table () {
 
 void add_entry (MatchField *field) {
     device->add_entry(0, *field);
-    sem_wait(&cmdCompleted);
+    //sem_wait(&cmdCompleted);
 }
 
 int main(int argc, char **argv)

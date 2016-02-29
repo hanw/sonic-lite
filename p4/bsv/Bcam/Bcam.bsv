@@ -495,4 +495,3 @@ module mkBinaryCamBSV(BinaryCam#(256, 9));
    interface writeServer = bcam.writeServer;
    interface readServer = bcam.readServer;
 endmodule
-
