@@ -7,6 +7,7 @@ PROJTOP?=$(ROOTDIR)
 CONNECTALFLAGS += --bscflags="+RTS -K46777216 -RTS -demote-errors G0066:G0045 -suppress-warnings G0046:G0020:S0015:S0080:S0039 -steps-max-intervals 20"
 CONNECTALFLAGS += --bsvpath=$(PROJTOP)/../../../hw/bsv
 CONNECTALFLAGS += --bsvpath=$(PROJTOP)/../../../hw/generated
+CONNECTALFLAGS += --bsvpath=$(PROJTOP)/../../../p4/examples/tdm/
 
 S2H_INTERFACES=DtpRequest:DtpPktGenTop.request1 DtpPktGenRequest:DtpPktGenTop.request2
 H2S_INTERFACES=DtpPktGenTop:DtpIndication,DtpPktGenIndication
