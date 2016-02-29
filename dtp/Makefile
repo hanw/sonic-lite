@@ -19,9 +19,9 @@ PIN_BINDINGS?=PCIE:PCIE LED:LED OSC:OSC SFPA:SFPA SFPB:SFPB SFPC:SFPC SFPD:SFPD 
 PINOUT_FILE=../boards/de5.json
 
 CONNECTALFLAGS += --nocache
-CONNECTALFLAGS += --constraint=$(PROJTOP)/mkDtpTop.sdc
-CONNECTALFLAGS += --implconstraint=$(PROJTOP)/mkDtpTop.sdc
-CONNECTALFLAGS += --tcl=$(PROJTOP)/mkDtpTop.sdc
+CONNECTALFLAGS += --constraint=$(PROJTOP)/mkPcieTop.sdc
+CONNECTALFLAGS += --implconstraint=$(PROJTOP)/mkPcieTop.sdc
+CONNECTALFLAGS += --tcl=$(PROJTOP)/mkPcieTop.sdc
 #CONNECTALFLAGS += --tcl=$(PROJTOP)/mkDtpTop.sdc
 #CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/altera_mac/altera_mac.qip # To be removed.
 CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/pll_156/altera_pll_156.qip
