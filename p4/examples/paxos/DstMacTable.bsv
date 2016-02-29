@@ -36,8 +36,10 @@ interface DstMacTable;
 endinterface
 
 module mkDstMacTable#(Client#(MetadataRequest, MetadataResponse) md)(DstMacTable);
+
    let verbose = True;
    MatchTable#(256, MatchFieldDmacTable, ActionArgsDmacTable) matchTable <- mkMatchTable();
+
    FIFO#(MetadataRequest) outReqFifo <- mkFIFO;
    FIFO#(MetadataResponse) inRespFifo <- mkFIFO;
    FIFO#(PacketInstance) currPacketFifo <- mkFIFO;
@@ -56,25 +58,29 @@ module mkDstMacTable#(Client#(MetadataRequest, MetadataResponse) md)(DstMacTable
       let v <- md.request.get;
       case (v) matches
          tagged DstMacLookupRequest {pkt: .pkt, dstMac: .dstMac} : begin
-            if (verbose) $display("DstMac: id %h", pkt.id);
-            writeReqFifo.enq(MemRequest {sglId: extend(pkt.id), offset: 0,
-                                         burstLen: 'h10, tag: 0
-`ifdef BYTE_ENABLES
-                                         , firstbe: 'hffff, lastbe: 'h003f
-`endif
-                                         });
-            writeDataFifo.enq(MemData { data: extend(dstMac), tag: 0, last: True });
+            matchTable.lookupPort.request.put(MatchFieldDmacTable {dstAddr: dstMac, padding: 0});
             currPacketFifo.enq(pkt);
+//            if (verbose) $display("DstMac: id %h", pkt.id);
+//            writeReqFifo.enq(MemRequest {sglId: extend(pkt.id), offset: 0,
+//                                         burstLen: 'h10, tag: 0
+//`ifdef BYTE_ENABLES
+//                                         , firstbe: 'hffff, lastbe: 'h003f
+//`endif
+//                                         });
+//            writeDataFifo.enq(MemData { data: extend(dstMac), tag: 0, last: True });
          end
       endcase
    endrule
 
+   // Action Logic
    rule nextTable;
-      let v <- toGet(writeDoneFifo).get;
+      //let v <- toGet(writeDoneFifo).get;
       let pkt <- toGet(currPacketFifo).get;
+      let v <- matchTable.lookupPort.response.get;
+      $display("DstMac: matches %h", v);
       MetadataRequest nextReq = tagged RoleLookupRequest {pkt: pkt};
       outReqFifo.enq(nextReq);
-      if (verbose) $display("DstMac: writeDone size=%h", pkt.size);
+      //if (verbose) $display("DstMac: writeDone size=%h", pkt.size);
    endrule
 
    interface next = (interface Client#(MetadataRequest, MetadataResponse);

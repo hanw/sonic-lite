@@ -22,11 +22,7 @@ import Paxos::*;
 import SharedBuff::*;
 import HostChannel::*;
 import TxChannel::*;
-import DstMacTable::*;
-import RoleTable::*;
-import RoundTable::*;
-import AcceptorTable::*;
-import SequenceTable::*;
+import PaxosIngressPipeline::*;
 import Sims::*;
 import PaxosTypes::*;
 //import RoundRegister::*;
@@ -67,7 +63,7 @@ module mkParserTest#(ParserTestIndication indication
 
    SharedBuffer#(12, 128, 1) mem <- mkSharedBuffer(vec(txchan.readClient)
                                                   ,vec(txchan.freeClient)
-                                                  ,vec(hostchan.writeClient, dstMacTable.writeClient)
+                                                  ,vec(hostchan.writeClient, ingress.writeClient)
                                                   ,vec(hostchan.mallocClient)
                                                   ,memServerInd
                                                   );

@@ -46,7 +46,7 @@ module mkAcceptorTable#(Client#(MetadataRequest, MetadataResponse) md)(AcceptorT
       case (v) matches
          tagged AcceptorTblRequest {pkt: .pkt} : begin
             //matchTable.lookupPort.request.put(MatchFieldAcceptorTbl { key_field_0: v.key_field_0 });
-            currPacketFifo.enq(pkt);
+            //currPacketFifo.enq(pkt);
             if (verbose) $display("Acceptor: %h", pkt.id);
          end
       endcase
@@ -54,18 +54,6 @@ module mkAcceptorTable#(Client#(MetadataRequest, MetadataResponse) md)(AcceptorT
 
    rule tableLookupResponse;
       let v <- matchTable.lookupPort.response.get;
-      MetadataRequest nextReq;
-      case (v.act) matches
-         Handle1A: begin
-
-         end
-         Handle2A: begin
-
-         end
-         Drop: begin
-
-         end
-      endcase
    endrule
 
    interface next = (interface Client#(MetadataRequest, MetadataResponse);

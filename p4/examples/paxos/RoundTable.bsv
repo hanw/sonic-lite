@@ -30,15 +30,18 @@ import RegFile::*;
 
 
 interface RoundTable;
-   interface Client#(MetadataRequest, MetadataResponse) next;
    interface Client#(RoundRegRequest, RoundRegResponse) regAccess;
+   interface Client#(MetadataRequest, MetadataResponse) next0;
+   interface Client#(MetadataRequest, MetadataResponse) next1;
 endinterface
 
 module mkRoundTable#(Client#(MetadataRequest, MetadataResponse) md)(RoundTable);
    Reg#(Bit#(64)) lookupCnt <- mkReg(0);
 
-   FIFO#(MetadataRequest) outReqFifo <- mkFIFO;
-   FIFO#(MetadataResponse) inRespFifo <- mkFIFO;
+   FIFO#(MetadataRequest) outReqFifo0 <- mkFIFO;
+   FIFO#(MetadataResponse) inRespFifo0 <- mkFIFO;
+   FIFO#(MetadataRequest) outReqFifo1 <- mkFIFO;
+   FIFO#(MetadataResponse) inRespFifo1 <- mkFIFO;
    FIFO#(PacketInstance) currPacketFifo <- mkFIFO;
 
    // read round register from register file
@@ -46,6 +49,12 @@ module mkRoundTable#(Client#(MetadataRequest, MetadataResponse) md)(RoundTable);
       // issue read request;
       let v <- md.request.get;
       $display("RoundTable");
+      case (v) matches
+         tagged RoundTblRequest {pkt: .pkt}: begin
+            MetadataRequest nextReq = tagged AcceptorTblRequest {pkt: pkt};
+            outReqFifo0.enq(nextReq);
+         end
+      endcase
    endrule
 
    rule readRoundResp;
@@ -53,9 +62,13 @@ module mkRoundTable#(Client#(MetadataRequest, MetadataResponse) md)(RoundTable);
       // metadata identified with packet id
    endrule
 
-   interface next = (interface Client#(MetadataRequest, MetadataResponse);
-      interface request = toGet(outReqFifo);
-      interface response = toPut(inRespFifo);
+   interface next0 = (interface Client#(MetadataRequest, MetadataResponse);
+      interface request = toGet(outReqFifo0);
+      interface response = toPut(inRespFifo0);
+   endinterface);
+   interface next1 = (interface Client#(MetadataRequest, MetadataResponse);
+      interface request = toGet(outReqFifo1);
+      interface response = toPut(inRespFifo1);
    endinterface);
 endmodule
 

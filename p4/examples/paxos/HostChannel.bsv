@@ -39,8 +39,7 @@ import Paxos::*;
 interface HostChannel;
    interface PktWriteServer writeServer;
    interface MemWriteClient#(`DataBusWidth) writeClient;
-   interface Client#(MetadataRequest, MetadataResponse) next0;
-   interface Client#(MetadataRequest, MetadataResponse) next1;
+   interface Client#(MetadataRequest, MetadataResponse) next;
    interface MemAllocClient mallocClient;
    method PktBuffDbgRec dbg;
 endinterface
@@ -49,8 +48,6 @@ module mkHostChannel(HostChannel);
    let verbose = True;
    FIFO#(MetadataRequest) outReqFifo0 <- mkFIFO;
    FIFO#(MetadataResponse) inRespFifo0 <- mkFIFO;
-   FIFO#(MetadataRequest) outReqFifo1 <- mkFIFO;
-   FIFO#(MetadataResponse) inRespFifo1 <- mkFIFO;
 
    PacketBuffer pktBuff <- mkPacketBuffer();
    TapPktRead tap <- mkTapPktRead();
@@ -61,6 +58,9 @@ module mkHostChannel(HostChannel);
    mkConnection(ingress.readClient, tap.readServer);
    mkConnection(tap.tap_out, toPut(parser.frameIn));
 
+   // new packet, issue metadata processing request to ingress pipeline
+   // request issue after packet is committed to memory.
+   // FIXME: we assume packet is always paxos packet for now
    rule handle_packet_process;
       let v <- ingress.eventPktCommitted.get;
       let dstMac <- toGet(parser.parsedOut_ethernet_dstAddr).get;
@@ -69,19 +69,13 @@ module mkHostChannel(HostChannel);
       if (verbose) $display("HostChannel: msgtype=%h", msgtype);
       MetadataRequest nextReq0 = tagged DstMacLookupRequest { pkt: v, dstMac: dstMac };
       outReqFifo0.enq(nextReq0);
-      MetadataRequest nextReq1 = tagged AcceptorTblRequest { pkt: v, msgtype: msgtype };
-      outReqFifo1.enq(nextReq1);
    endrule
 
    interface writeServer = pktBuff.writeServer;
    interface writeClient = ingress.writeClient;
-   interface next0 = (interface Client#(MetadataRequest, MetadataResponse);
+   interface next = (interface Client#(MetadataRequest, MetadataResponse);
       interface request = toGet(outReqFifo0);
       interface response = toPut(inRespFifo0);
-   endinterface);
-   interface next1 = (interface Client#(MetadataRequest, MetadataResponse);
-      interface request = toGet(outReqFifo1);
-      interface response = toPut(inRespFifo1);
    endinterface);
    interface mallocClient = ingress.malloc;
    method dbg = pktBuff.dbg;

@@ -27,9 +27,17 @@ import FIFO::*;
 import GetPut::*;
 import PaxosTypes::*;
 import RegFile::*;
+import DstMacTable::*;
+import RoleTable::*;
+import RoundTable::*;
+import AcceptorTable::*;
+import SequenceTable::*;
+import DropTable::*;
+import MemTypes::*;
 
 interface PaxosIngressPipeline;
-
+   interface Client#(MetadataRequest, MetadataResponse) next;
+   interface MemWriteClient#(`DataBusWidth) writeClient;
 endinterface
 
 module mkPaxosIngressPipeline#(Client#(MetadataRequest, MetadataResponse) md)(PaxosIngressPipeline);
@@ -39,25 +47,28 @@ module mkPaxosIngressPipeline#(Client#(MetadataRequest, MetadataResponse) md)(Pa
    FIFO#(MetadataResponse) inRespFifo <- mkFIFO;
    FIFO#(PacketInstance) currPacketFifo <- mkFIFO;
 
-   DstMacTable dstMacTable <- mkDstMacTable(hostchan.next0);
+   DstMacTable dstMacTable <- mkDstMacTable(md);
    RoleTable roleTable <- mkRoleTable(dstMacTable.next);
    RoundTable roundTable <- mkRoundTable(roleTable.next0);
-   AcceptorTable acceptorTable <- mkAcceptorTable(roundTable.next);
    SequenceTable sequenceTable <- mkSequenceTable(roleTable.next1);
+   AcceptorTable acceptorTable <- mkAcceptorTable(roundTable.next0);
+   DropTable dropTable <- mkDropTable(roundTable.next1);
 
-   rule checkValidPaxos;
-      let v <- md.request.get;
-      case (v) matches
-         tagged ValidPaxosRequest { pkt: .pkt }: begin
-            // enqueue to role table
-         end
-         default: begin
-            // enqueue to forward queue
-         end
-   endrule
+//   rule checkValidPaxos;
+//      let v <- md.request.get;
+//      case (v) matches
+//         tagged ValidPaxosRequest { pkt: .pkt }: begin
+//            // enqueue to role table
+//         end
+//         default: begin
+//            // enqueue to forward queue
+//         end
+//      endcase
+//   endrule
 
    interface next = (interface Client#(MetadataRequest, MetadataResponse);
       interface request = toGet(outReqFifo);
       interface response = toPut(inRespFifo);
    endinterface);
+   interface writeClient = dstMacTable.writeClient;
 endmodule

@@ -873,7 +873,7 @@ module mkStateParsePaxos#(Reg#(ParserState) state, FIFOF#(EtherData) datain)(Par
         Vector#(688, Bit#(1)) dataVec = unpack(data);
         let paxos = extract_paxos(pack(takeAt(0, dataVec)));
         $display(fshow(paxos));
-        parse_paxos_fifo.enq(paxos.msgtype);
+        parsed_paxos_fifo.enq(paxos.msgtype);
         next_state_wire[0] <= tagged Valid StateStart;
     endaction
     endseq;

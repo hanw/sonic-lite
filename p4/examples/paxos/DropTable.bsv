@@ -20,38 +20,29 @@
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-import Connectable::*;
+import ClientServer::*;
 import DbgTypes::*;
 import Ethernet::*;
-import EthMac::*;
+import FIFO::*;
 import GetPut::*;
-import MemMgmt::*;
-import MemTypes::*;
-import Pipe::*;
-import PacketBuffer::*;
-import StoreAndForward::*;
-import SharedBuff::*;
+import PaxosTypes::*;
+import RegFile::*;
 
-// Encapsulate Egress Pipeline, Tx Ring
-interface TxChannel;
-   interface MemReadClient#(`DataBusWidth) readClient;
-   interface MemFreeClient freeClient;
-   interface Put#(PacketInstance) eventPktSend;
-   interface PipeOut#(PacketDataT#(64)) macTx;
-   method PktBuffDbgRec dbg;
+interface DropTable;
+   interface Client#(MetadataRequest, MetadataResponse) next;
 endinterface
 
-module mkTxChannel#(Clock txClock, Reset txReset)(TxChannel);
-   PacketBuffer pktBuff <- mkPacketBuffer();
-   StoreAndFwdFromMemToRing egress <- mkStoreAndFwdFromMemToRing();
-   StoreAndFwdFromRingToMac ringToMac <- mkStoreAndFwdFromRingToMac(txClock, txReset);
-   mkConnection(egress.writeClient, pktBuff.writeServer);
-   mkConnection(ringToMac.readClient, pktBuff.readServer);
+module mkDropTable#(Client#(MetadataRequest, MetadataResponse) md)(DropTable);
+   FIFO#(MetadataRequest) outReqFifo <- mkFIFO;
+   FIFO#(MetadataResponse) inRespFifo <- mkFIFO;
 
-   interface macTx = ringToMac.macTx;
-   interface readClient = egress.readClient;
-   interface freeClient = egress.free;
-   interface eventPktSend = egress.eventPktSend;
-   method dbg = pktBuff.dbg;
+   rule readDropRequest;
+      let v <- md.request.get;
+      $display("Drop request");
+   endrule
+
+   interface next = (interface Client#(MetadataRequest, MetadataResponse);
+      interface request = toGet(outReqFifo);
+      interface response = toPut(inRespFifo);
+   endinterface);
 endmodule
-
