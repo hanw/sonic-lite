@@ -70,22 +70,21 @@ module mkDtpMacTop#(DtpIndication indication1)(DtpMacTop);
    Wire#(Bit#(1)) clk_50_wire <- mkDWire(0);
 
    De5Clocks clocks <- mkDe5Clocks(clk_50_wire, clk_644_wire);
+   De5SfpCtrl#(4) sfpctrl <- mkDe5SfpCtrl();
    Clock txClock = clocks.clock_156_25;
    Clock phyClock = clocks.clock_644_53;
    Clock mgmtClock = clocks.clock_50;
+
+   MakeResetIfc dummyReset <- mkResetSync(0, False, defaultClock);
    Reset txReset <- mkAsyncReset(2, defaultReset, txClock);
-   Reset phyReset <- mkAsyncReset(2, defaultReset, phyClock);
-   Reset mgmtReset <- mkAsyncReset(2, defaultReset, mgmtClock);
+   Reset dummyTxReset <- mkAsyncReset(2, dummyReset.new_rst, txClock);
 
-   De5SfpCtrl#(4) sfpctrl <- mkDe5SfpCtrl();
-
-   DtpController dtp <- mkDtpController(indication1, txClock, txReset, clocked_by defaultClock);
-
+   DtpController dtp <- mkDtpController(indication1, txClock, dummyTxReset);
    Reset rst_api <- mkSyncReset(2, dtp.ifc.rst, txClock);
-   Reset dtp_rst <- mkResetEither(txReset, rst_api, clocked_by txClock);
+   Reset dtp_rst <- mkResetEither(dummyTxReset, rst_api, clocked_by txClock);
 
 //   NetTopIfc net <- mkNetTop(mgmtClock, txClock, phyClock, clocked_by txClock, reset_by dtp_rst);
-   DtpPhyIfc#(4) phys <- mkEthPhy(mgmtClock, txClock, phyClock, mgmtReset, clocked_by txClock, reset_by dtp_rst);
+   DtpPhyIfc#(4) phys <- mkEthPhy(mgmtClock, txClock, phyClock, clocked_by txClock, reset_by dtp_rst);
 
    Vector#(NumPorts, EthMacIfc) mac ;
 //   Vector#(NumPorts, FIFOF#(Bit#(72))) macToPhy <- replicateM(mkFIFOF, clocked_by txClock, reset_by dtp_rst);

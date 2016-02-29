@@ -29,7 +29,7 @@ CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/sv_10g_pma/sv_10g_pma.qip
 CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/altera_clkctrl/altera_clkctrl.qip
 CONNECTALFLAGS += --verilog=$(PROJTOP)/../../../hw/verilog/si570/
 CONNECTALFLAGS += --verilog=$(PROJTOP)/../../../hw/verilog/
-#CONNECTALFLAGS += --chipscope=$(PROJTOP)/mkDtpTop.stp
+CONNECTALFLAGS += --chipscope=$(PROJTOP)/mkDtpTop.stp
 
 CONNECTALFLAGS += -D DtpVersion=$(shell printf "%d" 0x`git rev-parse --short=8 HEAD`)
 CONNECTALFLAGS += -D PcieHostIF
