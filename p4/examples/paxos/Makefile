@@ -26,7 +26,7 @@ BSVFILES=ParserTest.bsv
 FPGAMAKE_CONNECTALFLAGS += -P mkPcieHostTop
 
 CONNECTALFLAGS += -m $(P4FPGADIR)/bsv/AsymmetricBRAM/mem_model.c
-CONNECTALFLAGS += -m $(P4FPGADIR)/bsv/Bcam/cam_model.c
+CONNECTALFLAGS += -m $(P4FPGADIR)/bsv/matchtable_model.cpp
 
 run:
 	(cd bluesim; ./bin/ubuntu.exe -p ../paxos.pcap)
