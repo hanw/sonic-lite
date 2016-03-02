@@ -20,6 +20,7 @@
  */
 
 #include "DtpPktGenRequest.h"
+#include "DtpPktGenIndication.h"
 #include "GeneratedTypes.h"
 #include "lutils.h"
 #include "lpcap.h"
@@ -34,6 +35,21 @@ using namespace std;
 #define LINK_SPEED 10
 
 static DtpPktGenRequestProxy *device = 0;
+
+class DtpPktGenTop : public DtpPktGenIndicationWrapper
+{
+   public:
+      virtual void read_version_resp(uint32_t a) {
+         fprintf(stderr, "read version %d\n", a);
+      }
+
+      virtual void read_pktbuf_debug_resp(uint8_t p, uint64_t a, uint64_t b, uint64_t c, uint64_t d) {
+         fprintf(stderr, "Port %d: sop_enq: %ld sop_deq: %ld eop_enq: %ld eop_deq: %ld\n", p, a, b, c, d);
+      }
+
+      DtpPktGenTop(unsigned int id) : DtpPktGenIndicationWrapper(id) {}
+};
+
 uint16_t flowid;
 sem_t cmdCompleted;
 
@@ -112,7 +128,9 @@ int main(int argc, char **argv)
     struct arg_info arguments = {1, 200};
     struct pcap_trace_info pcap_info = {0, 0};
 
+    DtpPktGenTop indication (IfcNames_DtpPktGenIndicationH2S);
     device = new DtpPktGenRequestProxy(IfcNames_DtpPktGenRequestS2H);
+    device->pint.busyType = BUSY_SPIN;
 
     parse_options(argc, argv, &pcap_file, &arguments);
 
@@ -124,8 +142,12 @@ int main(int argc, char **argv)
     if (arguments.rate && arguments.tracelen) {
         int idle = compute_idle(&pcap_info, arguments.rate, LINK_SPEED);
         device->start(arguments.tracelen, idle);
-        sleep(50);
+        sleep(5);
         device->stop();
+
+         int i;
+        for ( i = 0 ; i < 4 ; i ++) 
+           device->read_pktbuf_debug(i);
     }
 
     return 0;

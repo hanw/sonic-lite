@@ -44,7 +44,6 @@ import Ethernet::*;
 import EthPhy::*;
 import EthMac::*;
 import DtpController::*;
-import PacketBuffer::*;
 import DtpPktGenAPI::*;
 import MemTypes::*;
 import MemReadEngine::*;
@@ -111,13 +110,13 @@ module mkDtpPktGenTop#(DtpIndication indication1, DtpPktGenIndication indication
       // mac and phy
       mkConnection(mac[i].tx, toPut(phys.tx[i]));
       mkConnection(toGet(phys.rx[i]), mac[i].rx);
-      // mac and rx ring
-      if (i != 0) begin
+      if (i != 0) begin // port 0 is pkt_gen
+         // mac and rx ring
          mkConnection(macToRing[i].macRx, mac[i].packet_rx);
          mkConnection(macToRing[i].writeClient, pkt_buff[i].writeServer);
+         // mac and tx ring
          mkConnection(ringToMac[i].macTx, mac[i].packet_tx);
       end
-      // mac and tx ring
    end
 
    // between port 0 and port 3
@@ -155,16 +154,13 @@ module mkDtpPktGenTop#(DtpIndication indication1, DtpPktGenIndication indication
       mkConnection(phys.rx_dbg[i], dtp.ifc.rxPcsDbg[i]);
    end
 
-   // Packet Generator
+   // port 0:Packet Generator
    PktGen pktgen <- mkPktGen(clocked_by txClock, reset_by dtp_rst);
-   //PacketBuffer pkt_buff <- mkPacketBuffer(clocked_by txClock, reset_by dtp_rst);
-   //StoreAndFwdFromRingToMac ringToMac <- mkStoreAndFwdFromRingToMac(txClock, dtp_rst, clocked_by txClock, reset_by dtp_rst);
-
    mkConnection(pktgen.writeClient, pkt_buff[0].writeServer);
    mkConnection(ringToMac[0].readClient, pkt_buff[0].readServer);
    mkConnection(ringToMac[0].macTx, mac[0].packet_tx);
 
-   DtpPktGenAPI api <- mkDtpPktGenAPI(indication2, pktgen);
+   DtpPktGenAPI api <- mkDtpPktGenAPI(indication2, pktgen, pkt_buff, txClock, dtp_rst);
 
    // PktGen start/stop
    SyncFIFOIfc#(Tuple2#(Bit#(32),Bit#(32))) pktGenStartSyncFifo <- mkSyncFIFO(4, defaultClock, defaultReset, txClock);
