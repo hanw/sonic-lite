@@ -48,6 +48,8 @@ module mkAcceptorTable#(Client#(MetadataRequest, MetadataResponse) md)(AcceptorT
             //matchTable.lookupPort.request.put(MatchFieldAcceptorTbl { key_field_0: v.key_field_0 });
             //currPacketFifo.enq(pkt);
             if (verbose) $display("Acceptor: %h", pkt.id);
+            MetadataRequest nextReq = tagged ForwardQueueRequest {pkt: pkt};
+            outReqFifo.enq(nextReq);
          end
       endcase
    endrule

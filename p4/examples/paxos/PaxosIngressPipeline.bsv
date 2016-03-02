@@ -36,8 +36,8 @@ import DropTable::*;
 import MemTypes::*;
 
 interface PaxosIngressPipeline;
-   interface Client#(MetadataRequest, MetadataResponse) next;
    interface MemWriteClient#(`DataBusWidth) writeClient;
+   interface Get#(PacketInstance) eventPktSend;
 endinterface
 
 module mkPaxosIngressPipeline#(Client#(MetadataRequest, MetadataResponse) md)(PaxosIngressPipeline);
@@ -66,9 +66,15 @@ module mkPaxosIngressPipeline#(Client#(MetadataRequest, MetadataResponse) md)(Pa
 //      endcase
 //   endrule
 
-   interface next = (interface Client#(MetadataRequest, MetadataResponse);
-      interface request = toGet(outReqFifo);
-      interface response = toPut(inRespFifo);
-   endinterface);
+   rule acceptTableSend;
+      let v <- acceptorTable.next.request.get;
+      case (v) matches
+         tagged ForwardQueueRequest {pkt: .pkt}: begin
+            currPacketFifo.enq(pkt);
+         end
+      endcase
+   endrule
+
    interface writeClient = dstMacTable.writeClient;
+   interface eventPktSend = toGet(currPacketFifo);
 endmodule

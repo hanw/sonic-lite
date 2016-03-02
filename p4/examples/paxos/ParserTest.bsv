@@ -3,6 +3,7 @@ package ParserTest;
 import BRAMFIFO::*;
 import BuildVector::*;
 import Clocks::*;
+import Connectable::*;
 import DefaultValue::*;
 import GetPut::*;
 import ClientServer::*;
@@ -57,9 +58,9 @@ module mkParserTest#(ParserTestIndication indication
    Reset txReset <- mkSyncReset(2, defaultReset, txClock);
 
    HostChannel hostchan <- mkHostChannel();
+   PaxosIngressPipeline ingress <- mkPaxosIngressPipeline(hostchan.next);
    TxChannel txchan <- mkTxChannel(txClock, txReset);
    SyncFIFOIfc#(EtherData) txSyncFifo <- mkSyncBRAMFIFO(6, txClock, txReset, defaultClock, defaultReset);
-   PaxosIngressPipeline ingress <- mkPaxosIngressPipeline(hostchan.next);
 
    SharedBuffer#(12, 128, 1) mem <- mkSharedBuffer(vec(txchan.readClient)
                                                   ,vec(txchan.freeClient)
@@ -68,6 +69,7 @@ module mkParserTest#(ParserTestIndication indication
                                                   ,memServerInd
                                                   );
 
+   mkConnection(ingress.eventPktSend, txchan.eventPktSend);
    //P4Register#(InstanceSize, RoundSize) roundRegs <- mkP4RoundRegister(vec(roleTable.regAccess));
    //P4Register#(1, 8) roleRegs <- mkP4RoleRegister(vec(roundTable.regAccess));
 

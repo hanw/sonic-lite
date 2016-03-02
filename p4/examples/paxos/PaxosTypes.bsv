@@ -32,6 +32,10 @@ typedef union tagged {
       PacketInstance pkt;
       Bit#(8) msgtype;
    } AcceptorTblRequest;
+
+   struct {
+      PacketInstance pkt;
+   } ForwardQueueRequest;
 } MetadataRequest deriving (Bits, Eq);
 
 typedef struct {
