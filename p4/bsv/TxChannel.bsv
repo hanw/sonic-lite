@@ -36,8 +36,8 @@ import SharedBuff::*;
 interface TxChannel;
    interface MemReadClient#(`DataBusWidth) readClient;
    interface MemFreeClient freeClient;
-   interface Put#(PacketInstance) eventPktSend;
-   interface PipeOut#(PacketDataT#(64)) macTx;
+   interface PipeIn#(PacketInstance) eventPktSend;
+   interface Get#(PacketDataT#(64)) macTx;
    method PktBuffDbgRec dbg;
 endinterface
 

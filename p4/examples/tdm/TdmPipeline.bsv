@@ -37,7 +37,7 @@ import MemTypes::*;
 import DbgTypes::*;
 import Ethernet::*;
 import EthMac::*;
-import GenericMatchTable::*;
+//import GenericMatchTable::*;
 import HostChannel::*;
 import TxChannel::*;
 import RxChannel::*;

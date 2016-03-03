@@ -30,7 +30,8 @@ import IPv4Parser::*;
 import MemMgmt::*;
 import MemTypes::*;
 import PacketBuffer::*;
-//import PacketTypes::*;
+import PacketTypes::*;
+import Pipe::*;
 import StoreAndForward::*;
 import SharedBuff::*;
 import Tap::*;
@@ -58,7 +59,7 @@ module mkHostChannel(HostChannel);
    mkConnection(tap.tap_out, toPut(parser.frameIn));
 
    rule handle_packet_process;
-      let v <- ingress.eventPktCommitted.get;
+      let v <- toGet(ingress.eventPktCommitted).get;
       let ipv4 <- toGet(parser.parsedOut_ipv4_dstAddr).get;
       if (verbose) $display("HostChannel: ipv4=%h, size=%d", ipv4, v.size);
       MetadataRequest nextReq = tagged RouteLookupRequest {pkt: v, dstip: ipv4};

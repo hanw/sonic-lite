@@ -57,10 +57,8 @@ endinterface
 // Wrapper for the verilog
 `ifdef ALTERA
 import "BVI" AsymmetricBRAM_Altera =
-`endif
-`ifdef XILINX
+`else
 import "BVI" AsymmetricBRAM_Xilinx =
-`endif
 module vAsymBRAM#(Bool hasOutputRegister)
                  (VAsymBRAMIfc#(raddr_t, rdata_t, waddr_t, wdata_t))
     provisos(
@@ -91,6 +89,7 @@ module vAsymBRAM#(Bool hasOutputRegister)
     schedule (write) CF (read);
 
 endmodule
+`endif
 
 module mkAsymmetricBRAM#(Bool hasOutputRegister, Bool hasForwarding, String name)
                                (AsymmetricBRAM#(raddr_t, rdata_t, waddr_t, wdata_t))
