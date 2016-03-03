@@ -28,6 +28,7 @@ import GetPut::*;
 import MemMgmt::*;
 import MemTypes::*;
 import PacketBuffer::*;
+import Pipe::*;
 import StoreAndForward::*;
 import SharedBuff::*;
 
@@ -36,7 +37,7 @@ interface RxChannel;
    interface Put#(PacketDataT#(64)) macRx;
    interface MemWriteClient#(`DataBusWidth) writeClient;
    interface MemAllocClient mallocClient;
-   interface Get#(PacketInstance) eventPktCommitted;
+   interface PipeOut#(PacketInstance) eventPktCommitted;
    method PktBuffDbgRec dbg;
 endinterface
 

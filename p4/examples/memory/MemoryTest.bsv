@@ -118,7 +118,9 @@ module mkMemoryTest#(MemoryTestIndication indication
    StoreAndFwdFromMemToRing memToRing <- mkStoreAndFwdFromMemToRing();
 
    SharedBuffer#(12, 128, 1) mem <- mkSharedBuffer(vec(memToRing.readClient)
+                                                  ,vec(memToRing.free)
                                                   ,vec(ringToMem.writeClient)
+                                                  ,vec(ringToMem.malloc)
                                                   ,memServerIndication
 `ifdef DEBUG
                                                   ,memTestInd
@@ -127,22 +129,17 @@ module mkMemoryTest#(MemoryTestIndication indication
                                                   );
 
    mkConnection(ringToMem.readClient, incoming_buff.readServer);
-   mkConnection(ringToMem.mallocReq, mem.mallocReq);
-   mkConnection(mem.mallocDone, ringToMem.mallocDone);
-
    mkConnection(memToRing.writeClient, outgoing_buff.writeServer);
-
    mkConnection(ringToMem.eventPktCommitted, memToRing.eventPktSend);
 
    StoreAndFwdFromRingToMac ringToMac <- mkStoreAndFwdFromRingToMac(txClock, txReset);
-
    mkConnection(ringToMac.readClient, outgoing_buff.readServer);
 
 `ifdef SYNTHESIS
    mkConnection(ringToMac.macTx, mac[0].packet_tx);
 `else
    rule drain_mac;
-      let v <- ringToMac.macTx.get;
+      let v <- toGet(ringToMac.macTx).get;
       if (verbose) $display("memory::MemoryTest:: tx data %h", v);
    endrule
 `endif
