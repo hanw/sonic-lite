@@ -40,7 +40,7 @@ import EthMac::*;
 //import GenericMatchTable::*;
 import HostChannel::*;
 import TxChannel::*;
-import RxChannel::*;
+//import RxChannel::*;
 import ModifyMac::*;
 import IPv4Parser::*;
 import IPv4Route::*;
@@ -77,7 +77,7 @@ module mkTdmPipeline#(Clock txClock, Reset txReset
 `endif
    )(TdmPipeline);
 
-   RxChannel rxchan <- mkRxChannel(rxClock, rxReset);
+   //RxChannel rxchan <- mkRxChannel(rxClock, rxReset);
    HostChannel hostchan <- mkHostChannel();
    TxChannel txchan <- mkTxChannel(txClock, txReset);
 
@@ -101,7 +101,7 @@ module mkTdmPipeline#(Clock txClock, Reset txReset
       indication.addEntryResp(v);
    endrule
 
-   interface macRx = rxchan.macRx;
+   //interface macRx = rxchan.macRx;
    interface macTx = txchan.macTx;
    interface writeServer = hostchan.writeServer;
    interface add_entry = ipv4Route.add_entry;
