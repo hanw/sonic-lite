@@ -110,6 +110,5 @@ int main(int argc, char **argv)
         load_pcap_file(pcap_file, &pcap_info);
     }
 
-    while(1) sleep(1);
     return 0;
 }
