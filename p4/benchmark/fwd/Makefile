@@ -28,6 +28,7 @@ CONNECTALFLAGS += --bsvpath=$(SONICDIR)/hw/generated
 CONNECTALFLAGS += --verilog=$(P4FPGADIR)/bsv/AsymmetricBRAM
 CONNECTALFLAGS += -D NicVersion=$(shell printf "%d" 0x`git rev-parse --short=8 HEAD`)
 CONNECTALFLAGS += -D DataBusWidth=128
+CONNECTALFLAGS += -D IMPORT_HOSTIF
 CONNECTALFLAGS += --bscflags="-show-range-conflict +RTS -K46777216 -RTS -demote-errors G0066:G0045 -suppress-warnings G0046:G0020:S0015:S0080:S0039 -steps-max-intervals 20"
 CONNECTALFLAGS += -m $(P4FPGADIR)/bsv/AsymmetricBRAM/mem_model.c
 CONNECTALFLAGS += -m $(P4FPGADIR)/bsv/matchtable_model.cpp
@@ -49,7 +50,7 @@ PIN_TYPE = NfsumePins
 PIN_TYPE_INCLUDE = NfsumePins
 PIN_BINDINGS ?= LED:LED SFP:SFP SFPA:SFPA SFPB:SFPB SFPC:SFPC SFPD:SFPD
 PINOUT_FILE = $(SONICDIR)/boards/nfsume.json
-CONNECTALFLAGS += -D XILINX_SYS_CLK -D IMPORT_HOSTIF
+CONNECTALFLAGS += -D XILINX_SYS_CLK
 CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/ten_gig_eth_mac_0/ten_gig_eth_mac_0.xci
 CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/ten_gig_eth_pcs_pma_shared/ten_gig_eth_pcs_pma_shared.xci
 CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/ten_gig_eth_pcs_pma_non_shared/ten_gig_eth_pcs_pma_non_shared.xci
@@ -58,5 +59,8 @@ prebuild::
 	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) vivado -notrace -mode batch -source $(SONICDIR)/hw/scripts/generate-mac.tcl)
 	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) vivado -notrace -mode batch -source $(SONICDIR)/hw/scripts/connectal-synth-phy.tcl)
 endif
+
+run:
+	(cd bluesim; ./bin/ubuntu.exe -p ../paxos.pcap)
 
 include $(CONNECTALDIR)/Makefile.connectal

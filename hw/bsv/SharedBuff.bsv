@@ -102,9 +102,9 @@ module mkSharedBuffer#(Vector#(numReadClients, MemReadClient#(busWidth)) readCli
 	    ,Add#(numWriteClients, a__, TMul#(TDiv#(numWriteClients, nMasters),nMasters))
 	    ,Add#(numReadClients, b__, TMul#(TDiv#(numReadClients, nMasters),nMasters))
 	    ,Add#(numAllocClients, b__, TMul#(TDiv#(numAllocClients, nMasters),nMasters))
-            ,Mul#(TDiv#(busWidth, TDiv#(busWidth, 8)), TDiv#(busWidth, 8), busWidth)
-            ,Mul#(TDiv#(busWidth, ByteEnableSize), ByteEnableSize, busWidth)
-            ,Add#(`DataBusWidth, 0, busWidth)
+        ,Mul#(TDiv#(busWidth, TDiv#(busWidth, 8)), TDiv#(busWidth, 8), busWidth)
+        ,Mul#(TDiv#(busWidth, ByteEnableSize), ByteEnableSize, busWidth)
+        ,Add#(`DataBusWidth, 0, busWidth)
 	    );
    MemMgmt#(addrWidth, numAllocClients, numReadClients) alloc <- mkMemMgmt(
 `ifdef DEBUG

@@ -1,11 +1,12 @@
-import Ethernet::*;
-import Vector::*;
 import ClientServer::*;
-import RegFile::*;
+import Connectable::*;
+import Ethernet::*;
 import FIFO::*;
 import GetPut::*;
-import Connectable::*;
 import MatchTable::*;
+import Pipe::*;
+import RegFile::*;
+import Vector::*;
 
 typedef union tagged {
    struct {
@@ -47,6 +48,9 @@ typedef 8 RoundSize;
 typedef 8 MsgTypeSize;
 typedef 16 InstanceSize;
 typedef 512 ValueSize;
+
+typedef Client#(MetadataRequest, MetadataResponse) MetaDataCient;
+typedef Server#(MetadataRequest, MetadataResponse) MetaDataServer;
 
 interface P4RegisterIfc#(type addr, type data);
 endinterface

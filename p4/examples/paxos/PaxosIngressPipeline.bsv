@@ -20,51 +20,66 @@
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+import AcceptorTable::*;
 import ClientServer::*;
+import Connectable::*;
 import DbgTypes::*;
+import DstMacTable::*;
+import DropTable::*;
 import Ethernet::*;
 import FIFO::*;
+import FIFOF::*;
 import GetPut::*;
+import MemTypes::*;
 import PaxosTypes::*;
+import Pipe::*;
 import RegFile::*;
-import DstMacTable::*;
 import RoleTable::*;
 import RoundTable::*;
-import AcceptorTable::*;
 import SequenceTable::*;
-import DropTable::*;
-import MemTypes::*;
+import Vector::*;
 
 interface PaxosIngressPipeline;
    interface MemWriteClient#(`DataBusWidth) writeClient;
-   interface Get#(PacketInstance) eventPktSend;
+   interface PipeOut#(PacketInstance) eventPktSend;
 endinterface
 
-module mkPaxosIngressPipeline#(Client#(MetadataRequest, MetadataResponse) md)(PaxosIngressPipeline);
+module mkPaxosIngressPipeline#(Vector#(numClients, MetaDataCient) mdc)(PaxosIngressPipeline);
    let verbose = True;
 
+   // Out
    FIFO#(MetadataRequest) outReqFifo <- mkFIFO;
    FIFO#(MetadataResponse) inRespFifo <- mkFIFO;
-   FIFO#(PacketInstance) currPacketFifo <- mkFIFO;
+   FIFOF#(PacketInstance) currPacketFifo <- mkFIFOF;
 
-   DstMacTable dstMacTable <- mkDstMacTable(md);
+   // In
+   FIFO#(MetadataRequest) inReqFifo <- mkFIFO;
+   FIFO#(MetadataResponse) outRespFifo <- mkFIFO;
+
+   Vector#(numClients, MetaDataServer) metadataServers = newVector;
+   for (Integer i=0; i<valueOf(numClients); i=i+1) begin
+      metadataServers[i] = (interface MetaDataServer;
+         interface Put request = toPut(inReqFifo);
+         interface Get response = toGet(outRespFifo);
+      endinterface);
+   end
+   mkConnection(mdc, metadataServers);
+
+   function MetaDataCient getMetadataClient();
+      MetaDataCient ret_ifc;
+      ret_ifc = (interface MetaDataCient;
+         interface Get request = toGet(inReqFifo);
+         interface Put response = toPut(outRespFifo);
+      endinterface);
+      return ret_ifc;
+   endfunction
+
+   DstMacTable dstMacTable <- mkDstMacTable(getMetadataClient());
    RoleTable roleTable <- mkRoleTable(dstMacTable.next);
    RoundTable roundTable <- mkRoundTable(roleTable.next0);
    SequenceTable sequenceTable <- mkSequenceTable(roleTable.next1);
    AcceptorTable acceptorTable <- mkAcceptorTable(roundTable.next0);
    DropTable dropTable <- mkDropTable(roundTable.next1);
-
-//   rule checkValidPaxos;
-//      let v <- md.request.get;
-//      case (v) matches
-//         tagged ValidPaxosRequest { pkt: .pkt }: begin
-//            // enqueue to role table
-//         end
-//         default: begin
-//            // enqueue to forward queue
-//         end
-//      endcase
-//   endrule
 
    rule acceptTableSend;
       let v <- acceptorTable.next.request.get;
@@ -76,5 +91,5 @@ module mkPaxosIngressPipeline#(Client#(MetadataRequest, MetadataResponse) md)(Pa
    endrule
 
    interface writeClient = dstMacTable.writeClient;
-   interface eventPktSend = toGet(currPacketFifo);
+   interface eventPktSend = toPipeOut(currPacketFifo);
 endmodule

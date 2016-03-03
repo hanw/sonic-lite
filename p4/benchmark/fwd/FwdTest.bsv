@@ -25,6 +25,7 @@ import PaxosIngressPipeline::*;
 import PacketBuffer::*;
 import SharedBuff::*;
 import TxChannel::*;
+import RxChannel::*;
 import PaxosTypes::*;
 import EthMac::*;
 
@@ -58,9 +59,11 @@ interface FwdTest;
    interface FwdTestRequest request;
    interface `PinType pins;
 endinterface
-module mkFwdTest#(HostInterface host, FwdTestIndication indication
-                    ,ConnectalMemory::MemServerIndication memServerInd
-                    )(FwdTest);
+module mkFwdTest#(
+      HostInterface host,
+      FwdTestIndication indication
+      ,ConnectalMemory::MemServerIndication memServerInd
+      )(FwdTest);
    let verbose = True;
    Clock defaultClock <- exposeCurrentClock();
    Reset defaultReset <- exposeCurrentReset();
@@ -86,19 +89,28 @@ module mkFwdTest#(HostInterface host, FwdTestIndication indication
 `endif
 
    HostChannel hostchan <- mkHostChannel();
-   PaxosIngressPipeline ingress <- mkPaxosIngressPipeline(hostchan.next);
    TxChannel txchan <- mkTxChannel(txClock, txReset);
-   SyncFIFOIfc#(EtherData) txSyncFifo <- mkSyncBRAMFIFO(6, txClock, txReset, defaultClock, defaultReset);
+   RxChannel rxchan <- mkRxChannel(txClock, txReset);
+   PaxosIngressPipeline ingress <- mkPaxosIngressPipeline(vec(hostchan.next, rxchan.next));
 
-   SharedBuffer#(12, 128, 1) mem <- mkSharedBuffer(vec(txchan.readClient)
-                                                  ,vec(txchan.freeClient)
-                                                  ,vec(hostchan.writeClient, ingress.writeClient)
-                                                  ,vec(hostchan.mallocClient)
-                                                  ,memServerInd
-                                                  );
+   SharedBuffer#(12, 128, 1) mem <- mkSharedBuffer(
+      vec(txchan.readClient)
+      ,vec(txchan.freeClient)
+      ,vec(hostchan.writeClient, rxchan.writeClient, ingress.writeClient)
+      ,vec(hostchan.mallocClient, rxchan.mallocClient)
+      ,memServerInd
+      );
 
    mkConnection(ingress.eventPktSend, txchan.eventPktSend);
-   mkConnection(txchan.macTx, mac[0].packet_tx);
+
+`ifndef SIMULATION
+   mkConnection(txchan.macTx, mac[1].packet_tx);
+   mkConnection(mac[0].packet_rx, rxchan.macRx);
+`else
+   rule drainTx;
+      let v <- txchan.macTx.get;
+   endrule
+`endif
    //P4Register#(InstanceSize, RoundSize) roundRegs <- mkP4RoundRegister(vec(roleTable.regAccess));
    //P4Register#(1, 8) roleRegs <- mkP4RoleRegister(vec(roundTable.regAccess));
 

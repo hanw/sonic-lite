@@ -29,6 +29,7 @@ import FIFO::*;
 import MemMgmt::*;
 import MemTypes::*;
 import PacketBuffer::*;
+import Pipe::*;
 import StoreAndForward::*;
 import SharedBuff::*;
 import Tap::*;
@@ -62,7 +63,7 @@ module mkHostChannel(HostChannel);
    // request issue after packet is committed to memory.
    // FIXME: we assume packet is always paxos packet for now
    rule handle_packet_process;
-      let v <- ingress.eventPktCommitted.get;
+      let v <- toGet(ingress.eventPktCommitted).get;
       let dstMac <- toGet(parser.parsedOut_ethernet_dstAddr).get;
       let msgtype <- toGet(parser.parsedOut_paxos_msgtype).get;
       if (verbose) $display("HostChannel: dstMac=%h, size=%d", dstMac, v.size);
