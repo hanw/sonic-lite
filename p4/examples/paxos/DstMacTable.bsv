@@ -38,7 +38,7 @@ endinterface
 module mkDstMacTable#(Client#(MetadataRequest, MetadataResponse) md)(DstMacTable);
 
    let verbose = True;
-   MatchTable#(256, MatchFieldDmacTable, ActionArgsDmacTable) matchTable <- mkMatchTable();
+   MatchTable#(256, MatchFieldDmacTable, ActionArgsDmacTable) matchTable <- mkMatchTable_256_dmacTable();
 
    FIFO#(MetadataRequest) outReqFifo <- mkFIFO;
    FIFO#(MetadataResponse) inRespFifo <- mkFIFO;

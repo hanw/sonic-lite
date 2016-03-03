@@ -11,20 +11,6 @@ import Pipe::*;
 import Bcam::*;
 import BcamTypes::*;
 
-typedef struct {
-   Bit#(9) key_field;
-} MatchFieldSourceMac deriving (Bits, Eq);
-
-typedef enum {
-   MacLearn = 0,
-   Nop
-} ActionSourceMac deriving (Bits, Eq);
-
-typedef struct {
-   MatchFieldSourceMac key;
-   ActionSourceMac    actions;
-} MatchTableIfc deriving (Bits, Eq);
-
 interface MatchTable#(numeric type depth, type keys, type actions);
    interface Server#(keys, Maybe#(actions)) lookupPort;
    interface Put#(Tuple2#(keys, actions)) add_entry;

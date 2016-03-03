@@ -5,6 +5,7 @@ import RegFile::*;
 import FIFO::*;
 import GetPut::*;
 import Connectable::*;
+import MatchTable::*;
 
 typedef union tagged {
    struct {
@@ -373,4 +374,16 @@ endinterface
 interface ActionAddHeader;
 
 endinterface
+
+(* synthesize *)
+module mkMatchTable_256_dmacTable(MatchTable#(256, MatchFieldDmacTable, ActionArgsDmacTable));
+   MatchTable#(256, MatchFieldDmacTable, ActionArgsDmacTable) ifc <- mkMatchTable();
+   return ifc;
+endmodule
+
+(* synthesize *)
+module mkMatchTable_256_acceptorTable(MatchTable#(256, MatchFieldAcceptorTbl, ActionArgsAcceptorTbl));
+   MatchTable#(256, MatchFieldAcceptorTbl, ActionArgsAcceptorTbl) ifc <- mkMatchTable();
+   return ifc;
+endmodule
 

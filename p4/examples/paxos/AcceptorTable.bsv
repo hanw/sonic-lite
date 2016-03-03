@@ -36,7 +36,8 @@ endinterface
 
 module mkAcceptorTable#(Client#(MetadataRequest, MetadataResponse) md)(AcceptorTable);
    let verbose = True;
-   MatchTable#(256, MatchFieldAcceptorTbl, ActionArgsAcceptorTbl) matchTable <- mkMatchTable();
+   MatchTable#(256, MatchFieldAcceptorTbl, ActionArgsAcceptorTbl) matchTable <- mkMatchTable_256_acceptorTable();
+
    FIFO#(MetadataRequest) outReqFifo <- mkFIFO;
    FIFO#(MetadataResponse) inRespFifo <- mkFIFO;
    FIFO#(PacketInstance) currPacketFifo <- mkFIFO;
