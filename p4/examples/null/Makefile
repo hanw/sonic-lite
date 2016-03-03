@@ -15,6 +15,7 @@ S2H_INTERFACES=NullTestRequest:NullTest.request
 H2S_INTERFACES=NullTest:NullTestIndication
 BSVFILES=NullTest.bsv NullAPI.bsv
 CPPFILES=test.cpp
+CPPFILES += $(SONICDIR)/sw/lpcap.c
 
 #######################################################
 # DE5 Specific Settings

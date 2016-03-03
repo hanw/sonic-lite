@@ -23,6 +23,7 @@ H2S_INTERFACES=ParserTest:ParserTestIndication
 CPPFILES=test.cpp
 BSVFILES=ParserTest.bsv
 FPGAMAKE_CONNECTALFLAGS += -P mkPcieHostTop
+CPPFILES += $(SONICDIR)/sw/lpcap.c
 
 CONNECTALFLAGS += -m $(P4FPGADIR)/bsv/AsymmetricBRAM/mem_model.c
 

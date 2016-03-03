@@ -17,6 +17,7 @@ H2S_INTERFACES=MemoryTest:MemoryTestIndication,MemServerIndication
 
 BSVFILES=MemoryTest.bsv MemoryAPI.bsv $(SONICDIR)/hw/bsv/MemMgmt.bsv
 CPPFILES=test.cpp
+CPPFILES += $(SONICDIR)/sw/lpcap.c
 
 #######################################################
 # DE5 Specific Settings

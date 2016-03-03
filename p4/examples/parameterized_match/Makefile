@@ -18,6 +18,7 @@ S2H_INTERFACES=MatchTestRequest:MatchTest.request
 H2S_INTERFACES=MatchTest:MatchTestIndication
 BSVFILES=MatchTest.bsv $(P4FPGADIR)/bsv/MatchTable.bsv $(P4FPGADIR)/examples/tdm/TdmTypes.bsv
 CPPFILES=test.cpp
+CPPFILES += $(SONICDIR)/sw/lpcap.c
 
 CONNECTALFLAGS += --bsvpath=$(P4FPGADIR)/bsv
 CONNECTALFLAGS += --bsvpath=$(P4FPGADIR)/bsv/Bcam

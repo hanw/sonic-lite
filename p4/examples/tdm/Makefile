@@ -22,6 +22,7 @@ endif
 
 BSVFILES=MemoryTest.bsv MemoryAPI.bsv $(SONICDIR)/hw/bsv/MemMgmt.bsv $(P4FPGADIR)/bsv/GenericMatchTable.bsv TdmPipeline.bsv TdmTypes.bsv $(P4FPGADIR)/bsv/IPv4Route.bsv
 CPPFILES=test.cpp
+CPPFILES += $(SONICDIR)/sw/lpcap.c
 
 #######################################################
 # DE5 Specific Settings
