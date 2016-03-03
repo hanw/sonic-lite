@@ -55,7 +55,12 @@ endinterface
 
 // Assume narrower write port
 // Wrapper for the verilog
-import "BVI" AsymmetricBRAM =
+`ifdef ALTERA
+import "BVI" AsymmetricBRAM_Altera =
+`endif
+`ifdef XILINX
+import "BVI" AsymmetricBRAM_Xilinx =
+`endif
 module vAsymBRAM#(Bool hasOutputRegister)
                  (VAsymBRAMIfc#(raddr_t, rdata_t, waddr_t, wdata_t))
     provisos(
