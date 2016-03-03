@@ -160,8 +160,8 @@ interface EthMacIfc;
    interface Get#(XGMIIData) tx;
    (* always_ready, always_enabled *)
    interface Put#(XGMIIData) rx;
-   interface PipeIn#(PacketDataT#(64)) packet_tx;
-   interface PipeOut#(PacketDataT#(64)) packet_rx;
+   interface Put#(PacketDataT#(64)) packet_tx;
+   interface Get#(PacketDataT#(64)) packet_rx;
 endinterface
 
 // Mac Wrapper
@@ -262,7 +262,7 @@ module mkEthMac#(Clock clk_50, Clock clk_156_25, Reset rst_156_25_n)(EthMacIfc);
          mac.xgmii.rxc(v.ctrl);
       endmethod
    endinterface
-   interface PipeIn packet_tx = toPipeIn(tx_fifo);
+   interface Put packet_tx = toPut(tx_fifo);
 //      method Action put(PacketDataT#(64) d) if (tx_ready_w != 0);
 //         tx_data_w <= tagged Valid pack(d.data);
 //         tx_keep_w <= d.mask;
@@ -270,7 +270,7 @@ module mkEthMac#(Clock clk_50, Clock clk_156_25, Reset rst_156_25_n)(EthMacIfc);
 //         tx_user_w <= 1'b0;
 //      endmethod
 //   endinterface
-   interface PipeOut packet_rx = toPipeOut(rx_fifo);
+   interface Get packet_rx = toGet(rx_fifo);
 endmodule
 `endif
 endpackage: EthMac
