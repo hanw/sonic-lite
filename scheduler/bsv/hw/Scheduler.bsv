@@ -18,6 +18,7 @@ import MachineToPortMapping::*;
 import GlobalClock::*;
 import Addresses::*;
 import MaxMinFairness::*;
+import MinPriorityQueue::*;
 
 typedef struct {
 	ReadResType data;
@@ -147,6 +148,7 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
     Reg#(Bit#(1)) start_polling_rx_buffer <- mkReg(0);
 	Reg#(Bit#(1)) start_tx_scheduling <- mkReg(0);
 
+    MinPriorityQueue#(Bit#(16), Bit#(16)) priority_queue <- mkMinPriorityQueue;
 /*-------------------------------------------------------------------------------*/
                                  // Statistics
 /*-------------------------------------------------------------------------------*/
