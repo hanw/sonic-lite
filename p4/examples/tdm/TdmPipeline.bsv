@@ -116,7 +116,7 @@ module mkTdmPipeline#(Clock txClock, Reset txReset
       case (id) matches
          0: v = hostchan.dbg;
          1: v = txchan.dbg;
-         2: v = rxchan.dbg;
+         //2: v = rxchan.dbg;
       endcase
       return v;
    endmethod
