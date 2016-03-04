@@ -15,7 +15,7 @@ S2H_INTERFACES=FwdTestRequest:FwdTest.request
 H2S_INTERFACES=FwdTest:FwdTestIndication,MemServerIndication:host
 CPPFILES=test.cpp
 CPPFILES+=$(SONICDIR)/sw/lpcap.c
-BSVFILES=FwdTest.bsv
+BSVFILES=FwdTest.bsv FwdAPI.bsv FwdTypes.bsv
 FPGAMAKE_CONNECTALFLAGS += -P mkPcieHostTop
 
 CONNECTALFLAGS += -I $(SONICDIR)/sw/

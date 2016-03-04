@@ -32,6 +32,7 @@ using namespace std;
 
 static FwdTestRequestProxy *device = 0;
 uint16_t flowid;
+sem_t cmdCompleted;
 
 void device_writePacketData(uint64_t* data, uint8_t* mask, int sop, int eop) {
     device->writePacketData(data, mask, sop, eop);
@@ -42,6 +43,20 @@ class FwdTestIndication : public FwdTestIndicationWrapper
 public:
     virtual void read_version_resp(uint32_t a) {
         fprintf(stderr, "version %x\n", a);
+        sem_post(&cmdCompleted);
+    }
+    virtual void readRxRingBuffCntrsResp(uint64_t sopEnq, uint64_t eopEnq, uint64_t sopDeq, uint64_t eopDeq) {
+        fprintf(stderr, "RxRingBufferStatus:\n Rx sop=%ld, eop=%ld \n Tx sop=%ld, eop=%ld \n", sopEnq, eopEnq, sopDeq, eopDeq);
+        sem_post(&cmdCompleted);
+    }
+    virtual void readTxRingBuffCntrsResp(uint64_t sopEnq, uint64_t eopEnq, uint64_t sopDeq, uint64_t eopDeq) {
+        fprintf(stderr, "TxRingBufferStatus:\n Rx sop=%ld, eop=%ld \n Tx sop=%ld, eop=%ld \n", sopEnq, eopEnq, sopDeq, eopDeq);
+        sem_post(&cmdCompleted);
+    }
+    virtual void readMemMgmtCntrsResp(uint64_t allocCnt, uint64_t freeCnt, uint64_t allocCompleted, uint64_t freeCompleted, uint64_t errorCode, uint64_t lastIdFreed, uint64_t lastIdAllocated, uint64_t freeStarted, uint64_t firstSegment, uint64_t lastSegment, uint64_t currSegment, uint64_t invalidSegment) {
+        fprintf(stderr, "MemMgmt: alloc=%ld, free=%ld, allocCompleted=%ld, freeCompleted=%ld, error=%ld\n", allocCnt, freeCnt, allocCompleted, freeCompleted, errorCode);
+        fprintf(stderr, "MemMgmt: lastIdFreed=0x%lx, lastIdAllocated=0x%lx, freeStarted=%ld, firstSegment=0x%lx, lastSegment=0x%lx, currSegment=0x%lx, invalidSegment=%ld\n", lastIdFreed, lastIdAllocated, freeStarted, firstSegment, lastSegment, currSegment, invalidSegment);
+        sem_post(&cmdCompleted);
     }
     FwdTestIndication(unsigned int id) : FwdTestIndicationWrapper(id) {}
 };
@@ -92,6 +107,16 @@ struct arg_info {
     int tracelen;
 };
 
+void read_status () {
+    device->readRxRingBuffCntrs();
+    sem_wait(&cmdCompleted);
+    device->readTxRingBuffCntrs();
+    sem_wait(&cmdCompleted);
+    device->readMemMgmtCntrs();
+    sem_wait(&cmdCompleted);
+}
+
+
 int main(int argc, char **argv)
 {
     char *pcap_file=NULL;
@@ -104,11 +129,14 @@ int main(int argc, char **argv)
     parse_options(argc, argv, &pcap_file, &arguments);
 
     device->read_version();
+    sem_wait(&cmdCompleted);
 
     if (pcap_file) {
         fprintf(stderr, "Attempts to read pcap file %s\n", pcap_file);
         load_pcap_file(pcap_file, &pcap_info);
     }
+
+    read_status();
 
     return 0;
 }

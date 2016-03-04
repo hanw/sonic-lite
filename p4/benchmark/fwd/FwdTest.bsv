@@ -27,6 +27,8 @@ import SharedBuff::*;
 import TxChannel::*;
 import RxChannel::*;
 import PaxosTypes::*;
+import FwdAPI::*;
+import FwdTypes::*;
 import EthMac::*;
 
 `ifdef SIMULATION
@@ -42,18 +44,6 @@ import NfsumePins::*;
 
 typedef 12 PktSize; // maximum 4096b
 typedef TDiv#(`DataBusWidth, 32) WordsPerBeat;
-
-interface FwdTestIndication;
-   method Action read_version_resp(Bit#(32) version);
-//   method Action parsed_ipv4_resp(Bit#(8) ttl);
-//   method Action parsed_vlan_resp();
-//   method Action parsed_ether_resp(Bit#(48) srcAddr, Bit#(48) dstAddr);
-endinterface
-
-interface FwdTestRequest;
-   method Action read_version();
-   method Action writePacketData(Vector#(2, Bit#(64)) data, Vector#(2, Bit#(8)) mask, Bit#(1) sop, Bit#(1) eop);
-endinterface
 
 interface FwdTest;
    interface FwdTestRequest request;
@@ -114,21 +104,9 @@ module mkFwdTest#(
    //P4Register#(InstanceSize, RoundSize) roundRegs <- mkP4RoundRegister(vec(roleTable.regAccess));
    //P4Register#(1, 8) roleRegs <- mkP4RoleRegister(vec(roundTable.regAccess));
 
-   interface FwdTestRequest request;
-      method Action read_version();
-         let v= `NicVersion;
-         $display("read version");
-         indication.read_version_resp(v);
-      endmethod
-      method Action writePacketData(Vector#(2, Bit#(64)) data, Vector#(2, Bit#(8)) mask, Bit#(1) sop, Bit#(1) eop);
-         EtherData beat = defaultValue;
-         beat.data = pack(reverse(data));
-         beat.mask = pack(reverse(mask));
-         beat.sop = unpack(sop);
-         beat.eop = unpack(eop);
-         hostchan.writeServer.writeData.put(beat);
-      endmethod
-   endinterface
+   FwdAPI api <- mkFwdAPI(indication, hostchan, rxchan, txchan, mem);
+
+   interface request = api.request;
 `ifdef BOARD_nfsume
    interface `PinType pins;
       method Action sfp(Bit#(1) refclk_p, Bit#(1) refclk_n);
