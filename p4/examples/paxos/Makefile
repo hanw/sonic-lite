@@ -13,7 +13,7 @@ CONNECTALFLAGS += --bsvpath=$(P4FPGADIR)/bsv/AsymmetricBRAM
 CONNECTALFLAGS += --bsvpath=$(P4FPGADIR)/bsv/Bcam
 #
 PIN_BINDINGS?=PCIE:PCIE LED:LED OSC:OSC SFPA:SFPA SFPB:SFPB SFPC:SFPC SFPD:SFPD SFP:SFP I2C:I2C BUTTON:BUTTON
-PINOUT_FILE=$(P4FPGADIR)/boards/de5.json
+PINOUT_FILE=$(SONICDIR)/boards/de5.json
 
 ########################################################
 # Connectal Support
@@ -21,10 +21,12 @@ PINOUT_FILE=$(P4FPGADIR)/boards/de5.json
 S2H_INTERFACES=ParserTestRequest:ParserTest.request
 H2S_INTERFACES=ParserTest:ParserTestIndication,MemServerIndication
 CPPFILES=test.cpp
+CPPFILES+=$(SONICDIR)/sw/lpcap.c
 BSVFILES=ParserTest.bsv
 FPGAMAKE_CONNECTALFLAGS += -P mkPcieHostTop
 
 CONNECTALFLAGS += -m $(P4FPGADIR)/bsv/AsymmetricBRAM/mem_model.c
+CONNECTALFLAGS += -m $(P4FPGADIR)/bsv/matchtable_model.cpp
 
 run:
 	(cd bluesim; ./bin/ubuntu.exe -p ../paxos.pcap)

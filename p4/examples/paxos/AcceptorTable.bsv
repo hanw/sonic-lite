@@ -26,21 +26,17 @@ import Ethernet::*;
 import FIFO::*;
 import GetPut::*;
 import PaxosTypes::*;
+import MatchTable::*;
+import RegFile::*;
 
-typedef enum {
-   Acceptor = 1,
-   Coordinator = 2
-} Role deriving (Bits);
-
-interface RoleTable;
-   interface Client#(MetadataRequest, MetadataResponse) next0;
-   interface Client#(MetadataRequest, MetadataResponse) next1;
-   interface Client#(RoundRegRequest, RoundRegResponse) regAccess;
+interface AcceptorTable;
+   interface Client#(MetadataRequest, MetadataResponse) next;
+   //interface Client#(RoundRegRequest, RoundRegResponse) regAccess;
 endinterface
 
-module mkRoleTable#(Client#(MetadataRequest, MetadataResponse) md)(RoleTable);
-   Reg#(Bit#(64)) lookupCnt <- mkReg(0);
-   Reg#(Role) role <- mkReg(Acceptor);
+module mkAcceptorTable#(Client#(MetadataRequest, MetadataResponse) md)(AcceptorTable);
+   let verbose = True;
+   MatchTable#(256, MatchFieldAcceptorTbl, ActionArgsAcceptorTbl) matchTable <- mkMatchTable_256_acceptorTable();
 
    FIFO#(MetadataRequest) outReqFifo <- mkFIFO;
    FIFO#(MetadataResponse) inRespFifo <- mkFIFO;
@@ -48,27 +44,22 @@ module mkRoleTable#(Client#(MetadataRequest, MetadataResponse) md)(RoleTable);
 
    rule tableLookupRequest;
       let v <- md.request.get;
-      $display("Role: table lookup request");
       case (v) matches
-         tagged RoleLookupRequest {pkt: .pkt}: begin
-            case (role) matches
-               Acceptor: begin
-                  $display("Role: Acceptor %h", pkt.id);
-                  MetadataRequest nextReq = tagged RoundTblRequest {pkt: pkt};
-                  outReqFifo.enq(nextReq);
-               end
-               Coordinator: begin
-                  $display("Role: Coordinator %h", pkt.id);
-                  MetadataRequest nextReq = tagged SequenceTblRequest {pkt: pkt};
-                  outReqFifo.enq(nextReq);
-               end
-            endcase
-            lookupCnt <= lookupCnt + 1;
+         tagged AcceptorTblRequest {pkt: .pkt} : begin
+            //matchTable.lookupPort.request.put(MatchFieldAcceptorTbl { key_field_0: v.key_field_0 });
+            //currPacketFifo.enq(pkt);
+            if (verbose) $display("Acceptor: %h", pkt.id);
+            MetadataRequest nextReq = tagged ForwardQueueRequest {pkt: pkt};
+            outReqFifo.enq(nextReq);
          end
       endcase
    endrule
 
-   interface next0 = (interface Client#(MetadataRequest, MetadataResponse);
+   rule tableLookupResponse;
+      let v <- matchTable.lookupPort.response.get;
+   endrule
+
+   interface next = (interface Client#(MetadataRequest, MetadataResponse);
       interface request = toGet(outReqFifo);
       interface response = toPut(inRespFifo);
    endinterface);

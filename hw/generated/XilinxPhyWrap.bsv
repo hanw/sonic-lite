@@ -202,12 +202,12 @@ module mkPhyWrapNonShared#(Clock coreclk, Clock dclk, Reset areset, Reset areset
         method rxp(rxp) enable((*inhigh*) EN_rxp);
     endinterface
     interface PhywrapXgmii     xgmii;
-        method xgmii_rxc rxc() clocked_by (rxrecclk);
-        method xgmii_rxd rxd() clocked_by (rxrecclk);
+        method xgmii_rxc rxc() clocked_by (coreclk);
+        method xgmii_rxd rxd() clocked_by (coreclk);
         method txc(xgmii_txc) clocked_by (coreclk) enable((*inhigh*) EN_xgmii_txc);
         method txd(xgmii_txd) clocked_by (coreclk) enable((*inhigh*) EN_xgmii_txd);
     endinterface
-    schedule (core.status, user_drp.drp_daddr_i, user_drp.drp_den_i, user_drp.drp_di_i, user_drp.drp_drdy_i, user_drp.drp_drpdo_i, user_drp.drp_dwe_i, user_drp.drp_req, core_drp.drp_daddr_o, core_drp.drp_den_o, core_drp.drp_di_o, core_drp.drp_drdy_o, core_drp.drp_drpdo_o, core_drp.drp_dwe_o, core_drp.drp_gnt, mdio.mdiomdc, mdio.mdioin, mdio.mdioout, mdio.mdiotri, pma.pmd_type, prtad, gttxreset, gtrxreset, qplllock, qplloutclk, qplloutrefclk, xcvr.rx_resetdone, rx_serial.rxn, rx_serial.rxp, sfp.signal_detect, sim.speedup_control, sfp.tx_disable, sfp.tx_fault, xcvr.tx_resetdone, tx_serial.txn, txoutclk, tx_serial.txp, txuserrdy, txusrclk, txusrclk2, xgmii.rxc, xgmii.rxd, xgmii.txc, xgmii.txd) CF (core.status, user_drp.drp_daddr_i, user_drp.drp_den_i, user_drp.drp_di_i, user_drp.drp_drdy_i, user_drp.drp_drpdo_i, user_drp.drp_dwe_i, user_drp.drp_req, core_drp.drp_den_o, core_drp.drp_daddr_o, core_drp.drp_di_o, core_drp.drp_drdy_o, core_drp.drp_drpdo_o, core_drp.drp_dwe_o, core_drp.drp_gnt, mdio.mdiomdc, mdio.mdioin, mdio.mdioout, mdio.mdiotri, pma.pmd_type, prtad, gttxreset, gtrxreset, qplllock, qplloutclk, qplloutrefclk, xcvr.rx_resetdone, rx_serial.rxn, rx_serial.rxp, sfp.signal_detect, sim.speedup_control, sfp.tx_disable, sfp.tx_fault, xcvr.tx_resetdone, tx_serial.txn, txoutclk, tx_serial.txp, txuserrdy, txusrclk, txusrclk2, xgmii.rxc, xgmii.rxd, xgmii.txc, xgmii.txd);
+    schedule (core.status, user_drp.drp_daddr_i, user_drp.drp_den_i, user_drp.drp_di_i, user_drp.drp_drdy_i, user_drp.drp_drpdo_i, user_drp.drp_dwe_i, user_drp.drp_req, core_drp.drp_daddr_o, core_drp.drp_den_o, core_drp.drp_di_o, core_drp.drp_drdy_o, core_drp.drp_drpdo_o, core_drp.drp_dwe_o, core_drp.drp_gnt, mdio.mdiomdc, mdio.mdioin, mdio.mdioout, mdio.mdiotri, pma.pmd_type, prtad, gttxreset, reset_counter_done, gtrxreset, qplllock, qplloutclk, qplloutrefclk, xcvr.rx_resetdone, rx_serial.rxn, rx_serial.rxp, sfp.signal_detect, sim.speedup_control, sfp.tx_disable, sfp.tx_fault, xcvr.tx_resetdone, tx_serial.txn, txoutclk, tx_serial.txp, txuserrdy, txusrclk, txusrclk2, xgmii.rxc, xgmii.rxd, xgmii.txc, xgmii.txd) CF (core.status, user_drp.drp_daddr_i, user_drp.drp_den_i, user_drp.drp_di_i, user_drp.drp_drdy_i, user_drp.drp_drpdo_i, user_drp.drp_dwe_i, user_drp.drp_req, core_drp.drp_den_o, core_drp.drp_daddr_o, core_drp.drp_di_o, core_drp.drp_drdy_o, core_drp.drp_drpdo_o, core_drp.drp_dwe_o, core_drp.drp_gnt, mdio.mdiomdc, mdio.mdioin, mdio.mdioout, mdio.mdiotri, pma.pmd_type, prtad, gttxreset, reset_counter_done, gtrxreset, qplllock, qplloutclk, qplloutrefclk, xcvr.rx_resetdone, rx_serial.rxn, rx_serial.rxp, sfp.signal_detect, sim.speedup_control, sfp.tx_disable, sfp.tx_fault, xcvr.tx_resetdone, tx_serial.txn, txoutclk, tx_serial.txp, txuserrdy, txusrclk, txusrclk2, xgmii.rxc, xgmii.rxd, xgmii.txc, xgmii.txd);
 endmodule
 
 (* always_ready, always_enabled *)
@@ -305,8 +305,8 @@ module mkPhyWrapShared#(Clock dclk)(PhyWrapShared);
         method rxp(rxp) enable((*inhigh*) EN_rxp);
     endinterface
     interface PhywrapXgmii     xgmii;
-        method xgmii_rxc rxc() clocked_by (rxrecclk);
-        method xgmii_rxd rxd() clocked_by (rxrecclk);
+        method xgmii_rxc rxc() clocked_by (coreclk);
+        method xgmii_rxd rxd() clocked_by (coreclk);
         method txc(xgmii_txc) clocked_by (coreclk) enable((*inhigh*) EN_xgmii_txc);
         method txd(xgmii_txd) clocked_by (coreclk) enable((*inhigh*) EN_xgmii_txd);
     endinterface

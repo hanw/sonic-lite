@@ -35,6 +35,7 @@ import GenericMatchTable::*;
 import MemTypes::*;
 import PacketTypes::*;
 import PacketBuffer::*;
+import Pipe::*;
 import SharedBuff::*;
 import SharedBuffMMU::*;
 import StoreAndForward::*;
@@ -186,7 +187,7 @@ module mkTDM#(Client#(MetadataRequest, MetadataResponse) md, TxChannel tx)(TDM);
 
    rule dequeuePacketInstance;
       let resp <- fwdq.resp_r.get;
-      tx.eventPktSend.put(PacketInstance{id: resp.id, size: resp.size});
+      tx.eventPktSend.enq(PacketInstance{id: resp.id, size: resp.size});
       if (verbose) $display("TDM:: %d dequeuePkt: %h %h", cycle, resp.id, resp.size);
       if (verbose) $display("TDM:: %d dequeuePkt: %h", cycle, resp.dstip);
       sendCnt <= sendCnt + 1;

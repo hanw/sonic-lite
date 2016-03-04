@@ -35,8 +35,8 @@ import Pipe ::*;
 import SpecialFIFOs ::*;
 import Vector ::*;
 import ConnectalConfig::*;
-//import PktGen::*;
-//import StoreAndForward::*;
+import PktGen::*;
+import StoreAndForward::*;
 
 //import NetTop::*;
 //import EthPorts::*;
@@ -44,7 +44,7 @@ import Ethernet::*;
 import EthPhy::*;
 import EthMac::*;
 import DtpController::*;
-import PacketBuffer::*;
+import DtpPktGenAPI::*;
 import MemTypes::*;
 import MemReadEngine::*;
 import MemWriteEngine::*;
@@ -53,24 +53,33 @@ import HostInterface::*;
 import `PinTypeInclude::*;
 
 import ConnectalClocks::*;
+`ifdef SYNTHESIS
 import ALTERA_SI570_WRAPPER::*;
 import AlteraExtra::*;
+`else
+import Sims::*;
+`endif
 import LedController::*;
 
-interface DtpMacTop;
+interface DtpPktGenTop;
    interface DtpRequest request1;
+   interface DtpPktGenRequest request2;
    interface `PinType pins;
 endinterface
 
-module mkDtpMacTop#(DtpIndication indication1)(DtpMacTop);
+module mkDtpPktGenTop#(DtpIndication indication1, DtpPktGenIndication indication2)(DtpPktGenTop);
    Clock defaultClock <- exposeCurrentClock();
    Reset defaultReset <- exposeCurrentReset();
 
    Wire#(Bit#(1)) clk_644_wire <- mkDWire(0);
    Wire#(Bit#(1)) clk_50_wire <- mkDWire(0);
 
+`ifdef SYNTHESIS
    De5Clocks clocks <- mkDe5Clocks(clk_50_wire, clk_644_wire);
    De5SfpCtrl#(4) sfpctrl <- mkDe5SfpCtrl();
+`else
+   SimClocks clocks <- mkSimClocks();
+`endif
    Clock txClock = clocks.clock_156_25;
    Clock phyClock = clocks.clock_644_53;
    Clock mgmtClock = clocks.clock_50;
@@ -80,60 +89,51 @@ module mkDtpMacTop#(DtpIndication indication1)(DtpMacTop);
    Reset dummyTxReset <- mkAsyncReset(2, dummyReset.new_rst, txClock);
 
    DtpController dtp <- mkDtpController(indication1, txClock, dummyTxReset);
-   Reset rst_api <- mkSyncReset(2, dtp.ifc.rst, txClock);
+   Reset rst_api <- mkAsyncReset(2, dtp.ifc.rst, txClock);
    Reset dtp_rst <- mkResetEither(dummyTxReset, rst_api, clocked_by txClock);
 
-//   NetTopIfc net <- mkNetTop(mgmtClock, txClock, phyClock, clocked_by txClock, reset_by dtp_rst);
    DtpPhyIfc#(4) phys <- mkEthPhy(mgmtClock, txClock, phyClock, clocked_by txClock, reset_by dtp_rst);
 
    Vector#(NumPorts, EthMacIfc) mac ;
-//   Vector#(NumPorts, FIFOF#(Bit#(72))) macToPhy <- replicateM(mkFIFOF, clocked_by txClock, reset_by dtp_rst);
-//   Vector#(NumPorts, FIFOF#(Bit#(72))) phyToMac;
-   for (Integer i = 0 ; i < valueOf(NumPorts) ; i=i+1) begin
-      /*
-      rule source;
-         phys.tx[i].enq(72'h83c1e0f0783c1e0f07);
-      endrule
-      rule drain;
-         let v0 <- toGet(phys.rx[i]).get;
-      endrule
-      */
-
-      mac[i] <- mkEthMac(mgmtClock, txClock, phys.rx_clkout[i], dtp_rst, clocked_by txClock, reset_by dtp_rst);
-/*
-      Reset rx_rst<- mkAsyncReset(0, dtp_rst, phys.rx_clkout[i]);
-      phyToMac[i] <- mkFIFOF(clocked_by phys.rx_clkout[i], reset_by rx_rst);
-   
-      mkConnection(toPipeOut(macToPhy[i]), phys.tx[i]);
-      mkConnection(phys.rx[i], toPipeIn(phyToMac[i]));
-
-      rule mac_phy_tx;
-         let v <- mac[i].tx.get();
-         macToPhy[i].enq(v);
-      endrule
-
-      rule mac_phy_rx;
-         let v = phyToMac[i].first;
-         mac[i].rx.put(v);
-         phyToMac[i].deq;
-      endrule
-*/
-      // mac and phy
-      mkConnection(mac[i].tx, toPut(phys.tx[i]));
-      mkConnection(toGet(phys.rx[i]), mac[i].rx);
-
-      rule drain_mac_rx;
-         let v <- toGet(mac[i].packet_rx).get;
-      endrule
-   end
+   Vector#(NumPorts, PacketBuffer) pkt_buff <- replicateM(mkPacketBuffer(clocked_by txClock, reset_by dtp_rst));
+   Vector#(NumPorts, StoreAndFwdFromRingToMac) ringToMac <- replicateM(mkStoreAndFwdFromRingToMac(txClock, dtp_rst, clocked_by txClock, reset_by dtp_rst));
+   Vector#(NumPorts, StoreAndFwdFromMacToRing) macToRing;
 
    Reg#(Bit#(128)) cycle <- mkReg(0, clocked_by txClock, reset_by dtp_rst);
    FIFOF#(Bit#(128)) tsFifo <- mkFIFOF(clocked_by txClock, reset_by dtp_rst);
+
+   for (Integer i = 0 ; i < valueOf(NumPorts) ; i=i+1) begin
+      mac[i] <- mkEthMac(mgmtClock, txClock, phys.rx_clkout[i], dtp_rst, clocked_by txClock, reset_by dtp_rst);
+      Reset rx_rst<- mkAsyncReset(2, dtp_rst, phys.rx_clkout[i]);
+      macToRing[i] <- mkStoreAndFwdFromMacToRing(phys.rx_clkout[i], rx_rst, clocked_by txClock, reset_by dtp_rst);
+
+      // mac and phy
+      mkConnection(mac[i].tx, toPut(phys.tx[i]));
+      mkConnection(toGet(phys.rx[i]), mac[i].rx);
+      if (i != 0) begin // port 0 is pkt_gen
+         // mac and rx ring
+         mkConnection(macToRing[i].macRx, mac[i].packet_rx);
+         mkConnection(macToRing[i].writeClient, pkt_buff[i].writeServer);
+         // mac and tx ring
+         mkConnection(ringToMac[i].macTx, mac[i].packet_tx);
+      end
+   end
+
+   // between port 0 and port 3
+   mkConnection(ringToMac[3].readClient, pkt_buff[3].readServer);
+   // between port 1 and port 2
+   mkConnection(ringToMac[1].readClient, pkt_buff[2].readServer);
+   mkConnection(ringToMac[2].readClient, pkt_buff[1].readServer);
+
+   rule drain_mac0;
+      let v <- toGet(mac[0].packet_rx).get;
+   endrule
+
    rule cyc;
       cycle <= cycle + 1;
    endrule
 
-   rule send_dtp_timestamp;
+   rule send_dtp_timestamp; 
       tsFifo.enq(cycle);
    endrule
 
@@ -154,8 +154,40 @@ module mkDtpMacTop#(DtpIndication indication1)(DtpMacTop);
       mkConnection(phys.rx_dbg[i], dtp.ifc.rxPcsDbg[i]);
    end
 
-   interface request1 = dtp.request;
+   // port 0:Packet Generator
+   PktGen pktgen <- mkPktGen(clocked_by txClock, reset_by dtp_rst);
+   mkConnection(pktgen.writeClient, pkt_buff[0].writeServer);
+   mkConnection(ringToMac[0].readClient, pkt_buff[0].readServer);
+   mkConnection(ringToMac[0].macTx, mac[0].packet_tx);
 
+   DtpPktGenAPI api <- mkDtpPktGenAPI(indication2, pktgen, pkt_buff, txClock, dtp_rst);
+
+   // PktGen start/stop
+   SyncFIFOIfc#(Tuple2#(Bit#(32),Bit#(32))) pktGenStartSyncFifo <- mkSyncFIFO(4, defaultClock, defaultReset, txClock);
+   SyncFIFOIfc#(Bit#(1)) pktGenStopSyncFifo <- mkSyncFIFO(4, defaultClock, defaultReset, txClock);
+   SyncFIFOIfc#(EtherData) pktGenWriteSyncFifo <- mkSyncFIFO(4, defaultClock, defaultReset, txClock);
+   mkConnection(api.pktGenStart, toPut(pktGenStartSyncFifo));
+   mkConnection(api.pktGenStop, toPut(pktGenStopSyncFifo));
+   mkConnection(api.pktGenWrite, toPut(pktGenWriteSyncFifo));
+   rule req_start;
+      let v <- toGet(pktGenStartSyncFifo).get;
+      pktgen.start(tpl_1(v), tpl_2(v));
+   endrule
+
+   rule req_stop;
+      let v <- toGet(pktGenStopSyncFifo).get;
+      pktgen.stop();
+   endrule
+
+   rule req_write;
+      let v <- toGet(pktGenWriteSyncFifo).get;
+      pktgen.writeServer.writeData.put(v);
+   endrule
+
+   interface request1 = dtp.request;
+   interface request2 = api.request;
+
+`ifdef SYNTHESIS
    interface `PinType pins;
       // Clocks
       method Action osc_50(Bit#(1) b3d, Bit#(1) b4a, Bit#(1) b4d, Bit#(1) b7a, Bit#(1) b7d, Bit#(1) b8a, Bit#(1) b8d);
@@ -173,4 +205,5 @@ module mkDtpMacTop#(DtpIndication indication1)(DtpMacTop);
       interface deleteme_unused_clock3 = defaultClock;
       interface deleteme_unused_reset = defaultReset;
    endinterface
+`endif
 endmodule

@@ -22,6 +22,7 @@ endif
 
 BSVFILES=MemoryTest.bsv MemoryAPI.bsv $(SONICDIR)/hw/bsv/MemMgmt.bsv $(P4FPGADIR)/bsv/GenericMatchTable.bsv TdmPipeline.bsv TdmTypes.bsv $(P4FPGADIR)/bsv/IPv4Route.bsv
 CPPFILES=test.cpp
+CPPFILES += $(SONICDIR)/sw/lpcap.c
 
 #######################################################
 # DE5 Specific Settings
@@ -46,6 +47,7 @@ CONNECTALFLAGS += --tcl=constraint.sdc
 CONNECTALFLAGS += --constraint=constraint.sdc
 CONNECTALFLAGS += --implconstraint=constraint.sdc
 CONNECTALFLAGS += -m $(P4FPGADIR)/bsv/AsymmetricBRAM/mem_model.c
+CONNECTALFLAGS += -m $(P4FPGADIR)/bsv/matchtable_model.cpp
 CONNECTALFLAGS += --nocache
 #CONNECTALFLAGS += --chipscope=$(P4FPGADIR)/examples/tdm/bcam.stp
 

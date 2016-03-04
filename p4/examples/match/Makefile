@@ -16,14 +16,18 @@ PINOUT_FILE=$(SONICDIR)/boards/de5.json
 ########################################################
 S2H_INTERFACES=MatchTestRequest:MatchTest.request
 H2S_INTERFACES=MatchTest:MatchTestIndication
-BSVFILES=MatchTest.bsv $(P4FPGADIR)/examples/tdm/GenericMatchTable.bsv $(P4FPGADIR)/examples/tdm/TdmTypes.bsv
+BSVFILES=MatchTest.bsv $(P4FPGADIR)/bsv/MatchTable.bsv
 CPPFILES=test.cpp
+CPPFILES += $(SONICDIR)/sw/lpcap.c
+
 
 CONNECTALFLAGS += --bsvpath=$(P4FPGADIR)/bsv
 CONNECTALFLAGS += --bsvpath=$(P4FPGADIR)/bsv/Bcam
 CONNECTALFLAGS += --bsvpath=$(P4FPGADIR)/bsv/AsymmetricBRAM
 CONNECTALFLAGS += --verilog=$(P4FPGADIR)/bsv/AsymmetricBRAM
 CONNECTALFLAGS += -m $(P4FPGADIR)/bsv/AsymmetricBRAM/mem_model.c
+CONNECTALFLAGS += -m $(P4FPGADIR)/bsv/matchtable_model.cpp
+CONNECTALFLAGS += --cxxflags=-std=c++11
 
 CONNECTALFLAGS += --nocache
 CONNECTALFLAGS += --chipscope=$(P4FPGADIR)/examples/match/debug.stp

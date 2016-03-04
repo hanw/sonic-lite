@@ -54,7 +54,7 @@ interface StoreAndFwdFromRingToMem;
    interface PktReadClient readClient;
    interface MemAllocClient malloc;
    interface MemWriteClient#(`DataBusWidth) writeClient;
-   interface Get#(PacketInstance) eventPktCommitted;
+   interface PipeOut#(PacketInstance) eventPktCommitted;
 endinterface
 
 module mkStoreAndFwdFromRingToMem(StoreAndFwdFromRingToMem)
@@ -84,8 +84,8 @@ module mkStoreAndFwdFromRingToMem(StoreAndFwdFromRingToMem)
    Reg#(Bool) readStarted <- mkReg(False);
    Reg#(Bool) mallocd <- mkReg(False);
 
-   FIFO#(PacketInstance) eventPktReceivedFifo <- mkFIFO;
-   FIFO#(PacketInstance) eventPktCommittedFifo <- mkFIFO;
+   FIFOF#(PacketInstance) eventPktReceivedFifo <- mkFIFOF;
+   FIFOF#(PacketInstance) eventPktCommittedFifo <- mkFIFOF;
 
    Reg#(Bit#(32)) cycle <- mkReg(0);
    rule every1 if (verbose);
@@ -151,13 +151,13 @@ module mkStoreAndFwdFromRingToMem(StoreAndFwdFromRingToMem)
       interface Put mallocDone = toPut(mallocDoneFifo);
    endinterface);
    interface writeClient = dmaWriteClient;
-   interface Get eventPktCommitted = toGet(eventPktCommittedFifo);
+   interface PipeOut eventPktCommitted = toPipeOut(eventPktCommittedFifo);
 endmodule
 
 interface StoreAndFwdFromMemToRing;
    interface PktWriteClient writeClient;
    interface MemReadClient#(`DataBusWidth) readClient;
-   interface Put#(PacketInstance) eventPktSend;
+   interface PipeIn#(PacketInstance) eventPktSend;
    interface MemFreeClient free;
 endinterface
 
@@ -178,7 +178,7 @@ module mkStoreAndFwdFromMemToRing(StoreAndFwdFromMemToRing)
    interface Put readData = toPut(readDataFifo);
    endinterface);
 
-   FIFO#(PacketInstance) eventPktSendFifo <- mkSizedFIFO(4);
+   FIFOF#(PacketInstance) eventPktSendFifo <- mkSizedFIFOF(4);
    FIFO#(PktId) freeReqFifo <- mkSizedFIFO(4);
 
    Reg#(Bool)                 outPacket <- mkReg(False);
@@ -241,7 +241,7 @@ module mkStoreAndFwdFromMemToRing(StoreAndFwdFromMemToRing)
       interface writeData = toGet(writeDataFifo);
    endinterface
    interface readClient = dmaReadClient;
-   interface Put eventPktSend = toPut(eventPktSendFifo);
+   interface PipeIn eventPktSend = toPipeIn(eventPktSendFifo);
    interface free = (interface MemFreeClient;
       interface Get freeReq = toGet(freeReqFifo);
    endinterface);
@@ -270,7 +270,7 @@ module mkStoreAndFwdFromRingToMac#(Clock txClock, Reset txReset)(StoreAndFwdFrom
    FIFO#(EtherReq) readReqFifo <- mkFIFO;
 
    // Mac Facing Fifo
-   FIFO#(PacketDataT#(64)) writeMacFifo <- mkFIFO(clocked_by txClock, reset_by txReset);
+   FIFOF#(PacketDataT#(64)) writeMacFifo <- mkFIFOF(clocked_by txClock, reset_by txReset);
    Gearbox#(2, 1, PacketDataT#(64)) fifoTxData <- mkNto1Gearbox(txClock, txReset, txClock, txReset);
    SyncFIFOIfc#(EtherData) tx_fifo <- mkSyncFIFO(5, defaultClock, defaultReset, txClock);
 

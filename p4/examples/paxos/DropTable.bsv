@@ -28,29 +28,21 @@ import GetPut::*;
 import PaxosTypes::*;
 import RegFile::*;
 
-interface P4RegFile#(numeric type nReaders, numeric type nWriters, type addr, type data);
-   interface Vector#(nReaders, Server#());
-   interface Vector#(nWriters, Server#());
+interface DropTable;
+   interface Client#(MetadataRequest, MetadataResponse) next;
 endinterface
 
-module mkP4RegFile#(Vector#(nReaders, Client#() readers,
-                    Vector#(nWriters, Client#() writers)))
-                   (P4RegFile#(nReaders, nWriters, addr, data))
-   provisos(Bits#(addr, asz), Bits#(data, dsz), Bounded#(addr));
+module mkDropTable#(Client#(MetadataRequest, MetadataResponse) md)(DropTable);
+   FIFO#(MetadataRequest) outReqFifo <- mkFIFO;
+   FIFO#(MetadataResponse) inRespFifo <- mkFIFO;
 
-   RegFile#(addr, data) regFile <- mkRegFileFull();
-
-   rule process;
-      let req <- toGet(reqFifo).get();
-      if (req.write) begin
-         regFile.upd(req.address, req.datain);
-         if (req.responseOnWrite)
-            responseFifo.enq(req.datain)
-      end
-      else begin
-         let d = regFile.sub(req.address)
-         responseFifo.enq(d);
-      end
+   rule readDropRequest;
+      let v <- md.request.get;
+      $display("Drop request");
    endrule
-endmodule
 
+   interface next = (interface Client#(MetadataRequest, MetadataResponse);
+      interface request = toGet(outReqFifo);
+      interface response = toPut(inRespFifo);
+   endinterface);
+endmodule

@@ -12,8 +12,8 @@ import Pipe::*;
 import Bcam::*;
 import BcamTypes::*;
 import PriorityEncoder::*;
-import TdmTypes::*;
 import DbgTypes::*;
+import TdmTypes::*;
 
 // depthSz is multiple of 8 for 256 entries
 // keySz is multiple of 9 for 9 bits

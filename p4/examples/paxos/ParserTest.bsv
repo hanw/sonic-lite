@@ -3,6 +3,7 @@ package ParserTest;
 import BRAMFIFO::*;
 import BuildVector::*;
 import Clocks::*;
+import Connectable::*;
 import DefaultValue::*;
 import GetPut::*;
 import ClientServer::*;
@@ -22,8 +23,11 @@ import Paxos::*;
 import SharedBuff::*;
 import HostChannel::*;
 import TxChannel::*;
-import RoleTable::*;
+import PaxosIngressPipeline::*;
 import Sims::*;
+import PaxosTypes::*;
+//import RoundRegister::*;
+//import RoleRegister::*;
 
 typedef 12 PktSize; // maximum 4096b
 typedef TDiv#(`DataBusWidth, 32) WordsPerBeat;
@@ -54,17 +58,20 @@ module mkParserTest#(ParserTestIndication indication
    Reset txReset <- mkSyncReset(2, defaultReset, txClock);
 
    HostChannel hostchan <- mkHostChannel();
+   PaxosIngressPipeline ingress <- mkPaxosIngressPipeline(hostchan.next);
    TxChannel txchan <- mkTxChannel(txClock, txReset);
    SyncFIFOIfc#(EtherData) txSyncFifo <- mkSyncBRAMFIFO(6, txClock, txReset, defaultClock, defaultReset);
 
    SharedBuffer#(12, 128, 1) mem <- mkSharedBuffer(vec(txchan.readClient)
                                                   ,vec(txchan.freeClient)
-                                                  ,vec(hostchan.writeClient)
+                                                  ,vec(hostchan.writeClient, ingress.writeClient)
                                                   ,vec(hostchan.mallocClient)
                                                   ,memServerInd
                                                   );
 
-   RoleLookup roleTable <- mkRoleLookup(hostchan.next);
+   mkConnection(ingress.eventPktSend, txchan.eventPktSend);
+   //P4Register#(InstanceSize, RoundSize) roundRegs <- mkP4RoundRegister(vec(roleTable.regAccess));
+   //P4Register#(1, 8) roleRegs <- mkP4RoleRegister(vec(roundTable.regAccess));
 
    interface ParserTestRequest request;
       method Action read_version();

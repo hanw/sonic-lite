@@ -59,7 +59,7 @@
 // |  512 X 40 |       |      |      | Yes  |      | Yes  |      | Yes  |     | Yes |
 //  --------------------------------------------------------------------------------
 
-module AsymmetricBRAM(
+module AsymmetricBRAM_Altera(
 	CLK,
 	RADDR,
 	RDATA,
@@ -131,79 +131,3 @@ module AsymmetricBRAM(
 
 endmodule
 
-//module AsymmetricBRAM(
-//	CLK,
-//	RADDR,
-//	RDATA,
-//	REN,
-//	WADDR,
-//	WDATA,
-//	WEN
-//);
-//	
-//	parameter	PIPELINED   = 'd 0;
-//	parameter	FORWARDING  = 'd 0;
-//	parameter	WADDR_WIDTH = 'd 0;
-//	parameter	WDATA_WIDTH = 'd 0;
-//	parameter	RADDR_WIDTH = 'd 0;
-//	parameter	RDATA_WIDTH = 'd 0;
-//	parameter	MEMSIZE     = 'd 1;
-//	parameter	REGISTERED  = (PIPELINED  == 0) ? "UNREGISTERED":"CLOCK0";
-//	
-//	input   CLK;
-//	input	[RADDR_WIDTH-1:0]   RADDR;
-//	output	[RDATA_WIDTH-1:0]   RDATA;
-//	input	REN;
-//	input	[WADDR_WIDTH-1:0]   WADDR;
-//	input	[WDATA_WIDTH-1:0]   WDATA;
-//	input   WEN;
-//	
-//	altsyncram	altsyncram_component (
-//		.address_a (WADDR),
-//		.clock0 (CLK),
-//		.data_a (WDATA),
-//		.rden_b (REN),
-//		.wren_a (WEN),
-//		.address_b (RADDR),
-//		.q_b (RDATA),
-//		.aclr0 (1'b0),
-//		.aclr1 (1'b0),
-//		.addressstall_a (1'b0),
-//		.addressstall_b (1'b0),
-//		.byteena_a (1'b1),
-//		.byteena_b (1'b1),
-//		.clock1 (1'b1),
-//		.clocken0 (1'b1),
-//		.clocken1 (1'b1),
-//		.clocken2 (1'b1),
-//		.clocken3 (1'b1),
-//		.data_b ({32{1'b1}}),
-//		.eccstatus (),
-//		.q_a (),
-//		.rden_a (1'b1),
-//		.wren_b (1'b0));
-//	defparam
-//		altsyncram_component.intended_device_family = "Stratix V",
-//		altsyncram_component.address_reg_b = "CLOCK0",
-//		altsyncram_component.indata_reg_b = "CLOCK0",
-//		altsyncram_component.wrcontrol_wraddress_reg_b = "CLOCK0",
-//		altsyncram_component.lpm_type = "altsyncram",
-//		altsyncram_component.numwords_a = MEMSIZE,
-//		altsyncram_component.numwords_b = MEMSIZE / (RDATA_WIDTH/WDATA_WIDTH),
-//		altsyncram_component.operation_mode = "BIDIR_DUAL_PORT",
-//		altsyncram_component.outdata_aclr_a = "NONE",
-//		altsyncram_component.outdata_aclr_b = "NONE",
-//		altsyncram_component.outdata_reg_b = REGISTERED,
-//		altsyncram_component.power_up_uninitialized = "TRUE",
-//		altsyncram_component.ram_block_type = "M20K",
-//		altsyncram_component.read_during_write_mode_mixed_ports = "DONT_CARE",
-//		altsyncram_component.read_during_write_mode_port_a = "NEW_DATA_NO_NBE_READ",
-//		altsyncram_component.read_during_write_mode_port_b = "NEW_DATA_NO_NBE_READ",
-//		altsyncram_component.widthad_a = WADDR_WIDTH,
-//		altsyncram_component.widthad_b = RADDR_WIDTH,
-//		altsyncram_component.width_a = WDATA_WIDTH,
-//		altsyncram_component.width_b = RDATA_WIDTH,
-//		altsyncram_component.width_byteena_a = 1,
-//		altsyncram_component.width_byteena_b = 1;
-//endmodule
-//

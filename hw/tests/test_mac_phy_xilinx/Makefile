@@ -18,8 +18,9 @@ BSVFILES=Test.bsv
 CPPFILES=test.cpp
 
 CONNECTALFLAGS += -I $(SONICDIR)/sw/
+CPPFILES += $(SONICDIR)/sw/lpcap.c
 
-ifeq ($(BOARD), nfsume)
+#ifeq ($(BOARD), nfsume)
 AUTOTOP = --interface pins:Test.pins
 PIN_TYPE = NfsumePins
 PIN_TYPE_INCLUDE = NfsumePins
@@ -31,11 +32,22 @@ CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/ten_gig_eth_pcs_pma_shared/ten_gig_eth
 CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/ten_gig_eth_pcs_pma_non_shared/ten_gig_eth_pcs_pma_non_shared.xci
 CONNECTALFLAGS += --constraint=mac.xdc --implconstraint=mac.xdc
 #CONNECTALFLAGS += -P mkConnectalTop
-endif
+
+CONNECTALFLAGS += --bsvpath=$(SONICDIR)/hw/bsv
+CONNECTALFLAGS += --bsvpath=$(SONICDIR)/hw/generated
+CONNECTALFLAGS += -D NicVersion=$(shell printf "%d" 0x`git rev-parse --short=8 HEAD`)
+CONNECTALFLAGS += -D DataBusWidth=128
+CONNECTALFLAGS += --bscflags="-show-range-conflict +RTS -K46777216 -RTS -demote-errors G0066:G0045 -suppress-warnings G0046:G0020:S0015:S0080:S0039 -steps-max-intervals 20"
+#endif
 
 prebuild::
 	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) vivado -notrace -mode batch -source $(SONICDIR)/hw/scripts/generate-mac.tcl)
+ifneq ($(BOARD), xsim)
 	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) vivado -notrace -mode batch -source $(SONICDIR)/hw/scripts/connectal-synth-phy.tcl)
+endif
 
-include $(SONICDIR)/p4/Makefile.common
+sim:
+	vivado -mode batch -source xsim_export.tcl
+	cd xsim; ./xsimtop.sh
+
 include $(CONNECTALDIR)/Makefile.connectal

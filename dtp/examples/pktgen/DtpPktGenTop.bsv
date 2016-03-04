@@ -38,8 +38,8 @@ import ConnectalConfig::*;
 import PktGen::*;
 import StoreAndForward::*;
 
-import NetTop::*;
-import EthPorts::*;
+//import NetTop::*;
+//import EthPorts::*;
 import Ethernet::*;
 import EthPhy::*;
 import EthMac::*;
@@ -77,31 +77,26 @@ module mkDtpPktGenTop#(DtpIndication indication1, DtpPktGenIndication indication
 
 `ifdef SYNTHESIS
    De5Clocks clocks <- mkDe5Clocks(clk_50_wire, clk_644_wire);
+   De5SfpCtrl#(4) sfpctrl <- mkDe5SfpCtrl();
 `else
    SimClocks clocks <- mkSimClocks();
 `endif
    Clock txClock = clocks.clock_156_25;
    Clock phyClock = clocks.clock_644_53;
    Clock mgmtClock = clocks.clock_50;
-   Reset txReset <- mkSyncReset(2, defaultReset, txClock);
-   Reset phyReset <- mkSyncReset(2, defaultReset, phyClock);
-   Reset mgmtReset <- mkSyncReset(2, defaultReset, mgmtClock);
 
-`ifdef SYNTHESIS
-   De5SfpCtrl#(4) sfpctrl <- mkDe5SfpCtrl();
-`endif
+   MakeResetIfc dummyReset <- mkResetSync(0, False, defaultClock);
+   Reset txReset <- mkAsyncReset(2, defaultReset, txClock);
+   Reset dummyTxReset <- mkAsyncReset(2, dummyReset.new_rst, txClock);
 
    DtpController dtp <- mkDtpController(indication1, txClock, txReset, clocked_by defaultClock);
-
-   Reset rst_api <- mkSyncReset(0, dtp.ifc.rst, txClock);
-   Reset dtp_rst <- mkResetEither(txReset, rst_api, clocked_by txClock);
+   Reset rst_api <- mkAsyncReset(2, dtp.ifc.rst, txClock);
+   Reset dtp_rst <- mkResetEither(dummyTxReset, rst_api, clocked_by txClock);
 
 //   NetTopIfc net <- mkNetTop(mgmtClock, txClock, phyClock, clocked_by txClock, reset_by dtp_rst);
    DtpPhyIfc#(4) phys <- mkEthPhy(mgmtClock, txClock, phyClock, clocked_by txClock, reset_by dtp_rst);
 
    Vector#(NumPorts, EthMacIfc) mac ;
-   Vector#(NumPorts, FIFOF#(Bit#(72))) macToPhy <- replicateM(mkFIFOF, clocked_by txClock, reset_by dtp_rst);
-   Vector#(NumPorts, FIFOF#(Bit#(72))) phyToMac;// <- replicateM(mkFIFOF, clocked_by txClock);
 
    Reg#(Bit#(128)) cycle <- mkReg(0, clocked_by txClock, reset_by dtp_rst);
    FIFOF#(Bit#(128)) tsFifo <- mkFIFOF(clocked_by txClock, reset_by dtp_rst);
@@ -111,6 +106,10 @@ module mkDtpPktGenTop#(DtpIndication indication1, DtpPktGenIndication indication
 
       mkConnection(mac[i].tx, toPut(phys.tx[i]));
       mkConnection(toGet(phys.rx[i]), mac[i].rx);
+
+      rule drain_mac_rx;
+         let v <- toGet(mac[i].packet_rx).get;
+      endrule
    end
 
    rule cyc;
@@ -146,11 +145,6 @@ module mkDtpPktGenTop#(DtpIndication indication1, DtpPktGenIndication indication
    mkConnection(pktgen.writeClient, pkt_buff.writeServer);
    mkConnection(ringToMac.readClient, pkt_buff.readServer);
    mkConnection(ringToMac.macTx, mac[0].packet_tx);
-
-   rule drain_mac_rx;
-      let v <- toGet(mac[0].packet_rx).get;
-      $display("DtpPktGenTop:: received %h", v);
-   endrule
 
    DtpPktGenAPI api <- mkDtpPktGenAPI(indication2, pktgen);
 

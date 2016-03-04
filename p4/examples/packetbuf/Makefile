@@ -18,6 +18,7 @@ S2H_INTERFACES=TbRequest:TbTop.request
 H2S_INTERFACES=TbTop:TbIndication,MemServerIndication,MallocIndication
 BSVFILES=TbTop.bsv $(P4FPGADIR)/bsv/Malloc.bsv
 CPPFILES=test.cpp
+CPPFILES += $(SONICDIR)/sw/lpcap.c
 
 run:
 	(cd bluesim; ./bin/ubuntu.exe -p ../udp-small.pcap)

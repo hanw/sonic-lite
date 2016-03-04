@@ -29,6 +29,7 @@ import FIFO::*;
 import MemMgmt::*;
 import MemTypes::*;
 import PacketBuffer::*;
+import Pipe::*;
 import StoreAndForward::*;
 import SharedBuff::*;
 import Tap::*;
@@ -46,8 +47,8 @@ endinterface
 
 module mkHostChannel(HostChannel);
    let verbose = True;
-   FIFO#(MetadataRequest) outReqFifo <- mkFIFO;
-   FIFO#(MetadataResponse) inRespFifo <- mkFIFO;
+   FIFO#(MetadataRequest) outReqFifo0 <- mkFIFO;
+   FIFO#(MetadataResponse) inRespFifo0 <- mkFIFO;
 
    PacketBuffer pktBuff <- mkPacketBuffer();
    TapPktRead tap <- mkTapPktRead();
@@ -58,19 +59,24 @@ module mkHostChannel(HostChannel);
    mkConnection(ingress.readClient, tap.readServer);
    mkConnection(tap.tap_out, toPut(parser.frameIn));
 
+   // new packet, issue metadata processing request to ingress pipeline
+   // request issue after packet is committed to memory.
+   // FIXME: we assume packet is always paxos packet for now
    rule handle_packet_process;
-      let v <- ingress.eventPktCommitted.get;
-      //let ipv4 <- toGet(parser.parsedOut_ipv4_dstAddr).get;
-      //if (verbose) $display("HostChannel: ipv4=%h, size=%d", ipv4, v.size);
-      //MetadataRequest nextReq = tagged RouteLookupRequest {pkt: v, dstip: ipv4};
-      //outReqFifo.enq(nextReq);
+      let v <- toGet(ingress.eventPktCommitted).get;
+      let dstMac <- toGet(parser.parsedOut_ethernet_dstAddr).get;
+      let msgtype <- toGet(parser.parsedOut_paxos_msgtype).get;
+      if (verbose) $display("HostChannel: dstMac=%h, size=%d", dstMac, v.size);
+      if (verbose) $display("HostChannel: msgtype=%h", msgtype);
+      MetadataRequest nextReq0 = tagged DstMacLookupRequest { pkt: v, dstMac: dstMac };
+      outReqFifo0.enq(nextReq0);
    endrule
 
    interface writeServer = pktBuff.writeServer;
    interface writeClient = ingress.writeClient;
    interface next = (interface Client#(MetadataRequest, MetadataResponse);
-      interface request = toGet(outReqFifo);
-      interface response = toPut(inRespFifo);
+      interface request = toGet(outReqFifo0);
+      interface response = toPut(inRespFifo0);
    endinterface);
    interface mallocClient = ingress.malloc;
    method dbg = pktBuff.dbg;

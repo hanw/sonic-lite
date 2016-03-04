@@ -443,12 +443,16 @@ endmodule
 interface ParseEthernet;
     interface Get#(Bit#(16)) parse_arp;
     interface Get#(Bit#(16)) parse_ipv4;
+    interface Get#(Bit#(48)) parsedOut_ethernet_dstAddr;
     method Action start;
     method Action clear;
 endinterface
 module mkStateParseEthernet#(Reg#(ParserState) state, FIFOF#(EtherData) datain)(ParseEthernet);
     FIFOF#(Bit#(16)) unparsed_parse_arp_fifo <- mkSizedFIFOF(1);
     FIFOF#(Bit#(16)) unparsed_parse_ipv4_fifo <- mkSizedFIFOF(1);
+
+    FIFOF#(Bit#(48)) parsed_ethernet_fifo <- mkFIFOF;
+
     Wire#(Bit#(128)) packet_in_wire <- mkDWire(0);
     Vector#(3, Wire#(Maybe#(ParserState))) next_state_wire <- replicateM(mkDWire(tagged Invalid));
     PulseWire start_wire <- mkPulseWire();
@@ -501,6 +505,7 @@ module mkStateParseEthernet#(Reg#(ParserState) state, FIFOF#(EtherData) datain)(
         if (nextState == StateParseIpv4) begin
             unparsed_parse_ipv4_fifo.enq(pack(unparsed));
         end
+        parsed_ethernet_fifo.enq(ethernet.dstAddr);
         next_state_wire[0] <= tagged Valid nextState;
     endaction
     endseq;
@@ -519,6 +524,7 @@ module mkStateParseEthernet#(Reg#(ParserState) state, FIFOF#(EtherData) datain)(
     endmethod
     interface parse_arp = toGet(unparsed_parse_arp_fifo);
     interface parse_ipv4 = toGet(unparsed_parse_ipv4_fifo);
+    interface parsedOut_ethernet_dstAddr = toGet(parsed_ethernet_fifo);
 endmodule
 interface ParseArp;
     interface Put#(Bit#(16)) parse_ethernet;
@@ -808,6 +814,7 @@ module mkStateParseUdp#(Reg#(ParserState) state, FIFOF#(EtherData) datain)(Parse
 endmodule
 interface ParsePaxos;
     interface Put#(Bit#(176)) parse_udp;
+    interface Get#(Bit#(8)) parsedOut_paxos_msgtype;
     method Action start;
     method Action clear;
 endinterface
@@ -816,6 +823,7 @@ module mkStateParsePaxos#(Reg#(ParserState) state, FIFOF#(EtherData) datain)(Par
     FIFOF#(Bit#(432)) internal_fifo2 <- mkSizedFIFOF(1);
     FIFOF#(Bit#(560)) internal_fifo3 <- mkSizedFIFOF(1);
     FIFOF#(Bit#(176)) unparsed_parse_udp_fifo <- mkBypassFIFOF;
+    FIFOF#(Bit#(8)) parsed_paxos_fifo <- mkFIFOF;
     Wire#(Bit#(128)) packet_in_wire <- mkDWire(0);
     Vector#(1, Wire#(Maybe#(ParserState))) next_state_wire <- replicateM(mkDWire(tagged Invalid));
     PulseWire start_wire <- mkPulseWire();
@@ -865,6 +873,7 @@ module mkStateParsePaxos#(Reg#(ParserState) state, FIFOF#(EtherData) datain)(Par
         Vector#(688, Bit#(1)) dataVec = unpack(data);
         let paxos = extract_paxos(pack(takeAt(0, dataVec)));
         $display(fshow(paxos));
+        parsed_paxos_fifo.enq(paxos.msgtype);
         next_state_wire[0] <= tagged Valid StateStart;
     endaction
     endseq;
@@ -882,9 +891,12 @@ module mkStateParsePaxos#(Reg#(ParserState) state, FIFOF#(EtherData) datain)(Par
         clear_wire.send();
     endmethod
     interface parse_udp = toPut(unparsed_parse_udp_fifo);
+    interface parsedOut_paxos_msgtype = toGet(parsed_paxos_fifo);
 endmodule
 interface Parser;
     interface Put#(EtherData) frameIn;
+    interface Get#(Bit#(48)) parsedOut_ethernet_dstAddr;
+    interface Get#(Bit#(8)) parsedOut_paxos_msgtype;
 endinterface
 
 (* synthesize *)
@@ -930,126 +942,7 @@ module mkParser(Parser);
         end
     endrule
     interface frameIn = toPut(data_in_fifo);
+    interface parsedOut_ethernet_dstAddr = parse_ethernet.parsedOut_ethernet_dstAddr;
+    interface parsedOut_paxos_msgtype = parse_paxos.parsedOut_paxos_msgtype;
 endmodule
-
-import PaxosTypes::*;
-
-/* generate tables */
-typedef struct {
-    Bit#(48) key_field_0;
-} MatchFieldSmacTable deriving (Bits, Eq, FShow);
-
-typedef enum {
-    MacLearn = 1,
-    Nop = 2
-} ActionSmacTableValue2 deriving (Bits, Eq);
-
-typedef struct {
-    Bit#(48) key_field_0;
-} MatchFieldDmacTable deriving (Bits, Eq, FShow);
-
-typedef enum {
-    Forward = 1,
-    Broadcast = 2
-} ActionDmacTableValue5 deriving (Bits, Eq);
-
-typedef struct {
-    Bit#(9) port;
-} ActionArguments_forward;
-
-typedef struct {
-    Bit#(4) group;
-} ActionArguments_broadcast;
-
-typedef struct {
-    Bit#(32) key_field_0;
-} MatchFieldMcastSrcPruning deriving (Bits, Eq, FShow);
-
-typedef enum {
-    Nop = 1,
-    Drop = 2
-} ActionMcastSrcPruningValue8 deriving (Bits, Eq);
-
-typedef struct {
-} MatchFieldEncapTbl deriving (Bits, Eq, FShow);
-
-typedef enum {
-    EncapCpuHeader = 1
-} ActionEncapTblValue11 deriving (Bits, Eq);
-
-typedef struct {
-    Bit#(8) key_field_0;
-} MatchFieldSequenceTbl deriving (Bits, Eq, FShow);
-
-typedef enum {
-    IncreaseInstance = 1,
-    Nop = 2
-} ActionSequenceTblValue14 deriving (Bits, Eq);
-
-typedef struct {
-} MatchFieldRoundTbl deriving (Bits, Eq, FShow);
-
-typedef enum {
-    ReadRound = 1
-} ActionRoundTblValue17 deriving (Bits, Eq);
-
-typedef struct {
-    Bit#(8) key_field_0;
-} MatchFieldAcceptorTbl deriving (Bits, Eq, FShow);
-
-typedef enum {
-    Handle1A = 1,
-    Handle2A = 2,
-    Drop = 3
-} ActionAcceptorTblValue20 deriving (Bits, Eq);
-
-typedef struct {
-} MatchFieldDropTbl deriving (Bits, Eq, FShow);
-
-typedef enum {
-    Drop = 1
-} ActionDropTblValue23 deriving (Bits, Eq);
-
-typedef struct {
-} MatchFieldRoleTbl deriving (Bits, Eq, FShow);
-
-typedef enum {
-    ReadRole = 1
-} ActionRoleTblValue26 deriving (Bits, Eq);
-
-interface ActionModifyField;
-   //interface Client#(MetadataRequest, MetadataResponse) next;
-   //interface MemWriteClient#(`DataBusWidth) writeClient;
-endinterface
-
-module mkActionModifyField#(Client#(MetadataRequest, MetadataResponse) md)(ActionModifyField);
-endmodule
-
-interface ActionRegisterRead;
-
-endinterface
-
-module mkActionRegisterRead(ActionRegisterRead);
-
-endmodule
-
-interface ActionAddToField;
-
-endinterface
-
-interface ActionRegisterWrite;
-
-endinterface
-
-interface ActionDrop;
-
-endinterface
-
-interface ActionRemoveHeader;
-
-endinterface
-
-interface ActionAddHeader;
-
-endinterface
 

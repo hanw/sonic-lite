@@ -65,19 +65,18 @@ module mkDtpTop#(DtpIndication indication)(DtpTop);
    Wire#(Bit#(1)) clk_50_wire <- mkDWire(0);
 
    De5Clocks clocks <- mkDe5Clocks(clk_50_wire, clk_644_wire);
+   De5SfpCtrl#(4) sfpctrl <- mkDe5SfpCtrl();
    Clock txClock = clocks.clock_156_25;
    Clock phyClock = clocks.clock_644_53;
    Clock clock_50 = clocks.clock_50;
-   Reset txReset <- mkSyncReset(2, defaultReset, txClock);
-   Reset phyReset <- mkSyncReset(2, defaultReset, phyClock);
 
-   De5SfpCtrl#(4) sfpctrl <- mkDe5SfpCtrl();
+   MakeResetIfc dummyReset <- mkResetSync(0, False, defaultClock);
+   Reset txReset <- mkAsyncReset(2, defaultReset, txClock);
+   Reset dummyTxReset <- mkAsyncReset(2, dummyReset.new_rst, txClock);
 
-`ifndef SIMULATION
-   DtpController dtp <- mkDtpController(indication, txClock, txReset, clocked_by defaultClock);
-
-   Reset rst_api <- mkSyncReset(0, dtp.ifc.rst, txClock);
-   Reset dtp_rst <- mkResetEither(txReset, rst_api, clocked_by txClock);
+   DtpController dtp <- mkDtpController(indication, txClock, dummyTxReset);
+   Reset rst_api <- mkSyncReset(2, dtp.ifc.rst, txClock);
+   Reset dtp_rst <- mkResetEither(dummyTxReset, rst_api, clocked_by txClock);
 
    NetTopIfc net <- mkNetTop(clock_50, txClock, phyClock, clocked_by txClock, reset_by dtp_rst);
 
@@ -97,7 +96,6 @@ module mkDtpTop#(DtpIndication indication)(DtpTop);
       mkConnection(net.api.tx_dbg[i], dtp.ifc.txPcsDbg[i]);
       mkConnection(net.api.rx_dbg[i], dtp.ifc.rxPcsDbg[i]);
    end
-`endif // SIMULATION
 
    interface request = dtp.request;
 
