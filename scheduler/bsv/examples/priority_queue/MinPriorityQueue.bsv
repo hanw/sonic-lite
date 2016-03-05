@@ -35,10 +35,6 @@ function Bit#(1) compare (Node#(Bit#(size_t), Bit#(size_t)) x,
         return 1;
     else
         return 0;
-//    else if (x.p == y.p)
-//        return 0;
-//    else
-//        return -1;
 endfunction
 
 module mkMinPriorityQueue (MinPriorityQueue#(Bit#(size_t), Bit#(size_t)));
