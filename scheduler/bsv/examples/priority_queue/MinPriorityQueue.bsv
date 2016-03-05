@@ -121,23 +121,17 @@ module mkMinPriorityQueue (MinPriorityQueue#(Bit#(size_t), Bit#(size_t)));
         return sorted_list[0];
     endmethod
 
-    method Action deq() if (insert_in_progress == 0);
-        if (curr_size > 0)
-        begin
-            for (Integer i = 0; i < valueof(SIZE)-1; i = i + 1)
-                sorted_list[i] <= sorted_list[i + 1];
-            sorted_list[valueof(SIZE)-1] <= defaultValue;
-            curr_size <= curr_size - 1;
-        end
+    method Action deq() if (insert_in_progress == 0 && curr_size > 0);
+        for (Integer i = 0; i < valueof(SIZE)-1; i = i + 1)
+            sorted_list[i] <= sorted_list[i + 1];
+        sorted_list[valueof(SIZE)-1] <= defaultValue;
+        curr_size <= curr_size - 1;
     endmethod
 
-    method Action clear() if (insert_in_progress == 0);
-        if (curr_size > 0)
-        begin
-            for (Integer i = 0; i < valueof(SIZE); i = i + 1)
-                sorted_list[i] <= defaultValue;
-            curr_size <= 0;
-        end
+    method Action clear() if (insert_in_progress == 0 && curr_size > 0);
+        for (Integer i = 0; i < valueof(SIZE); i = i + 1)
+            sorted_list[i] <= defaultValue;
+        curr_size <= 0;
     endmethod
 
     method Action displayQueue();
