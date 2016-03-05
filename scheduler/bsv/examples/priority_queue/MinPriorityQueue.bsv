@@ -8,15 +8,12 @@ import PriorityEncoder::*;
 
 typedef 32 SIZE;
 
-typedef Bit#(16) ValueType;
-typedef Bit#(16) PriorityType;
-
 typedef struct {
     valueType v;
     priorityType p;
 } Node#(type valueType, type priorityType) deriving(Bits, Eq);
 
-instance DefaultValue#(Node#(ValueType, PriorityType));
+instance DefaultValue#(Node#(Bit#(size_t), Bit#(size_t)));
     defaultValue = Node {
         v : 0,
         p : maxBound
@@ -33,31 +30,30 @@ interface MinPriorityQueue#(type valueType, type priorityType);
     method Action displayQueue();
 endinterface
 
-module mkMinPriorityQueue (MinPriorityQueue#(ValueType, PriorityType));
+function Int#(2) compare (Node#(Bit#(size_t), Bit#(size_t)) x,
+                          Node#(Bit#(size_t), Bit#(size_t)) y);
+    if (x.p > y.p)
+        return 1;
+    else if (x.p == y.p)
+        return 0;
+    else
+        return -1;
+endfunction
 
-    function Int#(2) compareFunction
-    (Node#(ValueType, PriorityType) x, Node#(ValueType, PriorityType) y);
-        if (x.p > y.p)
-            return 1;
-        else if (x.p == y.p)
-            return 0;
-        else
-            return -1;
-    endfunction
-
-    FIFO#(Node#(ValueType, PriorityType)) insert_req_fifo <- mkSizedFIFO(valueof(SIZE));
+module mkMinPriorityQueue (MinPriorityQueue#(Bit#(size_t), Bit#(size_t)));
+    FIFO#(Node#(Bit#(size_t), Bit#(size_t))) insert_req_fifo <- mkSizedFIFO(valueof(SIZE));
     FIFO#(void) insert_res_fifo <- mkBypassFIFO;
     FIFO#(void) get_min_req_fifo <- mkBypassFIFO;
     FIFO#(void) peek_min_req_fifo <- mkBypassFIFO;
-    FIFO#(Node#(ValueType, PriorityType)) get_min_fifo <- mkBypassFIFO;
-    FIFO#(Node#(ValueType, PriorityType)) peek_min_fifo <- mkBypassFIFO;
+    FIFO#(Node#(Bit#(size_t), Bit#(size_t))) get_min_fifo <- mkBypassFIFO;
+    FIFO#(Node#(Bit#(size_t), Bit#(size_t))) peek_min_fifo <- mkBypassFIFO;
 
     PE#(SIZE) priority_encoder <- mkPEncoder;
 
-    Vector#(SIZE, Reg#(Node#(ValueType, PriorityType)))
+    Vector#(SIZE, Reg#(Node#(Bit#(size_t), Bit#(size_t))))
                          sorted_list <- replicateM(mkReg(defaultValue));
     Vector#(SIZE, Reg#(Bit#(1))) b_vector <- replicateM(mkReg(0));
-    Reg#(Node#(ValueType, PriorityType)) node_to_insert <- mkReg(defaultValue);
+    Reg#(Node#(Bit#(size_t), Bit#(size_t))) node_to_insert <- mkReg(defaultValue);
     Reg#(Bit#(TLog#(SIZE))) location_to_insert <- mkReg(0);
     Reg#(Bit#(TLog#(SIZE))) curr_size <- mkReg(0);
 
@@ -78,7 +74,7 @@ module mkMinPriorityQueue (MinPriorityQueue#(ValueType, PriorityType));
             let x <- toGet(create_bit_vector_fifo[i]).get;
             if (i == 0)
                 find_correct_location_fifo.enq(?);
-            if (compareFunction(sorted_list[i], node_to_insert) > 0)
+            if (compare(sorted_list[i], node_to_insert) > 0)
                 b_vector[i] <= 1;
             else
                 b_vector[i] <= 0;
@@ -98,9 +94,7 @@ module mkMinPriorityQueue (MinPriorityQueue#(ValueType, PriorityType));
     rule get_correct_location_rule (insert_in_progress == 1);
         let x <- toGet(priority_encoder.bin).get;
         case (x) matches
-            tagged Valid .index : begin
-                                  insert_in_correct_location_fifo[index].enq(?);
-                                  end
+            tagged Valid .index : insert_in_correct_location_fifo[index].enq(?);
         endcase
     endrule
 
