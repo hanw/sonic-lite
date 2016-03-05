@@ -8,15 +8,18 @@ import PriorityEncoder::*;
 
 typedef 32 SIZE;
 
+typedef Bit#(16) ValueType;
+typedef Bit#(16) PriorityType;
+
 typedef struct {
     valueType v;
     priorityType p;
 } Node#(type valueType, type priorityType) deriving(Bits, Eq);
 
-instance DefaultValue#(Node#(Bit#(16), Bit#(16)));
+instance DefaultValue#(Node#(ValueType, PriorityType));
     defaultValue = Node {
         v : 0,
-        p : 65535
+        p : maxBound
     };
 endinstance
 
@@ -30,10 +33,10 @@ interface MinPriorityQueue#(type valueType, type priorityType);
     method Action displayQueue();
 endinterface
 
-module mkMinPriorityQueue (MinPriorityQueue#(Bit#(16), Bit#(16)));
+module mkMinPriorityQueue (MinPriorityQueue#(ValueType, PriorityType));
 
-    function Int#(2)
-        compareFunction(Node#(Bit#(16), Bit#(16)) x, Node#(Bit#(16), Bit#(16)) y);
+    function Int#(2) compareFunction
+    (Node#(ValueType, PriorityType) x, Node#(ValueType, PriorityType) y);
         if (x.p > y.p)
             return 1;
         else if (x.p == y.p)
@@ -42,19 +45,19 @@ module mkMinPriorityQueue (MinPriorityQueue#(Bit#(16), Bit#(16)));
             return -1;
     endfunction
 
-    FIFO#(Node#(Bit#(16), Bit#(16))) insert_req_fifo <- mkSizedFIFO(valueof(SIZE));
+    FIFO#(Node#(ValueType, PriorityType)) insert_req_fifo <- mkSizedFIFO(valueof(SIZE));
     FIFO#(void) insert_res_fifo <- mkBypassFIFO;
     FIFO#(void) get_min_req_fifo <- mkBypassFIFO;
     FIFO#(void) peek_min_req_fifo <- mkBypassFIFO;
-    FIFO#(Node#(Bit#(16), Bit#(16))) get_min_fifo <- mkBypassFIFO;
-    FIFO#(Node#(Bit#(16), Bit#(16))) peek_min_fifo <- mkBypassFIFO;
+    FIFO#(Node#(ValueType, PriorityType)) get_min_fifo <- mkBypassFIFO;
+    FIFO#(Node#(ValueType, PriorityType)) peek_min_fifo <- mkBypassFIFO;
 
     PE#(SIZE) priority_encoder <- mkPEncoder;
 
-    Vector#(SIZE, Reg#(Node#(Bit#(16), Bit#(16))))
+    Vector#(SIZE, Reg#(Node#(ValueType, PriorityType)))
                          sorted_list <- replicateM(mkReg(defaultValue));
     Vector#(SIZE, Reg#(Bit#(1))) b_vector <- replicateM(mkReg(0));
-    Reg#(Node#(Bit#(16), Bit#(16))) node_to_insert <- mkReg(defaultValue);
+    Reg#(Node#(ValueType, PriorityType)) node_to_insert <- mkReg(defaultValue);
     Reg#(Bit#(TLog#(SIZE))) location_to_insert <- mkReg(0);
     Reg#(Bit#(TLog#(SIZE))) curr_size <- mkReg(0);
 
