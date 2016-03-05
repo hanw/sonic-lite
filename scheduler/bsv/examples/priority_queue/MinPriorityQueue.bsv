@@ -1,4 +1,6 @@
+import List::*;
 import Vector::*;
+import BuildVector::*;
 import FIFO::*;
 import SpecialFIFOs::*;
 import GetPut::*;
@@ -37,58 +39,48 @@ function Bit#(1) compare (Node#(Bit#(size_t), Bit#(size_t)) x,
         return 0;
 endfunction
 
-module mkMinPriorityQueue (MinPriorityQueue#(Bit#(size_t), Bit#(size_t)));
-    FIFO#(void) insert_res_fifo <- mkBypassFIFO;
-
+module mkMinPriorityQueue(MinPriorityQueue#(Bit#(size_t), Bit#(size_t)));
     PE#(SIZE) priority_encoder <- mkPEncoder;
-
     Vector#(SIZE, Reg#(Node#(Bit#(size_t), Bit#(size_t))))
                    sorted_list <- replicateM(mkReg(defaultValue));
     Reg#(Node#(Bit#(size_t), Bit#(size_t))) node_to_insert <- mkReg(defaultValue);
-    Reg#(Bit#(TLog#(SIZE))) location_to_insert <- mkReg(0);
     Reg#(Bit#(TLog#(SIZE))) curr_size <- mkReg(0);
-
     Reg#(Bit#(1)) insert_in_progress <- mkReg(0);
+    FIFO#(void) insert_res_fifo <- mkBypassFIFO;
 
-    Vector#(SIZE, FIFO#(void))
-        insert_in_correct_location_fifo <- replicateM(mkBypassFIFO);
-
-    Reg#(Bit#(64)) count <- mkReg(0);
-    rule counter;
-        count <= count + 1;
-    endrule
-
-    rule get_correct_location_rule (insert_in_progress == 1);
+    rule insert (insert_in_progress == 1);
         let x <- toGet(priority_encoder.bin).get;
         $display("get from pe %h", x);
         case (x) matches
-            tagged Valid .index : insert_in_correct_location_fifo[index].enq(?);
-            tagged Invalid: $display("invalid output %h", x);
+           tagged Valid .index : begin
+              let v = readVReg(sorted_list);
+              let shiftedV = shiftOutFromN(defaultValue, v, 1);
+              /*TODO: implement with map(function, vec) */
+              Vector#(SIZE, Node#(Bit#(size_t), Bit#(size_t))) outV = newVector;
+              for (Integer i=0; i<valueOf(SIZE); i=i+1) begin
+                  if (fromInteger(i) < index)
+                     outV[i] = v[i];
+                  else if (fromInteger(i) == index)
+                     outV[i] = node_to_insert;
+                  else
+                     outV[i] = shiftedV[i];
+              end
+              writeVReg(sorted_list, outV);
+              insert_in_progress <= 0;
+              curr_size <= curr_size + 1;
+              insert_res_fifo.enq(?);
+           end
+           tagged Invalid: $display("invalid output %h", x);
         endcase
     endrule
 
-    for (Integer i = 0; i < valueof(SIZE); i = i + 1)
-    begin
-        rule insert_in_correct_location_rule (insert_in_progress == 1);
-            let y <- toGet(insert_in_correct_location_fifo[i]).get;
-            for (Integer j = i; j < valueof(SIZE)-1; j = j + 1)
-                sorted_list[j + 1] <= sorted_list[j];
-            sorted_list[i] <= node_to_insert;
-            insert_in_progress <= 0;
-            curr_size <= curr_size + 1;
-            insert_res_fifo.enq(?);
-        endrule
-    end
-
-    method ActionValue#(Node#(Bit#(size_t), Bit#(size_t))) first()
-                                               if (curr_size > 0);
-        return sorted_list[0];
+    method ActionValue#(Node#(Bit#(size_t), Bit#(size_t))) first() if (curr_size > 0);
+        return head(readVReg(sorted_list));
     endmethod
 
     method Action deq() if (insert_in_progress == 0 && curr_size > 0);
-        for (Integer i = 0; i < valueof(SIZE)-1; i = i + 1)
-            sorted_list[i] <= sorted_list[i + 1];
-        sorted_list[valueof(SIZE)-1] <= defaultValue;
+        let v = append(tail(readVReg(sorted_list)), vec(defaultValue));
+        writeVReg(sorted_list, v);
         curr_size <= curr_size - 1;
     endmethod
 
@@ -106,9 +98,7 @@ module mkMinPriorityQueue (MinPriorityQueue#(Bit#(size_t), Bit#(size_t)));
         method Action put (Node#(Bit#(size_t), Bit#(size_t)) v) if (insert_in_progress == 0);
             node_to_insert <= v;
             insert_in_progress <= 1;
-            $display("sorted_list %h", readVReg(sorted_list));
             let r = map(uncurry(compare), zip(readVReg(sorted_list), replicate(v)));
-            $display("put %h", r);
             priority_encoder.oht.put(pack(r));
         endmethod
     endinterface
