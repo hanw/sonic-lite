@@ -23,10 +23,9 @@ endinstance
 interface MinPriorityQueue#(type valueType, type priorityType);
     interface Put#(Node#(valueType, priorityType)) insert_req;
     interface Get#(void) insert_res;
-    interface Put#(void) get_min_req;
-    interface Put#(void) peek_min_req;
-    interface Get#(Node#(valueType, priorityType)) get_min;
-    interface Get#(Node#(valueType, priorityType)) peek_min;
+    method ActionValue#(Node#(valueType, priorityType)) first();
+    method Action deq();
+    method Action clear();
     method Action displayQueue();
 endinterface
 
@@ -41,17 +40,14 @@ function Int#(2) compare (Node#(Bit#(size_t), Bit#(size_t)) x,
 endfunction
 
 module mkMinPriorityQueue (MinPriorityQueue#(Bit#(size_t), Bit#(size_t)));
-    FIFO#(Node#(Bit#(size_t), Bit#(size_t))) insert_req_fifo <- mkSizedFIFO(valueof(SIZE));
+    FIFO#(Node#(Bit#(size_t), Bit#(size_t)))
+        insert_req_fifo <- mkSizedFIFO(valueof(SIZE));
     FIFO#(void) insert_res_fifo <- mkBypassFIFO;
-    FIFO#(void) get_min_req_fifo <- mkBypassFIFO;
-    FIFO#(void) peek_min_req_fifo <- mkBypassFIFO;
-    FIFO#(Node#(Bit#(size_t), Bit#(size_t))) get_min_fifo <- mkBypassFIFO;
-    FIFO#(Node#(Bit#(size_t), Bit#(size_t))) peek_min_fifo <- mkBypassFIFO;
 
     PE#(SIZE) priority_encoder <- mkPEncoder;
 
     Vector#(SIZE, Reg#(Node#(Bit#(size_t), Bit#(size_t))))
-                         sorted_list <- replicateM(mkReg(defaultValue));
+                   sorted_list <- replicateM(mkReg(defaultValue));
     Vector#(SIZE, Reg#(Bit#(1))) b_vector <- replicateM(mkReg(0));
     Reg#(Node#(Bit#(size_t), Bit#(size_t))) node_to_insert <- mkReg(defaultValue);
     Reg#(Bit#(TLog#(SIZE))) location_to_insert <- mkReg(0);
@@ -59,9 +55,10 @@ module mkMinPriorityQueue (MinPriorityQueue#(Bit#(size_t), Bit#(size_t)));
 
     Reg#(Bit#(1)) insert_in_progress <- mkReg(0);
 
-    Vector#(SIZE, FIFO#(void)) create_bit_vector_fifo <- replicateM(mkBypassFIFO);
+    Vector#(SIZE, FIFO#(void)) create_bit_vector_fifo <- replicateM(mkFIFO);
     FIFO#(void) find_correct_location_fifo <- mkPipelineFIFO;
-    Vector#(SIZE, FIFO#(void)) insert_in_correct_location_fifo <- replicateM(mkBypassFIFO);
+    Vector#(SIZE, FIFO#(void))
+        insert_in_correct_location_fifo <- replicateM(mkBypassFIFO);
 
     Reg#(Bit#(64)) count <- mkReg(0);
     rule counter;
@@ -102,7 +99,6 @@ module mkMinPriorityQueue (MinPriorityQueue#(Bit#(size_t), Bit#(size_t)));
     begin
         rule insert_in_correct_location_rule (insert_in_progress == 1);
             let y <- toGet(insert_in_correct_location_fifo[i]).get;
-
             for (Integer j = i; j < valueof(SIZE)-1; j = j + 1)
                 sorted_list[j + 1] <= sorted_list[j];
             sorted_list[i] <= node_to_insert;
@@ -120,23 +116,29 @@ module mkMinPriorityQueue (MinPriorityQueue#(Bit#(size_t), Bit#(size_t)));
             create_bit_vector_fifo[i].enq(?);
     endrule
 
-    rule handle_get_min_req (insert_in_progress == 0);
-        let req <- toGet(get_min_req_fifo).get;
+    method ActionValue#(Node#(Bit#(size_t), Bit#(size_t))) first()
+                                               if (curr_size > 0);
+        return sorted_list[0];
+    endmethod
+
+    method Action deq() if (insert_in_progress == 0);
         if (curr_size > 0)
         begin
-            get_min_fifo.enq(sorted_list[0]);
             for (Integer i = 0; i < valueof(SIZE)-1; i = i + 1)
                 sorted_list[i] <= sorted_list[i + 1];
             sorted_list[valueof(SIZE)-1] <= defaultValue;
             curr_size <= curr_size - 1;
         end
-    endrule
+    endmethod
 
-    rule handle_peek_min_req;
-        let req <- toGet(peek_min_req_fifo).get;
+    method Action clear() if (insert_in_progress == 0);
         if (curr_size > 0)
-            get_min_fifo.enq(sorted_list[0]);
-    endrule
+        begin
+            for (Integer i = 0; i < valueof(SIZE); i = i + 1)
+                sorted_list[i] <= defaultValue;
+            curr_size <= 0;
+        end
+    endmethod
 
     method Action displayQueue();
         for (Integer i = 0; i < valueof(SIZE); i = i + 1)
@@ -145,9 +147,5 @@ module mkMinPriorityQueue (MinPriorityQueue#(Bit#(size_t), Bit#(size_t)));
 
     interface Put insert_req = toPut(insert_req_fifo);
     interface Get insert_res = toGet(insert_res_fifo);
-    interface Put get_min_req = toPut(get_min_req_fifo);
-    interface Put peek_min_req = toPut(peek_min_req_fifo);
-    interface Get get_min = toGet(get_min_fifo);
-    interface Get peek_min = toGet(peek_min_fifo);
 endmodule
 
