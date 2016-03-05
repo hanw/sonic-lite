@@ -80,12 +80,7 @@ module mkMinPriorityQueue (MinPriorityQueue#(Bit#(size_t), Bit#(size_t)));
 
     rule find_correct_location_rule (insert_in_progress == 1);
         let x <- toGet(find_correct_location_fifo).get;
-        Bit#(SIZE) temp = 0;
-        for (Integer i = 0; i < valueof(SIZE); i = i + 1)
-        begin
-            temp[i] = b_vector[i];
-        end
-        priority_encoder.oht.put(temp);
+        priority_encoder.oht.put(pack(readVReg(b_vector)));
     endrule
 
     rule get_correct_location_rule (insert_in_progress == 1);
@@ -129,8 +124,7 @@ module mkMinPriorityQueue (MinPriorityQueue#(Bit#(size_t), Bit#(size_t)));
     endmethod
 
     method Action clear() if (insert_in_progress == 0 && curr_size > 0);
-        for (Integer i = 0; i < valueof(SIZE); i = i + 1)
-            sorted_list[i] <= defaultValue;
+        writeVReg(sorted_list, defaultValue);
         curr_size <= 0;
     endmethod
 
