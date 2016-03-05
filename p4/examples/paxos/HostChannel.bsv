@@ -61,13 +61,22 @@ module mkHostChannel(HostChannel);
 
    // new packet, issue metadata processing request to ingress pipeline
    // request issue after packet is committed to memory.
-   // FIXME: we assume packet is always paxos packet for now
-   rule handle_packet_process;
+   rule handle_paxos_packet if (parser.parserState.first == StateParsePaxos);
+      parser.parserState.deq;
       let v <- toGet(ingress.eventPktCommitted).get;
       let dstMac <- toGet(parser.parsedOut_ethernet_dstAddr).get;
       let msgtype <- toGet(parser.parsedOut_paxos_msgtype).get;
       if (verbose) $display("HostChannel: dstMac=%h, size=%d", dstMac, v.size);
       if (verbose) $display("HostChannel: msgtype=%h", msgtype);
+      MetadataRequest nextReq0 = tagged DstMacLookupRequest { pkt: v, dstMac: dstMac };
+      outReqFifo0.enq(nextReq0);
+   endrule
+
+   rule handle_ipv6_packet if (parser.parserState.first == StateParseIpv6);
+      parser.parserState.deq;
+      let v <- toGet(ingress.eventPktCommitted).get;
+      let dstMac <- toGet(parser.parsedOut_ethernet_dstAddr).get;
+      // forward to drop table
       MetadataRequest nextReq0 = tagged DstMacLookupRequest { pkt: v, dstMac: dstMac };
       outReqFifo0.enq(nextReq0);
    endrule
