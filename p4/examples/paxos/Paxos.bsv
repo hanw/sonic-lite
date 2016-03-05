@@ -874,7 +874,7 @@ interface ParseUdp;
     method Action start;
     method Action clear;
 endinterface
-module mkStateParseUdp#(Reg#(ParserState) state, FIFOF#(EtherData) datain)(ParseUdp);
+module mkStateParseUdp#(Reg#(ParserState) state, FIFOF#(EtherData) datain, FIFOF#(ParserState) parseStateFifo)(ParseUdp);
     FIFOF#(Bit#(112)) unparsed_parse_ipv4_fifo <- mkBypassFIFOF;
     FIFOF#(Bit#(176)) unparsed_parse_paxos_fifo <- mkSizedFIFOF(1);
     Wire#(Bit#(128)) packet_in_wire <- mkDWire(0);
@@ -924,6 +924,9 @@ module mkStateParseUdp#(Reg#(ParserState) state, FIFOF#(EtherData) datain)(Parse
         $display("Goto state %h", nextState);
         if (nextState == StateParsePaxos) begin
             unparsed_parse_paxos_fifo.enq(pack(unparsed));
+        end
+        else begin
+            parseStateFifo.enq(StateParseUdp);
         end
         next_state_wire[0] <= tagged Valid nextState;
     endaction
@@ -1062,8 +1065,8 @@ module mkParser(Parser);
     ParseIpv4 parse_ipv4 <- mkStateParseIpv4(curr_state, data_in_fifo);
     ParseIpv6 parse_ipv6 <- mkStateParseIpv6(curr_state, data_in_fifo, parse_state_in_fifo[0]);
     ParseCpuHeader parse_cpu_header <- mkStateParseCpuHeader(curr_state, data_in_fifo);
-    ParseUdp parse_udp <- mkStateParseUdp(curr_state, data_in_fifo);
-    ParsePaxos parse_paxos <- mkStateParsePaxos(curr_state, data_in_fifo, parse_state_in_fifo[1]);
+    ParseUdp parse_udp <- mkStateParseUdp(curr_state, data_in_fifo, parse_state_in_fifo[1]);
+    ParsePaxos parse_paxos <- mkStateParsePaxos(curr_state, data_in_fifo, parse_state_in_fifo[2]);
     mkConnection(parse_arp.parse_ethernet, parse_ethernet.parse_arp);
     mkConnection(parse_ipv4.parse_ethernet, parse_ethernet.parse_ipv4);
     mkConnection(parse_ipv6.parse_ethernet, parse_ethernet.parse_ipv6);

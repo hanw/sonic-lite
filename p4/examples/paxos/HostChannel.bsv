@@ -72,11 +72,19 @@ module mkHostChannel(HostChannel);
       outReqFifo0.enq(nextReq0);
    endrule
 
-   rule handle_ipv6_packet if (parser.parserState.first == StateParseIpv6);
+   rule handle_unknown_ipv6_packet if (parser.parserState.first == StateParseIpv6);
       parser.parserState.deq;
       let v <- toGet(ingress.eventPktCommitted).get;
       let dstMac <- toGet(parser.parsedOut_ethernet_dstAddr).get;
       // forward to drop table
+      MetadataRequest nextReq0 = tagged DstMacLookupRequest { pkt: v, dstMac: dstMac };
+      outReqFifo0.enq(nextReq0);
+   endrule
+
+   rule handle_unknown_udp_packet if (parser.parserState.first == StateParseUdp);
+      parser.parserState.deq;
+      let v <- toGet(ingress.eventPktCommitted).get;
+      let dstMac <- toGet(parser.parsedOut_ethernet_dstAddr).get;
       MetadataRequest nextReq0 = tagged DstMacLookupRequest { pkt: v, dstMac: dstMac };
       outReqFifo0.enq(nextReq0);
    endrule
