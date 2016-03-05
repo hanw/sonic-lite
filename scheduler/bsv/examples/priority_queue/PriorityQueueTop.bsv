@@ -110,11 +110,8 @@ module mkPriorityQueueTop#(PriorityQueueTopIndication indication)(PriorityQueueT
        if (iteration == 10)
            start_get_insert_loop <= 0;
        min_priority_queue.displayQueue();
-       min_priority_queue.get_min_req.put(?);
-   endrule
-
-   rule update_and_insert;
-       let x <- toGet(min_priority_queue.get_min).get;
+       let x <- min_priority_queue.first;
+       min_priority_queue.deq;
        $display("GET: (%d, %d)", x.v, x.p);
        x.p = x.p + 3;
        min_priority_queue.insert_req.put(x);
