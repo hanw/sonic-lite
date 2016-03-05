@@ -269,6 +269,58 @@ function Ipv4T extract_ipv4(Bit#(160) data);
 endfunction
 
 typedef struct {
+    Bit#(4) version;
+    Bit#(8) trafficClass;
+    Bit#(20) flowLabel;
+    Bit#(16) payloadLen;
+    Bit#(8) nextHdr;
+    Bit#(8) hopLimit;
+    Bit#(128) srcAddr;
+    Bit#(128) dstAddr;
+} Ipv6T deriving (Bits, Eq);
+
+instance DefaultValue#(Ipv6T);
+defaultValue=
+Ipv6T {
+    version: 0,
+    trafficClass: 0,
+    flowLabel: 0,
+    payloadLen: 0,
+    nextHdr: 0,
+    hopLimit: 0,
+    srcAddr: 0,
+    dstAddr: 0};
+endinstance
+
+instance FShow#(Ipv6T);
+    function Fmt fshow(Ipv6T p);
+        return $format("Ipv6T: version=%h, trafficClass=%h, flowLabel=%h, payloadLen=%h, nextHdr=%h, hopLimit=%h, srcAddr=%h, dstAddr=%h" , p.version, p.trafficClass, p.flowLabel, p.payloadLen, p.nextHdr, p.hopLimit, p.srcAddr, p.dstAddr);
+    endfunction
+endinstance
+
+function Ipv6T extract_ipv6(Bit#(320) data);
+    Vector#(320, Bit#(1)) dataVec=unpack(data);
+    Vector#(4, Bit#(1)) version = takeAt(0, dataVec);
+    Vector#(8, Bit#(1)) trafficClass = takeAt(4, dataVec);
+    Vector#(20, Bit#(1)) flowLabel = takeAt(12, dataVec);
+    Vector#(16, Bit#(1)) payloadLen = takeAt(32, dataVec);
+    Vector#(8, Bit#(1)) nextHdr = takeAt(48, dataVec);
+    Vector#(8, Bit#(1)) hopLimit = takeAt(56, dataVec);
+    Vector#(128, Bit#(1)) srcAddr = takeAt(64, dataVec);
+    Vector#(128, Bit#(1)) dstAddr = takeAt(192, dataVec);
+    Ipv6T ipv6_t = defaultValue;
+    ipv6_t.version = pack(version);
+    ipv6_t.trafficClass = pack(trafficClass);
+    ipv6_t.flowLabel = pack(flowLabel);
+    ipv6_t.payloadLen = pack(payloadLen);
+    ipv6_t.nextHdr = pack(nextHdr);
+    ipv6_t.hopLimit = pack(hopLimit);
+    ipv6_t.srcAddr = pack(srcAddr);
+    ipv6_t.dstAddr = pack(dstAddr);
+    return ipv6_t;
+endfunction
+
+typedef struct {
     Bit#(8) round;
 } IngressMetadataT deriving (Bits, Eq);
 
@@ -419,7 +471,7 @@ import Vector::*;
 import Pipe::*;
 import Ethernet::*;
 import P4Types::*;
-typedef enum {StateStart,StateParseEthernet,StateParseArp,StateParseIpv4,StateParseCpuHeader,StateParseUdp,StateParsePaxos} ParserState deriving (Bits, Eq);
+typedef enum {StateStart,StateParseEthernet,StateParseArp,StateParseIpv4,StateParseIpv6,StateParseCpuHeader,StateParseUdp,StateParsePaxos} ParserState deriving (Bits, Eq);
 instance FShow#(ParserState);
     function Fmt fshow (ParserState state);
         return $format(" State %x", state);
@@ -443,6 +495,7 @@ endmodule
 interface ParseEthernet;
     interface Get#(Bit#(16)) parse_arp;
     interface Get#(Bit#(16)) parse_ipv4;
+    interface Get#(Bit#(16)) parse_ipv6;
     interface Get#(Bit#(48)) parsedOut_ethernet_dstAddr;
     method Action start;
     method Action clear;
@@ -450,18 +503,19 @@ endinterface
 module mkStateParseEthernet#(Reg#(ParserState) state, FIFOF#(EtherData) datain)(ParseEthernet);
     FIFOF#(Bit#(16)) unparsed_parse_arp_fifo <- mkSizedFIFOF(1);
     FIFOF#(Bit#(16)) unparsed_parse_ipv4_fifo <- mkSizedFIFOF(1);
+    FIFOF#(Bit#(16)) unparsed_parse_ipv6_fifo <- mkSizedFIFOF(1);
 
     FIFOF#(Bit#(48)) parsed_ethernet_fifo <- mkFIFOF;
 
     Wire#(Bit#(128)) packet_in_wire <- mkDWire(0);
-    Vector#(3, Wire#(Maybe#(ParserState))) next_state_wire <- replicateM(mkDWire(tagged Invalid));
+    Vector#(4, Wire#(Maybe#(ParserState))) next_state_wire <- replicateM(mkDWire(tagged Invalid));
     PulseWire start_wire <- mkPulseWire();
     PulseWire clear_wire <- mkPulseWire();
     (* fire_when_enabled *)
     rule arbitrate_outgoing_state if (state == StateParseEthernet);
-        Vector#(3, Bool) next_state_valid = replicate(False);
+        Vector#(4, Bool) next_state_valid = replicate(False);
         Bool stateSet = False;
-        for (Integer port=0; port<3; port=port+1) begin
+        for (Integer port=0; port<4; port=port+1) begin
             next_state_valid[port] = isValid(next_state_wire[port]);
             if (!stateSet && next_state_valid[port]) begin
                 stateSet = True;
@@ -478,6 +532,9 @@ module mkStateParseEthernet#(Reg#(ParserState) state, FIFOF#(EtherData) datain)(
             end
             'h800: begin
                 nextState=StateParseIpv4;
+            end
+            'h86dd: begin
+                nextState=StateParseIpv6;
             end
             default: begin
                 nextState=StateStart;
@@ -505,6 +562,9 @@ module mkStateParseEthernet#(Reg#(ParserState) state, FIFOF#(EtherData) datain)(
         if (nextState == StateParseIpv4) begin
             unparsed_parse_ipv4_fifo.enq(pack(unparsed));
         end
+        if (nextState == StateParseIpv6) begin
+            unparsed_parse_ipv6_fifo.enq(pack(unparsed));
+        end
         parsed_ethernet_fifo.enq(ethernet.dstAddr);
         next_state_wire[0] <= tagged Valid nextState;
     endaction
@@ -524,6 +584,7 @@ module mkStateParseEthernet#(Reg#(ParserState) state, FIFOF#(EtherData) datain)(
     endmethod
     interface parse_arp = toGet(unparsed_parse_arp_fifo);
     interface parse_ipv4 = toGet(unparsed_parse_ipv4_fifo);
+    interface parse_ipv6 = toGet(unparsed_parse_ipv6_fifo);
     interface parsedOut_ethernet_dstAddr = toGet(parsed_ethernet_fifo);
 endmodule
 interface ParseArp;
@@ -683,6 +744,77 @@ module mkStateParseIpv4#(Reg#(ParserState) state, FIFOF#(EtherData) datain)(Pars
     interface parse_cpu_header = toGet(unparsed_parse_cpu_header_fifo);
     interface parse_udp = toGet(unparsed_parse_udp_fifo);
 endmodule
+interface ParseIpv6;
+    interface Put#(Bit#(16)) parse_ethernet;
+    method Action start;
+    method Action clear;
+endinterface
+module mkStateParseIpv6#(Reg#(ParserState) state, FIFOF#(EtherData) datain, FIFOF#(ParserState) parseStateFifo)(ParseIpv6);
+    FIFOF#(Bit#(16)) unparsed_parse_ethernet_fifo <- mkBypassFIFOF;
+    FIFOF#(Bit#(144)) internal_fifo <- mkSizedFIFOF(1);
+    FIFOF#(Bit#(272)) internal_fifo2 <- mkSizedFIFOF(1);
+    Wire#(Bit#(128)) packet_in_wire <- mkDWire(0);
+    Vector#(1, Wire#(Maybe#(ParserState))) next_state_wire <- replicateM(mkDWire(tagged Invalid));
+    PulseWire start_wire <- mkPulseWire();
+    PulseWire clear_wire <- mkPulseWire();
+    (* fire_when_enabled *)
+    rule arbitrate_outgoing_state if (state == StateParseIpv6);
+        Vector#(1, Bool) next_state_valid = replicate(False);
+        Bool stateSet = False;
+        for (Integer port=0; port<1; port=port+1) begin
+            next_state_valid[port] = isValid(next_state_wire[port]);
+            if (!stateSet && next_state_valid[port]) begin
+                stateSet = True;
+                ParserState next_state = fromMaybe(?, next_state_wire[port]);
+                state <= next_state;
+            end
+        end
+    endrule
+
+    rule load_packet if (state == StateParseIpv6);
+        let data_current <- toGet(datain).get;
+        packet_in_wire <= data_current.data;
+    endrule
+    Stmt parse_ipv6 =
+    seq
+    action
+        let data_current = packet_in_wire;
+        let unparsed <- toGet(unparsed_parse_ethernet_fifo).get;
+        Bit#(144) data = {data_current, unparsed};
+        internal_fifo.enq(data);
+    endaction
+    action
+        let data_current = packet_in_wire;
+        let data_delayed <- toGet(internal_fifo).get;
+        Bit#(272) data = {data_current, data_delayed};
+        internal_fifo2.enq(data);
+    endaction
+    action
+        let data_current = packet_in_wire;
+        let data_delayed <- toGet(internal_fifo2).get;
+        Bit#(400) data = {data_current, data_delayed};
+        Vector#(400, Bit#(1)) dataVec = unpack(data);
+        let ipv6 = extract_ipv6(pack(takeAt(0, dataVec)));
+        $display(fshow(ipv6));
+        parseStateFifo.enq(StateParseIpv6);
+        next_state_wire[0] <= tagged Valid StateStart;
+    endaction
+    endseq;
+    FSM fsm_parse_ipv6 <- mkFSM(parse_ipv6);
+    rule start_fsm if (start_wire);
+        fsm_parse_ipv6.start;
+    endrule
+    rule clear_fsm if (clear_wire);
+        fsm_parse_ipv6.abort;
+    endrule
+    method Action start();
+        start_wire.send();
+    endmethod
+    method Action clear();
+        clear_wire.send();
+    endmethod
+    interface parse_ethernet = toPut(unparsed_parse_ethernet_fifo);
+endmodule
 interface ParseCpuHeader;
     interface Put#(Bit#(112)) parse_ipv4;
     method Action start;
@@ -818,7 +950,7 @@ interface ParsePaxos;
     method Action start;
     method Action clear;
 endinterface
-module mkStateParsePaxos#(Reg#(ParserState) state, FIFOF#(EtherData) datain)(ParsePaxos);
+module mkStateParsePaxos#(Reg#(ParserState) state, FIFOF#(EtherData) datain, FIFOF#(ParserState) parseStateFifo)(ParsePaxos);
     FIFOF#(Bit#(304)) internal_fifo1 <- mkSizedFIFOF(1);
     FIFOF#(Bit#(432)) internal_fifo2 <- mkSizedFIFOF(1);
     FIFOF#(Bit#(560)) internal_fifo3 <- mkSizedFIFOF(1);
@@ -873,7 +1005,8 @@ module mkStateParsePaxos#(Reg#(ParserState) state, FIFOF#(EtherData) datain)(Par
         Vector#(688, Bit#(1)) dataVec = unpack(data);
         let paxos = extract_paxos(pack(takeAt(0, dataVec)));
         $display(fshow(paxos));
-        parsed_paxos_fifo.enq(paxos.msgtype);
+        //parsed_paxos_fifo.enq(paxos.msgtype);
+        parseStateFifo.enq(StateParsePaxos);
         next_state_wire[0] <= tagged Valid StateStart;
     endaction
     endseq;
@@ -897,25 +1030,43 @@ interface Parser;
     interface Put#(EtherData) frameIn;
     interface Get#(Bit#(48)) parsedOut_ethernet_dstAddr;
     interface Get#(Bit#(8)) parsedOut_paxos_msgtype;
+    interface PipeOut#(ParserState) parserState;
 endinterface
 
+typedef 4 PortMax;
 (* synthesize *)
 module mkParser(Parser);
-
     Reg#(ParserState) curr_state <- mkReg(StateStart);
     Reg#(Bool) started <- mkReg(False);
     FIFOF#(EtherData) data_in_fifo <- mkFIFOF;
     Wire#(Bool) start_fsm <- mkDWire(False);
 
+    Vector#(PortMax, FIFOF#(ParserState)) parse_state_in_fifo <- replicateM(mkGFIFOF(False, True)); // unguarded deq
+    FIFOF#(ParserState) parse_state_out_fifo <- mkFIFOF;
+
+    (* fire_when_enabled *)
+    rule arbitrate_parse_state;
+       Bool sentOne = False;
+       for (Integer port = 0; port < valueOf(PortMax); port = port+1) begin
+          if (!sentOne && parse_state_in_fifo[port].notEmpty()) begin
+             ParserState state <- toGet(parse_state_in_fifo[port]).get();
+             sentOne = True;
+             parse_state_out_fifo.enq(state);
+          end
+       end
+    endrule
+
     Empty init_state <- mkStateStart(curr_state, data_in_fifo, start_fsm);
     ParseEthernet parse_ethernet <- mkStateParseEthernet(curr_state, data_in_fifo);
     ParseArp parse_arp <- mkStateParseArp(curr_state, data_in_fifo);
     ParseIpv4 parse_ipv4 <- mkStateParseIpv4(curr_state, data_in_fifo);
+    ParseIpv6 parse_ipv6 <- mkStateParseIpv6(curr_state, data_in_fifo, parse_state_in_fifo[0]);
     ParseCpuHeader parse_cpu_header <- mkStateParseCpuHeader(curr_state, data_in_fifo);
     ParseUdp parse_udp <- mkStateParseUdp(curr_state, data_in_fifo);
-    ParsePaxos parse_paxos <- mkStateParsePaxos(curr_state, data_in_fifo);
+    ParsePaxos parse_paxos <- mkStateParsePaxos(curr_state, data_in_fifo, parse_state_in_fifo[1]);
     mkConnection(parse_arp.parse_ethernet, parse_ethernet.parse_arp);
     mkConnection(parse_ipv4.parse_ethernet, parse_ethernet.parse_ipv4);
+    mkConnection(parse_ipv6.parse_ethernet, parse_ethernet.parse_ipv6);
     mkConnection(parse_cpu_header.parse_ipv4, parse_ipv4.parse_cpu_header);
     mkConnection(parse_udp.parse_ipv4, parse_ipv4.parse_udp);
     mkConnection(parse_paxos.parse_udp, parse_udp.parse_paxos);
@@ -924,6 +1075,7 @@ module mkParser(Parser);
             parse_ethernet.start;
             parse_arp.start;
             parse_ipv4.start;
+            parse_ipv6.start;
             parse_cpu_header.start;
             parse_udp.start;
             parse_paxos.start;
@@ -935,14 +1087,17 @@ module mkParser(Parser);
             parse_ethernet.clear;
             parse_arp.clear;
             parse_ipv4.clear;
+            parse_ipv6.clear;
             parse_cpu_header.clear;
             parse_udp.clear;
             parse_paxos.clear;
             started <= False;
         end
     endrule
+
     interface frameIn = toPut(data_in_fifo);
     interface parsedOut_ethernet_dstAddr = parse_ethernet.parsedOut_ethernet_dstAddr;
     interface parsedOut_paxos_msgtype = parse_paxos.parsedOut_paxos_msgtype;
+    interface parserState = toPipeOut(parse_state_out_fifo);
 endmodule
 

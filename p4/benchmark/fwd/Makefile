@@ -63,4 +63,7 @@ endif
 run:
 	(cd bluesim; ./bin/ubuntu.exe -p ../paxos.pcap)
 
+run-intel:
+	(cd bluesim; ./bin/ubuntu.exe -p ../udp-burst-ipv6-5.pcap)
+
 include $(CONNECTALDIR)/Makefile.connectal
