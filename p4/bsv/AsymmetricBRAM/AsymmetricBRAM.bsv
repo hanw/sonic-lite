@@ -55,10 +55,13 @@ endinterface
 
 // Assume narrower write port
 // Wrapper for the verilog
+`ifndef SIMULATION
 `ifdef ALTERA
 import "BVI" AsymmetricBRAM_Altera =
-`else
+`endif
+`ifdef XILINX
 import "BVI" AsymmetricBRAM_Xilinx =
+`endif
 module vAsymBRAM#(Bool hasOutputRegister)
                  (VAsymBRAMIfc#(raddr_t, rdata_t, waddr_t, wdata_t))
     provisos(
@@ -112,6 +115,7 @@ module mkAsymmetricBRAM#(Bool hasOutputRegister, Bool hasForwarding, String name
     return ret_ifc;
 endmodule
 
+`ifndef SIMULATION
 module mkAsymmetricBRAMVerilog#(Bool hasOutputRegister, Bool hasForwarding)
                                (AsymmetricBRAM#(raddr_t, rdata_t, waddr_t, wdata_t))
     provisos(
@@ -161,6 +165,7 @@ module mkAsymmetricBRAMVerilog#(Bool hasOutputRegister, Bool hasForwarding)
    endinterface);
 
 endmodule
+`endif
 
 import "BDPI" mem_create    = function ActionValue#(Bit#(64)) mem_create(msize_t size, rsize_t rsize, wsize_t wsize)
                               provisos (Bits#(msize_t, msize_sz),
