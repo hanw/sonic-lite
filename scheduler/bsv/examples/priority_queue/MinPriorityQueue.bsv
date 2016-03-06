@@ -2,6 +2,7 @@ import List::*;
 import Vector::*;
 import BuildVector::*;
 import FIFO::*;
+import FIFOF::*;
 import SpecialFIFOs::*;
 import GetPut::*;
 import DefaultValue::*;
@@ -45,11 +46,10 @@ module mkMinPriorityQueue(MinPriorityQueue#(Bit#(size_t), Bit#(size_t)));
                    sorted_list <- replicateM(mkReg(defaultValue));
     Reg#(Node#(Bit#(size_t), Bit#(size_t))) node_to_insert <- mkReg(defaultValue);
     Reg#(Bit#(TLog#(SIZE))) curr_size <- mkReg(0);
-    Reg#(Bit#(1)) insert_in_progress <- mkReg(0);
     FIFO#(void) insert_res_fifo <- mkBypassFIFO;
-    FIFO#(Node#(Bit#(size_t), Bit#(size_t))) insert_req_fifo <- mkSizedFIFO(4);
+    FIFOF#(Node#(Bit#(size_t), Bit#(size_t))) insert_req_fifo <- mkSizedBypassFIFOF(4);
 
-    rule insert (insert_in_progress == 1);
+    rule insert;
         let x <- toGet(priority_encoder.bin).get;
         $display("get from pe %h", x);
         case (x) matches
@@ -67,7 +67,6 @@ module mkMinPriorityQueue(MinPriorityQueue#(Bit#(size_t), Bit#(size_t)));
                      outV[i] = shiftedV[i];
               end
               writeVReg(sorted_list, outV);
-              insert_in_progress <= 0;
               curr_size <= curr_size + 1;
               insert_res_fifo.enq(?);
            end
@@ -75,10 +74,9 @@ module mkMinPriorityQueue(MinPriorityQueue#(Bit#(size_t), Bit#(size_t)));
         endcase
     endrule
 
-    rule handle_insert_req (insert_in_progress == 0);
+    rule handle_insert_req;
        let v <- toGet(insert_req_fifo).get;
        node_to_insert <= v;
-       insert_in_progress <= 1;
        let r = map(uncurry(compare), zip(readVReg(sorted_list), replicate(v)));
        priority_encoder.oht.put(pack(r));
     endrule
@@ -87,13 +85,13 @@ module mkMinPriorityQueue(MinPriorityQueue#(Bit#(size_t), Bit#(size_t)));
         return head(readVReg(sorted_list));
     endmethod
 
-    method Action deq() if (insert_in_progress == 0 && curr_size > 0);
+    method Action deq() if (curr_size > 0);
         let v = append(tail(readVReg(sorted_list)), vec(defaultValue));
         writeVReg(sorted_list, v);
         curr_size <= curr_size - 1;
     endmethod
 
-    method Action clear() if (insert_in_progress == 0 && curr_size > 0);
+    method Action clear() if (curr_size > 0);
         writeVReg(sorted_list, defaultValue);
         curr_size <= 0;
     endmethod
