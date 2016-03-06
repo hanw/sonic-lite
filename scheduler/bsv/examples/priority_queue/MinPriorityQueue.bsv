@@ -20,6 +20,7 @@
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+import Assert::*;
 import BuildVector::*;
 import ClientServer::*;
 import DefaultValue::*;
@@ -84,6 +85,7 @@ module mkMinPriorityQueue(MinPriorityQueue#(n, v, p))
 
     rule insert_item;
         let x <- toGet(priority_encoder.bin).get;
+        dynamicAssert(!isValid(x), "Error: priority encoder returns invalid location");
         case (x) matches
            tagged Valid .index : begin
               let v = readVReg(sorted_list);
@@ -102,7 +104,6 @@ module mkMinPriorityQueue(MinPriorityQueue#(n, v, p))
               curr_size <= curr_size + 1;
               insert_res_fifo.enq(?);
            end
-           tagged Invalid: $display("invalid output %h", x);
         endcase
     endrule
 
