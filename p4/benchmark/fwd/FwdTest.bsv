@@ -94,8 +94,12 @@ module mkFwdTest#(
    mkConnection(ingress.eventPktSend, txchan.eventPktSend);
 
 `ifndef SIMULATION
+   // process p0 -> p1
    mkConnection(txchan.macTx, mac[1].packet_tx);
    mkConnection(mac[0].packet_rx, rxchan.macRx);
+
+   // bypass p1 -> p0
+   mkConnection(mac[1].packet_rx, mac[0].packet_tx);
 `else
    rule drainTx;
       let v <- txchan.macTx.get;
@@ -104,7 +108,7 @@ module mkFwdTest#(
    //P4Register#(InstanceSize, RoundSize) roundRegs <- mkP4RoundRegister(vec(roleTable.regAccess));
    //P4Register#(1, 8) roleRegs <- mkP4RoleRegister(vec(roundTable.regAccess));
 
-   FwdAPI api <- mkFwdAPI(indication, hostchan, rxchan, txchan, mem);
+   FwdAPI api <- mkFwdAPI(indication, ingress, hostchan, rxchan, txchan, mem);
 
    interface request = api.request;
 `ifdef BOARD_nfsume

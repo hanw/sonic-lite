@@ -37,6 +37,7 @@ import RxChannel::*;
 import TxChannel::*;
 import HostChannel::*;
 import SharedBuff::*;
+import PaxosIngressPipeline::*;
 
 interface FwdTestRequest;
    method Action read_version();
@@ -44,13 +45,14 @@ interface FwdTestRequest;
    method Action readRxRingBuffCntrs();
    method Action readTxRingBuffCntrs();
    method Action readMemMgmtCntrs();
+   method Action readIngressCntrs();
 endinterface
 
 interface FwdAPI;
    interface FwdTestRequest request;
 endinterface
 
-module mkFwdAPI#(FwdTestIndication indication, HostChannel hostchan, RxChannel rxchan, TxChannel txchan, SharedBuffer#(12, 128, 1) buff)(FwdAPI);
+module mkFwdAPI#(FwdTestIndication indication, PaxosIngressPipeline ingress, HostChannel hostchan, RxChannel rxchan, TxChannel txchan, SharedBuffer#(12, 128, 1) buff)(FwdAPI);
 
    interface FwdTestRequest request;
       method Action read_version();
@@ -76,6 +78,10 @@ module mkFwdAPI#(FwdTestIndication indication, HostChannel hostchan, RxChannel r
       method Action readMemMgmtCntrs();
          let v = buff.dbg;
          indication.readMemMgmtCntrsResp(v.allocCnt, v.freeCnt, v.allocCompleted, v.freeCompleted, v.errorCode, v.lastIdFreed, v.lastIdAllocated, v.freeStarted, v.firstSegment, v.lastSegment, v.currSegment, v.invalidSegment);
+      endmethod
+      method Action readIngressCntrs();
+         let v = ingress.dbg;
+         indication.readIngressCntrsResp(v.fwdCount);
       endmethod
    endinterface
 endmodule

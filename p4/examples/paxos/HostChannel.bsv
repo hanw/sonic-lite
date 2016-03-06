@@ -77,6 +77,7 @@ module mkHostChannel(HostChannel);
       let v <- toGet(ingress.eventPktCommitted).get;
       let dstMac <- toGet(parser.parsedOut_ethernet_dstAddr).get;
       // forward to drop table
+      if (verbose) $display("HostChannel unknown ipv6: dstMac=%h, size=%d", dstMac, v.size);
       MetadataRequest nextReq0 = tagged DstMacLookupRequest { pkt: v, dstMac: dstMac };
       outReqFifo0.enq(nextReq0);
    endrule
@@ -85,6 +86,7 @@ module mkHostChannel(HostChannel);
       parser.parserState.deq;
       let v <- toGet(ingress.eventPktCommitted).get;
       let dstMac <- toGet(parser.parsedOut_ethernet_dstAddr).get;
+      if (verbose) $display("HostChannel unknown udp: dstMac=%h, size=%d", dstMac, v.size);
       MetadataRequest nextReq0 = tagged DstMacLookupRequest { pkt: v, dstMac: dstMac };
       outReqFifo0.enq(nextReq0);
    endrule

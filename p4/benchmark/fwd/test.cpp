@@ -58,6 +58,10 @@ public:
         fprintf(stderr, "MemMgmt: lastIdFreed=0x%lx, lastIdAllocated=0x%lx, freeStarted=%ld, firstSegment=0x%lx, lastSegment=0x%lx, currSegment=0x%lx, invalidSegment=%ld\n", lastIdFreed, lastIdAllocated, freeStarted, firstSegment, lastSegment, currSegment, invalidSegment);
         sem_post(&cmdCompleted);
     }
+    virtual void readIngressCntrsResp(uint64_t fwdCnt) {
+        fprintf(stderr, "Ingress: fwdCnt=%ld", fwdCnt);
+        sem_post(&cmdCompleted);
+    }
     FwdTestIndication(unsigned int id) : FwdTestIndicationWrapper(id) {}
 };
 
@@ -113,6 +117,8 @@ void read_status () {
     device->readTxRingBuffCntrs();
     sem_wait(&cmdCompleted);
     device->readMemMgmtCntrs();
+    sem_wait(&cmdCompleted);
+    device->readIngressCntrs();
     sem_wait(&cmdCompleted);
 }
 

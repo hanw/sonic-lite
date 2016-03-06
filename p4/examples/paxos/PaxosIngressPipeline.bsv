@@ -42,10 +42,13 @@ import Vector::*;
 interface PaxosIngressPipeline;
    interface MemWriteClient#(`DataBusWidth) writeClient;
    interface PipeOut#(PacketInstance) eventPktSend;
+   method IngressPipelineDbgRec dbg;
 endinterface
 
 module mkPaxosIngressPipeline#(Vector#(numClients, MetaDataCient) mdc)(PaxosIngressPipeline);
    let verbose = True;
+
+   Reg#(Bit#(64)) fwdCount <- mkReg(0);
 
    // Out
    FIFO#(MetadataRequest) outReqFifo <- mkFIFO;
@@ -86,10 +89,16 @@ module mkPaxosIngressPipeline#(Vector#(numClients, MetaDataCient) mdc)(PaxosIngr
       case (v) matches
          tagged ForwardQueueRequest {pkt: .pkt}: begin
             currPacketFifo.enq(pkt);
+            fwdCount <= fwdCount + 1;
          end
       endcase
    endrule
 
    interface writeClient = dstMacTable.writeClient;
    interface eventPktSend = toPipeOut(currPacketFifo);
+   method IngressPipelineDbgRec dbg();
+      return IngressPipelineDbgRec {
+         fwdCount: fwdCount
+      };
+   endmethod
 endmodule

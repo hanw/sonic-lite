@@ -1008,7 +1008,7 @@ module mkStateParsePaxos#(Reg#(ParserState) state, FIFOF#(EtherData) datain, FIF
         Vector#(688, Bit#(1)) dataVec = unpack(data);
         let paxos = extract_paxos(pack(takeAt(0, dataVec)));
         $display(fshow(paxos));
-        //parsed_paxos_fifo.enq(paxos.msgtype);
+        parsed_paxos_fifo.enq(paxos.msgtype);
         parseStateFifo.enq(StateParsePaxos);
         next_state_wire[0] <= tagged Valid StateStart;
     endaction
@@ -1054,6 +1054,7 @@ module mkParser(Parser);
           if (!sentOne && parse_state_in_fifo[port].notEmpty()) begin
              ParserState state <- toGet(parse_state_in_fifo[port]).get();
              sentOne = True;
+             $display("xxx arbitrate %h", port);
              parse_state_out_fifo.enq(state);
           end
        end
