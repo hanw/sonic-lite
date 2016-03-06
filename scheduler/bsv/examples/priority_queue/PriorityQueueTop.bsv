@@ -1,5 +1,4 @@
-// Copyright (c) 2013 Nokia, Inc.
-// Copyright (c) 2013 Quanta Research Cambridge, Inc.
+// Copyright (c) 2016 Cornell University
 
 // Permission is hereby granted, free of charge, to any person
 // obtaining a copy of this software and associated documentation
@@ -20,11 +19,11 @@
 // ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
+import ClientServer::*;
 import FIFO::*;
-import Vector::*;
 import GetPut::*;
-
 import MinPriorityQueue::*;
+import Vector::*;
 
 interface PriorityQueueTopIndication;
     method Action status(Bit#(8) s);
@@ -87,7 +86,7 @@ module mkPriorityQueueTop#(PriorityQueueTopIndication indication)(PriorityQueueT
                                             p : priority_vector[index]
                                         };
        index <= index + 1;
-       min_priority_queue.insert_req.put(node);
+       min_priority_queue.insert.request.put(node);
        wait_for_completion <= 1;
        insertion_count <= insertion_count + 1;
        if (insertion_count == 19)
@@ -98,7 +97,7 @@ module mkPriorityQueueTop#(PriorityQueueTopIndication indication)(PriorityQueueT
    endrule
 
    rule insert_res;
-       let x <- toGet(min_priority_queue.insert_res).get;
+       let x <- toGet(min_priority_queue.insert.response).get;
        wait_for_completion <= 0;
    endrule
 
@@ -114,7 +113,7 @@ module mkPriorityQueueTop#(PriorityQueueTopIndication indication)(PriorityQueueT
        min_priority_queue.deq;
        $display("GET: (%d, %d)", x.v, x.p);
        x.p = x.p + 3;
-       min_priority_queue.insert_req.put(x);
+       min_priority_queue.insert.request.put(x);
        wait_for_completion <= 1;
    endrule
 
