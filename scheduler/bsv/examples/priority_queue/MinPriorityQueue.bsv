@@ -6,10 +6,7 @@ import FIFOF::*;
 import SpecialFIFOs::*;
 import GetPut::*;
 import DefaultValue::*;
-
 import PriorityEncoder::*;
-
-typedef 32 SIZE;
 
 typedef struct {
     a v;
@@ -28,7 +25,7 @@ instance DefaultValue#(Node#(a, b))
     };
 endinstance
 
-interface MinPriorityQueue#(type v, type p);
+interface MinPriorityQueue#(numeric type depth, type v, type p);
     interface Put#(Node#(v, p)) insert_req;
     interface Get#(void) insert_res;
     method ActionValue#(Node#(v, p)) first();
@@ -45,18 +42,20 @@ function Bit#(1) compare (Node#(v, p) x, Node#(v, p) y)
         return 0;
 endfunction
 
-module mkMinPriorityQueue(MinPriorityQueue#(v, p))
+module mkMinPriorityQueue(MinPriorityQueue#(n, v, p))
     provisos (Bits#(v, v__)
              ,Bits#(p, p__)
              ,Bounded#(v)
              ,Bounded#(p)
              ,Literal#(v)
-             ,Ord#(p));
+             ,Ord#(p)
+             ,Add#(a__, 1, n)
+             ,PriorityEncoder::PEncoder#(n));
 
-    PE#(SIZE) priority_encoder <- mkPEncoder;
-    Vector#(SIZE, Reg#(Node#(v, p))) sorted_list <- replicateM(mkReg(defaultValue));
+    PE#(n) priority_encoder <- mkPEncoder;
+    Vector#(n, Reg#(Node#(v, p))) sorted_list <- replicateM(mkReg(defaultValue));
     Reg#(Node#(v, p)) node_to_insert <- mkReg(defaultValue);
-    Reg#(Bit#(TLog#(SIZE))) curr_size <- mkReg(0);
+    Reg#(Bit#(TLog#(n))) curr_size <- mkReg(0);
     FIFO#(void) insert_res_fifo <- mkBypassFIFO;
     FIFOF#(Node#(v, p)) insert_req_fifo <- mkSizedBypassFIFOF(4);
 
@@ -69,8 +68,8 @@ module mkMinPriorityQueue(MinPriorityQueue#(v, p))
               let v = readVReg(sorted_list);
               let shiftedV = shiftOutFromN(defaultValue, v, 1);
               /*TODO: implement with map(function, vec) */
-              Vector#(SIZE, Node#(v, p)) outV = newVector;
-              for (Integer i=0; i<valueOf(SIZE); i=i+1) begin
+              Vector#(n, Node#(v, p)) outV = newVector;
+              for (Integer i=0; i<valueOf(n); i=i+1) begin
                   if (fromInteger(i) < index)
                      outV[i] = v[i];
                   else if (fromInteger(i) == index)
@@ -109,7 +108,7 @@ module mkMinPriorityQueue(MinPriorityQueue#(v, p))
     endmethod
 
     method Action displayQueue();
-        for (Integer i = 0; i < valueof(SIZE); i = i + 1)
+        for (Integer i = 0; i < valueof(n); i = i + 1)
             $display("(%d %d)", sorted_list[i].v, sorted_list[i].p);
     endmethod
 

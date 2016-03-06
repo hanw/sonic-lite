@@ -39,7 +39,7 @@ interface PriorityQueueTop;
 endinterface
 
 module mkPriorityQueueTop#(PriorityQueueTopIndication indication)(PriorityQueueTop);
-   MinPriorityQueue#(Bit#(16), Bit#(16)) min_priority_queue <- mkMinPriorityQueue;
+   MinPriorityQueue#(32, Bit#(16), Bit#(16)) min_priority_queue <- mkMinPriorityQueue;
 
    Reg#(Bit#(1)) start_counting <- mkReg(0);
    Reg#(Bit#(1)) start_inserting <- mkReg(0);

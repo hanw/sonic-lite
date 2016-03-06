@@ -21,6 +21,7 @@
 // SOFTWARE.
 
 import Arith::*;
+import Assert::*;
 import FIFO::*;
 import FIFOF::*;
 import GetPut::*;
@@ -320,3 +321,18 @@ instance PEncoder#(1024);
    endmodule
 endinstance
 
+instance PEncoder#(n);
+   module mkPEncoder(PE#(n));
+      staticAssert(True, "PEncoder type not implemented");
+      interface Put oht;
+         method Action put(Bit#(n) v);
+            // empty
+         endmethod
+      endinterface
+      interface Get bin;
+         method ActionValue#(Maybe#(Bit#(TLog#(n)))) get();
+            return tagged Invalid;
+         endmethod
+      endinterface
+   endmodule
+endinstance
