@@ -12,52 +12,64 @@ import PriorityEncoder::*;
 typedef 32 SIZE;
 
 typedef struct {
-    valueType v;
-    priorityType p;
-} Node#(type valueType, type priorityType) deriving(Bits, Eq);
+    a v;
+    b p;
+} Node#(type a, type b) deriving(Bits, Eq);
 
-instance DefaultValue#(Node#(Bit#(size_t), Bit#(size_t)));
+instance DefaultValue#(Node#(a, b))
+    provisos (Bits#(a, a__)
+             ,Bits#(b, b__)
+             ,Bounded#(a)
+             ,Bounded#(b)
+             ,Literal#(a));
     defaultValue = Node {
-        v : 0,
+        v : minBound,
         p : maxBound
     };
 endinstance
 
-interface MinPriorityQueue#(type valueType, type priorityType);
-    interface Put#(Node#(valueType, priorityType)) insert_req;
+interface MinPriorityQueue#(type v, type p);
+    interface Put#(Node#(v, p)) insert_req;
     interface Get#(void) insert_res;
-    method ActionValue#(Node#(valueType, priorityType)) first();
+    method ActionValue#(Node#(v, p)) first();
     method Action deq();
     method Action clear();
     method Action displayQueue();
 endinterface
 
-function Bit#(1) compare (Node#(Bit#(size_t), Bit#(size_t)) x,
-                          Node#(Bit#(size_t), Bit#(size_t)) y);
+function Bit#(1) compare (Node#(v, p) x, Node#(v, p) y)
+    provisos (Ord#(p));
     if (x.p > y.p)
         return 1;
     else
         return 0;
 endfunction
 
-module mkMinPriorityQueue(MinPriorityQueue#(Bit#(size_t), Bit#(size_t)));
+module mkMinPriorityQueue(MinPriorityQueue#(v, p))
+    provisos (Bits#(v, v__)
+             ,Bits#(p, p__)
+             ,Bounded#(v)
+             ,Bounded#(p)
+             ,Literal#(v)
+             ,Ord#(p));
+
     PE#(SIZE) priority_encoder <- mkPEncoder;
-    Vector#(SIZE, Reg#(Node#(Bit#(size_t), Bit#(size_t))))
-                   sorted_list <- replicateM(mkReg(defaultValue));
-    Reg#(Node#(Bit#(size_t), Bit#(size_t))) node_to_insert <- mkReg(defaultValue);
+    Vector#(SIZE, Reg#(Node#(v, p))) sorted_list <- replicateM(mkReg(defaultValue));
+    Reg#(Node#(v, p)) node_to_insert <- mkReg(defaultValue);
     Reg#(Bit#(TLog#(SIZE))) curr_size <- mkReg(0);
     FIFO#(void) insert_res_fifo <- mkBypassFIFO;
-    FIFOF#(Node#(Bit#(size_t), Bit#(size_t))) insert_req_fifo <- mkSizedBypassFIFOF(4);
+    FIFOF#(Node#(v, p)) insert_req_fifo <- mkSizedBypassFIFOF(4);
+
+    Bool deq_ok = (curr_size > 0);
 
     rule insert;
         let x <- toGet(priority_encoder.bin).get;
-        $display("get from pe %h", x);
         case (x) matches
            tagged Valid .index : begin
               let v = readVReg(sorted_list);
               let shiftedV = shiftOutFromN(defaultValue, v, 1);
               /*TODO: implement with map(function, vec) */
-              Vector#(SIZE, Node#(Bit#(size_t), Bit#(size_t))) outV = newVector;
+              Vector#(SIZE, Node#(v, p)) outV = newVector;
               for (Integer i=0; i<valueOf(SIZE); i=i+1) begin
                   if (fromInteger(i) < index)
                      outV[i] = v[i];
@@ -81,17 +93,17 @@ module mkMinPriorityQueue(MinPriorityQueue#(Bit#(size_t), Bit#(size_t)));
        priority_encoder.oht.put(pack(r));
     endrule
 
-    method ActionValue#(Node#(Bit#(size_t), Bit#(size_t))) first() if (curr_size > 0);
+    method ActionValue#(Node#(v, p)) first() if (curr_size > 0);
         return head(readVReg(sorted_list));
     endmethod
 
-    method Action deq() if (curr_size > 0);
+    method Action deq() if (deq_ok);
         let v = append(tail(readVReg(sorted_list)), vec(defaultValue));
         writeVReg(sorted_list, v);
         curr_size <= curr_size - 1;
     endmethod
 
-    method Action clear() if (curr_size > 0);
+    method Action clear();
         writeVReg(sorted_list, defaultValue);
         curr_size <= 0;
     endmethod
