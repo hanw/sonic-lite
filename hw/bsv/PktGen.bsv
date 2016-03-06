@@ -48,6 +48,8 @@ module mkPktGen(PktGen)
    provisos (Div#(`DataBusWidth, 8, bytesPerBeat)
             ,Log#(bytesPerBeat, beatShift));
 
+   let verbose = False;
+
    Reg#(Bit#(32)) traceLen <- mkReg(0);
    Reg#(Bit#(32)) pktCount <- mkReg(0);
    Reg#(Bit#(32)) ipgCount <- mkReg(0);
@@ -62,7 +64,7 @@ module mkPktGen(PktGen)
    rule prepare_packet if (pktCount>0 && !idle);
       let pktLen <- buff.readServer.readLen.get;
       buff.readServer.readReq.put(EtherReq{len:pktLen});
-      $display("Pktgen:: fetch_packet pktlen=%h", pktLen);
+      if (verbose) $display("Pktgen:: fetch_packet pktlen=%h", pktLen);
    endrule
 
    rule enqueue_packet if (pktCount>0 && !idle);
@@ -75,14 +77,14 @@ module mkPktGen(PktGen)
             pktCount <= pktCount - 1;
          idle <= True;
          currIPG <= 0;
-         $display("Pktgen:: eop %h %h %h %h", idle, started, currIPG, ipgCount);
+         if (verbose) $display("Pktgen:: eop %h %h %h %h", idle, started, currIPG, ipgCount);
       end
    endrule
 
    rule compute_idle if (pktCount>0 && idle);
       if (currIPG < ipgCount + fromInteger(valueOf(MinimumIPG))) begin
          currIPG <= currIPG + fromInteger(valueOf(bytesPerBeat));
-         $display("Pktgen:: ipg = %d", currIPG);
+         if (verbose) $display("Pktgen:: ipg = %d", currIPG);
       end
       else begin
          currIPG <= 0;
@@ -94,13 +96,13 @@ module mkPktGen(PktGen)
    rule cleanup if (pktCount==0 && traceLen>0 && started);
       let pktLen <- buff.readServer.readLen.get;
       buff.readServer.readReq.put(EtherReq{len: pktLen});
-      $display("Pktgen:: drain buffer");
+      if (verbose) $display("Pktgen:: drain buffer");
    endrule
 
    rule drainBufferPayload if (pktCount==0 && traceLen>0 && started);
       let data <- buff.readServer.readData.get;
       // do nothing
-      $display("Pktgen:: drain buffer payload");
+      if (verbose) $display("Pktgen:: drain buffer payload");
       if (data.eop) begin
          traceLen <= traceLen - 1;
       end
@@ -114,7 +116,7 @@ module mkPktGen(PktGen)
       interface Put writeData;
          method Action put (EtherData d);
             buff.writeServer.writeData.put(d);
-            $display("Pktgen:: write data", fshow(d));
+            if (verbose) $display("Pktgen:: write data", fshow(d));
             if (d.eop) begin
                traceLen <= traceLen + 1;
             end
@@ -134,7 +136,7 @@ module mkPktGen(PktGen)
          pktCount <= 1;
          infiniteLoop <= True;
       end
-      $display("Pktgen:: start %h %h", pc, ipg);
+      if (verbose) $display("Pktgen:: start %h %h", pc, ipg);
    endmethod
    method Action stop();
       infiniteLoop <= False;
