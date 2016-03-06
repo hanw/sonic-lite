@@ -36,8 +36,8 @@ import Pipe::*;
 import StoreAndForward::*;
 import SharedBuff::*;
 import Tap::*;
+import HostChannel::*;
 
-// Encapsulate Rx Ring, Tap, Parser
 interface RxChannel;
    interface Put#(PacketDataT#(64)) macRx;
    interface MemWriteClient#(`DataBusWidth) writeClient;
@@ -48,37 +48,12 @@ endinterface
 
 module mkRxChannel#(Clock rxClock, Reset rxReset)(RxChannel);
    let verbose = True;
-   FIFO#(MetadataRequest) outReqFifo0 <- mkFIFO;
-   FIFO#(MetadataResponse) inRespFifo0 <- mkFIFO;
-
-   PacketBuffer pktBuff <- mkPacketBuffer();
-   TapPktRead tap <- mkTapPktRead();
-   Parser parser <- mkParser();
-   StoreAndFwdFromRingToMem ingress <- mkStoreAndFwdFromRingToMem();
+   HostChannel host <- mkHostChannel();
    StoreAndFwdFromMacToRing macToRing <- mkStoreAndFwdFromMacToRing(rxClock, rxReset);
-
-   // Rx Channel
-   mkConnection(tap.readClient, pktBuff.readServer);
-   mkConnection(ingress.readClient, tap.readServer);
-   mkConnection(tap.tap_out, toPut(parser.frameIn));
-   mkConnection(macToRing.writeClient, pktBuff.writeServer);
-
-   rule handle_packet_process;
-      let v <- toGet(ingress.eventPktCommitted).get;
-      let dstMac <- toGet(parser.parsedOut_ethernet_dstAddr).get;
-      let msgtype <- toGet(parser.parsedOut_paxos_msgtype).get;
-      if (verbose) $display("HostChannel: dstMac=%h, size=%d", dstMac, v.size);
-      if (verbose) $display("HostChannel: msgtype=%h", msgtype);
-      MetadataRequest nextReq0 = tagged DstMacLookupRequest { pkt: v, dstMac: dstMac };
-      outReqFifo0.enq(nextReq0);
-   endrule
-
+   mkConnection(macToRing.writeClient, host.writeServer);
    interface macRx = macToRing.macRx;
-   interface writeClient = ingress.writeClient;
-   interface next = (interface Client#(MetadataRequest, MetadataResponse);
-      interface request = toGet(outReqFifo0);
-      interface response = toPut(inRespFifo0);
-   endinterface);
-   interface mallocClient = ingress.malloc;
-   method dbg = pktBuff.dbg;
+   interface writeClient = host.writeClient;
+   interface next = host.next;
+   interface mallocClient = host.mallocClient;
+   method dbg = host.dbg;
 endmodule

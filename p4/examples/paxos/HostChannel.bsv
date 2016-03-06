@@ -40,8 +40,8 @@ import Paxos::*;
 interface HostChannel;
    interface PktWriteServer writeServer;
    interface MemWriteClient#(`DataBusWidth) writeClient;
-   interface Client#(MetadataRequest, MetadataResponse) next;
    interface MemAllocClient mallocClient;
+   interface Client#(MetadataRequest, MetadataResponse) next;
    method PktBuffDbgRec dbg;
 endinterface
 
