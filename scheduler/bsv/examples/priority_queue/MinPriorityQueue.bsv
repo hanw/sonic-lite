@@ -47,6 +47,7 @@ module mkMinPriorityQueue(MinPriorityQueue#(Bit#(size_t), Bit#(size_t)));
     Reg#(Bit#(TLog#(SIZE))) curr_size <- mkReg(0);
     Reg#(Bit#(1)) insert_in_progress <- mkReg(0);
     FIFO#(void) insert_res_fifo <- mkBypassFIFO;
+    FIFO#(Node#(Bit#(size_t), Bit#(size_t))) insert_req_fifo <- mkSizedFIFO(4);
 
     rule insert (insert_in_progress == 1);
         let x <- toGet(priority_encoder.bin).get;
@@ -74,6 +75,14 @@ module mkMinPriorityQueue(MinPriorityQueue#(Bit#(size_t), Bit#(size_t)));
         endcase
     endrule
 
+    rule handle_insert_req (insert_in_progress == 0);
+       let v <- toGet(insert_req_fifo).get;
+       node_to_insert <= v;
+       insert_in_progress <= 1;
+       let r = map(uncurry(compare), zip(readVReg(sorted_list), replicate(v)));
+       priority_encoder.oht.put(pack(r));
+    endrule
+
     method ActionValue#(Node#(Bit#(size_t), Bit#(size_t))) first() if (curr_size > 0);
         return head(readVReg(sorted_list));
     endmethod
@@ -94,14 +103,7 @@ module mkMinPriorityQueue(MinPriorityQueue#(Bit#(size_t), Bit#(size_t)));
             $display("(%d %d)", sorted_list[i].v, sorted_list[i].p);
     endmethod
 
-    interface Put insert_req;
-        method Action put (Node#(Bit#(size_t), Bit#(size_t)) v) if (insert_in_progress == 0);
-            node_to_insert <= v;
-            insert_in_progress <= 1;
-            let r = map(uncurry(compare), zip(readVReg(sorted_list), replicate(v)));
-            priority_encoder.oht.put(pack(r));
-        endmethod
-    endinterface
+    interface Put insert_req = toPut(insert_req_fifo);
     interface Get insert_res = toGet(insert_res_fifo);
 endmodule
 
