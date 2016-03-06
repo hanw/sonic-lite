@@ -208,7 +208,7 @@ module mkEncoder#(Integer id)(Encoder);
          lane_res5[i] = txd[i][7] & txd[i][6] & txd[i][5] & txd[i][4] &
                        ~(txd[i][3]) & txd[i][2] & txd[i][1] & txd[i][0] & txc[i][0];
          // Reserved Ordered Set
-         lane_seqr[i] = ~(txd[i][7]) & txd[i][6] & ~(txd[i][5]) & ~(txd[i][4]) &
+         lane_seqr[i] = ~(txd[i][7]) & txd[i][6] & ~(txd[i][5]) & txd[i][4] &
                            txd[i][3] & txd[i][2] & ~(txd[i][1]) & ~(txd[i][0]) & txc[i][0];
       end
 
@@ -468,6 +468,8 @@ module mkEncoder#(Integer id)(Encoder);
       end
       else if ((type_reg[3]) == 1'b1) begin
          type_field =  8'b01100110 ;
+         debug_starts <= debug_starts + 1;
+         debug_bytes <= debug_bytes + 3;
       end
       else if ((type_reg[4]) == 1'b1) begin
          type_field =  8'b01010101 ;
