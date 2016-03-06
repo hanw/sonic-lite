@@ -1,12 +1,11 @@
-import List::*;
-import Vector::*;
 import BuildVector::*;
+import DefaultValue::*;
 import FIFO::*;
 import FIFOF::*;
-import SpecialFIFOs::*;
 import GetPut::*;
-import DefaultValue::*;
 import PriorityEncoder::*;
+import SpecialFIFOs::*;
+import Vector::*;
 
 typedef struct {
     a v;
