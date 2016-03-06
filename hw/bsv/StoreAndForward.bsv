@@ -323,7 +323,7 @@ module mkStoreAndFwdFromRingToMac#(Clock txClock, Reset txReset)(StoreAndFwdFrom
       let data = fifoTxData.first; fifoTxData.deq;
       let temp = head(data);
       if (temp.mask != 0) begin
-         if (verbose) $display("StoreAndForward:: tx data %h", temp.data);
+         if (verbose) $display("ringToMac:: tx data %h", temp.data);
          writeMacFifo.enq(temp);
       end
    endrule
@@ -388,8 +388,10 @@ module mkStoreAndFwdFromMacToRing#(Clock rxClock, Reset rxReset)(StoreAndFwdFrom
          if (verbose) $display("macToRing:: odd eop %h %h", v.data, v.mask);
          inProgress <= False;
       end
+      else begin
+         oddBeat <= !oddBeat;
+      end
       v_prev <= v;
-      oddBeat <= !oddBeat;
    endrule
 
    rule readPacketEven if (inProgress && !oddBeat);
