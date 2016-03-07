@@ -88,14 +88,13 @@ module mkDtpPktGenTop#(DtpPktGenIndication indication2)(DtpPktGenTop);
    mkConnection(macToRing[1].writeClient, pkt_buff[2].writeServer);
    mkConnection(ringToMac[2].readClient, pkt_buff[2].readServer);
 
-
 //   mkConnection(ringToMac[1].macTx, macToRing[1].macRx);
 
    rule drain_mac0;
       let v <- toGet(ringToMac[2].macTx).get;
    endrule
 
-   DtpPktGenAPI api <- mkDtpPktGenAPI(indication2, pktgen, pkt_buff, txClock, txReset);
+   DtpPktGenAPI api <- mkDtpPktGenAPI(indication2, pktgen, pkt_buff, ringToMac, macToRing, txClock, txReset);
 
    // PktGen start/stop
    SyncFIFOIfc#(Tuple2#(Bit#(32),Bit#(32))) pktGenStartSyncFifo <- mkSyncFIFO(4, defaultClock, defaultReset, txClock);

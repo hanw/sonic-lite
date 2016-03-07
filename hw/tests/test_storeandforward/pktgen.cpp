@@ -42,9 +42,14 @@ class DtpPktGenTop : public DtpPktGenIndicationWrapper
       virtual void read_version_resp(uint32_t a) {
          fprintf(stderr, "read version %d\n", a);
       }
-
       virtual void read_pktbuf_debug_resp(uint8_t p, uint64_t a, uint64_t b, uint64_t c, uint64_t d) {
          fprintf(stderr, "Port %d: sop_enq: %ld sop_deq: %ld eop_enq: %ld eop_deq: %ld\n", p, a, b, c, d);
+      }
+      virtual void read_ring2mac_debug_resp(uint8_t p, uint64_t a, uint64_t b, uint64_t c, uint64_t d, uint64_t e) {
+         fprintf(stderr, "Ring2Mac %d: bytes: %ld sop: %ld eop: %ld idles: %ld total: %ld\n", p, a, b, c, d, e);
+      }
+      virtual void read_mac2ring_debug_resp(uint8_t p, uint64_t a, uint64_t b, uint64_t c, uint64_t d, uint64_t e) {
+         fprintf(stderr, "Mac2Ring %d: bytes: %ld sop: %ld eop: %ld idles: %ld total: %ld\n", p, a, b, c, d, e);
       }
 
       DtpPktGenTop(unsigned int id) : DtpPktGenIndicationWrapper(id) {}
@@ -142,15 +147,16 @@ int main(int argc, char **argv)
     if (arguments.rate && arguments.tracelen) {
         int idle = compute_idle(&pcap_info, arguments.rate, LINK_SPEED);
         device->start(arguments.tracelen, idle);
-//        sleep(300);
-//        device->stop();
-//       sleep(120);
+        sleep(2);
+        //device->stop();
 
          while(1) {
             int i;
-            for ( i = 0 ; i < 3 ; i ++) 
+            for ( i = 0 ; i < 3 ; i ++)  {
                device->read_pktbuf_debug(i);
-
+               device->read_ring2mac_debug(i);
+               device->read_mac2ring_debug(i);
+            }
             sleep(2);
          }
     }
