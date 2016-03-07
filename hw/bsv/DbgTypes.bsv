@@ -125,5 +125,18 @@ instance DefaultValue#(ThruDbgRec);
       eops: 0,
       idle_cycles: 0,
       total_cycles: 0
+endinstance
+
+typedef struct {
+   Bit#(64) paxosCount;
+   Bit#(64) ipv6Count;
+   Bit#(64) udpCount;
+} HostChannelDbgRec deriving (Bits, Eq);
+instance DefaultValue#(HostChannelDbgRec);
+   defaultValue = 
+   HostChannelDbgRec {
+      paxosCount : 0,
+      ipv6Count : 0,
+      udpCount : 0
    };
 endinstance

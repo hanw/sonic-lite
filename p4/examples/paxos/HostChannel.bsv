@@ -43,12 +43,17 @@ interface HostChannel;
    interface MemAllocClient mallocClient;
    interface Client#(MetadataRequest, MetadataResponse) next;
    method PktBuffDbgRec dbg;
+   method HostChannelDbgRec hostdbg;
 endinterface
 
 module mkHostChannel(HostChannel);
    let verbose = True;
    FIFO#(MetadataRequest) outReqFifo0 <- mkFIFO;
    FIFO#(MetadataResponse) inRespFifo0 <- mkFIFO;
+
+   Reg#(Bit#(64)) paxosCount <- mkReg(0);
+   Reg#(Bit#(64)) ipv6Count <- mkReg(0);
+   Reg#(Bit#(64)) udpCount <- mkReg(0);
 
    PacketBuffer pktBuff <- mkPacketBuffer();
    TapPktRead tap <- mkTapPktRead();
@@ -70,6 +75,7 @@ module mkHostChannel(HostChannel);
       if (verbose) $display("HostChannel: msgtype=%h", msgtype);
       MetadataRequest nextReq0 = tagged DstMacLookupRequest { pkt: v, dstMac: dstMac };
       outReqFifo0.enq(nextReq0);
+      paxosCount <= paxosCount + 1;
    endrule
 
    rule handle_unknown_ipv6_packet if (parser.parserState.first == StateParseIpv6);
@@ -80,6 +86,7 @@ module mkHostChannel(HostChannel);
       if (verbose) $display("HostChannel unknown ipv6: dstMac=%h, size=%d", dstMac, v.size);
       MetadataRequest nextReq0 = tagged DstMacLookupRequest { pkt: v, dstMac: dstMac };
       outReqFifo0.enq(nextReq0);
+      ipv6Count <= ipv6Count + 1;
    endrule
 
    rule handle_unknown_udp_packet if (parser.parserState.first == StateParseUdp);
@@ -89,6 +96,7 @@ module mkHostChannel(HostChannel);
       if (verbose) $display("HostChannel unknown udp: dstMac=%h, size=%d", dstMac, v.size);
       MetadataRequest nextReq0 = tagged DstMacLookupRequest { pkt: v, dstMac: dstMac };
       outReqFifo0.enq(nextReq0);
+      udpCount <= udpCount + 1;
    endrule
 
    interface writeServer = pktBuff.writeServer;
@@ -99,5 +107,12 @@ module mkHostChannel(HostChannel);
    endinterface);
    interface mallocClient = ingress.malloc;
    method dbg = pktBuff.dbg;
+   method HostChannelDbgRec hostdbg();
+      return HostChannelDbgRec {
+         paxosCount : paxosCount,
+         ipv6Count : ipv6Count,
+         udpCount : udpCount
+      };
+   endmethod
 endmodule
 

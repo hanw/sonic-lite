@@ -44,6 +44,7 @@ interface RxChannel;
    interface MemAllocClient mallocClient;
    interface Client#(MetadataRequest, MetadataResponse) next;
    method PktBuffDbgRec dbg;
+   method HostChannelDbgRec hostdbg;
 endinterface
 
 module mkRxChannel#(Clock rxClock, Reset rxReset)(RxChannel);
@@ -56,4 +57,5 @@ module mkRxChannel#(Clock rxClock, Reset rxReset)(RxChannel);
    interface next = host.next;
    interface mallocClient = host.mallocClient;
    method dbg = host.dbg;
+   method hostdbg = host.hostdbg;
 endmodule

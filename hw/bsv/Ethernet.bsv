@@ -41,6 +41,7 @@ typedef 10   PktAddrWidth;
 typedef 128  PktDataWidth;
 typedef 16   EtherLen;
 
+// little endianess
 typedef struct {
    Bool                    sop;
    Bool                    eop;
@@ -120,6 +121,7 @@ typedef struct {
    Bit#(53) t; //timestamp
 } DtpEvent deriving (Eq, Bits, FShow);
 
+// Big-endianess
 typedef struct {
    Bit#(PktDataWidth) data;
    Bit#(TDiv#(PktDataWidth, 8)) mask;

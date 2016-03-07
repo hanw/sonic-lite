@@ -103,10 +103,10 @@ module mkFwdTest#(
 `else
    rule drainTx;
       let v <- txchan.macTx.get;
-      $display("tx data %h", v.data);
-`ifdef LOOPTEST
+      $display("tx data %h %h %h %h", v.sop, v.eop, v.mask, v.data);
+//`ifdef LOOPTEST
       rxchan.macRx.put(v);
-`endif
+//`endif
    endrule
 `endif
    //P4Register#(InstanceSize, RoundSize) roundRegs <- mkP4RoundRegister(vec(roleTable.regAccess));

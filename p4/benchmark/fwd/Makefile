@@ -67,6 +67,9 @@ run:
 run-small:
 	(cd bluesim; ./bin/ubuntu.exe -p ../udp-small.pcap)
 
+run-udp:
+	(cd bluesim; ./bin/ubuntu.exe -p ../sendip.pcap)
+
 run-intel:
 	(cd bluesim; ./bin/ubuntu.exe -p ../ipv4noise.pcap)
 

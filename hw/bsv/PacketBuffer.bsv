@@ -188,6 +188,7 @@ module mkPacketBuffer(PacketBuffer);
       if (verbose) $display("PacketBuffer::dequeue_next_beat %d: %x %x", cycle, rdCurrPtr, d);
    endrule
 
+   // Big-endianess
    interface PktWriteServer writeServer;
       interface Put writeData;
          method Action put(EtherData d);

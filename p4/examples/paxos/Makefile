@@ -12,8 +12,14 @@ CONNECTALFLAGS += --bsvpath=$(P4FPGADIR)/bsv/
 CONNECTALFLAGS += --bsvpath=$(P4FPGADIR)/bsv/AsymmetricBRAM
 CONNECTALFLAGS += --bsvpath=$(P4FPGADIR)/bsv/Bcam
 #
+ifeq ($(BOARD), de5)
 PIN_BINDINGS?=PCIE:PCIE LED:LED OSC:OSC SFPA:SFPA SFPB:SFPB SFPC:SFPC SFPD:SFPD SFP:SFP I2C:I2C BUTTON:BUTTON
 PINOUT_FILE=$(SONICDIR)/boards/de5.json
+endif
+
+ifeq ($(BOARD), nfsume)
+
+endif
 
 ########################################################
 # Connectal Support

@@ -46,6 +46,8 @@ interface FwdTestRequest;
    method Action readTxRingBuffCntrs();
    method Action readMemMgmtCntrs();
    method Action readIngressCntrs();
+   method Action readHostChanCntrs();
+   method Action readRxChanCntrs();
 endinterface
 
 interface FwdAPI;
@@ -82,6 +84,14 @@ module mkFwdAPI#(FwdTestIndication indication, PaxosIngressPipeline ingress, Hos
       method Action readIngressCntrs();
          let v = ingress.dbg;
          indication.readIngressCntrsResp(v.fwdCount);
+      endmethod
+      method Action readHostChanCntrs();
+         let v = hostchan.hostdbg;
+         indication.readHostChanCntrsResp(v.paxosCount, v.ipv6Count, v.udpCount);
+      endmethod
+      method Action readRxChanCntrs();
+         let v = rxchan.hostdbg;
+         indication.readRxChanCntrsResp(v.paxosCount, v.ipv6Count, v.udpCount);
       endmethod
    endinterface
 endmodule

@@ -62,6 +62,14 @@ public:
         fprintf(stderr, "Ingress: fwdCnt=%ld \n", fwdCnt);
         sem_post(&cmdCompleted);
     }
+    virtual void readHostChanCntrsResp(uint64_t paxosCnt, uint64_t ipv6Cnt, uint64_t udpCnt) {
+        fprintf(stderr, "HostChan: paxosCnt=%ld, ipv6Cnt=%ld, udpCnt=%ld \n", paxosCnt, ipv6Cnt, udpCnt);
+        sem_post(&cmdCompleted);
+    }
+    virtual void readRxChanCntrsResp(uint64_t paxosCnt, uint64_t ipv6Cnt, uint64_t udpCnt) {
+        fprintf(stderr, "RxChan: paxosCnt=%ld, ipv6Cnt=%ld, udpCnt=%ld \n", paxosCnt, ipv6Cnt, udpCnt);
+        sem_post(&cmdCompleted);
+    }
     FwdTestIndication(unsigned int id) : FwdTestIndicationWrapper(id) {}
 };
 
@@ -120,6 +128,10 @@ void read_status () {
     sem_wait(&cmdCompleted);
     device->readIngressCntrs();
     sem_wait(&cmdCompleted);
+    device->readHostChanCntrs();
+    sem_wait(&cmdCompleted);
+    device->readRxChanCntrs();
+    sem_wait(&cmdCompleted);
 }
 
 
@@ -141,6 +153,8 @@ int main(int argc, char **argv)
         fprintf(stderr, "Attempts to read pcap file %s\n", pcap_file);
         load_pcap_file(pcap_file, &pcap_info);
     }
+
+    sleep(5);
 
     read_status();
 

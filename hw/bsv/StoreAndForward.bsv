@@ -254,6 +254,8 @@ interface StoreAndFwdFromRingToMac;
    method ThruDbgRec sdbg; 
 endinterface
 
+// store data from ring buffer to network
+// big-endianess -> little-endianess
 module mkStoreAndFwdFromRingToMac#(Clock txClock, Reset txReset)(StoreAndFwdFromRingToMac);
    let verbose = False;
    Clock defaultClock <- exposeCurrentClock();
@@ -301,11 +303,11 @@ module mkStoreAndFwdFromRingToMac#(Clock txClock, Reset txReset)(StoreAndFwdFrom
       Vector#(8, Bit#(8)) v0_data = unpack(in.data[63:0]);
       Vector#(8, Bit#(8)) v1_data = unpack(in.data[127:64]);
       v[0].sop = pack(in.sop);
-      v[0].data = pack(reverse(v0_data));
+      v[0].data = pack(v0_data);
       v[0].eop = (in.mask[15:8] == 0) ? pack(in.eop) : 0;
       v[0].mask = in.mask[7:0];
       v[1].sop = 0;
-      v[1].data = pack(reverse(v1_data));
+      v[1].data = pack(v1_data);
       v[1].eop = pack(in.eop);
       v[1].mask = in.mask[15:8];
       return v;
@@ -371,6 +373,8 @@ interface StoreAndFwdFromMacToRing;
    method ThruDbgRec sdbg;
 endinterface
 
+// store data from network to ring buffer
+// little-endianess -> big-endianess
 module mkStoreAndFwdFromMacToRing#(Clock rxClock, Reset rxReset)(StoreAndFwdFromMacToRing);
    let verbose = False;
    Clock defaultClock <- exposeCurrentClock();
@@ -402,7 +406,7 @@ module mkStoreAndFwdFromMacToRing#(Clock rxClock, Reset rxReset)(StoreAndFwdFrom
       EtherData data = defaultValue;
       Vector#(8, Bit#(8)) v0_data = unpack(v[0].data);
       Vector#(8, Bit#(8)) v1_data = unpack(v[1].data);
-      data.data = {pack(reverse(v1_data)), pack(reverse(v0_data))};
+      data.data = {pack(v1_data), pack(v0_data)};
       data.mask = {v[1].mask, v[0].mask};
       data.sop = unpack(v[0].sop);
       data.eop = unpack(v[0].eop) || unpack(v[1].eop);

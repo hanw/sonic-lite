@@ -263,13 +263,6 @@ module mkEthMac#(Clock clk_50, Clock clk_156_25, Reset rst_156_25_n)(EthMacIfc);
       endmethod
    endinterface
    interface Put packet_tx = toPut(tx_fifo);
-//      method Action put(PacketDataT#(64) d) if (tx_ready_w != 0);
-//         tx_data_w <= tagged Valid pack(d.data);
-//         tx_keep_w <= d.mask;
-//         tx_last_w <= d.eop;
-//         tx_user_w <= 1'b0;
-//      endmethod
-//   endinterface
    interface Get packet_rx = toGet(rx_fifo);
 endmodule
 `endif
