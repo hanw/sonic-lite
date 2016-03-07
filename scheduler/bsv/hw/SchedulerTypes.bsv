@@ -29,3 +29,8 @@ instance DefaultValue#(TableData);
                      server_mac : 0
                   };
 endinstance
+
+typedef struct {
+    ServerIndex dst;
+    Bit#(1) flow_start;
+} FlowStartEndT deriving(Bits, Eq);

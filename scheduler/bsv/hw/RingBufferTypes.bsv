@@ -8,7 +8,7 @@ typedef 7 BUS_WIDTH_POW_OF_2;
 typedef Bit#(32) Address;
 typedef Bit#(BUS_WIDTH) Payload;
 
-typedef enum {READ, PEEK, REMOVE, WRITE} Operation deriving(Bits, Eq);
+typedef enum {READ, PEEK, WRITE} Operation deriving(Bits, Eq);
 typedef enum {SUCCESS, FAILURE} Result deriving(Bits, Eq);
 
 typedef struct {

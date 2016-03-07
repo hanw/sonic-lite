@@ -34,8 +34,9 @@ interface MaxMinFairness;
                                        Bit#(16) seq_num);
     method Action remFromFlowCountMatrix(ServerIndex src,
                                          ServerIndex dst);
-    method ServerIndex getFlowCount(ServerIndex src,
-                                    ServerIndex dst);
+    method ServerIndex getBottleneckCount(ServerIndex src,
+                                          ServerIndex dst,
+                                          ServerIndex mid);
     method Action printMatrix(ServerIndex host_index);
 endinterface
 
@@ -79,7 +80,7 @@ module mkMaxMinFairness (MaxMinFairness);
                           Bit#(16) seq_num);
         if (flow_matrix[src][dst].active == 0
             && (flow_matrix[src][dst].flow_id != flow_id
-               || flow_matrix[src][dst].seq_num < seq_num))
+               || flow_matrix[src][dst].seq_num <= seq_num))
         begin
             FlowElement f = FlowElement {
                                 active : 1,
@@ -113,7 +114,7 @@ module mkMaxMinFairness (MaxMinFairness);
                                        Bit#(16) flow_id, Bit#(16) seq_num);
         if (flow_matrix[src][dst].active == 0
             && (flow_matrix[src][dst].flow_id != flow_id
-               || flow_matrix[src][dst].seq_num < seq_num))
+               || flow_matrix[src][dst].seq_num <= seq_num))
         begin
             s <= src;
             d <= dst;
@@ -132,8 +133,10 @@ module mkMaxMinFairness (MaxMinFairness);
         end
     endmethod
 
-    method ServerIndex getFlowCount(ServerIndex src, ServerIndex dst);
-        return flow_count_matrix[src][dst];
+    method ServerIndex getBottleneckCount(ServerIndex src,
+                                          ServerIndex dst,
+                                          ServerIndex mid);
+        return max(flow_count_matrix[src][mid], flow_count_matrix[mid][dst]);
     endmethod
 
     method Action printMatrix(ServerIndex host_index);

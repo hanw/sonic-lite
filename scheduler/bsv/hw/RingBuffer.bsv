@@ -161,12 +161,6 @@ module mkRingBuffer#(Integer size)
                 peek <= 1;
             else
                 peek <= 0;
-
-            // Specific to the scheduler; not part of generic ring buffer
-            if (r_req.op == REMOVE)
-                remove <= 1;
-            else
-                remove <= 0;
         end
         //else
         //    read_response_fifo.enq(makeReadRes(unpack(0)));
@@ -202,10 +196,6 @@ module mkRingBuffer#(Integer size)
                               payload : d
                              };
             read_response_fifo.enq(makeReadRes(data));
-
-            // Specific to the scheduler; not part of generic ring buffer
-            if (d[3:2] == 'b11 && remove != 1)
-                peek <= 1;
         end
 
         else if (r_offset_1  > 0 && r_offset_1 < r_max_offset - 1)
