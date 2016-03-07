@@ -74,11 +74,11 @@ module mkMac#(Scheduler#(ReadReqType, ReadResType,
     for (Integer i = 0; i < fromInteger(valueof(NUM_OF_ALTERA_PORTS)); i = i + 1)
     begin
 		rule start_polling_tx_buffer;
-			scheduler.mac_read_request_port[i].put(makeReadReq(READ));
+			scheduler.mac_read_request[i].put(makeReadReq(READ));
 		endrule
 
 		rule add_blocks_to_fifo;
-			let d <- scheduler.mac_read_response_port[i].get;
+			let d <- scheduler.mac_read_response[i].get;
 
 			Vector#(2, Bit#(1)) start_bit = replicate(0);
 			Vector#(2, Bit#(1)) end_bit = replicate(0);
@@ -257,7 +257,7 @@ module mkMac#(Scheduler#(ReadReqType, ReadResType,
             end
 
 			if (write_flag == True)
-				scheduler.mac_write_request_port[i].put
+				scheduler.mac_write_request[i].put
 			                         (makeWriteReq(start_bit, end_bit, pload));
         endrule
     end
