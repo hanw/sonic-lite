@@ -48,7 +48,7 @@ deriving (Bits, Eq);
 //(* synthesize *)
 module mkDecoder#(Integer id)(Decoder);
 
-   let verbose = True;
+   let verbose = False;
    Clock defaultClock <- exposeCurrentClock();
    Reset defaultReset <- exposeCurrentReset();
 

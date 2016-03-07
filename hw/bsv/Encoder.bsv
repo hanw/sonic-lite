@@ -82,7 +82,7 @@ typedef struct {
 //(* synthesize *)
 module mkEncoder#(Integer id)(Encoder);
 
-   let verbose = True;
+   let verbose = False;
 
    Reg#(Bit#(32)) cycle         <- mkReg(0);
 

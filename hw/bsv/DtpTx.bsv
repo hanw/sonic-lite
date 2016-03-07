@@ -86,7 +86,7 @@ endmodule
 
 module mkDtpTx#(Integer id, Integer c_local_init)(DtpTx);
 
-   let verbose = True;
+   let verbose = False;
    Wire#(Bool) tx_ready_wire <- mkDWire(False);
    Wire#(Bool) rx_ready_wire <- mkDWire(False);
    Wire#(Bool) switch_mode_wire <- mkDWire(False);

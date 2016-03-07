@@ -45,7 +45,7 @@ endinterface
 module mkDtpSwitch(DtpSwitch#(numPorts))
    provisos(Add#(0, numPorts, 4));
 
-   let verbose = True;
+   let verbose = False;
    Wire#(Bool) switch_mode_wire <- mkDWire(False);
 
    Vector#(numPorts, FIFOF#(Bit#(53))) dtpLocalInFifo <- replicateM(mkFIFOF);

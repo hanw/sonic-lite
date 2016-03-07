@@ -80,7 +80,7 @@ endfunction
 
 //(* synthesize *)
 module mkEthPhy#(Clock mgmt_clk, Clock clk_156_25, Clock clk_644)(DtpPhyIfc#(numPorts));
-   let verbose = True;
+   let verbose = False;
 
    Reg#(Bit#(32)) cycle <- mkReg(0);
    Reset defaultReset <- exposeCurrentReset;

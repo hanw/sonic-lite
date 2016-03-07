@@ -57,7 +57,7 @@ endmodule
 
 module mkDtpRx#(Integer id, Integer c_local_init)(DtpRx);
 
-   let verbose = True;
+   let verbose = False;
 
    Reg#(Bit#(32))  cycle   <- mkReg(0);
    Wire#(Bool) rx_ready_wire <- mkDWire(False);
