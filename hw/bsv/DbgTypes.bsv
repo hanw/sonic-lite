@@ -125,6 +125,7 @@ instance DefaultValue#(ThruDbgRec);
       eops: 0,
       idle_cycles: 0,
       total_cycles: 0
+   };
 endinstance
 
 typedef struct {
