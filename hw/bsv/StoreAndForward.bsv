@@ -375,11 +375,11 @@ module mkStoreAndFwdFromMacToRing#(Clock rxClock, Reset rxReset)(StoreAndFwdFrom
    FIFO#(EtherData) writeDataFifo <- mkFIFO;
 
    // stats
-   Reg#(Bit#(64)) cycle_cnt <- mkReg(0);
-   Reg#(Bit#(64)) idle_cycles <- mkReg(0);
-   Reg#(Bit#(64)) sopCount <- mkReg(0);
-   Reg#(Bit#(64)) eopCount <- mkReg(0);
-   Reg#(Bit#(64)) data_bytes <- mkReg(0);
+   Reg#(Bit#(64)) cycle_cnt <- mkReg(0, clocked_by rxClock, reset_by rxReset);
+   Reg#(Bit#(64)) idle_cycles <- mkReg(0, clocked_by rxClock, reset_by rxReset);
+   Reg#(Bit#(64)) sopCount <- mkReg(0, clocked_by rxClock, reset_by rxReset);
+   Reg#(Bit#(64)) eopCount <- mkReg(0, clocked_by rxClock, reset_by rxReset);
+   Reg#(Bit#(64)) data_bytes <- mkReg(0, clocked_by rxClock, reset_by rxReset);
 
    // Mac facing fifos
    Reg#(Bool) inProgress <- mkReg(False, clocked_by rxClock, reset_by rxReset);
