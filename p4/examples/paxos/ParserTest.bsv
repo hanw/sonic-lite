@@ -58,7 +58,7 @@ module mkParserTest#(ParserTestIndication indication
    Reset txReset <- mkSyncReset(2, defaultReset, txClock);
 
    HostChannel hostchan <- mkHostChannel();
-   PaxosIngressPipeline ingress <- mkPaxosIngressPipeline(hostchan.next);
+   PaxosIngressPipeline ingress <- mkPaxosIngressPipeline(vec(hostchan.next));
    TxChannel txchan <- mkTxChannel(txClock, txReset);
    SyncFIFOIfc#(EtherData) txSyncFifo <- mkSyncBRAMFIFO(6, txClock, txReset, defaultClock, defaultReset);
 
