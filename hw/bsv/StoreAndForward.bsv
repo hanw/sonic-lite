@@ -251,6 +251,7 @@ interface StoreAndFwdFromRingToMac;
    interface PktReadClient readClient;
    interface Get#(PacketDataT#(64)) macTx;
    method TxThruDbgRec dbg; 
+   method ThruDbgRec sdbg; 
 endinterface
 
 module mkStoreAndFwdFromRingToMac#(Clock txClock, Reset txReset)(StoreAndFwdFromRingToMac);
@@ -263,6 +264,12 @@ module mkStoreAndFwdFromRingToMac#(Clock txClock, Reset txReset)(StoreAndFwdFrom
    Reg#(Bit#(64)) last_endofpacket <- mkReg(0);
    Reg#(Bit#(64)) goodputCount <- mkReg(0);
    Reg#(Bit#(64)) idleCount <- mkReg(0);
+
+   // stats
+   Reg#(Bit#(64)) idle_cycles <- mkReg(0);
+   Reg#(Bit#(64)) sopCount <- mkReg(0);
+   Reg#(Bit#(64)) eopCount <- mkReg(0);
+   Reg#(Bit#(64)) data_bytes <- mkReg(0);
 
    // RingBuffer Read Client
    FIFO#(EtherData) readDataFifo <- mkFIFO;
@@ -307,10 +314,12 @@ module mkStoreAndFwdFromRingToMac#(Clock txClock, Reset txReset)(StoreAndFwdFrom
       if (v.sop) begin
          last_startofpacket <= cycle_cnt;
          idleCount <= (last_endofpacket != 0) ? (idleCount + (cycle_cnt - last_endofpacket)) : 0;
+         sopCount <= sopCount + 1;
       end
       if (v.eop) begin
          last_endofpacket <= cycle_cnt;
          goodputCount <= (last_startofpacket != 0) ? (goodputCount + (cycle_cnt - last_startofpacket)) : 0;
+         eopCount <= eopCount + 1;
       end
    endrule
 
@@ -322,10 +331,19 @@ module mkStoreAndFwdFromRingToMac#(Clock txClock, Reset txReset)(StoreAndFwdFrom
    rule process_outgoing_packet;
       let data = fifoTxData.first; fifoTxData.deq;
       let temp = head(data);
+      let bytes = zeroExtend(pack(countOnes(temp.mask)));
+      data_bytes <= data_bytes + bytes;
       if (temp.mask != 0) begin
          if (verbose) $display("ringToMac:: tx data %h", temp.data);
          writeMacFifo.enq(temp);
       end
+      else begin
+         idle_cycles <= idle_cycles + 1;
+      end
+   endrule
+
+   rule count_idle_cycles (!fifoTxData.notEmpty);
+      idle_cycles <= idle_cycles + 1;
    endrule
 
    interface PktReadClient readClient;
@@ -337,11 +355,15 @@ module mkStoreAndFwdFromRingToMac#(Clock txClock, Reset txReset)(StoreAndFwdFrom
    method TxThruDbgRec dbg;
       return TxThruDbgRec {goodputCount: goodputCount, idleCount: idleCount};
    endmethod
+   method ThruDbgRec sdbg;
+      return ThruDbgRec {data_bytes: data_bytes, sops: sopCount, eops: eopCount, idle_cycles: idle_cycles, total_cycles: cycle_cnt};
+   endmethod
 endmodule
 
 interface StoreAndFwdFromMacToRing;
    interface PktWriteClient writeClient;
    interface Put#(PacketDataT#(64)) macRx;
+   method ThruDbgRec sdbg;
 endinterface
 
 module mkStoreAndFwdFromMacToRing#(Clock rxClock, Reset rxReset)(StoreAndFwdFromMacToRing);
@@ -352,6 +374,13 @@ module mkStoreAndFwdFromMacToRing#(Clock rxClock, Reset rxReset)(StoreAndFwdFrom
    // Ring Buffer WriteClient
    FIFO#(EtherData) writeDataFifo <- mkFIFO;
 
+   // stats
+   Reg#(Bit#(64)) cycle_cnt <- mkReg(0);
+   Reg#(Bit#(64)) idle_cycles <- mkReg(0);
+   Reg#(Bit#(64)) sopCount <- mkReg(0);
+   Reg#(Bit#(64)) eopCount <- mkReg(0);
+   Reg#(Bit#(64)) data_bytes <- mkReg(0);
+
    // Mac facing fifos
    Reg#(Bool) inProgress <- mkReg(False, clocked_by rxClock, reset_by rxReset);
    Reg#(Bool) oddBeat    <- mkReg(True, clocked_by rxClock, reset_by rxReset);
@@ -359,6 +388,10 @@ module mkStoreAndFwdFromMacToRing#(Clock rxClock, Reset rxReset)(StoreAndFwdFrom
 
    FIFO#(PacketDataT#(64)) readMacFifo <- mkFIFO(clocked_by rxClock, reset_by rxReset);
    SyncFIFOIfc#(EtherData) rx_fifo <- mkSyncFIFO(5, rxClock, rxReset, defaultClock);
+
+   rule cycle;
+      cycle_cnt <= cycle_cnt + 1;
+   endrule
 
    function EtherData combine(Vector#(2, PacketDataT#(64)) v);
       EtherData data = defaultValue;
@@ -376,17 +409,22 @@ module mkStoreAndFwdFromMacToRing#(Clock rxClock, Reset rxReset)(StoreAndFwdFrom
       inProgress <= unpack(v.sop);
       if (v.sop == 0)
          readMacFifo.deq;
+      else 
+         sopCount <= sopCount + 1;
       if (verbose) $display("macToRing:: start");
    endrule
 
    rule readPacketOdd if (inProgress && oddBeat);
       let v <- toGet(readMacFifo).get;
+      let bytes = zeroExtend(pack(countOnes(v.mask)));
+      data_bytes <= data_bytes + bytes;
       if (verbose) $display("macToRing:: read odd beat %h", v.data);
       if (unpack(v.eop)) begin
          PacketDataT#(64) vo = defaultValue;
          rx_fifo.enq(combine(vec(v, vo)));
          if (verbose) $display("macToRing:: odd eop %h %h", v.data, v.mask);
          inProgress <= False;
+         eopCount <= eopCount +1;
       end
       else begin
          oddBeat <= !oddBeat;
@@ -396,11 +434,14 @@ module mkStoreAndFwdFromMacToRing#(Clock rxClock, Reset rxReset)(StoreAndFwdFrom
 
    rule readPacketEven if (inProgress && !oddBeat);
       let v <- toGet(readMacFifo).get;
+      let bytes = zeroExtend(pack(countOnes(v.mask)));
+      data_bytes <= data_bytes + bytes;
       rx_fifo.enq(combine(vec(v_prev, v)));
       if (verbose) $display("macToRing:: read even beat %h", v.data);
       if (unpack(v.eop)) begin
          inProgress <= False;
          if (verbose) $display("macToRing:: even eop %h %h %h %h", v.data, v.mask, v_prev.data, v_prev.mask);
+         eopCount <= eopCount +1;
       end
       oddBeat <= !oddBeat;
    endrule
@@ -411,8 +452,15 @@ module mkStoreAndFwdFromMacToRing#(Clock rxClock, Reset rxReset)(StoreAndFwdFrom
       if (verbose) $display("macToRing:: writeToFifo");
    endrule
 
+   rule count_idle_cycles (!inProgress);
+      idle_cycles <= idle_cycles + 1;
+   endrule
+
    interface PktWriteClient writeClient;
       interface writeData = toGet(writeDataFifo);
    endinterface
    interface Put macRx = toPut(readMacFifo);
+   method ThruDbgRec sdbg;
+      return ThruDbgRec {data_bytes: data_bytes, sops: sopCount, eops: eopCount, idle_cycles: idle_cycles, total_cycles: cycle_cnt};
+   endmethod
 endmodule

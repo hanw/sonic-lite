@@ -109,3 +109,21 @@ instance DefaultValue#(IngressPipelineDbgRec);
       fwdCount : 0
    };
 endinstance
+
+typedef struct {
+   Bit#(64) data_bytes;
+   Bit#(64) sops;
+   Bit#(64) eops;
+   Bit#(64) idle_cycles;
+   Bit#(64) total_cycles;
+} ThruDbgRec deriving (Bits, Eq);
+instance DefaultValue#(ThruDbgRec);
+   defaultValue=
+   ThruDbgRec {
+      data_bytes: 0,
+      sops: 0,
+      eops: 0,
+      idle_cycles: 0,
+      total_cycles: 0
+   };
+endinstance
