@@ -266,10 +266,11 @@ module mkStoreAndFwdFromRingToMac#(Clock txClock, Reset txReset)(StoreAndFwdFrom
    Reg#(Bit#(64)) idleCount <- mkReg(0);
 
    // stats
-   Reg#(Bit#(64)) idle_cycles <- mkReg(0);
-   Reg#(Bit#(64)) sopCount <- mkReg(0);
-   Reg#(Bit#(64)) eopCount <- mkReg(0);
-   Reg#(Bit#(64)) data_bytes <- mkReg(0);
+   Reg#(Bit#(64)) total_cycles <- mkReg(0, clocked_by txClock, reset_by txReset);
+   Reg#(Bit#(64)) idle_cycles <- mkReg(0, clocked_by txClock, reset_by txReset);
+   Reg#(Bit#(64)) sopCount <- mkReg(0, clocked_by txClock, reset_by txReset);
+   Reg#(Bit#(64)) eopCount <- mkReg(0, clocked_by txClock, reset_by txReset);
+   Reg#(Bit#(64)) data_bytes <- mkReg(0, clocked_by txClock, reset_by txReset);
 
    // RingBuffer Read Client
    FIFO#(EtherData) readDataFifo <- mkFIFO;
@@ -283,6 +284,10 @@ module mkStoreAndFwdFromRingToMac#(Clock txClock, Reset txReset)(StoreAndFwdFrom
 
    rule cycle;
       cycle_cnt <= cycle_cnt + 1;
+   endrule
+
+   rule total_cycle;
+      total_cycles <= total_cycles + 1;
    endrule
 
    rule readDataStart;
@@ -314,12 +319,10 @@ module mkStoreAndFwdFromRingToMac#(Clock txClock, Reset txReset)(StoreAndFwdFrom
       if (v.sop) begin
          last_startofpacket <= cycle_cnt;
          idleCount <= (last_endofpacket != 0) ? (idleCount + (cycle_cnt - last_endofpacket)) : 0;
-         sopCount <= sopCount + 1;
       end
       if (v.eop) begin
          last_endofpacket <= cycle_cnt;
          goodputCount <= (last_startofpacket != 0) ? (goodputCount + (cycle_cnt - last_startofpacket)) : 0;
-         eopCount <= eopCount + 1;
       end
    endrule
 
@@ -332,6 +335,8 @@ module mkStoreAndFwdFromRingToMac#(Clock txClock, Reset txReset)(StoreAndFwdFrom
       let data = fifoTxData.first; fifoTxData.deq;
       let temp = head(data);
       let bytes = zeroExtend(pack(countOnes(temp.mask)));
+      if (unpack(temp.sop)) sopCount <= sopCount + 1;
+      if (unpack(temp.eop)) eopCount <= eopCount + 1;
       data_bytes <= data_bytes + bytes;
       if (temp.mask != 0) begin
          if (verbose) $display("ringToMac:: tx data %h", temp.data);
@@ -356,7 +361,7 @@ module mkStoreAndFwdFromRingToMac#(Clock txClock, Reset txReset)(StoreAndFwdFrom
       return TxThruDbgRec {goodputCount: goodputCount, idleCount: idleCount};
    endmethod
    method ThruDbgRec sdbg;
-      return ThruDbgRec {data_bytes: data_bytes, sops: sopCount, eops: eopCount, idle_cycles: idle_cycles, total_cycles: cycle_cnt};
+      return ThruDbgRec {data_bytes: data_bytes, sops: sopCount, eops: eopCount, idle_cycles: idle_cycles, total_cycles: total_cycles};
    endmethod
 endmodule
 
@@ -375,7 +380,7 @@ module mkStoreAndFwdFromMacToRing#(Clock rxClock, Reset rxReset)(StoreAndFwdFrom
    FIFO#(EtherData) writeDataFifo <- mkFIFO;
 
    // stats
-   Reg#(Bit#(64)) cycle_cnt <- mkReg(0, clocked_by rxClock, reset_by rxReset);
+   Reg#(Bit#(64)) total_cycles <- mkReg(0, clocked_by rxClock, reset_by rxReset);
    Reg#(Bit#(64)) idle_cycles <- mkReg(0, clocked_by rxClock, reset_by rxReset);
    Reg#(Bit#(64)) sopCount <- mkReg(0, clocked_by rxClock, reset_by rxReset);
    Reg#(Bit#(64)) eopCount <- mkReg(0, clocked_by rxClock, reset_by rxReset);
@@ -389,8 +394,8 @@ module mkStoreAndFwdFromMacToRing#(Clock rxClock, Reset rxReset)(StoreAndFwdFrom
    FIFO#(PacketDataT#(64)) readMacFifo <- mkFIFO(clocked_by rxClock, reset_by rxReset);
    SyncFIFOIfc#(EtherData) rx_fifo <- mkSyncFIFO(5, rxClock, rxReset, defaultClock);
 
-   rule cycle;
-      cycle_cnt <= cycle_cnt + 1;
+   rule total_cycle;
+      total_cycles <= total_cycles + 1;
    endrule
 
    function EtherData combine(Vector#(2, PacketDataT#(64)) v);
@@ -461,6 +466,6 @@ module mkStoreAndFwdFromMacToRing#(Clock rxClock, Reset rxReset)(StoreAndFwdFrom
    endinterface
    interface Put macRx = toPut(readMacFifo);
    method ThruDbgRec sdbg;
-      return ThruDbgRec {data_bytes: data_bytes, sops: sopCount, eops: eopCount, idle_cycles: idle_cycles, total_cycles: cycle_cnt};
+      return ThruDbgRec {data_bytes: data_bytes, sops: sopCount, eops: eopCount, idle_cycles: idle_cycles, total_cycles: total_cycles};
    endmethod
 endmodule
