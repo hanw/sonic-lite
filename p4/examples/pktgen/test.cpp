@@ -138,6 +138,6 @@ int main(int argc, char **argv)
         device->start(arguments.tracelen, idle);
     }
 
-    while (1) sleep(1);
+    sleep(5);
     return 0;
 }
