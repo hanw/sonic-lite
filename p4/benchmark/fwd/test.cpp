@@ -59,7 +59,7 @@ public:
         sem_post(&cmdCompleted);
     }
     virtual void readIngressCntrsResp(uint64_t fwdCnt) {
-        fprintf(stderr, "Ingress: fwdCnt=%ld", fwdCnt);
+        fprintf(stderr, "Ingress: fwdCnt=%ld \n", fwdCnt);
         sem_post(&cmdCompleted);
     }
     FwdTestIndication(unsigned int id) : FwdTestIndicationWrapper(id) {}
