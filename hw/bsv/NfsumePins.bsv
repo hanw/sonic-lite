@@ -25,6 +25,23 @@ interface NfsumePins;
 `endif
 endinterface
 
+function NfsumePins mkNfumePins(Clock defaultClock, EthPhyIfc phys,
+   NfsumeLeds leds, NfsumeSfpCtrl sfpctrl) =
+   interface NfsumePins;
+      method Action sfp(Bit#(1) refclk_p, Bit#(1) refclk_n);
+         phys.refclk(refclk_p, refclk_n);
+      endmethod
+      method serial_tx_p = pack(phys.serial_tx_p);
+      method serial_tx_n = pack(phys.serial_tx_n);
+      method serial_rx_p = phys.serial_rx_p;
+      method serial_rx_n = phys.serial_rx_n;
+      interface leds = leds.led_out;
+      interface led_grn = phys.tx_leds;
+      interface led_ylw = phys.rx_leds;
+      interface deleteme_unused_clock = defaultClock;
+      interface sfpctrl = sfpctrl;
+   endinterface;
+
 interface NfsumeLeds;
    method Bit#(2) led_out;
 endinterface
