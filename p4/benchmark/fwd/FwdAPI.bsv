@@ -50,13 +50,8 @@ interface FwdTestRequest;
    method Action readRxChanCntrs();
 endinterface
 
-interface FwdAPI;
-   interface FwdTestRequest request;
-endinterface
-
-module mkFwdAPI#(FwdTestIndication indication, PaxosIngressPipeline ingress, HostChannel hostchan, RxChannel rxchan, TxChannel txchan, SharedBuffer#(12, 128, 1) buff)(FwdAPI);
-
-   interface FwdTestRequest request;
+function FwdTestRequest mkFwdAPI(FwdTestIndication indication, PaxosIngressPipeline ingress, HostChannel hostchan, RxChannel rxchan, TxChannel txchan, SharedBuffer#(12, 128, 1) buff) = 
+   interface FwdTestRequest;
       method Action read_version();
          let v= `NicVersion;
          indication.read_version_resp(v);
@@ -93,5 +88,4 @@ module mkFwdAPI#(FwdTestIndication indication, PaxosIngressPipeline ingress, Hos
          let v = rxchan.hostdbg;
          indication.readRxChanCntrsResp(v.paxosCount, v.ipv6Count, v.udpCount);
       endmethod
-   endinterface
-endmodule
+   endinterface;

@@ -25,8 +25,7 @@ interface NfsumePins;
 `endif
 endinterface
 
-function NfsumePins mkNfumePins(Clock defaultClock, EthPhyIfc phys,
-   NfsumeLeds leds, NfsumeSfpCtrl sfpctrl) =
+function NfsumePins mkNfsumePins(Clock defaultClock, EthPhyIfc phys, NfsumeLeds leds, NfsumeSfpCtrl sfpctrl) =
    interface NfsumePins;
       method Action sfp(Bit#(1) refclk_p, Bit#(1) refclk_n);
          phys.refclk(refclk_p, refclk_n);

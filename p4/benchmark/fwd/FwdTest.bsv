@@ -112,11 +112,9 @@ module mkFwdTest#(
    //P4Register#(InstanceSize, RoundSize) roundRegs <- mkP4RoundRegister(vec(roleTable.regAccess));
    //P4Register#(1, 8) roleRegs <- mkP4RoleRegister(vec(roundTable.regAccess));
 
-   FwdAPI api <- mkFwdAPI(indication, ingress, hostchan, rxchan, txchan, mem);
-
-   interface request = api.request;
+   interface request = mkFwdAPI(indication, ingress, hostchan, rxchan, txchan, mem);
 `ifdef BOARD_nfsume
-   interface `PinType pins = mk`PinType(defaultClock, phys, leds, sfpctrl);
+   interface pins = mkNfsumePins(defaultClock, phys, leds, sfpctrl);
 `endif
 endmodule: mkFwdTest
 endpackage: FwdTest
