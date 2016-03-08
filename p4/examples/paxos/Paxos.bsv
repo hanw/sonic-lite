@@ -1,26 +1,53 @@
 typedef struct {
-    Bit#(8) in_port;
-} CpuHeaderT deriving (Bits, Eq);
+    Bit#(4) version;
+    Bit#(8) trafficClass;
+    Bit#(20) flowLabel;
+    Bit#(16) payloadLen;
+    Bit#(8) nextHdr;
+    Bit#(8) hopLimit;
+    Bit#(128) srcAddr;
+    Bit#(128) dstAddr;
+} Ipv6T deriving (Bits, Eq);
 
-instance DefaultValue#(CpuHeaderT);
+instance DefaultValue#(Ipv6T);
 defaultValue=
-CpuHeaderT {
-    in_port: 0
-};
+Ipv6T {
+    version: 0,
+    trafficClass: 0,
+    flowLabel: 0,
+    payloadLen: 0,
+    nextHdr: 0,
+    hopLimit: 0,
+    srcAddr: 0,
+    dstAddr: 0};
 endinstance
 
-instance FShow#(CpuHeaderT);
-    function Fmt fshow(CpuHeaderT p);
-        return $format("CpuHeaderT: in_port=%h" , p.in_port);
+instance FShow#(Ipv6T);
+    function Fmt fshow(Ipv6T p);
+        return $format("Ipv6T: version=%h, trafficClass=%h, flowLabel=%h, payloadLen=%h, nextHdr=%h, hopLimit=%h, srcAddr=%h, dstAddr=%h" , p.version, p.trafficClass, p.flowLabel, p.payloadLen, p.nextHdr, p.hopLimit, p.srcAddr, p.dstAddr);
     endfunction
 endinstance
 
-function CpuHeaderT extract_cpu_header(Bit#(8) data);
-    Vector#(8, Bit#(1)) dataVec=unpack(data);
-    Vector#(8, Bit#(1)) in_port = takeAt(0, dataVec);
-    CpuHeaderT cpu_header_t = defaultValue;
-    cpu_header_t.in_port = pack(in_port);
-    return cpu_header_t;
+function Ipv6T extract_ipv6(Bit#(320) data);
+    Vector#(320, Bit#(1)) dataVec=unpack(data);
+    Vector#(4, Bit#(1)) version = takeAt(0, dataVec);
+    Vector#(8, Bit#(1)) trafficClass = takeAt(4, dataVec);
+    Vector#(20, Bit#(1)) flowLabel = takeAt(12, dataVec);
+    Vector#(16, Bit#(1)) payloadLen = takeAt(32, dataVec);
+    Vector#(8, Bit#(1)) nextHdr = takeAt(48, dataVec);
+    Vector#(8, Bit#(1)) hopLimit = takeAt(56, dataVec);
+    Vector#(128, Bit#(1)) srcAddr = takeAt(64, dataVec);
+    Vector#(128, Bit#(1)) dstAddr = takeAt(192, dataVec);
+    Ipv6T ipv6_t = defaultValue;
+    ipv6_t.version = pack(version);
+    ipv6_t.trafficClass = pack(trafficClass);
+    ipv6_t.flowLabel = pack(flowLabel);
+    ipv6_t.payloadLen = pack(payloadLen);
+    ipv6_t.nextHdr = pack(nextHdr);
+    ipv6_t.hopLimit = pack(hopLimit);
+    ipv6_t.srcAddr = pack(srcAddr);
+    ipv6_t.dstAddr = pack(dstAddr);
+    return ipv6_t;
 endfunction
 
 typedef struct {
@@ -61,84 +88,47 @@ function UdpT extract_udp(Bit#(64) data);
 endfunction
 
 typedef struct {
-    Bit#(4) mcast_grp;
-    Bit#(4) egress_rid;
-    Bit#(16) mcast_hash;
-    Bit#(32) lf_field_list;
-} IntrinsicMetadataT deriving (Bits, Eq);
-
-instance DefaultValue#(IntrinsicMetadataT);
-defaultValue=
-IntrinsicMetadataT {
-    mcast_grp: 0,
-    egress_rid: 0,
-    mcast_hash: 0,
-    lf_field_list: 0
-};
-endinstance
-
-instance FShow#(IntrinsicMetadataT);
-    function Fmt fshow(IntrinsicMetadataT p);
-        return $format("IntrinsicMetadataT: mcast_grp=%h, egress_rid=%h, mcast_hash=%h, lf_field_list=%h" , p.mcast_grp, p.egress_rid, p.mcast_hash, p.lf_field_list);
-    endfunction
-endinstance
-
-function IntrinsicMetadataT extract_intrinsic_metadata(Bit#(56) data);
-    Vector#(56, Bit#(1)) dataVec=unpack(data);
-    Vector#(4, Bit#(1)) mcast_grp = takeAt(0, dataVec);
-    Vector#(4, Bit#(1)) egress_rid = takeAt(4, dataVec);
-    Vector#(16, Bit#(1)) mcast_hash = takeAt(8, dataVec);
-    Vector#(32, Bit#(1)) lf_field_list = takeAt(24, dataVec);
-    IntrinsicMetadataT intrinsic_metadata_t = defaultValue;
-    intrinsic_metadata_t.mcast_grp = pack(mcast_grp);
-    intrinsic_metadata_t.egress_rid = pack(egress_rid);
-    intrinsic_metadata_t.mcast_hash = pack(mcast_hash);
-    intrinsic_metadata_t.lf_field_list = pack(lf_field_list);
-    return intrinsic_metadata_t;
-endfunction
-
-typedef struct {
-    Bit#(8) msgtype;
-    Bit#(16) inst;
-    Bit#(8) round;
-    Bit#(8) vround;
-    Bit#(64) acceptor;
-    Bit#(512) value;
+    Bit#(32) inst;
+    Bit#(16) rnd;
+    Bit#(16) vrnd;
+    Bit#(32) acptid;
+    Bit#(16) msgtype;
+    Bit#(256) paxosval;
 } PaxosT deriving (Bits, Eq);
 
 instance DefaultValue#(PaxosT);
 defaultValue=
 PaxosT {
-    msgtype: 0,
     inst: 0,
-    round: 0,
-    vround: 0,
-    acceptor: 0,
-    value: 0
+    rnd: 0,
+    vrnd: 0,
+    acptid: 0,
+    msgtype: 0,
+    paxosval: 0
 };
 endinstance
 
 instance FShow#(PaxosT);
     function Fmt fshow(PaxosT p);
-        return $format("PaxosT: msgtype=%h, inst=%h, round=%h, vround=%h, acceptor=%h, value=%h" , p.msgtype, p.inst, p.round, p.vround, p.acceptor, p.value);
+        return $format("PaxosT: inst=%h, rnd=%h, vrnd=%h, acptid=%h, msgtype=%h, paxosval=%h" , p.inst, p.rnd, p.vrnd, p.acptid, p.msgtype, p.paxosval);
     endfunction
 endinstance
 
-function PaxosT extract_paxos(Bit#(616) data);
-    Vector#(616, Bit#(1)) dataVec=unpack(data);
-    Vector#(8, Bit#(1)) msgtype = takeAt(0, dataVec);
-    Vector#(16, Bit#(1)) inst = takeAt(8, dataVec);
-    Vector#(8, Bit#(1)) round = takeAt(24, dataVec);
-    Vector#(8, Bit#(1)) vround = takeAt(32, dataVec);
-    Vector#(64, Bit#(1)) acceptor = takeAt(40, dataVec);
-    Vector#(512, Bit#(1)) value = takeAt(104, dataVec);
+function PaxosT extract_paxos(Bit#(368) data);
+    Vector#(368, Bit#(1)) dataVec=unpack(data);
+    Vector#(32, Bit#(1)) inst = takeAt(0, dataVec);
+    Vector#(16, Bit#(1)) rnd = takeAt(32, dataVec);
+    Vector#(16, Bit#(1)) vrnd = takeAt(48, dataVec);
+    Vector#(32, Bit#(1)) acptid = takeAt(64, dataVec);
+    Vector#(16, Bit#(1)) msgtype = takeAt(96, dataVec);
+    Vector#(256, Bit#(1)) paxosval = takeAt(112, dataVec);
     PaxosT paxos_t = defaultValue;
-    paxos_t.msgtype = pack(msgtype);
     paxos_t.inst = pack(inst);
-    paxos_t.round = pack(round);
-    paxos_t.vround = pack(vround);
-    paxos_t.acceptor = pack(acceptor);
-    paxos_t.value = pack(value);
+    paxos_t.rnd = pack(rnd);
+    paxos_t.vrnd = pack(vrnd);
+    paxos_t.acptid = pack(acptid);
+    paxos_t.msgtype = pack(msgtype);
+    paxos_t.paxosval = pack(paxosval);
     return paxos_t;
 endfunction
 
@@ -269,59 +259,7 @@ function Ipv4T extract_ipv4(Bit#(160) data);
 endfunction
 
 typedef struct {
-    Bit#(4) version;
-    Bit#(8) trafficClass;
-    Bit#(20) flowLabel;
-    Bit#(16) payloadLen;
-    Bit#(8) nextHdr;
-    Bit#(8) hopLimit;
-    Bit#(128) srcAddr;
-    Bit#(128) dstAddr;
-} Ipv6T deriving (Bits, Eq);
-
-instance DefaultValue#(Ipv6T);
-defaultValue=
-Ipv6T {
-    version: 0,
-    trafficClass: 0,
-    flowLabel: 0,
-    payloadLen: 0,
-    nextHdr: 0,
-    hopLimit: 0,
-    srcAddr: 0,
-    dstAddr: 0};
-endinstance
-
-instance FShow#(Ipv6T);
-    function Fmt fshow(Ipv6T p);
-        return $format("Ipv6T: version=%h, trafficClass=%h, flowLabel=%h, payloadLen=%h, nextHdr=%h, hopLimit=%h, srcAddr=%h, dstAddr=%h" , p.version, p.trafficClass, p.flowLabel, p.payloadLen, p.nextHdr, p.hopLimit, p.srcAddr, p.dstAddr);
-    endfunction
-endinstance
-
-function Ipv6T extract_ipv6(Bit#(320) data);
-    Vector#(320, Bit#(1)) dataVec=unpack(data);
-    Vector#(4, Bit#(1)) version = takeAt(0, dataVec);
-    Vector#(8, Bit#(1)) trafficClass = takeAt(4, dataVec);
-    Vector#(20, Bit#(1)) flowLabel = takeAt(12, dataVec);
-    Vector#(16, Bit#(1)) payloadLen = takeAt(32, dataVec);
-    Vector#(8, Bit#(1)) nextHdr = takeAt(48, dataVec);
-    Vector#(8, Bit#(1)) hopLimit = takeAt(56, dataVec);
-    Vector#(128, Bit#(1)) srcAddr = takeAt(64, dataVec);
-    Vector#(128, Bit#(1)) dstAddr = takeAt(192, dataVec);
-    Ipv6T ipv6_t = defaultValue;
-    ipv6_t.version = pack(version);
-    ipv6_t.trafficClass = pack(trafficClass);
-    ipv6_t.flowLabel = pack(flowLabel);
-    ipv6_t.payloadLen = pack(payloadLen);
-    ipv6_t.nextHdr = pack(nextHdr);
-    ipv6_t.hopLimit = pack(hopLimit);
-    ipv6_t.srcAddr = pack(srcAddr);
-    ipv6_t.dstAddr = pack(dstAddr);
-    return ipv6_t;
-endfunction
-
-typedef struct {
-    Bit#(8) round;
+    Bit#(16) round;
 } IngressMetadataT deriving (Bits, Eq);
 
 instance DefaultValue#(IngressMetadataT);
@@ -337,9 +275,9 @@ instance FShow#(IngressMetadataT);
     endfunction
 endinstance
 
-function IngressMetadataT extract_ingress_metadata(Bit#(8) data);
-    Vector#(8, Bit#(1)) dataVec=unpack(data);
-    Vector#(8, Bit#(1)) round = takeAt(0, dataVec);
+function IngressMetadataT extract_ingress_metadata(Bit#(16) data);
+    Vector#(16, Bit#(1)) dataVec=unpack(data);
+    Vector#(16, Bit#(1)) round = takeAt(0, dataVec);
     IngressMetadataT ingress_metadata_t = defaultValue;
     ingress_metadata_t.round = pack(round);
     return ingress_metadata_t;
@@ -653,25 +591,23 @@ module mkStateParseArp#(Reg#(ParserState) state, FIFOF#(EtherData) datain)(Parse
 endmodule
 interface ParseIpv4;
     interface Put#(Bit#(16)) parse_ethernet;
-    interface Get#(Bit#(112)) parse_cpu_header;
     interface Get#(Bit#(112)) parse_udp;
     method Action start;
     method Action clear;
 endinterface
 module mkStateParseIpv4#(Reg#(ParserState) state, FIFOF#(EtherData) datain)(ParseIpv4);
     FIFOF#(Bit#(16)) unparsed_parse_ethernet_fifo <- mkBypassFIFOF;
-    FIFOF#(Bit#(112)) unparsed_parse_cpu_header_fifo <- mkSizedFIFOF(1);
     FIFOF#(Bit#(112)) unparsed_parse_udp_fifo <- mkSizedFIFOF(1);
     FIFOF#(Bit#(144)) internal_fifo <- mkSizedFIFOF(1);
     Wire#(Bit#(128)) packet_in_wire <- mkDWire(0);
-    Vector#(3, Wire#(Maybe#(ParserState))) next_state_wire <- replicateM(mkDWire(tagged Invalid));
+    Vector#(2, Wire#(Maybe#(ParserState))) next_state_wire <- replicateM(mkDWire(tagged Invalid));
     PulseWire start_wire <- mkPulseWire();
     PulseWire clear_wire <- mkPulseWire();
     (* fire_when_enabled *)
     rule arbitrate_outgoing_state if (state == StateParseIpv4);
-        Vector#(3, Bool) next_state_valid = replicate(False);
+        Vector#(2, Bool) next_state_valid = replicate(False);
         Bool stateSet = False;
-        for (Integer port=0; port<3; port=port+1) begin
+        for (Integer port=0; port<2; port=port+1) begin
             next_state_valid[port] = isValid(next_state_wire[port]);
             if (!stateSet && next_state_valid[port]) begin
                 stateSet = True;
@@ -683,9 +619,6 @@ module mkStateParseIpv4#(Reg#(ParserState) state, FIFOF#(EtherData) datain)(Pars
     function ParserState compute_next_state(Bit#(8) protocol);
         ParserState nextState = StateStart;
         case (byteSwap(protocol)) matches
-            'h8f: begin
-                nextState=StateParseCpuHeader;
-            end
             'h11: begin
                 nextState=StateParseUdp;
             end
@@ -718,9 +651,6 @@ module mkStateParseIpv4#(Reg#(ParserState) state, FIFOF#(EtherData) datain)(Pars
         Vector#(112, Bit#(1)) unparsed = takeAt(160, dataVec);
         let nextState = compute_next_state(ipv4.protocol);
         $display("Goto state %h", nextState);
-        if (nextState == StateParseCpuHeader) begin
-            unparsed_parse_cpu_header_fifo.enq(pack(unparsed));
-        end
         if (nextState == StateParseUdp) begin
             unparsed_parse_udp_fifo.enq(pack(unparsed));
         end
@@ -741,7 +671,6 @@ module mkStateParseIpv4#(Reg#(ParserState) state, FIFOF#(EtherData) datain)(Pars
         clear_wire.send();
     endmethod
     interface parse_ethernet = toPut(unparsed_parse_ethernet_fifo);
-    interface parse_cpu_header = toGet(unparsed_parse_cpu_header_fifo);
     interface parse_udp = toGet(unparsed_parse_udp_fifo);
 endmodule
 interface ParseIpv6;
@@ -814,59 +743,6 @@ module mkStateParseIpv6#(Reg#(ParserState) state, FIFOF#(EtherData) datain, FIFO
         clear_wire.send();
     endmethod
     interface parse_ethernet = toPut(unparsed_parse_ethernet_fifo);
-endmodule
-interface ParseCpuHeader;
-    interface Put#(Bit#(112)) parse_ipv4;
-    method Action start;
-    method Action clear;
-endinterface
-module mkStateParseCpuHeader#(Reg#(ParserState) state, FIFOF#(EtherData) datain)(ParseCpuHeader);
-    FIFOF#(Bit#(112)) unparsed_parse_ipv4_fifo <- mkBypassFIFOF;
-    Wire#(Bit#(128)) packet_in_wire <- mkDWire(0);
-    Vector#(1, Wire#(Maybe#(ParserState))) next_state_wire <- replicateM(mkDWire(tagged Invalid));
-    PulseWire start_wire <- mkPulseWire();
-    PulseWire clear_wire <- mkPulseWire();
-    (* fire_when_enabled *)
-    rule arbitrate_outgoing_state if (state == StateParseCpuHeader);
-        Vector#(1, Bool) next_state_valid = replicate(False);
-        Bool stateSet = False;
-        for (Integer port=0; port<1; port=port+1) begin
-            next_state_valid[port] = isValid(next_state_wire[port]);
-            if (!stateSet && next_state_valid[port]) begin
-                stateSet = True;
-                ParserState next_state = fromMaybe(?, next_state_wire[port]);
-                state <= next_state;
-            end
-        end
-    endrule
-    
-    rule load_packet if (state == StateParseCpuHeader);
-        let data_current <- toGet(datain).get;
-        packet_in_wire <= data_current.data;
-    endrule
-    Stmt parse_cpu_header =
-    seq
-    action
-        let data = packet_in_wire;
-        Vector#(128, Bit#(1)) dataVec = unpack(data);
-        let nextState = StateStart; 
-        next_state_wire[0] <= tagged Valid nextState;
-    endaction
-    endseq;
-    FSM fsm_parse_cpu_header <- mkFSM(parse_cpu_header);
-    rule start_fsm if (start_wire);
-        fsm_parse_cpu_header.start;
-    endrule
-    rule clear_fsm if (clear_wire);
-        fsm_parse_cpu_header.abort;
-    endrule
-    method Action start();
-        start_wire.send();
-    endmethod
-    method Action clear();
-        clear_wire.send();
-    endmethod
-    interface parse_ipv4 = toPut(unparsed_parse_ipv4_fifo);
 endmodule
 interface ParseUdp;
     interface Put#(Bit#(112)) parse_ipv4;
@@ -949,16 +825,14 @@ module mkStateParseUdp#(Reg#(ParserState) state, FIFOF#(EtherData) datain, FIFOF
 endmodule
 interface ParsePaxos;
     interface Put#(Bit#(176)) parse_udp;
-    interface Get#(Bit#(8)) parsedOut_paxos_msgtype;
+    interface Get#(Bit#(16)) parsedOut_paxos_msgtype;
     method Action start;
     method Action clear;
 endinterface
 module mkStateParsePaxos#(Reg#(ParserState) state, FIFOF#(EtherData) datain, FIFOF#(ParserState) parseStateFifo)(ParsePaxos);
-    FIFOF#(Bit#(304)) internal_fifo1 <- mkSizedFIFOF(1);
-    FIFOF#(Bit#(432)) internal_fifo2 <- mkSizedFIFOF(1);
-    FIFOF#(Bit#(560)) internal_fifo3 <- mkSizedFIFOF(1);
+    FIFOF#(Bit#(304)) internal_fifo <- mkSizedFIFOF(1);
     FIFOF#(Bit#(176)) unparsed_parse_udp_fifo <- mkBypassFIFOF;
-    FIFOF#(Bit#(8)) parsed_paxos_fifo <- mkFIFOF;
+    FIFOF#(Bit#(16)) parsed_paxos_fifo <- mkFIFOF;
     Wire#(Bit#(128)) packet_in_wire <- mkDWire(0);
     Vector#(1, Wire#(Maybe#(ParserState))) next_state_wire <- replicateM(mkDWire(tagged Invalid));
     PulseWire start_wire <- mkPulseWire();
@@ -987,25 +861,13 @@ module mkStateParsePaxos#(Reg#(ParserState) state, FIFOF#(EtherData) datain, FIF
         let data_current = packet_in_wire;
         let unparsed <- toGet(unparsed_parse_udp_fifo).get;
         Bit#(304) data = {data_current, unparsed};
-        internal_fifo1.enq(data);
+        internal_fifo.enq(data);
     endaction
     action
         let data_current = packet_in_wire;
-        let data_delayed <- toGet(internal_fifo1).get;
-        Bit#(432) data = {data_current, data_delayed};
-        internal_fifo2.enq(data);
-    endaction
-    action
-        let data_current = packet_in_wire;
-        let data_delayed <- toGet(internal_fifo2).get;
-        Bit#(560) data = {data_current, data_delayed};
-        internal_fifo3.enq(data);
-    endaction
-    action
-        let data_current = packet_in_wire;
-        let data_delayed <- toGet(internal_fifo3).get;
-        Bit#(688) data = {data_current, data_delayed};
-        Vector#(688, Bit#(1)) dataVec = unpack(data);
+        let unparsed <- toGet(internal_fifo).get;
+        Bit#(432) data = {data_current, unparsed};
+        Vector#(432, Bit#(1)) dataVec = unpack(data);
         let paxos = extract_paxos(pack(takeAt(0, dataVec)));
         $display(fshow(paxos));
         parsed_paxos_fifo.enq(paxos.msgtype);
@@ -1032,7 +894,7 @@ endmodule
 interface Parser;
     interface Put#(EtherData) frameIn;
     interface Get#(Bit#(48)) parsedOut_ethernet_dstAddr;
-    interface Get#(Bit#(8)) parsedOut_paxos_msgtype;
+    interface Get#(Bit#(16)) parsedOut_paxos_msgtype;
     interface PipeOut#(ParserState) parserState;
 endinterface
 
@@ -1065,13 +927,11 @@ module mkParser(Parser);
     ParseArp parse_arp <- mkStateParseArp(curr_state, data_in_fifo);
     ParseIpv4 parse_ipv4 <- mkStateParseIpv4(curr_state, data_in_fifo);
     ParseIpv6 parse_ipv6 <- mkStateParseIpv6(curr_state, data_in_fifo, parse_state_in_fifo[0]);
-    ParseCpuHeader parse_cpu_header <- mkStateParseCpuHeader(curr_state, data_in_fifo);
     ParseUdp parse_udp <- mkStateParseUdp(curr_state, data_in_fifo, parse_state_in_fifo[1]);
     ParsePaxos parse_paxos <- mkStateParsePaxos(curr_state, data_in_fifo, parse_state_in_fifo[2]);
     mkConnection(parse_arp.parse_ethernet, parse_ethernet.parse_arp);
     mkConnection(parse_ipv4.parse_ethernet, parse_ethernet.parse_ipv4);
     mkConnection(parse_ipv6.parse_ethernet, parse_ethernet.parse_ipv6);
-    mkConnection(parse_cpu_header.parse_ipv4, parse_ipv4.parse_cpu_header);
     mkConnection(parse_udp.parse_ipv4, parse_ipv4.parse_udp);
     mkConnection(parse_paxos.parse_udp, parse_udp.parse_paxos);
     rule start if (start_fsm);
@@ -1080,7 +940,6 @@ module mkParser(Parser);
             parse_arp.start;
             parse_ipv4.start;
             parse_ipv6.start;
-            parse_cpu_header.start;
             parse_udp.start;
             parse_paxos.start;
             started <= True;
@@ -1092,7 +951,6 @@ module mkParser(Parser);
             parse_arp.clear;
             parse_ipv4.clear;
             parse_ipv6.clear;
-            parse_cpu_header.clear;
             parse_udp.clear;
             parse_paxos.clear;
             started <= False;
