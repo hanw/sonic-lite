@@ -42,6 +42,11 @@ public:
         fprintf(stderr, "TxThru: GoodputCount=%ld, IdleCount=%ld, utilization=%f\n", goodputCount, idleCount, utilization);
         sem_post(&cmdCompleted);
     }
+    virtual void readRxCycleCntResp(uint64_t p0_cnt, uint64_t p1_cnt) {
+        fprintf(stderr, "Cycle cnt=%ld, %ld\n", p0_cnt, p1_cnt);
+        sem_post(&cmdCompleted);
+    }
+
   TestIndication(int id) : TestIndicationWrapper(id){}
 };
 
@@ -90,6 +95,8 @@ void read_status () {
     device->readRingBuffCntrs(0);
     sem_wait(&cmdCompleted);
     device->readTxThruCntrs();
+    sem_wait(&cmdCompleted);
+    device->readRxCycleCnt();
     sem_wait(&cmdCompleted);
 }
 

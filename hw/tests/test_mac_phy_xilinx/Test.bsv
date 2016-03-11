@@ -28,6 +28,7 @@ interface TestIndication;
    method Action read_version_resp(Bit#(32) version);
    method Action readRingBuffCntrsResp(Bit#(64) sopEnq, Bit#(64) eopEnq, Bit#(64) sopDeq, Bit#(64) eopDeq);
    method Action readTxThruCntrsResp(Bit#(64) goodputCount, Bit#(64) idleCount);
+   method Action readRxCycleCntResp(Bit#(64) p0_cycle_cnt, Bit#(64) p1_cycle_cnt);
 endinterface
 
 interface TestRequest;
@@ -35,6 +36,7 @@ interface TestRequest;
    method Action writePacketData(Vector#(2, Bit#(64)) data, Vector#(2, Bit#(8)) mask, Bit#(1) sop, Bit#(1) eop);
    method Action readRingBuffCntrs(Bit#(8) id);
    method Action readTxThruCntrs();
+   method Action readRxCycleCnt();
 endinterface
 
 interface Test;
@@ -73,6 +75,11 @@ module mkTest#(HostInterface host, TestIndication indication) (Test);
    mkConnection(mac[1].tx, mac[0].rx);
 `endif
 
+   Reg#(Bit#(64)) p0_cycle_cnt <- mkReg(0, clocked_by txClock, reset_by txReset);
+   Reg#(Bit#(64)) p1_cycle_cnt <- mkReg(0, clocked_by txClock, reset_by txReset);
+   ReadOnly#(Bit#(64)) p0_crossed <- mkNullCrossingWire(defaultClock, p0_cycle_cnt);
+   ReadOnly#(Bit#(64)) p1_crossed <- mkNullCrossingWire(defaultClock, p1_cycle_cnt);
+
    PacketBuffer buff <- mkPacketBuffer();
    StoreAndFwdFromRingToMac ringToMac <- mkStoreAndFwdFromRingToMac(txClock, txReset);
    mkConnection(ringToMac.readClient, buff.readServer);
@@ -80,10 +87,14 @@ module mkTest#(HostInterface host, TestIndication indication) (Test);
 
    rule rx_packet0;
       let v <- toGet(mac[0].packet_rx).get;
+      p0_cycle_cnt <= p0_cycle_cnt + 1;
+      mac[1].packet_tx.put(v);
    endrule
 
    rule rx_packet1;
       let v <- toGet(mac[1].packet_rx).get;
+      p1_cycle_cnt <= p1_cycle_cnt + 1;
+      mac[0].packet_tx.put(v);
       $display("rx1: v=", fshow(v));
    endrule
 
@@ -107,6 +118,9 @@ module mkTest#(HostInterface host, TestIndication indication) (Test);
       method Action readTxThruCntrs();
          let v = ringToMac.dbg();
          indication.readTxThruCntrsResp(v.goodputCount, v.idleCount);
+      endmethod
+      method Action readRxCycleCnt();
+         indication.readRxCycleCntResp(p0_crossed, p1_crossed);
       endmethod
    endinterface
 `ifndef SIMULATION

@@ -11,7 +11,7 @@ import XilinxEthPhy::*;
 
 (* always_ready, always_enabled *)
 interface NfsumePins;
-`ifndef SIMULATION
+`ifdef BOARD_nfsume
    method Action sfp(Bit#(1) refclk_p, Bit#(1) refclk_n);
    method Bit#(2) leds;
    method Bit#(4) serial_tx_p;
@@ -27,6 +27,7 @@ endinterface
 
 function NfsumePins mkNfsumePins(Clock defaultClock, EthPhyIfc phys, NfsumeLeds leds, NfsumeSfpCtrl sfpctrl) =
    interface NfsumePins;
+`ifdef BOARD_nfsume
       method Action sfp(Bit#(1) refclk_p, Bit#(1) refclk_n);
          phys.refclk(refclk_p, refclk_n);
       endmethod
@@ -39,6 +40,7 @@ function NfsumePins mkNfsumePins(Clock defaultClock, EthPhyIfc phys, NfsumeLeds 
       interface led_ylw = phys.rx_leds;
       interface deleteme_unused_clock = defaultClock;
       interface sfpctrl = sfpctrl;
+`endif
    endinterface;
 
 interface NfsumeLeds;

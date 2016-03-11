@@ -4,7 +4,7 @@ set partname {xc7vx690tffg1761-3}
 create_project -in_memory -name fooproject
 set_property PART $partname [current_project]
 
-read_ip /home/hwang/dev/connectal/out/nfsume/ten_gig_eth_mac_0/ten_gig_eth_mac_0.xci
+read_ip /home/hwang/dev/connectal/out/xsim/ten_gig_eth_mac_0/ten_gig_eth_mac_0.xci
 generate_target simulation [get_ips ten_gig_eth_mac_0]
 
 add_files [glob /home/hwang/dev/connectal/verilog/*.sv]

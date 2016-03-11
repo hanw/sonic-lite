@@ -178,8 +178,8 @@ module mkEthMac#(Clock clk_50, Clock clk_156_25, Reset rst_156_25_n)(EthMacIfc);
    Reg#(Bit#(64)) cntr <- mkReg(0, clocked_by clk_156_25, reset_by rst_156_25_n);
 
    MacWrap mac <- mkMacWrap(clk_50, clk_156_25, rx_clk, rst_50, rst_50_n, rst_156_25_n, rx_rst_n);
-   FIFOF#(PacketDataT#(64)) rx_fifo <- mkFIFOF(clocked_by rx_clk, reset_by rx_rst_n);
-   FIFOF#(PacketDataT#(64)) tx_fifo <- mkSizedFIFOF(2, clocked_by clk_156_25, reset_by rst_156_25_n);
+   FIFOF#(PacketDataT#(64)) rx_fifo <- mkSizedFIFOF(4, clocked_by rx_clk, reset_by rx_rst_n);
+   FIFOF#(PacketDataT#(64)) tx_fifo <- mkSizedFIFOF(4, clocked_by clk_156_25, reset_by rst_156_25_n);
    Reg#(Bit#(1)) rx_valid <- mkReg(0, clocked_by rx_clk, reset_by rx_rst_n);
 
    Wire#(Bit#(1)) tx_ready_w <- mkDWire(0, clocked_by clk_156_25, reset_by rst_156_25_n);
@@ -234,8 +234,9 @@ module mkEthMac#(Clock clk_50, Clock clk_156_25, Reset rst_156_25_n)(EthMacIfc);
       tx_user_w <= 1'b0;
       if (tx_ready_w != 0) begin
          tx_fifo.deq;
+         $display("deq");
       end
-      $display("%d: data=%h", cntr, d);
+      $display("%d: data=%h %h %h", cntr, d.data, d.eop, d.mask);
    endrule
 
    rule rx_data;
@@ -247,6 +248,7 @@ module mkEthMac#(Clock clk_50, Clock clk_156_25, Reset rst_156_25_n)(EthMacIfc);
       packet.mask =  mac.rx_axis.tkeep();
       if (valid == 1'b1) begin
          rx_fifo.enq(packet);
+         $display("%d: rx= %h %h %h %h", cntr, packet.data, packet.sop, packet.eop, packet.mask);
       end
       rx_valid <= valid;
    endrule

@@ -46,6 +46,10 @@ ifneq ($(BOARD), xsim)
 	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) vivado -notrace -mode batch -source $(SONICDIR)/hw/scripts/connectal-synth-phy.tcl)
 endif
 
+# Test sequence:
+# make build.xsim # to generate 10G mac simulation sourcej
+# make sim        # to compile simulation library
+# make build.xsim # to link properly
 sim:
 	vivado -mode batch -source xsim_export.tcl
 	cd xsim; ./xsimtop.sh
