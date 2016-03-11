@@ -16,6 +16,7 @@ interface RingBuffer#(type readReqType, type readResType,
 
     method ActionValue#(Bool) empty();
     method ActionValue#(Bool) full();
+    method Action clear();
     method ActionValue#(Bit#(64)) elements();
 endinterface
 
@@ -230,6 +231,11 @@ module mkRingBuffer#(Integer size)
 
     method ActionValue#(Bool) full();
         return is_full;
+    endmethod
+
+    method Action clear() if (read_in_progress == 0);
+        head <= 0;
+        tail <= 0;
     endmethod
 
     method ActionValue#(Bit#(64)) elements();
