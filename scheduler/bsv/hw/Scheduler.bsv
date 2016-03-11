@@ -355,7 +355,6 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
             ServerIndex src = host_id(recvd_pkt_src_ip[i]);
             ServerIndex dst = host_id(recvd_pkt_dst_ip[i]);
 
-            $display("[SCHED %d] **************************************************** clk = %d %h %h %d i = %d ************************", host_index, clk.currTime, src, dst, recvd_pkt_ctrl_bits[i], i);
             if (src < fromInteger(valueof(NUM_OF_SERVERS))
                 && dst < fromInteger(valueof(NUM_OF_SERVERS)))
             begin
@@ -369,7 +368,6 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
                                 op  : 0
                             };
                     flow_update_fifo_rx[i].enq(d);
-                    $display("[SCHED %d] *********************************************************", host_index);
                 end
 
                 else
@@ -461,11 +459,6 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
                     recvd_pkt_flow_id[i] <= (buffered_data[i])[255:240];
                     recvd_pkt_seq_num[i] <= (buffered_data[i])[239:224];
                     check_flow_add_remove_rx_flag[i] <= 1;
-
-                    if (ctrl_bits == 'b1)
-                        $display("[SCHED %d] &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&", host_index);
-
-                    $display("[SCHED %d] ###########################  %d %h %h %d i=%d #####################################", host_index, clk.currTime, src_ip, dst_ip, ctrl_bits, i);
 
                     if (dst_ip == ip_address(host_index))
                         ring_buffer_index_fifo[i].enq(0);
@@ -604,15 +597,9 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
         let x <- toGet(flows).get;
         new_flow_dst <= x.dst;
         if (x.flow_start == 1)
-        begin
             new_flow_blast_phase <= 1;
-            $display("[SCHED %d] New flow clk = %d", host_index, clk.currTime);
-        end
         else
-        begin
             flow_end_blast_phase <= 1;
-            $display("[SCHED %d] Rem flow clk = %d", host_index, clk.currTime);
-        end
 
         let d = FlowUpdateT {
                     src : host_index,
@@ -637,9 +624,6 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
 
             let size <- min_priority_queue[i].size;
 
-            $write("[SCHED %d %d] clk = %d size = %d", host_index, i, clk.currTime, size);
-            min_priority_queue[i].displayQueue;
-
             if (new_flow_blast_phase == 0 && flow_end_blast_phase == 0 && size > 0)
             begin
                 let x <- min_priority_queue[i].first;
@@ -655,13 +639,11 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
                     mmf.bottleneck_count.request.put(d);
                     node_value <= x.v;
                     flow_to_send_next <= x.v;
-                    $display("[SCHED %d %d] clk = %d Flow to send next %d", host_index, i, clk.currTime, x.v);
                 end
                 else
                 begin
                     flow_to_send_next <= fromInteger(valueof(NUM_OF_SERVERS));
                     get_host_flow_for_next_slot[i] <= 0;
-                    $display("[SCHED %d %d] clk = %d Flow to send next %d", host_index, i, clk.currTime, fromInteger(valueof(NUM_OF_SERVERS)));
                 end
 
                 special_buffer <= False;
@@ -686,7 +668,6 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
                 end
                 else
                     new_flow_blast_count <= new_flow_blast_count + 1;
-                $display("[SCHED %d %d] clk = %d Flow to send next %d", host_index, i, clk.currTime, new_flow_dst);
             end
 
             else if (new_flow_blast_phase == 0 && flow_end_blast_phase == 1)
@@ -709,7 +690,10 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
             end
 
             else
+            begin
+                flow_to_send_next <= fromInteger(valueof(NUM_OF_SERVERS));
                 get_host_flow_for_next_slot[i] <= 0;
+            end
         endrule
 
         rule update_and_insert (op_in_progress == 1
@@ -722,7 +706,6 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
                      };
             min_priority_queue[i].insert.request.put(n);
             wait_for_insert_to_complete[i] <= 1;
-            $display("[SCHED %d %d] Insert clk = %d (%d, %d)", host_index, i, clk.currTime, n.v, n.p);
         endrule
 
         rule insert_res (op_in_progress == 1
@@ -731,7 +714,6 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
             wait_for_insert_to_complete[i] <= 0;
             op_in_progress <= 0;
             get_host_flow_for_next_slot[i] <= 0;
-            $display("[SCHED %d %d] Insert res clk = %d", host_index, i, clk.currTime);
         endrule
 
         rule remove_res (op_in_progress == 1
@@ -763,7 +745,6 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
 			ServerIndex next_table_index = schedule_list[next_slot];
 			IP next_dst_ip_addr = sched_table[next_table_index].server_ip;
             get_host_flow_for_next_slot[ipToIndexMapping(next_dst_ip_addr)] <= 1;
-            $display("[SCHED %d] clk = %d  next_slot = %d next_table_index = %d next_dst_ip_addr = %h activating i = %d", host_index, clk.currTime, next_slot, next_table_index, next_dst_ip_addr, ipToIndexMapping(next_dst_ip_addr));
 
 			if (verbose)
             $display("[SCHED (%d)] CLK = %d  schedule_list[%d] = %d", host_index,
@@ -802,7 +783,6 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
                     ring_buffer[0][flow_to_send_next]
                                      .read_request.put(makeReadReq(READ));
 			end
-            flow_to_send_next <= fromInteger(valueof(NUM_OF_SERVERS));
 		end
     endrule
 
@@ -856,9 +836,6 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
 
             if (verbose)
                 $display("[SCHED (%d)] CLK = %d", host_index, clk.currTime());
-
-            if (k == 2)
-                $display("[SCHED %d] ****** %d %d %h *******", host_index, d.data.sop, d.data.eop, d.data.payload);
         endrule
 
 		rule set_correct_tx_index (curr_state == RUN);
