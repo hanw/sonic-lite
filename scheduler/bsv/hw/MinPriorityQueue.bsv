@@ -121,7 +121,6 @@ module mkMinPriorityQueue(MinPriorityQueue#(n, v, p))
               writeVReg(sorted_list, outV);
               curr_size <= curr_size + 1;
               insert_res_fifo.enq(?);
-              $display("HERE-2 %d %d", outV[0].v, outV[0].p);
            end
         endcase
         insert_in_progress <= 0;
@@ -156,7 +155,6 @@ module mkMinPriorityQueue(MinPriorityQueue#(n, v, p))
                    zip(readVReg(sorted_list), replicate(v)));
        priority_encoder.oht.put(pack(r));
        insert_in_progress <= 1;
-       $display("HERE-1 %d %d size = %d", v.v, v.p, curr_size);
     endrule
 
     rule handle_remove_req (insert_in_progress == 0 && remove_in_progress == 0);
