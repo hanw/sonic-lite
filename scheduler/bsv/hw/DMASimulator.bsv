@@ -77,7 +77,7 @@ module mkDMASimulator#(Scheduler#(ReadReqType, ReadResType,
     Clock defaultClock <- exposeCurrentClock();
     Reset defaultReset <- exposeCurrentReset();
 
-    Reg#(Bool) verbose <- mkReg(True);
+    Reg#(Bool) verbose <- mkReg(False);
 
     GlobalClock clk <- mkGlobalClock;
 
@@ -221,7 +221,7 @@ module mkDMASimulator#(Scheduler#(ReadReqType, ReadResType,
                 seq_num[i] <= seq_num[i] + 1;
                 if (flow_pkt_count[i] == flow_length[i]) //last pkt in the flow
                     scheduler.special_buf_write_req[i].put
-                            (makeWriteReq(1, 0, header_data[255:128]));
+                            (makeWriteReq(0, 0, header_data[255:128]));
                 else
                     scheduler.dma_write_request[i].put
                             (makeWriteReq(0, 0, header_data[255:128]));
@@ -233,7 +233,7 @@ module mkDMASimulator#(Scheduler#(ReadReqType, ReadResType,
             begin
                 if (flow_pkt_count[i] == flow_length[i]) //last pkt in the flow
                     scheduler.special_buf_write_req[i].put
-                            (makeWriteReq(1, 0, header_data[127:0]));
+                            (makeWriteReq(0, 0, header_data[127:0]));
                 else
                     scheduler.dma_write_request[i].put
                             (makeWriteReq(0, 0, header_data[127:0]));
