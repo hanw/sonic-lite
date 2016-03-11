@@ -50,15 +50,25 @@ endinstance
 
 interface MinPriorityQueue#(numeric type depth, type v, type p);
     interface Server#(Node#(v, p), void) insert;
+    interface Server#(Node#(v, p), void) remove;
     method ActionValue#(Node#(v, p)) first();
     method Action deq();
     method Action clear();
+    method ActionValue#(Bit#(TLog#(depth))) size();
     method Action displayQueue();
 endinterface
 
-function Bit#(1) compare (Node#(v, p) x, Node#(v, p) y)
-    provisos (Ord#(p));
+function Bit#(1) comparePriority (Node#(v, p) x, Node#(v, p) y)
+    provisos (Ord#(p), Eq#(p));
     if (x.p > y.p)
+        return 1;
+    else
+        return 0;
+endfunction
+
+function Bit#(1) compareValue (Node#(v, p) x, Node#(v, p) y)
+    provisos (Ord#(v), Eq#(v));
+    if (x.v == y.v)
         return 1;
     else
         return 0;
@@ -71,19 +81,27 @@ module mkMinPriorityQueue(MinPriorityQueue#(n, v, p))
              ,Bounded#(p)
              ,Literal#(v)
              ,Ord#(p)
+             ,Ord#(v)
+             ,Eq#(p)
+             ,Eq#(v)
              ,Add#(a__, 1, n)
              ,PriorityEncoder::PEncoder#(n));
 
     PE#(n) priority_encoder <- mkPEncoder;
     Vector#(n, Reg#(Node#(v, p))) sorted_list <- replicateM(mkReg(defaultValue));
     Reg#(Node#(v, p)) node_to_insert <- mkReg(defaultValue);
+    Reg#(Node#(v, p)) node_to_remove <- mkReg(defaultValue);
     Reg#(Bit#(TLog#(n))) curr_size <- mkReg(0);
     FIFO#(void) insert_res_fifo <- mkBypassFIFO;
-    FIFOF#(Node#(v, p)) insert_req_fifo <- mkSizedBypassFIFOF(4);
+    FIFOF#(Node#(v, p)) insert_req_fifo <- mkSizedFIFOF(4);
+    FIFO#(void) remove_res_fifo <- mkBypassFIFO;
+    FIFOF#(Node#(v, p)) remove_req_fifo <- mkSizedFIFOF(4);
 
+    Reg#(Bit#(1)) insert_in_progress <- mkReg(0);
+    Reg#(Bit#(1)) remove_in_progress <- mkReg(0);
     Bool deq_ok = (curr_size > 0);
 
-    rule insert_item;
+    rule insert_item (insert_in_progress == 1);
         let x <- toGet(priority_encoder.bin).get;
         dynamicAssert(!isValid(x), "Error: priority encoder returns invalid location");
         case (x) matches
@@ -105,13 +123,47 @@ module mkMinPriorityQueue(MinPriorityQueue#(n, v, p))
               insert_res_fifo.enq(?);
            end
         endcase
+        insert_in_progress <= 0;
     endrule
 
-    rule handle_insert_req;
+    rule remove_item (remove_in_progress == 1);
+        let x <- toGet(priority_encoder.bin).get;
+        dynamicAssert(!isValid(x), "Error: priority encoder returns invalid location");
+        case (x) matches
+            tagged Valid .index : begin
+                let v = readVReg(sorted_list);
+                let shiftedV = shiftOutFrom0(defaultValue, v, 1);
+                Vector#(n, Node#(v, p)) outV = newVector;
+                for (Integer i=0; i<valueOf(n); i=i+1) begin
+                    if (fromInteger(i) < index)
+                        outV[i] = v[i];
+                    else
+                        outV[i] = shiftedV[i];
+                end
+                writeVReg(sorted_list, outV);
+                curr_size <= curr_size - 1;
+                remove_res_fifo.enq(?);
+            end
+        endcase
+        remove_in_progress <= 0;
+    endrule
+
+    rule handle_insert_req (insert_in_progress == 0 && remove_in_progress == 0);
        let v <- toGet(insert_req_fifo).get;
        node_to_insert <= v;
-       let r = map(uncurry(compare), zip(readVReg(sorted_list), replicate(v)));
+       let r = map(uncurry(comparePriority),
+                   zip(readVReg(sorted_list), replicate(v)));
        priority_encoder.oht.put(pack(r));
+       insert_in_progress <= 1;
+    endrule
+
+    rule handle_remove_req (insert_in_progress == 0 && remove_in_progress == 0);
+       let v <- toGet(remove_req_fifo).get;
+       node_to_remove <= v;
+       let r = map(uncurry(compareValue),
+                   zip(readVReg(sorted_list), replicate(v)));
+       priority_encoder.oht.put(pack(r));
+       remove_in_progress <= 1;
     endrule
 
     method ActionValue#(Node#(v, p)) first() if (curr_size > 0);
@@ -129,14 +181,24 @@ module mkMinPriorityQueue(MinPriorityQueue#(n, v, p))
         curr_size <= 0;
     endmethod
 
+    method ActionValue#(Bit#(TLog#(n))) size();
+        return curr_size;
+    endmethod
+
     method Action displayQueue();
         for (Integer i = 0; i < valueof(n); i = i + 1)
-            $display("(%d %d)", sorted_list[i].v, sorted_list[i].p);
+            $write("(%d,%d)", sorted_list[i].v, sorted_list[i].p);
+        $display;
     endmethod
 
     interface Server insert;
        interface request = toPut(insert_req_fifo);
        interface response = toGet(insert_res_fifo);
+    endinterface
+
+    interface Server remove;
+       interface request = toPut(remove_req_fifo);
+       interface response = toGet(remove_res_fifo);
     endinterface
 endmodule
 

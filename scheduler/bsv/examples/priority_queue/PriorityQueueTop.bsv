@@ -42,6 +42,7 @@ module mkPriorityQueueTop#(PriorityQueueTopIndication indication)(PriorityQueueT
 
    Reg#(Bit#(1)) start_counting <- mkReg(0);
    Reg#(Bit#(1)) start_inserting <- mkReg(0);
+   Reg#(Bit#(1)) start_removing <- mkReg(0);
    Reg#(Bit#(1)) start_get_insert_loop <- mkReg(0);
    Reg#(Bit#(1)) wait_for_completion <- mkReg(0);
 
@@ -99,6 +100,8 @@ module mkPriorityQueueTop#(PriorityQueueTopIndication indication)(PriorityQueueT
    rule insert_res;
        let x <- toGet(min_priority_queue.insert.response).get;
        wait_for_completion <= 0;
+       if (iteration == 11)
+           start_removing <= 1;
    endrule
 
    rule get_min_node (start_inserting == 0
@@ -107,7 +110,9 @@ module mkPriorityQueueTop#(PriorityQueueTopIndication indication)(PriorityQueueT
        $display("Itr = %d clock = %d", iteration, count);
        iteration <= iteration + 1;
        if (iteration == 10)
+       begin
            start_get_insert_loop <= 0;
+       end
        min_priority_queue.displayQueue();
        let x <- min_priority_queue.first;
        min_priority_queue.deq;
@@ -115,6 +120,28 @@ module mkPriorityQueueTop#(PriorityQueueTopIndication indication)(PriorityQueueT
        x.p = x.p + 3;
        min_priority_queue.insert.request.put(x);
        wait_for_completion <= 1;
+   endrule
+
+   rule remove_node (start_removing == 1);
+       min_priority_queue.displayQueue;
+       Node#(Bit#(16), Bit#(16)) n = Node {
+                                        v : 6,
+                                        p : 0
+                                    };
+       min_priority_queue.remove.request.put(n);
+       start_removing <= 0;
+       $display("Removing node v = 6");
+   endrule
+
+   Reg#(Bit#(1)) print <- mkReg(0);
+   rule remove_response;
+       let x <- min_priority_queue.remove.response.get;
+       print <= 1;
+   endrule
+
+   rule print_queue_after_remove (print == 1);
+       print <= 0;
+       min_priority_queue.displayQueue;
    endrule
 
    interface PriorityQueueTopRequest request;
