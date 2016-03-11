@@ -727,13 +727,14 @@ module mkSchedulerTopSim#(SchedulerTopSimIndication indication2)(SchedulerTopSim
                                      && start_sending[i][j] == 1);
                 fire_fwd_queue_len[i][j] <= 0;
                 start_sending[i][j] <= 0;
-                $display("[SCHED (%d)] FWD QUEUE %d", i, j);
+                $write("[SCHED %d, Queue %d]", i, j);
                 Vector#(RING_BUFFER_SIZE, Bit#(64)) temp = replicate(0);
                 for (Integer k = 0; k < valueof(RING_BUFFER_SIZE); k = k + 1)
                 begin
                     temp[k] = fwd_queue_len_reg[i][j][k];
-                    $display("%d", temp[k]);
+                    $write("%d,", temp[k]);
                 end
+                $display;
 
                 if (j < (valueof(NUM_OF_SERVERS)-1))
                     start_sending[i][j+1] <= 1;

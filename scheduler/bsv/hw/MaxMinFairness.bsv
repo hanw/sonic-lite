@@ -1,5 +1,9 @@
 import Vector::*;
+import FIFO::*;
+import SpecialFIFOs::*;
 import DefaultValue::*;
+import ClientServer::*;
+import GetPut::*;
 
 import SchedulerTypes::*;
 
@@ -17,7 +21,14 @@ instance DefaultValue#(FlowElement);
                 };
 endinstance
 
+typedef struct {
+    ServerIndex src;
+    ServerIndex dst;
+    ServerIndex mid;
+} BottleneckCountParams deriving(Bits, Eq);
+
 interface MaxMinFairness;
+    interface Server#(BottleneckCountParams, ServerIndex) bottleneck_count;
     method Action addFlow(ServerIndex src,
                           ServerIndex dst,
                           Bit#(16) flow_id,
@@ -34,9 +45,6 @@ interface MaxMinFairness;
                                        Bit#(16) seq_num);
     method Action remFromFlowCountMatrix(ServerIndex src,
                                          ServerIndex dst);
-    method ServerIndex getBottleneckCount(ServerIndex src,
-                                          ServerIndex dst,
-                                          ServerIndex mid);
     method Action printMatrix(ServerIndex host_index);
 endinterface
 
@@ -52,6 +60,15 @@ module mkMaxMinFairness (MaxMinFairness);
     Reg#(Bool) add_to_matrix <- mkReg(False);
 
     Reg#(Bit#(1)) stop_adding_removing_flag <- mkReg(0);
+
+    FIFO#(BottleneckCountParams) bottleneck_count_req_fifo <- mkBypassFIFO;
+    FIFO#(ServerIndex) bottleneck_count_res_fifo <- mkBypassFIFO;
+
+    rule handle_bottleneck_count_req;
+        let req <- toGet(bottleneck_count_req_fifo).get;
+        bottleneck_count_res_fifo.enq(max(flow_count_matrix[req.src][req.mid],
+                                          flow_count_matrix[req.mid][req.dst]));
+    endrule
 
     for (Integer i = 0; i < valueof(NUM_OF_SERVERS); i = i + 1)
     begin
@@ -133,21 +150,20 @@ module mkMaxMinFairness (MaxMinFairness);
         end
     endmethod
 
-    method ServerIndex getBottleneckCount(ServerIndex src,
-                                          ServerIndex dst,
-                                          ServerIndex mid);
-        return max(flow_count_matrix[src][mid], flow_count_matrix[mid][dst]);
-    endmethod
-
     method Action printMatrix(ServerIndex host_index);
         $display("[SCHED (%d)] Flow count matrix", host_index);
         for (Integer i = 0; i < valueof(NUM_OF_SERVERS); i = i + 1)
         begin
             for (Integer j = 0; j < valueof(NUM_OF_SERVERS); j = j + 1)
             begin
-                $display("%d", flow_count_matrix[i][j]);
+                $write("%d ", flow_count_matrix[i][j]);
             end
+            $display;
         end
-        $display("\n");
     endmethod
+
+    interface Server bottleneck_count;
+        interface request = toPut(bottleneck_count_req_fifo);
+        interface response = toGet(bottleneck_count_res_fifo);
+    endinterface
 endmodule

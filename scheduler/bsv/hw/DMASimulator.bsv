@@ -77,7 +77,7 @@ module mkDMASimulator#(Scheduler#(ReadReqType, ReadResType,
     Clock defaultClock <- exposeCurrentClock();
     Reset defaultReset <- exposeCurrentReset();
 
-    Reg#(Bool) verbose <- mkReg(False);
+    Reg#(Bool) verbose <- mkReg(True);
 
     GlobalClock clk <- mkGlobalClock;
 
@@ -88,6 +88,7 @@ module mkDMASimulator#(Scheduler#(ReadReqType, ReadResType,
 	SyncFIFOIfc#(DMAStatsT) dma_stats_fifo
 	         <- mkSyncFIFO(1, defaultClock, defaultReset, pcieClock);
     Vector#(NUM_OF_SERVERS, Reg#(Bit#(64))) flow_pkt_count <- replicateM(mkReg(0));
+    Vector#(NUM_OF_SERVERS, Reg#(Bit#(64))) total_pkt_count <- replicateM(mkReg(0));
 
 //	SyncFIFOIfc#(ServerIndex) debug_sending_pkt_fifo
 //	         <- mkSyncFIFO(10, defaultClock, defaultReset, pcieClock);
@@ -118,6 +119,8 @@ module mkDMASimulator#(Scheduler#(ReadReqType, ReadResType,
     Vector#(NUM_OF_SERVERS, Reg#(Bit#(64))) flow_length <- replicateM(mkReg(0));
     Vector#(NUM_OF_SERVERS, Reg#(Bit#(16))) flow_id <- replicateM(mkReg(1));
     Vector#(NUM_OF_SERVERS, Reg#(Bit#(16))) seq_num <- replicateM(mkReg(1));
+
+    Vector#(NUM_OF_SERVERS, Reg#(Bit#(1))) rem_notification <- replicateM(mkReg(0));
 
     for (Integer i = 0; i < valueof(NUM_OF_SERVERS); i = i + 1)
     begin
@@ -150,9 +153,10 @@ module mkDMASimulator#(Scheduler#(ReadReqType, ReadResType,
                                        && start_sending_new_pkt[i] == 1
                                        && transmission_in_progress[i] == 0);
 
-            if (flow_pkt_count[i] == flow_length[i] - 1)
+            if (flow_pkt_count[i] == flow_length[i] - 1) //start of last pkt
             begin
                 start_flow[i] <= 0;
+                scheduler.special_buf_clear_req[i].put(?);
             end
 
             flow_pkt_count[i] <= flow_pkt_count[i] + 1;
@@ -164,13 +168,15 @@ module mkDMASimulator#(Scheduler#(ReadReqType, ReadResType,
                                     flow_start : 1
                                   };
                 scheduler.flow_notification_req.put(f);
+                if (verbose)
+                    $display("[DMA %d %d] New flow notification", host_index, i);
             end
 
             transmission_in_progress[i] <= 1;
             init_header[i] <= 1;
             block_count[i] <= 0;
 
-    //		debug_sending_pkt_fifo.enq(1);
+    		//debug_sending_pkt_fifo.enq(1);
 
             num_of_blocks_to_transmit[i] <= 4; /* 64 byte packets */
         endrule
@@ -195,43 +201,102 @@ module mkDMASimulator#(Scheduler#(ReadReqType, ReadResType,
             begin
                 if (flow_pkt_count[i] == flow_length[i]) //last pkt in the flow
                 begin
-                    flow_pkt_count[i] <= 0;
                     header_data[258] = 1;
-                    header_data[259] = 1;
+                    scheduler.special_buf_write_req[i].put
+                            (makeWriteReq(1, 0, header_data[383:256]));
+                    if (verbose)
+                        $display("[DMA %d %d] REM pkt", host_index, i);
                 end
-                scheduler.dma_write_request[i].put
-                        (makeWriteReq(1, 0, header_data[383:256]));
+                else
+                    scheduler.dma_write_request[i].put
+                            (makeWriteReq(1, 0, header_data[383:256]));
+                if (verbose)
+                $display("[DMA %d %d] clk = %d %x", host_index, i, clk.currTime,
+                                                          header_data[383:256]);
             end
             else if (block_count[i] == 1)
             begin
                 Bit#(32) temp = {flow_id[i], seq_num[i]};
                 header_data[255:224] = temp;
                 seq_num[i] <= seq_num[i] + 1;
-                scheduler.dma_write_request[i].put
-                        (makeWriteReq(0, 0, header_data[255:128]));
+                if (flow_pkt_count[i] == flow_length[i]) //last pkt in the flow
+                    scheduler.special_buf_write_req[i].put
+                            (makeWriteReq(1, 0, header_data[255:128]));
+                else
+                    scheduler.dma_write_request[i].put
+                            (makeWriteReq(0, 0, header_data[255:128]));
+                if (verbose)
+                $display("[DMA %d %d] clk = %d %x", host_index, i, clk.currTime,
+                                                          header_data[255:128]);
             end
             else if (block_count[i] == 2)
             begin
-                if (flow_pkt_count[i] == flow_length[i])
-                begin
-                    flow_id[i] <= flow_id[i] + 1;
-                    seq_num[i] <= 1;
-                end
-                scheduler.dma_write_request[i].put
-                        (makeWriteReq(0, 0, header_data[127:0]));
+                if (flow_pkt_count[i] == flow_length[i]) //last pkt in the flow
+                    scheduler.special_buf_write_req[i].put
+                            (makeWriteReq(1, 0, header_data[127:0]));
+                else
+                    scheduler.dma_write_request[i].put
+                            (makeWriteReq(0, 0, header_data[127:0]));
+                if (verbose)
+                $display("[DMA %d %d] clk = %d %x", host_index, i, clk.currTime,
+                                                          header_data[127:0]);
             end
             else if (block_count[i] == num_of_blocks_to_transmit[i] - 1)
             begin
                 transmission_in_progress[i] <= 0;
                 wait_for_pkt_trans_to_complete[i] <= 0;
                 start_sending_new_pkt[i] <= 0;
-                scheduler.dma_write_request[i].put
-                      (makeWriteReq(0, 1, zeroExtend(host_index)));
+                if (flow_pkt_count[i] == flow_length[i])
+                begin
+                    total_pkt_count[i] <= total_pkt_count[i] + flow_pkt_count[i];
+                    flow_pkt_count[i] <= 0;
+                    flow_id[i] <= flow_id[i] + 1;
+                    seq_num[i] <= 1;
+                    rem_notification[i] <= 1;
+                    scheduler.special_buf_write_req[i].put
+                            (makeWriteReq(0, 1, zeroExtend(host_index)));
+                    if (verbose)
+                        $display("[DMA %d %d] End of flow notification", host_index, i);
+                end
+                else
+                    scheduler.dma_write_request[i].put
+                            (makeWriteReq(0, 1, zeroExtend(host_index)));
+                if (verbose)
+                begin
+                Bit#(128) b = zeroExtend(host_index);
+                $display("[DMA %d %d] clk = %d %x", host_index, i, clk.currTime, b);
+                end
             end
             else
             begin
-                scheduler.dma_write_request[i].put
-                      (makeWriteReq(0, 0, 'hab4eff284ffabeff36277842baffe465));
+                if (flow_pkt_count[i] == flow_length[i])
+                    scheduler.special_buf_write_req[i].put
+                          (makeWriteReq(0, 0, 'hab4eff284ffabeff36277842baffe465));
+                else
+                    scheduler.dma_write_request[i].put
+                          (makeWriteReq(0, 0, 'hab4eff284ffabeff36277842baffe465));
+                if (verbose)
+                begin
+                Bit#(128) b = 'hab4eff284ffabeff36277842baffe465;
+                $display("[DMA %d %d] clk = %d %x", host_index, i, clk.currTime, b);
+                end
+            end
+        endrule
+
+        rule get_special_buf_length (rem_notification[i] == 1);
+            scheduler.dma_length_req[i].put(?);
+        endrule
+
+        rule check_to_put_rem_notification;
+            let x <- scheduler.dma_length_res[i].get;
+            if (x == 0)
+            begin
+                rem_notification[i] <= 0;
+                FlowStartEndT f = FlowStartEndT {
+                                    dst : fromInteger(i),
+                                    flow_start : 0
+                                  };
+                scheduler.flow_notification_req.put(f);
             end
         endrule
     end
@@ -301,7 +366,7 @@ module mkDMASimulator#(Scheduler#(ReadReqType, ReadResType,
 	method Action getDMAStats();
         Bit#(64) c = 0;
         for (Integer i = 0; i < valueof(NUM_OF_SERVERS); i = i + 1)
-            c = c + flow_pkt_count[i];
+            c = c + total_pkt_count[i];
         DMAStatsT stats = DMAStatsT {
                             pkt_count : c
                           };
