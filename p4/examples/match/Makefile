@@ -30,7 +30,7 @@ CONNECTALFLAGS += -m $(P4FPGADIR)/bsv/matchtable_model.cpp
 CONNECTALFLAGS += --cxxflags=-std=c++11
 
 CONNECTALFLAGS += --nocache
-CONNECTALFLAGS += --chipscope=$(P4FPGADIR)/examples/match/debug.stp
+#CONNECTALFLAGS += --chipscope=$(P4FPGADIR)/examples/match/debug.stp
 
 run:
 	(cd bluesim; ./bin/ubuntu.exe -a -s -l)
