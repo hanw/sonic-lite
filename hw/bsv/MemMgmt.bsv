@@ -106,6 +106,13 @@ module mkMMUIndicationProxy
    interface Get idResponse = toGet(idresponse_fifo);
 endmodule
 
+typedef struct {
+   Bit#(PageIdx) nPages;
+   MemMgmtAllocReq#(numAllocClients) request;
+   Bit#(EtherLen) mask;
+   Bit#(32) id;
+} Stage2Params#(numeric type numAllocClients) deriving (Bits);
+
 interface MemMgmt#(numeric type addrWidth, numeric type numAllocClients, numeric type numReadClients);
    method Action init_mem();
    interface MMU#(addrWidth) mmu;
@@ -139,7 +146,7 @@ module mkMemMgmt
    Reg#(Bool) invalidSegment <- mkReg(False);
 
    Reg#(Bool) inited <- mkReg(False);
-   FIFO#(MemMgmtAllocReq#(numAllocClients)) mallcRequestFifo <- mkSizedFIFO(16);
+   FIFOF#(MemMgmtAllocReq#(numAllocClients)) mallcRequestFifo <- mkSizedFIFOF(16);
    FIFO#(MemMgmtAllocReq#(numAllocClients)) currRequestFIfo <- mkFIFO;
    FIFO#(MemMgmtAllocResp#(numAllocClients)) mallocDoneFifo <- mkFIFO;
    FIFOF#(PktId) freeRequestFifo <- mkFIFOF;
@@ -171,6 +178,8 @@ module mkMemMgmt
    FIFO#(Bool) freeDoneFifo <- mkFIFO;
    FIFO#(MemMgmtError) memMgmtErrorFifo <- mkFIFO;
    FIFO#(Bit#(PageIdx)) pagePointerFifo <- mkFIFO;
+
+   FIFOF#(Stage2Params#(numAllocClients)) stage2Params <- mkFIFOF;
 
    MMUIndicationProxy proxy <- mkMMUIndicationProxy(
 `ifdef DEBUG
@@ -207,18 +216,22 @@ module mkMemMgmt
       $display("MemMgmt:: %d handle_malloc allocate nPage=%d", cycle, nPages);
       let hasSpace <- freePageCount.maybeDecrement(unpack(nPages));
       if (hasSpace) begin
-         reqBurstLen <= nPages;
-         reqSglIndex <= 0;
-         lastSegment <= tagged Invalid;
-         barr0 <= extend(((v.req + mask) & (~mask)) >> valueOf(PageAddrLen));
-         packetId <= truncate(id); // MaxNumPkts defined in SharedBuffMMU;
-         currRequestFIfo.enq(v);
+         stage2Params.enq(Stage2Params{
+            nPages : nPages,
+            request : v,
+            mask : mask,
+            id : id });
       end
-      else begin
-         $display("Error:: insufficient space %d instead of %d", freePageCount.read, nPages);
-         mallocDoneFifo.enq(MemMgmtAllocResp{id: tagged Invalid, clients: v.clients});
-         errorCode <= extend(pack(MemMgmtErrorOutOfSpace));
-      end
+   endrule
+
+   rule handle_alloc_req2;
+      let params <- toGet(stage2Params).get;
+      reqBurstLen <= params.nPages;
+      reqSglIndex <= 0;
+      lastSegment <= tagged Invalid;
+      barr0 <= extend(((params.request.req + params.mask) & (~params.mask)) >> valueOf(PageAddrLen));
+      packetId <= truncate(params.id); // MaxNumPkts defined in SharedBuffMMU;
+      currRequestFIfo.enq(params.request);
    endrule
 
    rule generate_sglist if (reqBurstLen > 0);
