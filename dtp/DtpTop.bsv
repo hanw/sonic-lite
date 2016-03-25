@@ -75,7 +75,7 @@ module mkDtpTop#(DtpIndication indication)(DtpTop);
    Reset dummyTxReset <- mkAsyncReset(2, dummyReset.new_rst, txClock);
 
    DtpController dtp <- mkDtpController(indication, txClock, dummyTxReset);
-   Reset rst_api <- mkSyncReset(2, dtp.ifc.rst, txClock);
+   Reset rst_api <- mkAsyncReset(2, dtp.ifc.rst, txClock);
    Reset dtp_rst <- mkResetEither(dummyTxReset, rst_api, clocked_by txClock);
 
    NetTopIfc net <- mkNetTop(clock_50, txClock, phyClock, clocked_by txClock, reset_by dtp_rst);
