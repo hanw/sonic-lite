@@ -60,13 +60,8 @@ interface DmaRequest;
    // @param bytes number of bytes to read, must be a multiple of the buswidth in bytes
    // @param tag   identifier for the request
    method Action transferToFpga(Bit#(32) objId, Bit#(32) base, Bit#(32) bytes, Bit#(8) tag);
-   //
-   // Requests a transferFromFpga of system memory, streaming the data from the fromFpga PipeIn
-   // @param objId the reference to the memory object allocated by portalAlloc
-   // @param base  offset, in bytes, to which to start writing
-   // @param bytes number of bytes to write, must be a multiple of the buswidth in bytes
-   // @param tag   identifier for the request
-//   method Action transferFromFpga(Bit#(32) objId, Bit#(32) base, Bit#(32) bytes, Bit#(8) tag);
+   // 
+   method Action objTransferFromFpga(Bit#(8) id, Bit#(32) objId);
 endinterface
 
 interface DmaIndication;
@@ -132,6 +127,8 @@ module mkDmaController#(Vector#(numChannels,DmaIndication) indication, Clock txC
    Vector#(numChannels, FIFO#(Bit#(EtherLen))) ringToDmaLen <- replicateM(mkFIFO(clocked_by txClock, reset_by txReset));
    Vector#(numChannels, FIFO#(EtherReq)) ringToDmaReq <- replicateM(mkFIFO(clocked_by txClock, reset_by txReset));
    Vector#(numChannels, SyncFIFOIfc#(Bit#(32)))   writeLens <- replicateM(mkSyncFIFO(valueOf(NumOutstandingRequests), txClock, txReset, defaultClock));
+   Vector#(numChannels, Vector#(4, Reg#(Bit#(32)))) writeObjs <- replicateM(replicateM(mkReg(0)));
+   Vector#(numChannels, Reg#(Bit#(8))) writeObjsCurIdx <- replicateM(mkReg(0));
 
    Reg#(Bit#(BurstLenSize)) writeRequestSizeReg <- mkReg(64);
    Reg#(Bit#(BurstLenSize)) readRequestSizeReg <- mkReg(256);
@@ -239,13 +236,17 @@ module mkDmaController#(Vector#(numChannels,DmaIndication) indication, Clock txC
          toPut(we.writeServers[channel].data).put(v.data);
          if (v.sop) begin     // parallalize dma
             let pktLen = findNearestMultiple(writeLens[channel].first, 16);
-            writeCmds[channel].enq(MemengineCmd {sglId:0,   // TODO
+            let vec = writeObjs[channel];
+            let idx = writeObjsCurIdx[channel];
+            writeCmds[channel].enq(MemengineCmd {sglId:truncate(vec[idx]),   // TODO
+            //writeCmds[channel].enq(MemengineCmd {sglId:0,   // TODO
                         base:0, 
-                        burstLen: writeRequestSizeReg,
+                        burstLen: extend(writeRequestSizeReg),
                         len: pktLen,
                         tag:0
                         });
             writeLens[channel].deq;
+            writeObjsCurIdx[channel] <= (writeObjsCurIdx[channel] + 1) & 'h3;
          end
       endrule
       rule transferFromFpgaReqRule (!writeProcessing);
@@ -286,6 +287,9 @@ module mkDmaController#(Vector#(numChannels,DmaIndication) indication, Clock txC
                                                 len: bytes,
                                                 tag: truncate(tag)
                                                 });
+         endmethod
+         method Action objTransferFromFpga(Bit#(8) id, Bit#(32) objId);
+            if (id < 4) writeObjs[channel][id] <= objId;
          endmethod
          endinterface);
    endfunction
