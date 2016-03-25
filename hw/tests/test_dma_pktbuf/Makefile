@@ -28,10 +28,36 @@ CONNECTALFLAGS += --modelsim $(IPDIR)/$(BOARD)/simulation/altera_xcvr_10gbaser_w
 CONNECTALFLAGS += --modelsim $(IPDIR)/$(BOARD)/simulation/altera_xcvr_10gbaser_wrapper/submodules/alt_xcvr_csr_selector.sv
 endif
 
+ifeq ($(BOARD), de5)
+AUTOTOP= --interface pins:TestTop.pins
+PIN_TYPE=DE5Pins
+PIN_TYPE_INCLUDE=DE5Pins
+PINOUT_FILE=../../../boards/de5.json
+#PIN_BINDINGS?=PCIE:PCIE LED:LED OSC:OSC SFPA:SFPA SFPB:SFPB SFPC:SFPC SFPD:SFPD SFP:SFP I2C:I2C BUTTON:BUTTON
+PIN_BINDINGS?=PCIE:PCIE LED:LED OSC:OSC I2C:I2C SFP:SFP BUTTON:BUTTON
+CONNECTALFLAGS += --nocache
+CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/pll_156/altera_pll_156.qip
+CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/altera_clkctrl/altera_clkctrl.qip
+CONNECTALFLAGS += --verilog=$(PROJTOP)/../../../hw/verilog/si570/
+CONNECTALFLAGS += --verilog=$(PROJTOP)/../../../hw/verilog/
+
+CONNECTALFLAGS += -D PcieHostIF
+#CONNECTALFLAGS += -D DEBUG_ETH
+endif
+
 CONNECTALFLAGS += -D DtpVersion=$(shell printf "%d" 0x`git rev-parse --short=8 HEAD`)
 
 ifneq (, $(BLUESIM))
 CONNECTALFLAGS += --pinfo=$(PROJTOP)/../../../boards/dtp_synth.json
+endif
+
+prebuild::
+ifeq ($(BOARD), de5)
+ifneq (, $(QUARTUS_SH))
+	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) $(QUARTUS_SH) -t $(CONNECTALDIR)/scripts/connectal-synth-pll.tcl)
+	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) $(QUARTUS_SH) -t $(PROJTOP)/../../../hw/scripts/connectal-synth-misc.tcl)
+	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) $(QUARTUS_SH) -t $(CONNECTALDIR)/scripts/connectal-synth-eth.tcl)
+endif
 endif
 
 LEN=1000

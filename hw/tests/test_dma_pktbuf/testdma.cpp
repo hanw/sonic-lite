@@ -88,6 +88,8 @@ class ChannelWorker : public DmaCallback {
             char * p = buffers[i]->buffer();
             for ( int j = 0 ; j < arraySize ; j ++) 
                 p[j] = (char) j;
+
+            channel->setObjTransferFromFpga(i, buffers[i]->reference());
         }
     }
 

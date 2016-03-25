@@ -83,4 +83,5 @@ public:
     int setWriteRequestSize(int writeRequest);
     // change readRequestSize
     int setReadRequestSize(int readRequest);
+    int setObjTransferFromFpga(const uint8_t id, const uint32_t objId);
 };

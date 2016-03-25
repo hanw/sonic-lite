@@ -133,3 +133,11 @@ int DmaChannel::setReadRequestSize(int bytes)
   if (!singleThreadedAccess) pthread_mutex_unlock(&channel_lock);
   return this->readRequestSize;
 }
+
+int DmaChannel::setObjTransferFromFpga(const uint8_t id, const uint32_t objId)
+{
+  if (!singleThreadedAccess) pthread_mutex_lock(&channel_lock);
+  int v = dmaRequest->objTransferFromFpga(id, objId);
+  if (!singleThreadedAccess) pthread_mutex_unlock(&channel_lock);
+  return v;
+}

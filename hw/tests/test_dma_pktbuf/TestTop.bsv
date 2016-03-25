@@ -40,7 +40,6 @@ import StoreAndForward::*;
 import Ethernet::*;
 import EthMac::*;
 import DmaEth::*;
-import DmaTopPins::*;
 import TestAPI::*;
 import MemTypes::*;
 import MemReadEngine::*;
@@ -49,7 +48,12 @@ import PacketBuffer::*;
 import HostInterface::*;
 import `PinTypeInclude::*;
 import ConnectalClocks::*;
+`ifdef SYNTHESIS
+import ALTERA_SI570_WRAPPER::*;
+import AlteraExtra::*;
+`else
 import Sims::*;
+`endif
 
 interface TestTop;
    interface TestRequest request1;
@@ -63,7 +67,15 @@ module mkTestTop#(TestIndication indication1, DmaIndication indication2)(TestTop
    Clock defaultClock <- exposeCurrentClock();
    Reset defaultReset <- exposeCurrentReset();
 
+`ifdef SYNTHESIS
+   Wire#(Bit#(1)) clk_644_wire <- mkDWire(0);
+   Wire#(Bit#(1)) clk_50_wire <- mkDWire(0);
+
+   De5Clocks clocks <- mkDe5Clocks(clk_50_wire, clk_644_wire);
+   De5SfpCtrl#(4) sfpctrl <- mkDe5SfpCtrl();
+`else
    SimClocks clocks <- mkSimClocks();
+`endif
    Clock txClock = clocks.clock_156_25;
    Clock phyClock = clocks.clock_644_53;
    Clock mgmtClock = clocks.clock_50;
@@ -90,11 +102,28 @@ module mkTestTop#(TestIndication indication1, DmaIndication indication2)(TestTop
    // Connect pkt_buff[1] and DMA controller
    mkConnection(dmaController.networkReadClient[0], pkt_buff[1].readServer);
 
-//   mkConnection(ringToMac[1].macTx, macToRing[1].macRx);
    TestAPI api <- mkTestAPI(indication1, pkt_buff, ringToMac, macToRing, txClock, txReset);
 
    interface request1 = api.request;
    interface request2 = dmaController.request[0];
    interface readClient = dmaController.readClient;
    interface writeClient = dmaController.writeClient;
+`ifdef SYNTHESIS
+   interface `PinType pins;
+      // Clocks
+      method Action osc_50(Bit#(1) b3d, Bit#(1) b4a, Bit#(1) b4d, Bit#(1) b7a, Bit#(1) b7d, Bit#(1) b8a, Bit#(1) b8d);
+         clk_50_wire <= b4a;
+      endmethod
+      method Action sfp(Bit#(1) refclk);
+         clk_644_wire <= refclk;
+      endmethod
+      interface i2c = clocks.i2c;
+//      interface sfpctrl = sfpctrl;
+      interface deleteme_unused_clock = defaultClock;
+      interface deleteme_unused_clock2 = mgmtClock;
+      interface deleteme_unused_clock3 = defaultClock;
+      interface deleteme_unused_reset = defaultReset;
+   endinterface
+`endif
+
 endmodule
