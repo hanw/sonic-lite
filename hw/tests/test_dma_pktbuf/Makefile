@@ -12,7 +12,8 @@ CONNECTALFLAGS += --bsvpath=$(PROJTOP)/../../../p4/examples/tdm/
 S2H_INTERFACES=TestRequest:TestTop.request1 DmaRequest:TestTop.request2 
 H2S_INTERFACES=TestTop:TestIndication,DmaIndication
 BSVFILES=$(PROJTOP)/TestTop.bsv $(PROJTOP)/TestAPI.bsv $(PROJTOP)/../../bsv/DmaEth.bsv
-CPPFILES=$(PROJTOP)/testdma.cpp $(PROJTOP)/dmac.cpp 
+CPPFILES=$(PROJTOP)/testdma.cpp $(PROJTOP)/../../../sw/dmac.cpp 
+CONNECTALFLAGS += -I $(PROJTOP)/../../../sw/
 CONNECTALFLAGS += -D DataBusWidth=128
 CONNECTALFLAGS += -D BYTE_ENABLES
 CONNECTALFLAGS += -D NumChannels=1
