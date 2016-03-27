@@ -34,7 +34,7 @@
 #ifdef SIMULATION
 int arraySize = 1024;
 #else
-int arraySize = 128*1024;
+int arraySize = 1024;
 #endif
 int numchannels = 1;
 int numIters = 1;
@@ -113,9 +113,9 @@ class ChannelWorker : public DmaCallback {
             channel->transferToFpga(buffers[1], 0, arraySize, channelNumber);
         } 
     }
-    void transferFromFpgaDone ( uint32_t sglId, uint32_t base, uint8_t tag, uint32_t cycles ) {
-        fprintf(stderr, "[%s:%d] sglId=%d base=%08x tag=%d writeReqBytes=%d cycles=%d transferFromFpga bandwidth %5.2f MB/s link utilization %5.2f%%\n",
-        __FUNCTION__, __LINE__, sglId, base, tag, writeReqBytes, cycles, 16*250*linkUtilization(cycles), 100.0*linkUtilization(cycles, 1));
+    void transferFromFpgaDone ( uint32_t sglId, uint32_t base, uint8_t tag, uint32_t cycles, uint32_t len ) {
+        fprintf(stderr, "[%s:%d] sglId=%d base=%08x tag=%d writeReqBytes=%d cycles=%d len=%d transferFromFpga bandwidth %5.2f MB/s link utilization %5.2f%%\n",
+        __FUNCTION__, __LINE__, sglId, base, tag, writeReqBytes, cycles, len, 16*250*linkUtilization(cycles), 100.0*linkUtilization(cycles, 1));
         if (0)
             for (int i = 0; i < 4; i++) {
                 if (buffers[i]->reference() == sglId) {

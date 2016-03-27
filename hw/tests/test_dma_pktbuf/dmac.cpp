@@ -68,9 +68,9 @@ public:
 	if (callbacks)
 	    callbacks->transferToFpgaDone(sglId, base, tag, cycles);
     }
-    void transferFromFpgaDone ( uint32_t sglId, uint32_t base, uint8_t tag, uint32_t cycles ) {
+    void transferFromFpgaDone ( uint32_t sglId, uint32_t base, uint8_t tag, uint32_t cycles, uint32_t len ) {
 	if (callbacks)
-	    callbacks->transferFromFpgaDone(sglId, base, tag, cycles);
+	    callbacks->transferFromFpgaDone(sglId, base, tag, cycles, len);
     }
     void readTransferToFpgaStatDone(uint32_t a, uint64_t b, uint64_t c, uint64_t d) {
         fprintf(stderr, "Channel %d  Bytes: %ld  Sops: %ld  Eops: %ld\n", a, b, c, d);
