@@ -34,9 +34,9 @@ int arraySize = 4*1024;
 #else
 int arraySize = 128*1024;
 #endif
-int doWrite = 0;
+int doWrite = 1;
 int doRead = 1;
-int numchannels = 3;
+int numchannels = 4;
 int numIters = 10;
 int writeReqBytes = 256;
 int readReqBytes = 256;
@@ -156,6 +156,7 @@ void ChannelWorker::run()
 	fprintf(stderr, "[%s:%d] channel %d waiting for responses\n", __FUNCTION__, __LINE__, channelNumber);
 	while (waitCount > 0) {
 	    channel->checkIndications();
+        usleep(100);
 	}
 	waitCount = 0;
     }

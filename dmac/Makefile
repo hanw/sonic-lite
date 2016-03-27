@@ -12,15 +12,15 @@ CONNECTALFLAGS += --bsvpath=$(PROJTOP)/bsv
 BSVFILES=$(PROJTOP)/bsv/DmaTop.bsv $(PROJTOP)/../hw/bsv/DmaController.bsv 
 CPPFILES=$(PROJTOP)/cpp/dmac.cpp $(PROJTOP)/cpp/testdma.cpp
 #S2H_INTERFACES=DmaRequest:DmaTop.request0
-S2H_INTERFACES=DmaRequest:DmaTop.request0,DmaTop.request1,DmaTop.request2
+S2H_INTERFACES=DmaRequest:DmaTop.request0,DmaTop.request1,DmaTop.request2,DmaTop.request3
 #H2S_INTERFACES=DmaTop:DmaIndication
-H2S_INTERFACES=DmaTop:DmaIndication,DmaIndication,DmaIndication
+H2S_INTERFACES=DmaTop:DmaIndication,DmaIndication,DmaIndication,DmaIndication
 MEM_READ_INTERFACES = lDmaTop.readClient
 MEM_WRITE_INTERFACES = lDmaTop.writeClient
 #AUTOTOP= --interface pins:DmaTop.pins
 #PIN_TYPE=DmaTopPins
 PIN_TYPE_INCLUDE=DmaTopPins
-CONNECTALFLAGS += -D NumChannels=3
+CONNECTALFLAGS += -D NumChannels=4
 CONNECTALFLAGS += -D DataBusWidth=128
 #CONNECTALFLAGS += -D BurstLenSize=10
 include $(CONNECTALDIR)/Makefile.connectal

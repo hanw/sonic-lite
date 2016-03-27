@@ -11,8 +11,8 @@ static int proxyNames[] = {
   IfcNames_DmaRequestS2H0,
   IfcNames_DmaRequestS2H1,
   IfcNames_DmaRequestS2H2,
-  /*IfcNames_DmaRequestS2H3,
-  IfcNames_DmaRequestS2H4,
+  IfcNames_DmaRequestS2H3
+  /*IfcNames_DmaRequestS2H4,
   IfcNames_DmaRequestS2H5,
   IfcNames_DmaRequestS2H6,
   IfcNames_DmaRequestS2H7*/
@@ -21,8 +21,8 @@ static int wrapperNames[] = {
   IfcNames_DmaIndicationH2S0,
   IfcNames_DmaIndicationH2S1,
   IfcNames_DmaIndicationH2S2,
-  /*IfcNames_DmaIndicationH2S3,
-  IfcNames_DmaIndicationH2S4,
+  IfcNames_DmaIndicationH2S3
+  /*IfcNames_DmaIndicationH2S4,
   IfcNames_DmaIndicationH2S5,
   IfcNames_DmaIndicationH2S6,
   IfcNames_DmaIndicationH2S7*/
@@ -108,7 +108,7 @@ void DmaChannel::checkIndications()
 #ifdef BOARD_bluesim
 			      100
 #else
--1
+100
 #endif
 );
     if ((long) rc >= 0)

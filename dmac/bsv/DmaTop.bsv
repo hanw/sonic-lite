@@ -20,8 +20,8 @@ interface DmaTop;
    interface DmaRequest request0;
    interface DmaRequest request1;
    interface DmaRequest request2;
-/*   interface DmaRequest request3;
-   interface DmaRequest request4;
+   interface DmaRequest request3;
+/*   interface DmaRequest request4;
    interface DmaRequest request5;
    interface DmaRequest request6;
    interface DmaRequest request7;*/
@@ -34,9 +34,9 @@ endinterface
 
 module mkDmaTop#(DmaIndication dmaIndication0,
 		  DmaIndication dmaIndication1,
-		  DmaIndication dmaIndication2
-/*		  DmaIndication dmaIndication3,
-		  DmaIndication dmaIndication4,
+		  DmaIndication dmaIndication2,
+		  DmaIndication dmaIndication3
+/*		  DmaIndication dmaIndication4,
 		  DmaIndication dmaIndication5,
 		  DmaIndication dmaIndication6,
 		  DmaIndication dmaIndication7*/
@@ -44,9 +44,9 @@ module mkDmaTop#(DmaIndication dmaIndication0,
 
    Vector#(NumChannels,DmaIndication) dmaIndications = vec(dmaIndication0,
 							   dmaIndication1,
-							   dmaIndication2
-/*							   dmaIndication3,
-							   dmaIndication4,
+							   dmaIndication2,
+							   dmaIndication3
+/*							   dmaIndication4,
 							   dmaIndication5,
 							   dmaIndication6,
 							   dmaIndication7*/
@@ -79,8 +79,8 @@ module mkDmaTop#(DmaIndication dmaIndication0,
    interface request0 = dmaController.request[0];
    interface request1 = dmaController.request[1];
    interface request2 = dmaController.request[2];
-/*   interface request3 = dmaController.request[3];
-   interface request4 = dmaController.request[4];
+   interface request3 = dmaController.request[3];
+/*   interface request4 = dmaController.request[4];
    interface request5 = dmaController.request[5];
    interface request6 = dmaController.request[6];
    interface request7 = dmaController.request[7];*/
