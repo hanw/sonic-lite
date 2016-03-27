@@ -68,7 +68,7 @@ interface DmaIndication;
    // Indicates completion of transferToFpga request, identified by tag, from offset base of objId
    method Action transferToFpgaDone(Bit#(32) objId, Bit#(32) base, Bit#(8) tag, Bit#(32) cycles);
    // Indicates completion of transferFromFpga request, identified by tag, to offset base of objId
-   method Action transferFromFpgaDone(Bit#(32) objId, Bit#(32) base, Bit#(8) tag, Bit#(32) cycles);
+   method Action transferFromFpgaDone(Bit#(32) objId, Bit#(32) base, Bit#(8) tag, Bit#(32) cycles, Bit#(32) len);
 endinterface
 
 //
@@ -245,7 +245,6 @@ module mkDmaController#(Vector#(numChannels,DmaIndication) indication, Clock txC
                         len: pktLen,
                         tag:0
                         });
-            writeLens[channel].deq;
             writeObjsCurIdx[channel] <= (writeObjsCurIdx[channel] + 1) & 'h3;
          end
       endrule
@@ -267,7 +266,9 @@ module mkDmaController#(Vector#(numChannels,DmaIndication) indication, Clock txC
          let done <- we.writeServers[channel].done.get();
          let tag <- toGet(writeTags[channel]).get();
          if (verbose) $display ("transferFromFpgaDoneRule done");
-         indication[channel].transferFromFpgaDone(objId, base, tag, cycles);
+         let pktLen = writeLens[channel].first();
+         indication[channel].transferFromFpgaDone(objId, base, tag, cycles, pktLen);
+         writeLens[channel].deq;
          writeProcessing <= False;
       endrule
    end
