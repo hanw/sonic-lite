@@ -103,7 +103,7 @@ module mkDmaController#(Vector#(numChannels,DmaIndication) indication, Clock txC
 
    Clock defaultClock <- exposeCurrentClock();
    Reset defaultReset <- exposeCurrentReset();
-   let verbose = True;
+   let verbose = False;
 
    MemReadEngine#(DataBusWidth,DataBusWidth,NumOutstandingRequests,numChannels)  re <- mkMemReadEngineBuff(valueOf(BufferSizeBytes));
    MemWriteEngine#(DataBusWidth,DataBusWidth,NumOutstandingRequests,numChannels) we <- mkMemWriteEngineBuff(valueOf(BufferSizeBytes));
@@ -145,7 +145,7 @@ module mkDmaController#(Vector#(numChannels,DmaIndication) indication, Clock txC
 
    function Bit#(16) generateBitMask(Bit#(32) bytes);
       let x = 'hffff;
-      let mask = bytes == 0 ? 0 : x << (16 - bytes);
+      let mask = bytes == 0 ? 0 : x >> (16 - bytes);
       return mask;
    endfunction
    // a must be multiple of 2
@@ -186,6 +186,7 @@ module mkDmaController#(Vector#(numChannels,DmaIndication) indication, Clock txC
          etherData.eop = mdf.last;
          etherData.data = mdf.data;
          etherData.mask = mask;
+         $display ("transferToFpgaDataRule %d %d %x %d %d", cyclesReg, bytes, mask, etherData.sop, etherData.eop);
 
          if (mdf.last) begin
             if (verbose) $display ("readDataRule [%d] mdf.last", channel);

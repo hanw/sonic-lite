@@ -116,7 +116,7 @@ module mkEthMac#(Clock clk_50, Clock clk_156_25, Clock rx_clk, Reset rst_156_25_
       packet.data = mac.rx.fifo_out_data();
       packet.sop = mac.rx.fifo_out_startofpacket();
       packet.eop = mac.rx.fifo_out_endofpacket();
-      packet.mask = 1<<mac.rx.fifo_out_empty() - 1;
+      packet.mask =  ('hff >> mac.rx.fifo_out_empty());
 
       if (valid == 1'b1) begin
          rx_fifo.enq(packet);
