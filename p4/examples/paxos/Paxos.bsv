@@ -91,7 +91,7 @@ typedef struct {
     Bit#(32) inst;
     Bit#(16) rnd;
     Bit#(16) vrnd;
-    Bit#(32) acptid;
+    Bit#(16) acptid;
     Bit#(16) msgtype;
     Bit#(256) paxosval;
 } PaxosT deriving (Bits, Eq);
@@ -114,14 +114,14 @@ instance FShow#(PaxosT);
     endfunction
 endinstance
 
-function PaxosT extract_paxos(Bit#(368) data);
-    Vector#(368, Bit#(1)) dataVec=unpack(data);
+function PaxosT extract_paxos(Bit#(352) data);
+    Vector#(352, Bit#(1)) dataVec=unpack(data);
     Vector#(32, Bit#(1)) inst = takeAt(0, dataVec);
     Vector#(16, Bit#(1)) rnd = takeAt(32, dataVec);
     Vector#(16, Bit#(1)) vrnd = takeAt(48, dataVec);
-    Vector#(32, Bit#(1)) acptid = takeAt(64, dataVec);
-    Vector#(16, Bit#(1)) msgtype = takeAt(96, dataVec);
-    Vector#(256, Bit#(1)) paxosval = takeAt(112, dataVec);
+    Vector#(16, Bit#(1)) acptid = takeAt(64, dataVec);
+    Vector#(16, Bit#(1)) msgtype = takeAt(80, dataVec);
+    Vector#(256, Bit#(1)) paxosval = takeAt(96, dataVec);
     PaxosT paxos_t = defaultValue;
     paxos_t.inst = pack(inst);
     paxos_t.rnd = pack(rnd);
