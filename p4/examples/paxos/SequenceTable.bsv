@@ -27,6 +27,23 @@ import FIFO::*;
 import GetPut::*;
 import PaxosTypes::*;
 import RegFile::*;
+import MatchTable::*;
+
+// P4 Table size
+typedef 8 TableSize;
+
+// Generic p4 fields to match against tables
+typedef union tagged {
+   struct {
+
+   } NoneField;
+
+   struct {
+      Bit#(16) msgtype;
+   } MsgtypeField;
+} MatchFields deriving(Bits, Eq, FShow);
+
+typedef Bit#(32) ActionArg;
 
 interface SequenceTable;
    interface Client#(MetadataRequest, MetadataResponse) next;
@@ -38,17 +55,39 @@ module mkSequenceTable#(Client#(MetadataRequest, MetadataResponse) md)(SequenceT
    FIFO#(MetadataRequest) outReqFifo <- mkFIFO;
    FIFO#(MetadataResponse) inRespFifo <- mkFIFO;
    FIFO#(PacketInstance) currPacketFifo <- mkFIFO;
+   // Current instance register is a global counter than increases every time
+   // the Coordinator receives a Paxos 2A message
+   // INIT to 0
+   Reg#(int) current_instance = mkReg (0);
+
+   MatchTable#(TableSize, MatchFields, ActionArg) matchTable <- mkMatchTable();
 
    rule tableLookupRequest;
       let v <- md.request.get;
       case (v) matches
          tagged SequenceTblRequest { pkt: .pkt } : begin
+            matchTable.lookupPort.request.put(NoneField);
          end
       endcase
+   endrule
+
+   rule tableLookupResponse;
+      let resp <- fromMaybe(?, matchTable.lookupPort.response.get);
+      // inRespFifo.enq(resp);
    endrule
 
    interface next = (interface Client#(MetadataRequest, MetadataResponse);
       interface request = toGet(outReqFifo);
       interface response = toPut(inRespFifo);
    endinterface);
+
+   method ActionValue#(int) increaseSequence();
+      // TODO: Replace the value of inst field of Paxos message with the current_instance
+      // paxos.inst <= current_instance
+
+      // increase the counter
+      current_instance <= current_instance + 1;
+      return current_instance;
+   endmethod
+
 endmodule
