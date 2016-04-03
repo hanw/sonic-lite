@@ -30,6 +30,22 @@ import MemTypes::*;
 import PaxosTypes::*;
 import MatchTable::*;
 
+interface BasicBlockForward;
+   // Register Access
+   // Memory Access
+endinterface
+
+module mkBasicBlockForward#(Client#(MetadataRequest, MetadataResponse) md)(BasicBlockForward);
+
+   rule bb_forward;
+      // let v <- toGet(bb_forward_request_fifo).get;
+      // meta.egress <- v.port; # modify_field
+      // MetadataResponse resp = tagged {egress: egress};
+      // bb_forward_response_fifo.enq();
+   endrule
+
+endmodule
+
 interface DstMacTable;
    interface Client#(MetadataRequest, MetadataResponse) next;
    interface MemWriteClient#(`DataBusWidth) writeClient;
@@ -37,8 +53,8 @@ endinterface
 
 module mkDstMacTable#(Client#(MetadataRequest, MetadataResponse) md)(DstMacTable);
 
-   let verbose = True;
-   MatchTable#(256, MatchFieldDmacTable, ActionArgsDmacTable) matchTable <- mkMatchTable_256_dmacTable();
+   // internal bcam match table
+   MatchTable#(256, DmacTblReqT, DmacTblRespT) matchTable <- mkMatchTable_256_dmacTable();
 
    FIFO#(MetadataRequest) outReqFifo <- mkFIFO;
    FIFO#(MetadataResponse) inRespFifo <- mkFIFO;
@@ -54,38 +70,47 @@ module mkDstMacTable#(Client#(MetadataRequest, MetadataResponse) md)(DstMacTable
       interface Put writeDone = toPut(writeDoneFifo);
    endinterface);
 
-   rule dstMacLookup;
+   rule dmac_lookup;
       let v <- md.request.get;
       case (v) matches
          tagged DstMacLookupRequest {pkt: .pkt, dstMac: .dstMac} : begin
-            matchTable.lookupPort.request.put(MatchFieldDmacTable {dstAddr: dstMac, padding: 0});
+            matchTable.lookupPort.request.put(DmacTblReqT{dstAddr: dstMac, padding: 0});
             currPacketFifo.enq(pkt);
-//            if (verbose) $display("DstMac: id %h", pkt.id);
-//            writeReqFifo.enq(MemRequest {sglId: extend(pkt.id), offset: 0,
-//                                         burstLen: 'h10, tag: 0
-//`ifdef BYTE_ENABLES
-//                                         , firstbe: 'hffff, lastbe: 'h003f
-//`endif
-//                                         });
-//            writeDataFifo.enq(MemData { data: extend(dstMac), tag: 0, last: True });
          end
       endcase
    endrule
 
-   // Action Logic
-   rule nextTable;
-      //let v <- toGet(writeDoneFifo).get;
-      let pkt <- toGet(currPacketFifo).get;
+   rule dmac_resp;
       let v <- matchTable.lookupPort.response.get;
-      $display("DstMac: matches %h", v);
-      MetadataRequest nextReq = tagged RoleLookupRequest {pkt: pkt};
-      outReqFifo.enq(nextReq);
-      //if (verbose) $display("DstMac: writeDone size=%h", pkt.size);
+      // MetadataRequest req = tagged {port: v.port};
+      // bb_forward_fifo.enq(req);
    endrule
 
+   // FIXME: move rule to ingress
+   rule next_control_state;
+      let pkt <- toGet(currPacketFifo).get;
+      // let v <- toGet(bb_forward_response_fifo).get;
+      // case (v) matches
+      //    tagged BBForwardResponse {pkt: pkt, paxos_valid: valid} : begin
+      //       if (valid == true) begin
+      //          MetadataResponse resp = tagged DmacTblRespT {};
+      //       end
+      //       else begin
+      //          MetadataResponse resp = tagged Invalid;
+      //       end
+      //    end
+      // check paxos.valid
+      // true: bb_role_tbl
+      // false: done
+      // MetadataRequest nextReq = tagged RoleLookupRequest {pkt: pkt};
+      // outReqFifo.enq(nextReq);
+   endrule
+
+   // interface to basic block
    interface next = (interface Client#(MetadataRequest, MetadataResponse);
       interface request = toGet(outReqFifo);
       interface response = toPut(inRespFifo);
    endinterface);
    interface writeClient = dmaWriteClient;
 endmodule
+

@@ -28,6 +28,14 @@ import GetPut::*;
 import PaxosTypes::*;
 import RegFile::*;
 
+interface BasicBlockIncreaseInstance;
+
+endinterface
+
+module mkBasicBlockIncreaseInstance#(Client#(MetadataRequest, MetadataResponse) md)(BasicBlockIncreaseInstance);
+
+endmodule
+
 interface SequenceTable;
    interface Client#(MetadataRequest, MetadataResponse) next;
 endinterface

@@ -23,7 +23,7 @@ import Paxos::*;
 import SharedBuff::*;
 import HostChannel::*;
 import TxChannel::*;
-import PaxosIngressPipeline::*;
+import Ingress::*;
 import Sims::*;
 import PaxosTypes::*;
 //import RoundRegister::*;
@@ -58,7 +58,7 @@ module mkParserTest#(ParserTestIndication indication
    Reset txReset <- mkSyncReset(2, defaultReset, txClock);
 
    HostChannel hostchan <- mkHostChannel();
-   PaxosIngressPipeline ingress <- mkPaxosIngressPipeline(vec(hostchan.next));
+   Ingress ingress <- mkIngress(vec(hostchan.next));
    TxChannel txchan <- mkTxChannel(txClock, txReset);
    SyncFIFOIfc#(EtherData) txSyncFifo <- mkSyncBRAMFIFO(6, txClock, txReset, defaultClock, defaultReset);
 

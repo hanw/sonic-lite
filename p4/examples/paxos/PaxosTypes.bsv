@@ -38,6 +38,11 @@ typedef union tagged {
    struct {
       PacketInstance pkt;
    } ForwardQueueRequest;
+
+   struct {
+      PacketInstance pkt;
+      Bit#(9) port;
+   } BBForwardRequest;
 } MetadataRequest deriving (Bits, Eq);
 
 typedef struct {
@@ -249,19 +254,9 @@ endinstance
 
 /* generate tables */
 typedef struct {
-    Bit#(48) srcAddr;
-    Bit#(6) padding;
-} MatchFieldSmacTable deriving (Bits, Eq, FShow);
-
-typedef enum {
-    MacLearn = 1,
-    Nop = 2
-} ActionSmacTableValue2 deriving (Bits, Eq);
-
-typedef struct {
     Bit#(48) dstAddr;
     Bit#(6) padding;
-} MatchFieldDmacTable deriving (Bits, Eq, FShow);
+} DmacTblReqT deriving (Bits, Eq, FShow);
 
 typedef enum {
     Forward = 1,
@@ -275,23 +270,7 @@ typedef union tagged {
     struct {
         Bit#(4) group;
     } Broadcast;
-} ActionArgsDmacTable deriving (Bits, Eq);
-
-typedef struct {
-    Bit#(32) key_field_0;
-} MatchFieldMcastSrcPruning deriving (Bits, Eq, FShow);
-
-typedef enum {
-    Nop = 1,
-    Drop = 2
-} ActionMcastSrcPruningValue8 deriving (Bits, Eq);
-
-typedef struct {
-} MatchFieldEncapTbl deriving (Bits, Eq, FShow);
-
-typedef enum {
-    EncapCpuHeader = 1
-} ActionEncapTblValue11 deriving (Bits, Eq);
+} DmacTblRespT deriving (Bits, Eq, FShow);
 
 typedef struct {
     Bit#(8) key_field_0;
@@ -380,8 +359,8 @@ interface ActionAddHeader;
 endinterface
 
 (* synthesize *)
-module mkMatchTable_256_dmacTable(MatchTable#(256, MatchFieldDmacTable, ActionArgsDmacTable));
-   MatchTable#(256, MatchFieldDmacTable, ActionArgsDmacTable) ifc <- mkMatchTable();
+module mkMatchTable_256_dmacTable(MatchTable#(256, DmacTblReqT, DmacTblRespT));
+   MatchTable#(256, DmacTblReqT, DmacTblRespT) ifc <- mkMatchTable();
    return ifc;
 endmodule
 
