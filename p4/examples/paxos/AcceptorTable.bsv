@@ -29,6 +29,30 @@ import PaxosTypes::*;
 import MatchTable::*;
 import RegFile::*;
 
+interface BasicBlockHandle1A;
+
+endinterface
+
+module mkBasicBlockHandle1A#(Client#(MetadataRequest, MetadataResponse) md)(BasicBlockHandle1A);
+
+endmodule
+
+interface BasicBlockHandle2A;
+
+endinterface
+
+module mkBasicBlockHandle2A#(Client#(MetadataRequest, MetadataResponse) md)(BasicBlockHandle2A);
+
+endmodule
+
+interface BasicBlockDrop;
+
+endinterface
+
+module mkBasicBlockDrop;
+
+endmodule
+
 interface AcceptorTable;
    interface Client#(MetadataRequest, MetadataResponse) next;
    //interface Client#(RoundRegRequest, RoundRegResponse) regAccess;

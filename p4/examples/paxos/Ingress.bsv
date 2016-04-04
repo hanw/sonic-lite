@@ -39,13 +39,13 @@ import RoundTable::*;
 import SequenceTable::*;
 import Vector::*;
 
-interface PaxosIngressPipeline;
+interface Ingress;
    interface MemWriteClient#(`DataBusWidth) writeClient;
    interface PipeOut#(PacketInstance) eventPktSend;
    method IngressPipelineDbgRec dbg;
 endinterface
 
-module mkPaxosIngressPipeline#(Vector#(numClients, MetaDataCient) mdc)(PaxosIngressPipeline);
+module mkIngress#(Vector#(numClients, MetaDataCient) mdc)(Ingress);
    let verbose = True;
 
    Reg#(Bit#(64)) fwdCount <- mkReg(0);
@@ -77,12 +77,47 @@ module mkPaxosIngressPipeline#(Vector#(numClients, MetaDataCient) mdc)(PaxosIngr
       return ret_ifc;
    endfunction
 
+   // Tables
    DstMacTable dstMacTable <- mkDstMacTable(getMetadataClient());
    RoleTable roleTable <- mkRoleTable(dstMacTable.next);
    RoundTable roundTable <- mkRoundTable(roleTable.next0);
    SequenceTable sequenceTable <- mkSequenceTable(roleTable.next1);
    AcceptorTable acceptorTable <- mkAcceptorTable(roundTable.next0);
    DropTable dropTable <- mkDropTable(roundTable.next1);
+
+   // BasicBlocks
+   BasicBlockForward bb_fwd <- mkBasicBlockForward;
+   BasicBlockIncreaseInstance bb_increase_instance <- mkBasicBlockIncreaseInstance;
+   BasicBlockHandle1A bb_handle_1a <- mkBasicBlockHandle1A;
+   BasicBlockHandle2A bb_handle_2a <- mkBasicBlockHandle2A;
+   BasicBlockDrop bb_handle_drop <- mkBasicBlockDrop;
+
+   // Control Flow
+   rule dmac_tbl_next_control_state;
+      // check paxos_valid
+      // if True, MetadataRequest to RoleTable
+      // else: drop
+   endrule
+
+   rule role_tbl_next_control_state;
+      // check role
+      // if role == 1, MetadataRequest to SequenceTable
+      // if role == 2, MetadataRequest to RoundTable
+   endrule
+
+   rule sequence_tbl_next_control_state;
+      // check output
+      // if p4_action == 1, MetadataRequest to Done
+   endrule
+
+   rule round_tbl_next_control_state;
+      // check meta.round
+      // if <= round_reg, MetadataRequest to AcceptorTable
+   endrule
+
+   rule acceptor_tbl_next_control_state;
+      // done
+   endrule
 
    rule acceptTableSend;
       let v <- acceptorTable.next.request.get;
