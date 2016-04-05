@@ -487,8 +487,8 @@ module mkStateParseEthernet#(Reg#(ParserState) state, FIFOF#(EtherData) datain)(
     Stmt parse_ethernet =
     seq
     action
-        let data = packet_in_wire;
-        Vector#(128, Bit#(1)) dataVec = unpack(data);
+        let data_this_cycle = packet_in_wire;
+        Vector#(128, Bit#(1)) dataVec = unpack(data_this_cycle);
         let ethernet = extract_ethernet(pack(takeAt(0, dataVec)));
         $display(fshow(ethernet));
         Vector#(16, Bit#(1)) unparsed = takeAt(112, dataVec);
@@ -558,16 +558,16 @@ module mkStateParseArp#(Reg#(ParserState) state, FIFOF#(EtherData) datain)(Parse
     Stmt parse_arp =
     seq
     action
-        let data_current = packet_in_wire;
-        let unparsed <- toGet(unparsed_parse_ethernet_fifo).get;
-        Bit#(144) data = {data_current, unparsed};
+        let data_this_cycle = packet_in_wire;
+        let data_last_cycle <- toGet(unparsed_parse_ethernet_fifo).get;
+        Bit#(144) data = {data_this_cycle, data_last_cycle};
         Vector#(144, Bit#(1)) dataVec = unpack(data);
         internal_fifo.enq(data);
     endaction
     action
-        let data_current = packet_in_wire;
-        let data_delayed <- toGet(internal_fifo).get;
-        Bit#(272) data = {data_current, data_delayed};
+        let data_this_cycle = packet_in_wire;
+        let data_last_cycle <- toGet(internal_fifo).get;
+        Bit#(272) data = {data_this_cycle, data_last_cycle};
         Vector#(272, Bit#(1)) dataVec = unpack(data);
         let arp = extract_arp(pack(takeAt(0, dataVec)));
         $display(fshow(arp));
@@ -635,16 +635,16 @@ module mkStateParseIpv4#(Reg#(ParserState) state, FIFOF#(EtherData) datain)(Pars
     Stmt parse_ipv4 =
     seq
     action
-        let data_current = packet_in_wire;
-        let unparsed <- toGet(unparsed_parse_ethernet_fifo).get;
-        Bit#(144) data = {data_current, unparsed};
+        let data_this_cycle = packet_in_wire;
+        let data_last_cycle <- toGet(unparsed_parse_ethernet_fifo).get;
+        Bit#(144) data = {data_this_cycle, data_last_cycle};
         Vector#(144, Bit#(1)) dataVec = unpack(data);
         internal_fifo.enq(data);
     endaction
     action
-        let data_current = packet_in_wire;
-        let data_delayed <- toGet(internal_fifo).get;
-        Bit#(272) data = {data_current, data_delayed};
+        let data_this_cycle = packet_in_wire;
+        let data_last_cycle <- toGet(internal_fifo).get;
+        Bit#(272) data = {data_this_cycle, data_last_cycle};
         Vector#(272, Bit#(1)) dataVec = unpack(data);
         let ipv4 = extract_ipv4(pack(takeAt(0, dataVec)));
         $display(fshow(ipv4));
@@ -707,21 +707,21 @@ module mkStateParseIpv6#(Reg#(ParserState) state, FIFOF#(EtherData) datain, FIFO
     Stmt parse_ipv6 =
     seq
     action
-        let data_current = packet_in_wire;
-        let unparsed <- toGet(unparsed_parse_ethernet_fifo).get;
-        Bit#(144) data = {data_current, unparsed};
+        let data_this_cycle = packet_in_wire;
+        let data_last_cycle <- toGet(unparsed_parse_ethernet_fifo).get;
+        Bit#(144) data = {data_this_cycle, data_last_cycle};
         internal_fifo.enq(data);
     endaction
     action
-        let data_current = packet_in_wire;
-        let data_delayed <- toGet(internal_fifo).get;
-        Bit#(272) data = {data_current, data_delayed};
+        let data_this_cycle = packet_in_wire;
+        let data_last_cycle <- toGet(internal_fifo).get;
+        Bit#(272) data = {data_this_cycle, data_last_cycle};
         internal_fifo2.enq(data);
     endaction
     action
-        let data_current = packet_in_wire;
-        let data_delayed <- toGet(internal_fifo2).get;
-        Bit#(400) data = {data_current, data_delayed};
+        let data_this_cycle = packet_in_wire;
+        let data_last_cycle <- toGet(internal_fifo2).get;
+        Bit#(400) data = {data_this_cycle, data_last_cycle};
         Vector#(400, Bit#(1)) dataVec = unpack(data);
         let ipv6 = extract_ipv6(pack(takeAt(0, dataVec)));
         $display(fshow(ipv6));
@@ -789,9 +789,9 @@ module mkStateParseUdp#(Reg#(ParserState) state, FIFOF#(EtherData) datain, FIFOF
     Stmt parse_udp =
     seq
     action
-        let data_current = packet_in_wire;
-        let unparsed_delayed <- toGet(unparsed_parse_ipv4_fifo).get;
-        Bit#(240) data = {data_current, unparsed_delayed};
+        let data_this_cycle = packet_in_wire;
+        let data_last_cycle <- toGet(unparsed_parse_ipv4_fifo).get;
+        Bit#(240) data = {data_this_cycle, data_last_cycle};
         Vector#(240, Bit#(1)) dataVec = unpack(data);
         let udp = extract_udp(pack(takeAt(0, dataVec)));
         $display(fshow(udp));
@@ -858,15 +858,15 @@ module mkStateParsePaxos#(Reg#(ParserState) state, FIFOF#(EtherData) datain, FIF
     Stmt parse_paxos =
     seq
     action
-        let data_current = packet_in_wire;
-        let unparsed <- toGet(unparsed_parse_udp_fifo).get;
-        Bit#(304) data = {data_current, unparsed};
+        let data_this_cycle = packet_in_wire;
+        let data_last_cycle <- toGet(unparsed_parse_udp_fifo).get;
+        Bit#(304) data = {data_this_cycle, data_last_cycle};
         internal_fifo.enq(data);
     endaction
     action
-        let data_current = packet_in_wire;
-        let unparsed <- toGet(internal_fifo).get;
-        Bit#(432) data = {data_current, unparsed};
+        let data_this_cycle= packet_in_wire;
+        let data_last_cycle <- toGet(internal_fifo).get;
+        Bit#(432) data = {data_this_cycle, data_last_cycle};
         Vector#(432, Bit#(1)) dataVec = unpack(data);
         let paxos = extract_paxos(pack(takeAt(0, dataVec)));
         $display(fshow(paxos));

@@ -33,7 +33,7 @@ interface BasicBlockHandle1A;
 
 endinterface
 
-module mkBasicBlockHandle1A#(Client#(MetadataRequest, MetadataResponse) md)(BasicBlockHandle1A);
+module mkBasicBlockHandle1A#(MetadataClient md)(BasicBlockHandle1A);
 
 endmodule
 
@@ -41,7 +41,7 @@ interface BasicBlockHandle2A;
 
 endinterface
 
-module mkBasicBlockHandle2A#(Client#(MetadataRequest, MetadataResponse) md)(BasicBlockHandle2A);
+module mkBasicBlockHandle2A#(MetadataClient md)(BasicBlockHandle2A);
 
 endmodule
 
@@ -49,7 +49,7 @@ interface BasicBlockDrop;
 
 endinterface
 
-module mkBasicBlockDrop;
+module mkBasicBlockDrop#(MetadataClient md)(BasicBlockDrop);
 
 endmodule
 

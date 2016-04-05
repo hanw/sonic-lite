@@ -35,7 +35,7 @@ interface BasicBlockForward;
    // Memory Access
 endinterface
 
-module mkBasicBlockForward#(Client#(MetadataRequest, MetadataResponse) md)(BasicBlockForward);
+module mkBasicBlockForward(BasicBlockForward);
 
    rule bb_forward;
       // let v <- toGet(bb_forward_request_fifo).get;
@@ -47,18 +47,18 @@ module mkBasicBlockForward#(Client#(MetadataRequest, MetadataResponse) md)(Basic
 endmodule
 
 interface DstMacTable;
-   interface Client#(MetadataRequest, MetadataResponse) next;
+   interface MetadataClient next_control_state_0;
    interface MemWriteClient#(`DataBusWidth) writeClient;
 endinterface
 
-module mkDstMacTable#(Client#(MetadataRequest, MetadataResponse) md)(DstMacTable);
+module mkDstMacTable#(MetadataClient md)(DstMacTable);
 
    // internal bcam match table
    MatchTable#(256, DmacTblReqT, DmacTblRespT) matchTable <- mkMatchTable_256_dmacTable();
 
    FIFO#(MetadataRequest) outReqFifo <- mkFIFO;
    FIFO#(MetadataResponse) inRespFifo <- mkFIFO;
-   FIFO#(PacketInstance) currPacketFifo <- mkFIFO;
+   //FIFO#(PacketInstance) currPacketFifo <- mkFIFO;
 
    // memory client
    FIFO#(MemRequest) writeReqFifo <- mkSizedFIFO(4);
@@ -75,39 +75,26 @@ module mkDstMacTable#(Client#(MetadataRequest, MetadataResponse) md)(DstMacTable
       case (v) matches
          tagged DstMacLookupRequest {pkt: .pkt, dstMac: .dstMac} : begin
             matchTable.lookupPort.request.put(DmacTblReqT{dstAddr: dstMac, padding: 0});
-            currPacketFifo.enq(pkt);
+            //currPacketFifo.enq(pkt);
          end
       endcase
    endrule
 
    rule dmac_resp;
       let v <- matchTable.lookupPort.response.get;
+      $display("dmac response", fshow(v));
       // MetadataRequest req = tagged {port: v.port};
-      // bb_forward_fifo.enq(req);
+      // outReqFifo.enq(req);
    endrule
 
-   // FIXME: move rule to ingress
-   rule next_control_state;
-      let pkt <- toGet(currPacketFifo).get;
-      // let v <- toGet(bb_forward_response_fifo).get;
-      // case (v) matches
-      //    tagged BBForwardResponse {pkt: pkt, paxos_valid: valid} : begin
-      //       if (valid == true) begin
-      //          MetadataResponse resp = tagged DmacTblRespT {};
-      //       end
-      //       else begin
-      //          MetadataResponse resp = tagged Invalid;
-      //       end
-      //    end
-      // check paxos.valid
-      // true: bb_role_tbl
-      // false: done
-      // MetadataRequest nextReq = tagged RoleLookupRequest {pkt: pkt};
-      // outReqFifo.enq(nextReq);
+   rule bb_forward_resp;
+      let v <- toGet(inRespFifo).get;
+      // MetadataResponse resp = tagged {};
+      // md.response.put();
    endrule
 
    // interface to basic block
-   interface next = (interface Client#(MetadataRequest, MetadataResponse);
+   interface next_control_state_0 = (interface MetadataClient;
       interface request = toGet(outReqFifo);
       interface response = toPut(inRespFifo);
    endinterface);

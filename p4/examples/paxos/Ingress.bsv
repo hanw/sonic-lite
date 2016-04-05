@@ -45,89 +45,148 @@ interface Ingress;
    method IngressPipelineDbgRec dbg;
 endinterface
 
-module mkIngress#(Vector#(numClients, MetaDataCient) mdc)(Ingress);
+module mkIngress#(Vector#(numClients, MetadataClient) mdc)(Ingress);
    let verbose = True;
 
    Reg#(Bit#(64)) fwdCount <- mkReg(0);
 
-   // Out
-   FIFO#(MetadataRequest) outReqFifo <- mkFIFO;
-   FIFO#(MetadataResponse) inRespFifo <- mkFIFO;
    FIFOF#(PacketInstance) currPacketFifo <- mkFIFOF;
 
    // In
    FIFO#(MetadataRequest) inReqFifo <- mkFIFO;
    FIFO#(MetadataResponse) outRespFifo <- mkFIFO;
 
-   Vector#(numClients, MetaDataServer) metadataServers = newVector;
+   Vector#(numClients, MetadataServer) metadataServers = newVector;
    for (Integer i=0; i<valueOf(numClients); i=i+1) begin
-      metadataServers[i] = (interface MetaDataServer;
+      metadataServers[i] = (interface MetadataServer;
          interface Put request = toPut(inReqFifo);
          interface Get response = toGet(outRespFifo);
       endinterface);
    end
    mkConnection(mdc, metadataServers);
 
-   function MetaDataCient getMetadataClient();
-      MetaDataCient ret_ifc;
-      ret_ifc = (interface MetaDataCient;
-         interface Get request = toGet(inReqFifo);
-         interface Put response = toPut(outRespFifo);
+   // Request/Response Fifos
+   FIFO#(MetadataRequest) dmacReqFifo <- mkFIFO;
+   // FIFO#(MetadataRequest) roleRequestFifo <- mkFIFO;
+   // FIFO#(MetadataRequest) roundRequestFifo <- mkFIFO;
+   // FIFO#(MetadataRequest) sequenceRequestFifo <- mkFIFO;
+   // FIFO#(MetadataRequest) acceptorRequestFifo <- mkFIFO;
+   // FIFO#(MetadataRequest) dropRequestFifo <- mkFIFO;
+   FIFO#(MetadataResponse) dmacRespFifo <- mkFIFO;
+   // FIFO#(MetadataResponse) roleResponseFifo <- mkFIFO;
+   // FIFO#(MetadataResponse) roundResponseFifo <- mkFIFO;
+   // FIFO#(MetadataResponse) sequenceResponseFifo <- mkFIFO;
+   // FIFO#(MetadataResponse) acceptorResponseFifo <- mkFIFO;
+   // FIFO#(MetadataResponse) dropResponseFifo <- mkFIFO;
+
+   // MetadataClients
+   function MetadataClient toMetadataClient(FIFO#(MetadataRequest) reqFifo,
+                                            FIFO#(MetadataResponse) respFifo);
+      MetadataClient ret_ifc;
+      ret_ifc = (interface MetadataClient;
+         interface Get request = toGet(reqFifo);
+         interface Put response = toPut(respFifo);
       endinterface);
       return ret_ifc;
    endfunction
 
    // Tables
-   DstMacTable dstMacTable <- mkDstMacTable(getMetadataClient());
-   RoleTable roleTable <- mkRoleTable(dstMacTable.next);
-   RoundTable roundTable <- mkRoundTable(roleTable.next0);
-   SequenceTable sequenceTable <- mkSequenceTable(roleTable.next1);
-   AcceptorTable acceptorTable <- mkAcceptorTable(roundTable.next0);
-   DropTable dropTable <- mkDropTable(roundTable.next1);
+   DstMacTable dstMacTable <- mkDstMacTable(toMetadataClient(dmacReqFifo, dmacRespFifo));
+   //RoleTable roleTable <- mkRoleTable();//dstMacTable.next);
+   //RoundTable roundTable <- mkRoundTable();//roleTable.next0);
+   //SequenceTable sequenceTable <- mkSequenceTable();//roleTable.next1);
+   //AcceptorTable acceptorTable <- mkAcceptorTable();//roundTable.next0);
+   //DropTable dropTable <- mkDropTable();//roundTable.next1);
+
+   // Registers
 
    // BasicBlocks
-   BasicBlockForward bb_fwd <- mkBasicBlockForward;
-   BasicBlockIncreaseInstance bb_increase_instance <- mkBasicBlockIncreaseInstance;
-   BasicBlockHandle1A bb_handle_1a <- mkBasicBlockHandle1A;
-   BasicBlockHandle2A bb_handle_2a <- mkBasicBlockHandle2A;
-   BasicBlockDrop bb_handle_drop <- mkBasicBlockDrop;
+   BasicBlockForward bb_fwd <- mkBasicBlockForward();
+   //BasicBlockIncreaseInstance bb_increase_instance <- mkBasicBlockIncreaseInstance;
+   //BasicBlockHandle1A bb_handle_1a <- mkBasicBlockHandle1A;
+   //BasicBlockHandle2A bb_handle_2a <- mkBasicBlockHandle2A;
+   //BasicBlockDrop bb_handle_drop <- mkBasicBlockDrop;
+
+   // Connect Table with BasicBlock
+   // mkConnection(dstMacTable.next_control_state_0, bb_fwd.prev_control_state)
+   // mkConnection(sequenceTable.next_control_state_0, bb_increase_instance.prev_control_state)
+   // mkConnection(acceptorTable.next_control_state_0, bb_handle_1a.prev_control_state)
+   // mkConnection(acceptorTable.next_control_state_1, bb_handle_2a.prev_control_state)
+   // mkConnection(acceptorTable.next_control_state_2, bb_handle_drop.prev_control_state)
 
    // Control Flow
+   rule start_control_state;
+      // let v <- toGet(inReqFifo).get;
+      // case (v) matches
+      //    tagged {pkt: .pkt, meta: .meta} : begin
+      //       if (meta.valid_ipv4) begin
+      //          MetadataRequest req = tagged DstMacLookupRequest {dstMac: 0};
+      //          dmacReqFifo.enq(req);
+      //       end
+      //    end
+      // endcase
+   endrule
+
    rule dmac_tbl_next_control_state;
-      // check paxos_valid
-      // if True, MetadataRequest to RoleTable
+      // let v <- toGet(dstMacMetaRespFifo).get;
+      // let meta <- toGet(dmacMetaFifo).get;
+      // case (v) matches
+      // meta.egress = v.egress
+      // if meta.valid_paxos
+      //    tagged RoleLookupRequest {}
+      //    roleRequestFifo
       // else: drop
+      // endcase
    endrule
 
    rule role_tbl_next_control_state;
-      // check role
-      // if role == 1, MetadataRequest to SequenceTable
-      // if role == 2, MetadataRequest to RoundTable
+      // let v <- toGet(roleResponseFifo).get;
+      // if (v.role == 1) begin
+      //    MetadataRequest req = tagged SequenceTableRequest {};
+      //    sequenceRequestFifo.enq(req);
+      // end
+      // if (v.role == 2) begin
+      //    MetadataRequest req = tagged RoundTableRequest {};
+      //    roundRequestFifo.enq(req);
+      // end
    endrule
 
    rule sequence_tbl_next_control_state;
-      // check output
-      // if p4_action == 1, MetadataRequest to Done
+      // let v <- toGet(sequenceTableResponseFifo).get;
+      // if (v.p4_action == 1) begin
+      //    MetadataRequest req = tagged ForwardQueueRequest {};
+      // end
+      // else begin
+      //    free
+      // end
    endrule
 
    rule round_tbl_next_control_state;
-      // check meta.round
-      // if <= round_reg, MetadataRequest to AcceptorTable
+      // let v <- toGet(roundTableResponseFifo).get;
+      // if (meta.round <= v.round) begin
+      //    MetadataRequest req = tagged AcceptorTableRequest {}
+      //    acceptorRequestFifo.enq(req);
+      // end
+      // else begin
+      //    free
+      // end
    endrule
 
    rule acceptor_tbl_next_control_state;
+      // let v <- toGet(acceptorResponseFifo).get;
+      // MetadataRequest req = tagged ForwardQueueRequest {};
       // done
    endrule
 
-   rule acceptTableSend;
-      let v <- acceptorTable.next.request.get;
-      case (v) matches
-         tagged ForwardQueueRequest {pkt: .pkt}: begin
-            currPacketFifo.enq(pkt);
-            fwdCount <= fwdCount + 1;
-         end
-      endcase
-   endrule
+   //rule acceptTableSend;
+   //   let v <- acceptorTable.next.request.get;
+   //   case (v) matches
+   //      tagged ForwardQueueRequest {pkt: .pkt}: begin
+   //         currPacketFifo.enq(pkt);
+   //         fwdCount <= fwdCount + 1;
+   //      end
+   //   endcase
+   //endrule
 
    interface writeClient = dstMacTable.writeClient;
    interface eventPktSend = toPipeOut(currPacketFifo);

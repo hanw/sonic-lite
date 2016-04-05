@@ -54,8 +54,8 @@ typedef 8 MsgTypeSize;
 typedef 16 InstanceSize;
 typedef 512 ValueSize;
 
-typedef Client#(MetadataRequest, MetadataResponse) MetaDataCient;
-typedef Server#(MetadataRequest, MetadataResponse) MetaDataServer;
+typedef Client#(MetadataRequest, MetadataResponse) MetadataClient;
+typedef Server#(MetadataRequest, MetadataResponse) MetadataServer;
 
 interface P4RegisterIfc#(type addr, type data);
 endinterface

@@ -69,6 +69,7 @@ module mkHostChannel(HostChannel);
    rule handle_paxos_packet if (parser.parserState.first == StateParsePaxos);
       parser.parserState.deq;
       let v <- toGet(ingress.eventPktCommitted).get;
+      // meta
       let dstMac <- toGet(parser.parsedOut_ethernet_dstAddr).get;
       let msgtype <- toGet(parser.parsedOut_paxos_msgtype).get;
       if (verbose) $display("HostChannel: dstMac=%h, size=%d", dstMac, v.size);
@@ -78,6 +79,7 @@ module mkHostChannel(HostChannel);
       paxosCount <= paxosCount + 1;
    endrule
 
+   // redundant, remove!
    rule handle_unknown_ipv6_packet if (parser.parserState.first == StateParseIpv6);
       parser.parserState.deq;
       let v <- toGet(ingress.eventPktCommitted).get;
