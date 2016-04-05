@@ -30,20 +30,22 @@ import RegFile::*;
 import MatchTable::*;
 
 // P4 Table size
-typedef 8 TableSize;
+typedef 36 TableSize;
 
 // Generic p4 fields to match against tables
 typedef union tagged {
+   Bit#(40) NoneField;
    struct {
-
-   } NoneField;
-
-   struct {
-      Bit#(16) msgtype;
+      Bit#(40) msgtype;
    } MsgtypeField;
 } MatchFields deriving(Bits, Eq, FShow);
 
-typedef Bit#(32) ActionArg;
+typedef struct {
+   Bit#(32) dstip;
+   Bit#(4) padding;
+} MatchField deriving(Bits, Eq, FShow);
+
+typedef Bit#(16) ActionArg;
 
 interface BasicBlockIncreaseInstance;
 
@@ -66,22 +68,26 @@ module mkSequenceTable#(Client#(MetadataRequest, MetadataResponse) md)(SequenceT
    // Current instance register is a global counter than increases every time
    // the Coordinator receives a Paxos 2A message
    // INIT to 0
-   Reg#(int) current_instance = mkReg (0);
+   Reg#(UInt#(32)) current_instance <- mkReg(0);
 
-   MatchTable#(TableSize, MatchFields, ActionArg) matchTable <- mkMatchTable();
+   MatchTable#(TableSize, MatchField, ActionArg) matchTable <- mkMatchTable();
+   MatchField x = MatchField { dstip : 2147483648, padding : 9};
 
    rule tableLookupRequest;
       let v <- md.request.get;
       case (v) matches
          tagged SequenceTblRequest { pkt: .pkt } : begin
-            matchTable.lookupPort.request.put(NoneField);
+            matchTable.lookupPort.request.put(x);
          end
       endcase
    endrule
 
    rule tableLookupResponse;
-      let resp <- fromMaybe(?, matchTable.lookupPort.response.get);
-      // inRespFifo.enq(resp);
+      let resp <- matchTable.lookupPort.response.get;
+      case (resp) matches
+         tagged Valid .x : $display(x);
+         tagged Invalid : $display("Invalid");
+      endcase
    endrule
 
    interface next = (interface Client#(MetadataRequest, MetadataResponse);
@@ -89,13 +95,13 @@ module mkSequenceTable#(Client#(MetadataRequest, MetadataResponse) md)(SequenceT
       interface response = toPut(inRespFifo);
    endinterface);
 
-   method ActionValue#(int) increaseSequence();
+   // method ActionValue#(int) increaseSequence();
       // TODO: Replace the value of inst field of Paxos message with the current_instance
       // paxos.inst <= current_instance
 
       // increase the counter
-      current_instance <= current_instance + 1;
-      return current_instance;
-   endmethod
+      // current_instance <= current_instance + 1;
+      // return current_instance;
+   // endmethod
 
 endmodule
