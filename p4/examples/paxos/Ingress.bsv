@@ -97,6 +97,7 @@ module mkIngress#(Vector#(numClients, MetadataClient) mdc)(Ingress);
    SequenceTable sequenceTable <- mkSequenceTable(toMetadataClient(sequenceReqFifo, sequenceRespFifo));
    AcceptorTable acceptorTable <- mkAcceptorTable(toMetadataClient(acceptorReqFifo, acceptorRespFifo));
    //DropTable dropTable <- mkDropTable();//roundTable.next1);
+
    // Registers
 
    // BasicBlocks
@@ -144,7 +145,7 @@ module mkIngress#(Vector#(numClients, MetadataClient) mdc)(Ingress);
       let v <- toGet(roleRespFifo).get;
       case (v) matches
          tagged RoleResponse {pkt: .pkt, meta: .meta}: begin
-            case (meta.role) matches
+            case (meta.switch_metadata$role) matches
                ACCEPTOR: begin
                   $display("Role: Acceptor %h", pkt.id);
                   MetadataRequest req = tagged RoundTblRequest {pkt: pkt, meta: meta};
@@ -162,29 +163,39 @@ module mkIngress#(Vector#(numClients, MetadataClient) mdc)(Ingress);
 
    rule sequence_tbl_next_control_state;
       let v <- toGet(sequenceRespFifo).get;
-      // if (v.p4_action == 1) begin
-      //    MetadataRequest req = tagged ForwardQueueRequest {};
-      // end
-      // else begin
-      //    free
-      // end
+      $display("sequence tbl response");
+      case (v) matches
+         tagged SequenceTblResponse {pkt: .pkt, meta: .meta}: begin
+            currPacketFifo.enq(pkt);
+            //if (v.p4_action == 1) begin
+            //   MetadataRequest req = tagged ForwardQueueRequest {};
+            //end
+         end
+      endcase
    endrule
 
    rule round_tbl_next_control_state;
       let v <- toGet(roundRespFifo).get;
-      // if (meta.round <= v.round) begin
-      //    MetadataRequest req = tagged AcceptorTableRequest {}
-      //    acceptorRequestFifo.enq(req);
-      // end
-      // else begin
-      //    free
-      // end
+      $display("round table response");
+      case (v) matches
+         tagged RoundTblResponse {pkt: .pkt, meta: .meta}: begin
+            if (meta.paxos_packet_meta$round <= meta.paxos$rnd) begin
+               MetadataRequest req = tagged AcceptorTblRequest {pkt: pkt, meta: meta};
+               acceptorReqFifo.enq(req);
+            end
+         end
+      endcase
    endrule
 
    rule acceptor_tbl_next_control_state;
       let v <- toGet(acceptorRespFifo).get;
-      // MetadataRequest req = tagged ForwardQueueRequest {};
-      // done
+      $display("acceptor table response");
+      case (v) matches
+         tagged AcceptorTblResponse {pkt: .pkt, meta: .meta}: begin
+            //MetadataRequest req = tagged ForwardQueueRequest {};
+            currPacketFifo.enq(pkt);
+         end
+      endcase
    endrule
 
    interface writeClient = dstMacTable.writeClient;

@@ -27,28 +27,61 @@ import FIFO::*;
 import GetPut::*;
 import PaxosTypes::*;
 import RegFile::*;
+import DefaultValue::*;
+
+interface BasicBlockRound;
+   interface BBServer prev_control_state;
+endinterface
+
+module mkBasicBlockRound(BasicBlockRound);
+   FIFO#(BBRequest) bb_round_request_fifo <- mkFIFO;
+   FIFO#(BBResponse) bb_round_response_fifo <- mkFIFO;
+
+   rule bb_round;
+      let v <- toGet(bb_round_request_fifo).get;
+      case (v) matches
+         tagged BBRoundRequest {pkt: .pkt, paxos$inst: .inst}: begin
+            IngressMetadataT d = defaultValue;
+            // use inst to read round register.
+            BBResponse resp = tagged BBRoundResponse {pkt: pkt, ingress_metadata: d};
+            bb_round_response_fifo.enq(resp);
+         end
+      endcase
+   endrule
+endmodule
 
 interface RoundTable;
    interface Client#(RoundRegRequest, RoundRegResponse) regAccess;
+   interface BBClient next_control_state;
 endinterface
 
 module mkRoundTable#(MetadataClient md)(RoundTable);
-   Reg#(Bit#(64)) lookupCnt <- mkReg(0);
-
+   FIFO#(BBRequest) outReqFifo <- mkFIFO;
+   FIFO#(BBResponse) inRespFifo <- mkFIFO;
    FIFO#(PacketInstance) currPacketFifo <- mkFIFO;
+   FIFO#(MetadataT) currMetadataFifo <- mkFIFO;
 
-   // read round register from register file
    rule readRound;
-      // issue read request;
       let v <- md.request.get;
-      $display("RoundTable");
       case (v) matches
-         tagged RoundTblRequest {pkt: .pkt}: begin
-            MetadataResponse resp = tagged RoundTblResponse {pkt: pkt};
-            // issue register write
-            md.response.put(resp);
+         tagged RoundTblRequest {pkt: .pkt, meta: .meta}: begin
+            BBRequest req;
+            req = tagged BBRoundRequest {pkt: pkt, paxos$inst: meta.paxos$inst};
+            outReqFifo.enq(req);
+            currPacketFifo.enq(pkt);
+            currMetadataFifo.enq(meta);
          end
       endcase
+   endrule
+
+   rule readRoundResp;
+      let v <- toGet(inRespFifo).get;
+      let meta <- toGet(currMetadataFifo).get;
+      let pkt <- toGet(currPacketFifo).get;
+      // update metadata
+      MetadataResponse resp;
+      resp = tagged RoundTblResponse {pkt: pkt, meta: meta};
+      md.response.put(resp);
    endrule
 endmodule
 

@@ -33,7 +33,7 @@ endinterface
 
 module mkRoleTable#(MetadataClient md)(RoleTable);
    Reg#(Bit#(64)) lookupCnt <- mkReg(0);
-   Reg#(Role) role <- mkReg(ACCEPTOR);
+   Reg#(Role) role <- mkReg(COORDINATOR);
 
    FIFO#(PacketInstance) currPacketFifo <- mkFIFO;
 
@@ -43,7 +43,7 @@ module mkRoleTable#(MetadataClient md)(RoleTable);
       case (v) matches
          tagged RoleLookupRequest {pkt: .pkt, meta: .meta}: begin
             MetadataT t = meta;
-            t.role = role;
+            t.switch_metadata$role = role;
             MetadataResponse resp = tagged RoleResponse { pkt: pkt, meta: t};
             md.response.put(resp);
          end

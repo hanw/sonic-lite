@@ -80,7 +80,6 @@ typedef union tagged {
       PacketInstance pkt;
       MetadataT meta;
    } AcceptorTblResponse;
-
 } MetadataResponse deriving (Bits, Eq);
 
 
@@ -101,6 +100,10 @@ typedef union tagged {
    struct {
       PacketInstance pkt;
    } BBDropRequest;
+   struct {
+      PacketInstance pkt;
+      Bit#(16) paxos$inst;
+   } BBRoundRequest;
 } BBRequest deriving (Bits, Eq, FShow);
 
 typedef union tagged {
@@ -120,6 +123,10 @@ typedef union tagged {
    struct {
       PacketInstance pkt;
    } BBDropResponse;
+   struct {
+      PacketInstance pkt;
+      IngressMetadataT ingress_metadata;
+   } BBRoundResponse;
 } BBResponse deriving (Bits, Eq);
 
 typedef struct {
@@ -532,12 +539,18 @@ instance FShow#(Role);
 endinstance
 
 typedef struct {
-   Bit#(16) msgtype;
-   Bit#(48) dstAddr;
-   Bit#(16) etherType;
-   Bit#(8) protocol;
-   Bit#(16) dstPort;
-   Role role;
+   Bit#(16) msgtype; // ethernet$msgtype
+   Bit#(48) dstAddr; // ethernet$dstAddr
+   Bit#(16) etherType; // ethernet$etherType
+   Bit#(8) protocol; // ipv4$protocol
+   Bit#(16) dstPort; // ipv4$dstPort
+   Bit#(16) paxos$inst; // paxos$inst
+   Bit#(16) paxos$rnd;
+   Bit#(16) paxos$vrnd;
+   Bit#(256) paxos$paxosval;
+   Bit#(16) paxos$acptid;
+   Bit#(16) paxos_packet_meta$round;
+   Role switch_metadata$role;
    Bool valid_ethernet;
    Bool valid_arp;
    Bool valid_ipv4;
@@ -553,7 +566,13 @@ MetadataT {
    etherType: 0,
    protocol: 0,
    dstPort: 0,
-   role: ACCEPTOR,
+   paxos$inst: 0,
+   paxos$rnd: 0,
+   paxos$vrnd: 0,
+   paxos$paxosval: 0,
+   paxos$acptid: 0,
+   paxos_packet_meta$round: 0,
+   switch_metadata$role: ACCEPTOR,
    valid_ethernet: False,
    valid_arp: False,
    valid_ipv4: False,
@@ -564,7 +583,7 @@ MetadataT {
 endinstance
 instance FShow#(MetadataT);
    function Fmt fshow(MetadataT p);
-      return $format("MetadataT: msgtype=%h, dstAddr=%h, etherType=%h, protocol=%h, dstPort=%h", p.msgtype, p.dstAddr, p.etherType, p.protocol, p.dstPort, fshow(p.role));
+      return $format("MetadataT: msgtype=%h, dstAddr=%h, etherType=%h, protocol=%h, dstPort=%h", p.msgtype, p.dstAddr, p.etherType, p.protocol, p.dstPort, fshow(p.switch_metadata$role));
    endfunction
 endinstance
 

@@ -63,6 +63,7 @@ module mkSequenceTable#(MetadataClient md)(SequenceTable);
    FIFO#(BBRequest) outReqFifo <- mkFIFO;
    FIFO#(BBResponse) inRespFifo <- mkFIFO;
    FIFO#(PacketInstance) currPacketFifo <- mkFIFO;
+   FIFO#(MetadataT) currMetadataFifo <- mkFIFO;
 
    // sequence match table?? only one-entry, register will suffice.
 
@@ -70,13 +71,21 @@ module mkSequenceTable#(MetadataClient md)(SequenceTable);
       let v <- md.request.get;
       case (v) matches
          tagged SequenceTblRequest { pkt: .pkt, meta: .meta } : begin
-            MetadataResponse resp = tagged SequenceTblResponse {pkt: pkt, meta: meta};
-            md.response.put(resp); //FIXME
+            BBRequest req;
+            req = tagged BBIncreaseInstanceRequest {pkt: pkt};
+            outReqFifo.enq(req);
+            currMetadataFifo.enq(meta);
+            currPacketFifo.enq(pkt);
          end
       endcase
    endrule
 
-   rule lookup_resp; //FIXME
+   rule lookup_resp;
+      let v <- toGet(inRespFifo).get;
+      let pkt <- toGet(currPacketFifo).get;
+      let meta <- toGet(currMetadataFifo).get;
+      MetadataResponse resp = tagged SequenceTblResponse {pkt: pkt, meta: meta};
+      md.response.put(resp);
    endrule
 
    interface next_control_state_0 = (interface BBClient;
