@@ -29,10 +29,10 @@ import PaxosTypes::*;
 import RegFile::*;
 
 interface DropTable;
-   interface Client#(MetadataRequest, MetadataResponse) next;
+   interface MetadataClient next;
 endinterface
 
-module mkDropTable#(Client#(MetadataRequest, MetadataResponse) md)(DropTable);
+module mkDropTable#(MetadataClient md)(DropTable);
    FIFO#(MetadataRequest) outReqFifo <- mkFIFO;
    FIFO#(MetadataResponse) inRespFifo <- mkFIFO;
 
@@ -41,7 +41,7 @@ module mkDropTable#(Client#(MetadataRequest, MetadataResponse) md)(DropTable);
       $display("Drop request");
    endrule
 
-   interface next = (interface Client#(MetadataRequest, MetadataResponse);
+   interface next = (interface MetadataClient;
       interface request = toGet(outReqFifo);
       interface response = toPut(inRespFifo);
    endinterface);

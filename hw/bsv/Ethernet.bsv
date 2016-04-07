@@ -166,6 +166,6 @@ typedef Bit#(TLog#(MaxNumPkts)) PktId;
 typedef struct {
    PktId id;
    Bit#(EtherLen) size;
-} PacketInstance deriving(Bits, Eq);
+} PacketInstance deriving(Bits, Eq, FShow);
 
 endpackage: Ethernet

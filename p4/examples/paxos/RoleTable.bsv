@@ -27,49 +27,26 @@ import FIFO::*;
 import GetPut::*;
 import PaxosTypes::*;
 
-typedef enum {
-   Acceptor = 1,
-   Coordinator = 2
-} Role deriving (Bits);
-
 interface RoleTable;
-   interface Client#(MetadataRequest, MetadataResponse) next0;
-   interface Client#(MetadataRequest, MetadataResponse) next1;
    interface Client#(RoundRegRequest, RoundRegResponse) regAccess;
 endinterface
 
-module mkRoleTable#(Client#(MetadataRequest, MetadataResponse) md)(RoleTable);
+module mkRoleTable#(MetadataClient md)(RoleTable);
    Reg#(Bit#(64)) lookupCnt <- mkReg(0);
-   Reg#(Role) role <- mkReg(Acceptor);
+   Reg#(Role) role <- mkReg(ACCEPTOR);
 
-   FIFO#(MetadataRequest) outReqFifo <- mkFIFO;
-   FIFO#(MetadataResponse) inRespFifo <- mkFIFO;
    FIFO#(PacketInstance) currPacketFifo <- mkFIFO;
 
    rule tableLookupRequest;
       let v <- md.request.get;
       $display("Role: table lookup request");
       case (v) matches
-         tagged RoleLookupRequest {pkt: .pkt}: begin
-            case (role) matches
-               Acceptor: begin
-                  $display("Role: Acceptor %h", pkt.id);
-                  MetadataRequest nextReq = tagged RoundTblRequest {pkt: pkt};
-                  outReqFifo.enq(nextReq);
-               end
-               Coordinator: begin
-                  $display("Role: Coordinator %h", pkt.id);
-                  MetadataRequest nextReq = tagged SequenceTblRequest {pkt: pkt};
-                  outReqFifo.enq(nextReq);
-               end
-            endcase
-            lookupCnt <= lookupCnt + 1;
+         tagged RoleLookupRequest {pkt: .pkt, meta: .meta}: begin
+            MetadataT t = meta;
+            t.role = role;
+            MetadataResponse resp = tagged RoleResponse { pkt: pkt, meta: t};
+            md.response.put(resp);
          end
       endcase
    endrule
-
-   interface next0 = (interface Client#(MetadataRequest, MetadataResponse);
-      interface request = toGet(outReqFifo);
-      interface response = toPut(inRespFifo);
-   endinterface);
 endmodule

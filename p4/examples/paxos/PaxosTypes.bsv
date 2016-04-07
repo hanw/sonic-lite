@@ -7,6 +7,12 @@ import MatchTable::*;
 import Pipe::*;
 import RegFile::*;
 import Vector::*;
+import DefaultValue::*;
+
+typedef 8 RoundSize;
+typedef 8 MsgTypeSize;
+typedef 16 InstanceSize;
+typedef 512 ValueSize;
 
 typedef union tagged {
    struct {
@@ -15,47 +21,559 @@ typedef union tagged {
 
    struct {
       PacketInstance pkt;
-      Bit#(48) dstMac;
+      MetadataT meta;
    } DstMacLookupRequest;
 
    struct {
       PacketInstance pkt;
+      MetadataT meta;
    } RoleLookupRequest;
 
    struct {
       PacketInstance pkt;
+      MetadataT meta;
    } RoundTblRequest;
 
    struct {
       PacketInstance pkt;
+      MetadataT meta;
    } SequenceTblRequest;
 
    struct {
       PacketInstance pkt;
-      Bit#(8) msgtype;
+      MetadataT meta;
    } AcceptorTblRequest;
 
    struct {
       PacketInstance pkt;
+      MetadataT meta;
    } ForwardQueueRequest;
 
    struct {
       PacketInstance pkt;
-      Bit#(9) port;
-   } BBForwardRequest;
-} MetadataRequest deriving (Bits, Eq);
+      MetadataT meta;
+   } DefaultRequest;
+} MetadataRequest deriving (Bits, Eq, FShow);
 
-typedef struct {
-   Bool done;
+typedef union tagged {
+   struct {
+      PacketInstance pkt;
+      MetadataT meta;
+   } DstMacResponse;
+
+   struct {
+      PacketInstance pkt;
+      MetadataT meta;
+   } RoleResponse;
+
+   struct {
+      PacketInstance pkt;
+      MetadataT meta;
+   } RoundTblResponse;
+
+   struct {
+      PacketInstance pkt;
+      MetadataT meta;
+   } SequenceTblResponse;
+
+   struct {
+      PacketInstance pkt;
+      MetadataT meta;
+   } AcceptorTblResponse;
+
 } MetadataResponse deriving (Bits, Eq);
 
-typedef 8 RoundSize;
-typedef 8 MsgTypeSize;
-typedef 16 InstanceSize;
-typedef 512 ValueSize;
+
+typedef union tagged {
+   struct {
+      PacketInstance pkt;
+      Bit#(9) port;
+   } BBForwardRequest;
+   struct {
+      PacketInstance pkt;
+   } BBIncreaseInstanceRequest;
+   struct {
+      PacketInstance pkt;
+   } BBHandle1aRequest;
+   struct {
+      PacketInstance pkt;
+   } BBHandle2aRequest;
+   struct {
+      PacketInstance pkt;
+   } BBDropRequest;
+} BBRequest deriving (Bits, Eq, FShow);
+
+typedef union tagged {
+   struct {
+      PacketInstance pkt;
+      Bit#(9) egress;
+   } BBForwardResponse;
+   struct {
+      PacketInstance pkt;
+   } BBIncreaseInstanceResponse;
+   struct {
+      PacketInstance pkt;
+   } BBHandle1aResponse;
+   struct {
+      PacketInstance pkt;
+   } BBHandle2aResponse;
+   struct {
+      PacketInstance pkt;
+   } BBDropResponse;
+} BBResponse deriving (Bits, Eq);
+
+typedef struct {
+    Bit#(4) version;
+    Bit#(8) trafficClass;
+    Bit#(20) flowLabel;
+    Bit#(16) payloadLen;
+    Bit#(8) nextHdr;
+    Bit#(8) hopLimit;
+    Bit#(128) srcAddr;
+    Bit#(128) dstAddr;
+} Ipv6T deriving (Bits, Eq);
+
+instance DefaultValue#(Ipv6T);
+defaultValue=
+Ipv6T {
+    version: 0,
+    trafficClass: 0,
+    flowLabel: 0,
+    payloadLen: 0,
+    nextHdr: 0,
+    hopLimit: 0,
+    srcAddr: 0,
+    dstAddr: 0};
+endinstance
+
+instance FShow#(Ipv6T);
+    function Fmt fshow(Ipv6T p);
+        return $format("Ipv6T: version=%h, trafficClass=%h, flowLabel=%h, payloadLen=%h, nextHdr=%h, hopLimit=%h, srcAddr=%h, dstAddr=%h" , p.version, p.trafficClass, p.flowLabel, p.payloadLen, p.nextHdr, p.hopLimit, p.srcAddr, p.dstAddr);
+    endfunction
+endinstance
+
+function Ipv6T extract_ipv6(Bit#(320) data);
+    Vector#(320, Bit#(1)) dataVec=unpack(data);
+    Vector#(4, Bit#(1)) version = takeAt(0, dataVec);
+    Vector#(8, Bit#(1)) trafficClass = takeAt(4, dataVec);
+    Vector#(20, Bit#(1)) flowLabel = takeAt(12, dataVec);
+    Vector#(16, Bit#(1)) payloadLen = takeAt(32, dataVec);
+    Vector#(8, Bit#(1)) nextHdr = takeAt(48, dataVec);
+    Vector#(8, Bit#(1)) hopLimit = takeAt(56, dataVec);
+    Vector#(128, Bit#(1)) srcAddr = takeAt(64, dataVec);
+    Vector#(128, Bit#(1)) dstAddr = takeAt(192, dataVec);
+    Ipv6T ipv6_t = defaultValue;
+    ipv6_t.version = pack(version);
+    ipv6_t.trafficClass = pack(trafficClass);
+    ipv6_t.flowLabel = pack(flowLabel);
+    ipv6_t.payloadLen = pack(payloadLen);
+    ipv6_t.nextHdr = pack(nextHdr);
+    ipv6_t.hopLimit = pack(hopLimit);
+    ipv6_t.srcAddr = pack(srcAddr);
+    ipv6_t.dstAddr = pack(dstAddr);
+    return ipv6_t;
+endfunction
+
+typedef struct {
+    Bit#(16) srcPort;
+    Bit#(16) dstPort;
+    Bit#(16) length_;
+    Bit#(16) checksum;
+} UdpT deriving (Bits, Eq);
+
+instance DefaultValue#(UdpT);
+defaultValue=
+UdpT {
+    srcPort: 0,
+    dstPort: 0,
+    length_: 0,
+    checksum: 0
+};
+endinstance
+
+instance FShow#(UdpT);
+    function Fmt fshow(UdpT p);
+        return $format("UdpT: srcPort=%h, dstPort=%h, length_=%h, checksum=%h" , p.srcPort, p.dstPort, p.length_, p.checksum);
+    endfunction
+endinstance
+
+function UdpT extract_udp(Bit#(64) data);
+    Vector#(64, Bit#(1)) dataVec=unpack(data);
+    Vector#(16, Bit#(1)) srcPort = takeAt(0, dataVec);
+    Vector#(16, Bit#(1)) dstPort = takeAt(16, dataVec);
+    Vector#(16, Bit#(1)) length_ = takeAt(32, dataVec);
+    Vector#(16, Bit#(1)) checksum = takeAt(48, dataVec);
+    UdpT udp_t = defaultValue;
+    udp_t.srcPort = pack(srcPort);
+    udp_t.dstPort = pack(dstPort);
+    udp_t.length_ = pack(length_);
+    udp_t.checksum = pack(checksum);
+    return udp_t;
+endfunction
+
+typedef struct {
+    Bit#(32) inst;
+    Bit#(16) rnd;
+    Bit#(16) vrnd;
+    Bit#(16) acptid;
+    Bit#(16) msgtype;
+    Bit#(256) paxosval;
+} PaxosT deriving (Bits, Eq);
+
+instance DefaultValue#(PaxosT);
+defaultValue=
+PaxosT {
+    inst: 0,
+    rnd: 0,
+    vrnd: 0,
+    acptid: 0,
+    msgtype: 0,
+    paxosval: 0
+};
+endinstance
+
+instance FShow#(PaxosT);
+    function Fmt fshow(PaxosT p);
+        return $format("PaxosT: inst=%h, rnd=%h, vrnd=%h, acptid=%h, msgtype=%h, paxosval=%h" , p.inst, p.rnd, p.vrnd, p.acptid, p.msgtype, p.paxosval);
+    endfunction
+endinstance
+
+function PaxosT extract_paxos(Bit#(352) data);
+    Vector#(352, Bit#(1)) dataVec=unpack(data);
+    Vector#(32, Bit#(1)) inst = takeAt(0, dataVec);
+    Vector#(16, Bit#(1)) rnd = takeAt(32, dataVec);
+    Vector#(16, Bit#(1)) vrnd = takeAt(48, dataVec);
+    Vector#(16, Bit#(1)) acptid = takeAt(64, dataVec);
+    Vector#(16, Bit#(1)) msgtype = takeAt(80, dataVec);
+    Vector#(256, Bit#(1)) paxosval = takeAt(96, dataVec);
+    PaxosT paxos_t = defaultValue;
+    paxos_t.inst = pack(inst);
+    paxos_t.rnd = pack(rnd);
+    paxos_t.vrnd = pack(vrnd);
+    paxos_t.acptid = pack(acptid);
+    paxos_t.msgtype = pack(msgtype);
+    paxos_t.paxosval = pack(paxosval);
+    return paxos_t;
+endfunction
+
+typedef struct {
+    Bit#(16) hrd;
+    Bit#(16) pro;
+    Bit#(8) hln;
+    Bit#(8) pln;
+    Bit#(16) op;
+    Bit#(48) sha;
+    Bit#(32) spa;
+    Bit#(48) tha;
+    Bit#(32) tpa;
+} ArpT deriving (Bits, Eq);
+
+instance DefaultValue#(ArpT);
+defaultValue=
+ArpT {
+    hrd: 0,
+    pro: 0,
+    hln: 0,
+    pln: 0,
+    op: 0,
+    sha: 0,
+    spa: 0,
+    tha: 0,
+    tpa: 0
+};
+endinstance
+
+instance FShow#(ArpT);
+    function Fmt fshow(ArpT p);
+        return $format("ArpT: hrd=%h, pro=%h, hln=%h, pln=%h, op=%h, sha=%h, spa=%h, tha=%h, tpa=%h" , p.hrd, p.pro, p.hln, p.pln, p.op, p.sha, p.spa, p.tha, p.tpa);
+    endfunction
+endinstance
+
+function ArpT extract_arp(Bit#(224) data);
+    Vector#(224, Bit#(1)) dataVec=unpack(data);
+    Vector#(16, Bit#(1)) hrd = takeAt(0, dataVec);
+    Vector#(16, Bit#(1)) pro = takeAt(16, dataVec);
+    Vector#(8, Bit#(1)) hln = takeAt(32, dataVec);
+    Vector#(8, Bit#(1)) pln = takeAt(40, dataVec);
+    Vector#(16, Bit#(1)) op = takeAt(48, dataVec);
+    Vector#(48, Bit#(1)) sha = takeAt(64, dataVec);
+    Vector#(32, Bit#(1)) spa = takeAt(112, dataVec);
+    Vector#(48, Bit#(1)) tha = takeAt(144, dataVec);
+    Vector#(32, Bit#(1)) tpa = takeAt(192, dataVec);
+    ArpT arp_t = defaultValue;
+    arp_t.hrd = pack(hrd);
+    arp_t.pro = pack(pro);
+    arp_t.hln = pack(hln);
+    arp_t.pln = pack(pln);
+    arp_t.op = pack(op);
+    arp_t.sha = pack(sha);
+    arp_t.spa = pack(spa);
+    arp_t.tha = pack(tha);
+    arp_t.tpa = pack(tpa);
+    return arp_t;
+endfunction
+
+typedef struct {
+    Bit#(4) version;
+    Bit#(4) ihl;
+    Bit#(8) diffserv;
+    Bit#(16) totalLen;
+    Bit#(16) identification;
+    Bit#(3) flags;
+    Bit#(13) fragOffset;
+    Bit#(8) ttl;
+    Bit#(8) protocol;
+    Bit#(16) hdrChecksum;
+    Bit#(32) srcAddr;
+    Bit#(32) dstAddr;
+} Ipv4T deriving (Bits, Eq);
+
+instance DefaultValue#(Ipv4T);
+defaultValue=
+Ipv4T {
+    version: 0,
+    ihl: 0,
+    diffserv: 0,
+    totalLen: 0,
+    identification: 0,
+    flags: 0,
+    fragOffset: 0,
+    ttl: 0,
+    protocol: 0,
+    hdrChecksum: 0,
+    srcAddr: 0,
+    dstAddr: 0
+};
+endinstance
+
+instance FShow#(Ipv4T);
+    function Fmt fshow(Ipv4T p);
+        return $format("Ipv4T: version=%h, ihl=%h, diffserv=%h, totalLen=%h, identification=%h, flags=%h, fragOffset=%h, ttl=%h, protocol=%h, hdrChecksum=%h, srcAddr=%h, dstAddr=%h" , p.version, p.ihl, p.diffserv, p.totalLen, p.identification, p.flags, p.fragOffset, p.ttl, p.protocol, p.hdrChecksum, p.srcAddr, p.dstAddr);
+    endfunction
+endinstance
+
+function Ipv4T extract_ipv4(Bit#(160) data);
+    Vector#(160, Bit#(1)) dataVec=unpack(data);
+    Vector#(4, Bit#(1)) version = takeAt(0, dataVec);
+    Vector#(4, Bit#(1)) ihl = takeAt(4, dataVec);
+    Vector#(8, Bit#(1)) diffserv = takeAt(8, dataVec);
+    Vector#(16, Bit#(1)) totalLen = takeAt(16, dataVec);
+    Vector#(16, Bit#(1)) identification = takeAt(32, dataVec);
+    Vector#(3, Bit#(1)) flags = takeAt(48, dataVec);
+    Vector#(13, Bit#(1)) fragOffset = takeAt(51, dataVec);
+    Vector#(8, Bit#(1)) ttl = takeAt(64, dataVec);
+    Vector#(8, Bit#(1)) protocol = takeAt(72, dataVec);
+    Vector#(16, Bit#(1)) hdrChecksum = takeAt(80, dataVec);
+    Vector#(32, Bit#(1)) srcAddr = takeAt(96, dataVec);
+    Vector#(32, Bit#(1)) dstAddr = takeAt(128, dataVec);
+    Ipv4T ipv4_t = defaultValue;
+    ipv4_t.version = pack(version);
+    ipv4_t.ihl = pack(ihl);
+    ipv4_t.diffserv = pack(diffserv);
+    ipv4_t.totalLen = pack(totalLen);
+    ipv4_t.identification = pack(identification);
+    ipv4_t.flags = pack(flags);
+    ipv4_t.fragOffset = pack(fragOffset);
+    ipv4_t.ttl = pack(ttl);
+    ipv4_t.protocol = pack(protocol);
+    ipv4_t.hdrChecksum = pack(hdrChecksum);
+    ipv4_t.srcAddr = pack(srcAddr);
+    ipv4_t.dstAddr = pack(dstAddr);
+    return ipv4_t;
+endfunction
+
+typedef struct {
+    Bit#(16) round;
+} IngressMetadataT deriving (Bits, Eq);
+
+instance DefaultValue#(IngressMetadataT);
+defaultValue=
+IngressMetadataT {
+    round: 0
+};
+endinstance
+
+instance FShow#(IngressMetadataT);
+    function Fmt fshow(IngressMetadataT p);
+        return $format("IngressMetadataT: round=%h" , p.round);
+    endfunction
+endinstance
+
+function IngressMetadataT extract_ingress_metadata(Bit#(16) data);
+    Vector#(16, Bit#(1)) dataVec=unpack(data);
+    Vector#(16, Bit#(1)) round = takeAt(0, dataVec);
+    IngressMetadataT ingress_metadata_t = defaultValue;
+    ingress_metadata_t.round = pack(round);
+    return ingress_metadata_t;
+endfunction
+
+typedef struct {
+    Bit#(48) dstAddr;
+    Bit#(48) srcAddr;
+    Bit#(16) etherType;
+} EthernetT deriving (Bits, Eq);
+
+instance DefaultValue#(EthernetT);
+defaultValue=
+EthernetT {
+    dstAddr: 0,
+    srcAddr: 0,
+    etherType: 0
+};
+endinstance
+
+instance FShow#(EthernetT);
+    function Fmt fshow(EthernetT p);
+        return $format("EthernetT: dstAddr=%h, srcAddr=%h, etherType=%h" , p.dstAddr, p.srcAddr, p.etherType);
+    endfunction
+endinstance
+
+function EthernetT extract_ethernet(Bit#(112) data);
+    Vector#(112, Bit#(1)) dataVec=unpack(data);
+    Vector#(48, Bit#(1)) dstAddr = takeAt(0, dataVec);
+    Vector#(48, Bit#(1)) srcAddr = takeAt(48, dataVec);
+    Vector#(16, Bit#(1)) etherType = takeAt(96, dataVec);
+    EthernetT ethernet_t = defaultValue;
+    ethernet_t.dstAddr = pack(dstAddr);
+    ethernet_t.srcAddr = pack(srcAddr);
+    ethernet_t.etherType = pack(etherType);
+    return ethernet_t;
+endfunction
+
+typedef struct {
+    Bit#(9) ingress_port;
+    Bit#(32) packet_length;
+    Bit#(9) egress_spec;
+    Bit#(9) egress_port;
+    Bit#(32) egress_instance;
+    Bit#(32) instance_type;
+    Bit#(32) clone_spec;
+    Bit#(5) _padding;
+} StandardMetadataT deriving (Bits, Eq);
+
+instance DefaultValue#(StandardMetadataT);
+defaultValue=
+StandardMetadataT {
+    ingress_port: 0,
+    packet_length: 0,
+    egress_spec: 0,
+    egress_port: 0,
+    egress_instance: 0,
+    instance_type: 0,
+    clone_spec: 0,
+    _padding: 0
+};
+endinstance
+
+instance FShow#(StandardMetadataT);
+    function Fmt fshow(StandardMetadataT p);
+        return $format("StandardMetadataT: ingress_port=%h, packet_length=%h, egress_spec=%h, egress_port=%h, egress_instance=%h, instance_type=%h, clone_spec=%h, _padding=%h" , p.ingress_port, p.packet_length, p.egress_spec, p.egress_port, p.egress_instance, p.instance_type, p.clone_spec, p._padding);
+    endfunction
+endinstance
+
+function StandardMetadataT extract_standard_metadata(Bit#(160) data);
+    Vector#(160, Bit#(1)) dataVec=unpack(data);
+    Vector#(9, Bit#(1)) ingress_port = takeAt(0, dataVec);
+    Vector#(32, Bit#(1)) packet_length = takeAt(9, dataVec);
+    Vector#(9, Bit#(1)) egress_spec = takeAt(41, dataVec);
+    Vector#(9, Bit#(1)) egress_port = takeAt(50, dataVec);
+    Vector#(32, Bit#(1)) egress_instance = takeAt(59, dataVec);
+    Vector#(32, Bit#(1)) instance_type = takeAt(91, dataVec);
+    Vector#(32, Bit#(1)) clone_spec = takeAt(123, dataVec);
+    Vector#(5, Bit#(1)) _padding = takeAt(155, dataVec);
+    StandardMetadataT standard_metadata_t = defaultValue;
+    standard_metadata_t.ingress_port = pack(ingress_port);
+    standard_metadata_t.packet_length = pack(packet_length);
+    standard_metadata_t.egress_spec = pack(egress_spec);
+    standard_metadata_t.egress_port = pack(egress_port);
+    standard_metadata_t.egress_instance = pack(egress_instance);
+    standard_metadata_t.instance_type = pack(instance_type);
+    standard_metadata_t.clone_spec = pack(clone_spec);
+    standard_metadata_t._padding = pack(_padding);
+    return standard_metadata_t;
+endfunction
+
+typedef struct {
+    Bit#(8) role;
+} SwitchMetadataT deriving (Bits, Eq);
+
+instance DefaultValue#(SwitchMetadataT);
+defaultValue=
+SwitchMetadataT {
+    role: 0
+};
+endinstance
+
+instance FShow#(SwitchMetadataT);
+    function Fmt fshow(SwitchMetadataT p);
+        return $format("SwitchMetadataT: role=%h" , p.role);
+    endfunction
+endinstance
+
+function SwitchMetadataT extract_switch_metadata(Bit#(8) data);
+    Vector#(8, Bit#(1)) dataVec=unpack(data);
+    Vector#(8, Bit#(1)) role = takeAt(0, dataVec);
+    SwitchMetadataT switch_metadata_t = defaultValue;
+    switch_metadata_t.role = pack(role);
+    return switch_metadata_t;
+endfunction
+
+typedef enum {
+   ACCEPTOR = 1,
+   COORDINATOR = 2
+} Role deriving (Bits, Eq);
+instance FShow#(Role);
+   function Fmt fshow(Role role);
+      case(role)
+         ACCEPTOR: return fshow("ACCEPTOR");
+         COORDINATOR: return fshow("COORDINATOR");
+      endcase
+   endfunction
+endinstance
+
+typedef struct {
+   Bit#(16) msgtype;
+   Bit#(48) dstAddr;
+   Bit#(16) etherType;
+   Bit#(8) protocol;
+   Bit#(16) dstPort;
+   Role role;
+   Bool valid_ethernet;
+   Bool valid_arp;
+   Bool valid_ipv4;
+   Bool valid_ipv6;
+   Bool valid_udp;
+   Bool valid_paxos;
+} MetadataT deriving (Bits, Eq);
+instance DefaultValue#(MetadataT);
+defaultValue =
+MetadataT {
+   msgtype: 0,
+   dstAddr: 0,
+   etherType: 0,
+   protocol: 0,
+   dstPort: 0,
+   role: ACCEPTOR,
+   valid_ethernet: False,
+   valid_arp: False,
+   valid_ipv4: False,
+   valid_ipv6: False,
+   valid_udp: False,
+   valid_paxos: False
+};
+endinstance
+instance FShow#(MetadataT);
+   function Fmt fshow(MetadataT p);
+      return $format("MetadataT: msgtype=%h, dstAddr=%h, etherType=%h, protocol=%h, dstPort=%h", p.msgtype, p.dstAddr, p.etherType, p.protocol, p.dstPort, fshow(p.role));
+   endfunction
+endinstance
+
 
 typedef Client#(MetadataRequest, MetadataResponse) MetadataClient;
 typedef Server#(MetadataRequest, MetadataResponse) MetadataServer;
+
+typedef Client#(BBRequest, BBResponse) BBClient;
+typedef Server#(BBRequest, BBResponse) BBServer;
 
 interface P4RegisterIfc#(type addr, type data);
 endinterface
@@ -259,14 +777,15 @@ typedef struct {
 } DmacTblReqT deriving (Bits, Eq, FShow);
 
 typedef enum {
-    Forward = 1,
-    Broadcast = 2
+    FORWARD = 1,
+    BROADCAST = 2
 } ActionDmacTableValue5 deriving (Bits, Eq);
 
 typedef union tagged {
     struct {
         Bit#(9) port;
     } Forward;
+
     struct {
         Bit#(4) group;
     } Broadcast;

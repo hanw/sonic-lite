@@ -25,66 +25,131 @@ import DbgTypes::*;
 import Ethernet::*;
 import FIFO::*;
 import GetPut::*;
-import PaxosTypes::*;
 import MatchTable::*;
 import RegFile::*;
+import PaxosTypes::*;
 
 interface BasicBlockHandle1A;
-
+   interface BBServer prev_control_state;
 endinterface
 
-module mkBasicBlockHandle1A#(MetadataClient md)(BasicBlockHandle1A);
+module mkBasicBlockHandle1A(BasicBlockHandle1A);
+   FIFO#(BBRequest) bb_handle_1a_request_fifo <- mkFIFO;
+   FIFO#(BBResponse) bb_handle_1a_response_fifo <- mkFIFO;
 
+   interface prev_control_state = (interface BBServer;
+      interface request = toPut(bb_handle_1a_request_fifo);
+      interface response = toGet(bb_handle_1a_response_fifo);
+   endinterface);
 endmodule
 
 interface BasicBlockHandle2A;
-
+   interface BBServer prev_control_state;
 endinterface
 
-module mkBasicBlockHandle2A#(MetadataClient md)(BasicBlockHandle2A);
+module mkBasicBlockHandle2A(BasicBlockHandle2A);
+   FIFO#(BBRequest) bb_handle_2a_request_fifo <- mkFIFO;
+   FIFO#(BBResponse) bb_handle_2a_response_fifo <- mkFIFO;
 
+   interface prev_control_state = (interface BBServer;
+      interface request = toPut(bb_handle_2a_request_fifo);
+      interface response = toGet(bb_handle_2a_response_fifo);
+   endinterface);
 endmodule
 
 interface BasicBlockDrop;
-
+   interface BBServer prev_control_state;
 endinterface
 
-module mkBasicBlockDrop#(MetadataClient md)(BasicBlockDrop);
+module mkBasicBlockDrop(BasicBlockDrop);
+   FIFO#(BBRequest) bb_drop_request_fifo <- mkFIFO;
+   FIFO#(BBResponse) bb_drop_response_fifo <- mkFIFO;
 
+   interface prev_control_state = (interface BBServer;
+      interface request = toPut(bb_drop_request_fifo);
+      interface response = toGet(bb_drop_response_fifo);
+   endinterface);
 endmodule
 
 interface AcceptorTable;
-   interface Client#(MetadataRequest, MetadataResponse) next;
-   //interface Client#(RoundRegRequest, RoundRegResponse) regAccess;
+   interface BBClient next_control_state_0;
+   interface BBClient next_control_state_1;
+   interface BBClient next_control_state_2;
 endinterface
 
-module mkAcceptorTable#(Client#(MetadataRequest, MetadataResponse) md)(AcceptorTable);
+module mkAcceptorTable#(MetadataClient md)(AcceptorTable);
    let verbose = True;
    MatchTable#(256, MatchFieldAcceptorTbl, ActionArgsAcceptorTbl) matchTable <- mkMatchTable_256_acceptorTable();
 
-   FIFO#(MetadataRequest) outReqFifo <- mkFIFO;
-   FIFO#(MetadataResponse) inRespFifo <- mkFIFO;
+   FIFO#(BBRequest) outReqFifo0 <- mkFIFO;
+   FIFO#(BBResponse) inRespFifo0 <- mkFIFO;
+   FIFO#(BBRequest) outReqFifo1 <- mkFIFO;
+   FIFO#(BBResponse) inRespFifo1 <- mkFIFO;
+   FIFO#(BBRequest) outReqFifo2 <- mkFIFO;
+   FIFO#(BBResponse) inRespFifo2 <- mkFIFO;
    FIFO#(PacketInstance) currPacketFifo <- mkFIFO;
+   FIFO#(MetadataT) currMetadataFifo <- mkFIFO;
 
-   rule tableLookupRequest;
+   rule lookup_request;
       let v <- md.request.get;
       case (v) matches
-         tagged AcceptorTblRequest {pkt: .pkt} : begin
+         tagged AcceptorTblRequest {pkt: .pkt, meta: .meta} : begin
             //matchTable.lookupPort.request.put(MatchFieldAcceptorTbl { key_field_0: v.key_field_0 });
             //currPacketFifo.enq(pkt);
             if (verbose) $display("Acceptor: %h", pkt.id);
-            MetadataRequest nextReq = tagged ForwardQueueRequest {pkt: pkt};
-            outReqFifo.enq(nextReq);
+
          end
       endcase
    endrule
 
-   rule tableLookupResponse;
+   rule lookup_response;
       let v <- matchTable.lookupPort.response.get;
+      $display("acceptor table lookup");
+      if (v matches tagged Valid .resp) begin
+         //case (resp) matches
+         //   MetadataRequest req = tagged ForwardQueueRequest {pkt: pkt, meta: meta};
+         //   outReqFifo0.enq(req);
+         //endcase
+      end
    endrule
 
-   interface next = (interface Client#(MetadataRequest, MetadataResponse);
-      interface request = toGet(outReqFifo);
-      interface response = toPut(inRespFifo);
+   rule bb_handle_1a_resp;
+      let v <- toGet(inRespFifo0).get;
+      case (v) matches
+         tagged BBHandle1aResponse {}: begin
+
+         end
+      endcase
+   endrule
+
+   rule bb_handle_2a_resp;
+      let v <- toGet(inRespFifo1).get;
+      case (v) matches
+         tagged BBHandle2aResponse {}: begin
+
+         end
+      endcase
+   endrule
+
+   rule bb_drop;
+      let v <- toGet(inRespFifo2).get;
+      case (v) matches
+         tagged BBDropResponse {}: begin
+
+         end
+      endcase
+   endrule
+
+   interface next_control_state_0 = (interface BBClient;
+      interface request = toGet(outReqFifo0);
+      interface response = toPut(inRespFifo0);
+   endinterface);
+   interface next_control_state_1 = (interface BBClient;
+      interface request = toGet(outReqFifo1);
+      interface response = toPut(inRespFifo1);
+   endinterface);
+   interface next_control_state_2 = (interface BBClient;
+      interface request = toGet(outReqFifo2);
+      interface response = toPut(inRespFifo2);
    endinterface);
 endmodule

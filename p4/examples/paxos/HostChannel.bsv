@@ -48,8 +48,8 @@ endinterface
 
 module mkHostChannel(HostChannel);
    let verbose = True;
-   FIFO#(MetadataRequest) outReqFifo0 <- mkFIFO;
-   FIFO#(MetadataResponse) inRespFifo0 <- mkFIFO;
+   FIFO#(MetadataRequest) outReqFifo <- mkFIFO;
+   FIFO#(MetadataResponse) inRespFifo <- mkFIFO;
 
    Reg#(Bit#(64)) paxosCount <- mkReg(0);
    Reg#(Bit#(64)) ipv6Count <- mkReg(0);
@@ -64,48 +64,18 @@ module mkHostChannel(HostChannel);
    mkConnection(ingress.readClient, tap.readServer);
    mkConnection(tap.tap_out, toPut(parser.frameIn));
 
-   // new packet, issue metadata processing request to ingress pipeline
-   // request issue after packet is committed to memory.
-   rule handle_paxos_packet if (parser.parserState.first == StateParsePaxos);
-      parser.parserState.deq;
+   rule dispatch_packet;
       let v <- toGet(ingress.eventPktCommitted).get;
-      // meta
-      let dstMac <- toGet(parser.parsedOut_ethernet_dstAddr).get;
-      let msgtype <- toGet(parser.parsedOut_paxos_msgtype).get;
-      if (verbose) $display("HostChannel: dstMac=%h, size=%d", dstMac, v.size);
-      if (verbose) $display("HostChannel: msgtype=%h", msgtype);
-      MetadataRequest nextReq0 = tagged DstMacLookupRequest { pkt: v, dstMac: dstMac };
-      outReqFifo0.enq(nextReq0);
-      paxosCount <= paxosCount + 1;
-   endrule
-
-   // redundant, remove!
-   rule handle_unknown_ipv6_packet if (parser.parserState.first == StateParseIpv6);
-      parser.parserState.deq;
-      let v <- toGet(ingress.eventPktCommitted).get;
-      let dstMac <- toGet(parser.parsedOut_ethernet_dstAddr).get;
-      // forward to drop table
-      if (verbose) $display("HostChannel unknown ipv6: dstMac=%h, size=%d", dstMac, v.size);
-      MetadataRequest nextReq0 = tagged DstMacLookupRequest { pkt: v, dstMac: dstMac };
-      outReqFifo0.enq(nextReq0);
-      ipv6Count <= ipv6Count + 1;
-   endrule
-
-   rule handle_unknown_udp_packet if (parser.parserState.first == StateParseUdp);
-      parser.parserState.deq;
-      let v <- toGet(ingress.eventPktCommitted).get;
-      let dstMac <- toGet(parser.parsedOut_ethernet_dstAddr).get;
-      if (verbose) $display("HostChannel unknown udp: dstMac=%h, size=%d", dstMac, v.size);
-      MetadataRequest nextReq0 = tagged DstMacLookupRequest { pkt: v, dstMac: dstMac };
-      outReqFifo0.enq(nextReq0);
-      udpCount <= udpCount + 1;
+      let meta <- toGet(parser.meta).get;
+      MetadataRequest nextReq = tagged DefaultRequest { pkt: v, meta: meta};
+      outReqFifo.enq(nextReq);
    endrule
 
    interface writeServer = pktBuff.writeServer;
    interface writeClient = ingress.writeClient;
    interface next = (interface Client#(MetadataRequest, MetadataResponse);
-      interface request = toGet(outReqFifo0);
-      interface response = toPut(inRespFifo0);
+      interface request = toGet(outReqFifo);
+      interface response = toPut(inRespFifo);
    endinterface);
    interface mallocClient = ingress.malloc;
    method dbg = pktBuff.dbg;

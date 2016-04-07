@@ -29,33 +29,57 @@ import PaxosTypes::*;
 import RegFile::*;
 
 interface BasicBlockIncreaseInstance;
-
+   interface BBServer prev_control_state;
 endinterface
 
-module mkBasicBlockIncreaseInstance#(Client#(MetadataRequest, MetadataResponse) md)(BasicBlockIncreaseInstance);
+module mkBasicBlockIncreaseInstance(BasicBlockIncreaseInstance);
+   FIFO#(BBRequest) bb_increase_instance_request_fifo <- mkFIFO;
+   FIFO#(BBResponse) bb_increase_instance_response_fifo <- mkFIFO;
 
-endmodule
-
-interface SequenceTable;
-   interface Client#(MetadataRequest, MetadataResponse) next;
-endinterface
-
-module mkSequenceTable#(Client#(MetadataRequest, MetadataResponse) md)(SequenceTable);
-   let verbose = True;
-
-   FIFO#(MetadataRequest) outReqFifo <- mkFIFO;
-   FIFO#(MetadataResponse) inRespFifo <- mkFIFO;
-   FIFO#(PacketInstance) currPacketFifo <- mkFIFO;
-
-   rule tableLookupRequest;
-      let v <- md.request.get;
+   rule bb_increase_instance;
+      let v <- toGet(bb_increase_instance_request_fifo).get;
       case (v) matches
-         tagged SequenceTblRequest { pkt: .pkt } : begin
+         tagged BBIncreaseInstanceRequest {pkt: .pkt}: begin
+            // read-modify-write register
+            BBResponse resp = tagged BBIncreaseInstanceResponse {pkt: pkt};
+            bb_increase_instance_response_fifo.enq(resp);
          end
       endcase
    endrule
 
-   interface next = (interface Client#(MetadataRequest, MetadataResponse);
+   interface prev_control_state = (interface BBServer;
+      interface request = toPut(bb_increase_instance_request_fifo);
+      interface response = toGet(bb_increase_instance_response_fifo);
+   endinterface);
+endmodule
+
+interface SequenceTable;
+   interface BBClient next_control_state_0;
+endinterface
+
+module mkSequenceTable#(MetadataClient md)(SequenceTable);
+   let verbose = True;
+
+   FIFO#(BBRequest) outReqFifo <- mkFIFO;
+   FIFO#(BBResponse) inRespFifo <- mkFIFO;
+   FIFO#(PacketInstance) currPacketFifo <- mkFIFO;
+
+   // sequence match table?? only one-entry, register will suffice.
+
+   rule lookup;
+      let v <- md.request.get;
+      case (v) matches
+         tagged SequenceTblRequest { pkt: .pkt, meta: .meta } : begin
+            MetadataResponse resp = tagged SequenceTblResponse {pkt: pkt, meta: meta};
+            md.response.put(resp); //FIXME
+         end
+      endcase
+   endrule
+
+   rule lookup_resp; //FIXME
+   endrule
+
+   interface next_control_state_0 = (interface BBClient;
       interface request = toGet(outReqFifo);
       interface response = toPut(inRespFifo);
    endinterface);
