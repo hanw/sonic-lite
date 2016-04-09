@@ -338,10 +338,10 @@ module mkStoreAndFwdFromRingToMac#(Clock txClock, Reset txReset)(StoreAndFwdFrom
       let temp = head(data);
       let bytes = zeroExtend(pack(countOnes(temp.mask)));
       if (unpack(temp.sop)) sopCount <= sopCount + 1;
-      if (unpack(temp.eop)) eopCount <= eopCount + 1;
       data_bytes <= data_bytes + bytes;
       if (temp.mask != 0) begin
          if (verbose) $display("ringToMac:: tx data %h", temp.data);
+         if (unpack(temp.eop)) eopCount <= eopCount + 1;
          writeMacFifo.enq(temp);
       end
       else begin
