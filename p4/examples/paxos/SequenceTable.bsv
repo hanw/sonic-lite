@@ -25,6 +25,7 @@ import DbgTypes::*;
 import Ethernet::*;
 import FIFO::*;
 import GetPut::*;
+import MatchTable::*;
 import PaxosTypes::*;
 import RegFile::*;
 
@@ -80,7 +81,7 @@ module mkSequenceTable#(MetadataClient md)(SequenceTable);
    endrule
 
    rule lookup_resp;
-      let v <- toGet(inRespFifo).get;
+      let v <- matchTable.lookupPort.response.get;
       let pkt <- toGet(currPacketFifo).get;
       let meta <- toGet(currMetadataFifo).get;
       if (v matches tagged Valid .resp) begin
@@ -98,6 +99,15 @@ module mkSequenceTable#(MetadataClient md)(SequenceTable);
       end
       MetadataResponse resp = tagged SequenceTblResponse {pkt: pkt, meta: meta};
       md.response.put(resp);
+   endrule
+
+   rule bb_increase_instance_resp;
+      let v <- toGet(inRespFifo).get;
+      case (v) matches
+         tagged BBIncreaseInstanceResponse {pkt: .pkt}: begin
+            $display("(%0d) increase instance: ", $time);
+         end
+      endcase
    endrule
 
    interface next_control_state_0 = (interface BBClient;
