@@ -29,17 +29,17 @@ import PaxosTypes::*;
 
 interface RoleTable;
    interface Client#(RoundRegRequest, RoundRegResponse) regAccess;
+   method Action setRole(Bit#(32) role);
 endinterface
 
 module mkRoleTable#(MetadataClient md)(RoleTable);
-   Reg#(Bit#(64)) lookupCnt <- mkReg(0);
    Reg#(Role) role <- mkReg(COORDINATOR);
 
    FIFO#(PacketInstance) currPacketFifo <- mkFIFO;
 
    rule tableLookupRequest;
       let v <- md.request.get;
-      $display("Role: table lookup request");
+      $display("(%0d) Role: table lookup request", $time);
       case (v) matches
          tagged RoleLookupRequest {pkt: .pkt, meta: .meta}: begin
             MetadataT t = meta;
@@ -49,4 +49,8 @@ module mkRoleTable#(MetadataClient md)(RoleTable);
          end
       endcase
    endrule
+
+   method Action setRole(Bit#(32) v);
+      role <= unpack(truncate(v));
+   endmethod
 endmodule

@@ -48,11 +48,15 @@ module mkBasicBlockRound(BasicBlockRound);
          end
       endcase
    endrule
+   interface prev_control_state = (interface BBServer;
+      interface request = toPut(bb_round_request_fifo);
+      interface response = toGet(bb_round_response_fifo);
+   endinterface);
 endmodule
 
 interface RoundTable;
    interface Client#(RoundRegRequest, RoundRegResponse) regAccess;
-   interface BBClient next_control_state;
+   interface BBClient next_control_state_0;
 endinterface
 
 module mkRoundTable#(MetadataClient md)(RoundTable);
@@ -67,6 +71,7 @@ module mkRoundTable#(MetadataClient md)(RoundTable);
          tagged RoundTblRequest {pkt: .pkt, meta: .meta}: begin
             BBRequest req;
             req = tagged BBRoundRequest {pkt: pkt, paxos$inst: meta.paxos$inst};
+            $display("(%0d) Round: read inst %d", $time, meta.paxos$inst);
             outReqFifo.enq(req);
             currPacketFifo.enq(pkt);
             currMetadataFifo.enq(meta);
@@ -83,5 +88,9 @@ module mkRoundTable#(MetadataClient md)(RoundTable);
       resp = tagged RoundTblResponse {pkt: pkt, meta: meta};
       md.response.put(resp);
    endrule
+   interface next_control_state_0 = (interface BBClient;
+      interface request = toGet(outReqFifo);
+      interface response = toPut(inRespFifo);
+   endinterface);
 endmodule
 

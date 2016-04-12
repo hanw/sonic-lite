@@ -101,7 +101,7 @@ module mkMatchTableSynth(MatchTable#(depth, keys, actions))
          method ActionValue#(Maybe#(actions)) get();
             let m <- toGet(bcamMatchFifo).get;
             let v <- ram.portA.response.get;
-            if (verbose) $display("matchTable %d: recv ram response ", cycle, fshow(v));
+            if (verbose) $display("(%0d) matchTable: recv ram response ", $time, fshow(v));
             case (m) matches
                True: return tagged Valid unpack(v);
                False: return tagged Invalid;
@@ -117,7 +117,7 @@ module mkMatchTableSynth(MatchTable#(depth, keys, actions))
          BRAMRequest#(Bit#(depthSz), Bit#(actionSz)) req_ram = BRAMRequest{write: True, responseOnWrite: False, address: addrIdx, datain: 0};
          bcam.writeServer.put(req_bcam);
          ram.portA.request.put(req_ram);
-         $display("match_table %d: add flow %x", cycle, addrIdx);
+         $display("(%0d) match_table: add flow %x", $time, addrIdx);
          addrIdx <= addrIdx + 1; //FIXME: currently no reuse of address.
       endmethod
    endinterface
@@ -127,13 +127,12 @@ module mkMatchTableSynth(MatchTable#(depth, keys, actions))
          BRAMRequest#(Bit#(depthSz), Bit#(actionSz)) req_ram = BRAMRequest{write: True, responseOnWrite: False, address: id, datain: 0};
          bcam.writeServer.put(req_bcam);
          ram.portA.request.put(req_ram);
-         $display("match_table %d: delete flow %x", cycle, id);
+         $display("(%0d) match_table: delete flow %x", $time, id);
       endmethod
    endinterface
    interface Put modify_entry;
       method Action put (Tuple2#(Bit#(depthSz), actions) v);
          match { .flowid, .act} = v;
-         //$display("match_table %d: modify flow %x with action %x", cycle, flowid, act);
          BRAMRequest#(Bit#(depthSz), Bit#(actionSz)) req_ram = BRAMRequest{write: True, responseOnWrite: False, address: flowid, datain: pack(act)};
          ram.portA.request.put(req_ram);
       endmethod
@@ -163,7 +162,7 @@ module mkMatchTableBluesim(MatchTable#(depth, keys, actions))
 
    rule do_read (isInitialized);
       let v <- toGet(readReqFifo).get;
-      $display("do read %h", v);
+      $display("(%0d) do read %h", $time, v);
       let ret <- matchtable_read(v);
       readDataFifo.enq(tagged Valid unpack(ret));
    endrule

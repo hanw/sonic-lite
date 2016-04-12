@@ -43,6 +43,7 @@ interface Ingress;
    interface MemWriteClient#(`DataBusWidth) writeClient;
    interface PipeOut#(PacketInstance) eventPktSend;
    method IngressPipelineDbgRec dbg;
+   method Action setRole(Bit#(32) v);
 endinterface
 
 module mkIngress#(Vector#(numClients, MetadataClient) mdc)(Ingress);
@@ -106,6 +107,7 @@ module mkIngress#(Vector#(numClients, MetadataClient) mdc)(Ingress);
    BasicBlockHandle1A bb_handle_1a <- mkBasicBlockHandle1A();
    BasicBlockHandle2A bb_handle_2a <- mkBasicBlockHandle2A();
    BasicBlockDrop bb_handle_drop <- mkBasicBlockDrop();
+   BasicBlockRound bb_read_round <- mkBasicBlockRound();
 
    // Connect Table with BasicBlock
    mkConnection(dstMacTable.next_control_state_0, bb_fwd.prev_control_state);
@@ -113,11 +115,11 @@ module mkIngress#(Vector#(numClients, MetadataClient) mdc)(Ingress);
    mkConnection(acceptorTable.next_control_state_0, bb_handle_1a.prev_control_state);
    mkConnection(acceptorTable.next_control_state_1, bb_handle_2a.prev_control_state);
    mkConnection(acceptorTable.next_control_state_2, bb_handle_drop.prev_control_state);
+   mkConnection(roundTable.next_control_state_0, bb_read_round.prev_control_state);
 
    // Control Flow
    rule start_control_state;
       let v <- toGet(inReqFifo).get;
-      $display(fshow(v));
       case (v) matches
          tagged DefaultRequest {pkt: .pkt, meta: .meta} : begin
             if (meta.valid_ipv4) begin
@@ -130,7 +132,7 @@ module mkIngress#(Vector#(numClients, MetadataClient) mdc)(Ingress);
 
    rule dmac_tbl_next_control_state;
       let v <- toGet(dmacRespFifo).get;
-      $display("dmac_tbl next control state");
+      $display("(%0d) dmac_tbl next control state", $time);
       case (v) matches
          tagged DstMacResponse {pkt: .pkt, meta: .meta}: begin
             if (meta.valid_paxos) begin
@@ -147,12 +149,12 @@ module mkIngress#(Vector#(numClients, MetadataClient) mdc)(Ingress);
          tagged RoleResponse {pkt: .pkt, meta: .meta}: begin
             case (meta.switch_metadata$role) matches
                ACCEPTOR: begin
-                  $display("Role: Acceptor %h", pkt.id);
+                  $display("(%0d) Role: Acceptor %h", $time, pkt.id);
                   MetadataRequest req = tagged RoundTblRequest {pkt: pkt, meta: meta};
                   roundReqFifo.enq(req);
                end
                COORDINATOR: begin
-                  $display("Role: Coordinator %h", pkt.id);
+                  $display("(%0d) Role: Coordinator %h", $time, pkt.id);
                   MetadataRequest req = tagged SequenceTblRequest {pkt: pkt, meta: meta};
                   sequenceReqFifo.enq(req);
                end
@@ -163,10 +165,11 @@ module mkIngress#(Vector#(numClients, MetadataClient) mdc)(Ingress);
 
    rule sequence_tbl_next_control_state;
       let v <- toGet(sequenceRespFifo).get;
-      $display("sequence tbl response");
+      $display("(%0d) sequence tbl response", $time);
       case (v) matches
          tagged SequenceTblResponse {pkt: .pkt, meta: .meta}: begin
             currPacketFifo.enq(pkt);
+            $display("(%0d) Sequence: fwd", pkt.id);
             //if (v.p4_action == 1) begin
             //   MetadataRequest req = tagged ForwardQueueRequest {};
             //end
@@ -176,12 +179,13 @@ module mkIngress#(Vector#(numClients, MetadataClient) mdc)(Ingress);
 
    rule round_tbl_next_control_state;
       let v <- toGet(roundRespFifo).get;
-      $display("round table response");
+      $display("(%0d) round table response", $time);
       case (v) matches
          tagged RoundTblResponse {pkt: .pkt, meta: .meta}: begin
             if (meta.paxos_packet_meta$round <= meta.paxos$rnd) begin
                MetadataRequest req = tagged AcceptorTblRequest {pkt: pkt, meta: meta};
                acceptorReqFifo.enq(req);
+               $display("(%0d) Round: Acceptor %h", $time, pkt.id);
             end
          end
       endcase
@@ -189,7 +193,7 @@ module mkIngress#(Vector#(numClients, MetadataClient) mdc)(Ingress);
 
    rule acceptor_tbl_next_control_state;
       let v <- toGet(acceptorRespFifo).get;
-      $display("acceptor table response");
+      $display("(%0d) acceptor table response", $time);
       case (v) matches
          tagged AcceptorTblResponse {pkt: .pkt, meta: .meta}: begin
             //MetadataRequest req = tagged ForwardQueueRequest {};
@@ -205,4 +209,5 @@ module mkIngress#(Vector#(numClients, MetadataClient) mdc)(Ingress);
          fwdCount: fwdCount
       };
    endmethod
+   method setRole = roleTable.setRole;
 endmodule

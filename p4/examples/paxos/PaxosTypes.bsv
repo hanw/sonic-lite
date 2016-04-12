@@ -811,90 +811,33 @@ typedef union tagged {
 } DmacTblRespT deriving (Bits, Eq, FShow);
 
 typedef struct {
-    Bit#(8) key_field_0;
-    Bit#(1) padding;
-} MatchFieldSequenceTbl deriving (Bits, Eq, FShow);
+    Bit#(16) msgtype;
+    Bit#(2) padding;
+} SequenceTblReqT deriving (Bits, Eq, FShow);
 
 typedef enum {
     IncreaseInstance = 1,
     Nop = 2
-} ActionSequenceTable deriving (Bits, Eq);
+} SequenceTblActionT deriving (Bits, Eq);
 
 typedef struct {
-   ActionSequenceTable act;
-} ActionArgsSequenceTbl deriving (Bits, Eq);
+   SequenceTblActionT act;
+} SequenceTblRespT deriving (Bits, Eq);
 
 typedef struct {
-} MatchFieldRoundTbl deriving (Bits, Eq, FShow);
-
-typedef enum {
-    ReadRound = 1
-} ActionRoundTblValue17 deriving (Bits, Eq);
-
-typedef struct {
-    Bit#(8) key_field_0;
-    Bit#(1) padding;
-} MatchFieldAcceptorTbl deriving (Bits, Eq, FShow);
+    Bit#(16) msgtype;
+    Bit#(2) padding;
+} AcceptorTblReqT deriving (Bits, Eq, FShow);
 
 typedef enum {
     Handle1A = 1,
     Handle2A = 2,
     Drop = 3
-} ActionAcceptorTable deriving (Bits, Eq);
+} AcceptorTblActionT deriving (Bits, Eq);
 
 typedef struct {
-   ActionAcceptorTable act;
-} ActionArgsAcceptorTbl deriving (Bits, Eq);
-
-typedef struct {
-} MatchFieldDropTbl deriving (Bits, Eq, FShow);
-
-typedef enum {
-    Drop = 1
-} ActionDropTblValue23 deriving (Bits, Eq);
-
-typedef struct {
-} MatchFieldRoleTbl deriving (Bits, Eq, FShow);
-
-typedef enum {
-    ReadRole = 1
-} ActionRoleTblValue26 deriving (Bits, Eq);
-
-interface ActionModifyField;
-   //interface Client#(MetadataRequest, MetadataResponse) next;
-   //interface MemWriteClient#(`DataBusWidth) writeClient;
-endinterface
-
-module mkActionModifyField#(Client#(MetadataRequest, MetadataResponse) md)(ActionModifyField);
-endmodule
-
-interface ActionRegisterRead;
-
-endinterface
-
-module mkActionRegisterRead(ActionRegisterRead);
-
-endmodule
-
-interface ActionAddToField;
-
-endinterface
-
-interface ActionRegisterWrite;
-
-endinterface
-
-interface ActionDrop;
-
-endinterface
-
-interface ActionRemoveHeader;
-
-endinterface
-
-interface ActionAddHeader;
-
-endinterface
+   AcceptorTblActionT act;
+} AcceptorTblRespT deriving (Bits, Eq);
 
 (* synthesize *)
 module mkMatchTable_256_dmacTable(MatchTable#(256, DmacTblReqT, DmacTblRespT));
@@ -903,8 +846,14 @@ module mkMatchTable_256_dmacTable(MatchTable#(256, DmacTblReqT, DmacTblRespT));
 endmodule
 
 (* synthesize *)
-module mkMatchTable_256_acceptorTable(MatchTable#(256, MatchFieldAcceptorTbl, ActionArgsAcceptorTbl));
-   MatchTable#(256, MatchFieldAcceptorTbl, ActionArgsAcceptorTbl) ifc <- mkMatchTable();
+module mkMatchTable_256_acceptorTable(MatchTable#(256, AcceptorTblReqT, AcceptorTblRespT));
+   MatchTable#(256, AcceptorTblReqT, AcceptorTblRespT) ifc <- mkMatchTable();
+   return ifc;
+endmodule
+
+(* synthesize *)
+module mkMatchTable_256_sequenceTable(MatchTable#(256, SequenceTblReqT, SequenceTblRespT));
+   MatchTable#(256, SequenceTblReqT, SequenceTblRespT) ifc <- mkMatchTable();
    return ifc;
 endmodule
 

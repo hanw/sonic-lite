@@ -55,6 +55,12 @@ void usage (const char *program_name) {
     );
 }
 
+struct arg_info {
+    double rate;
+    int tracelen;
+    int role;
+};
+
 static void 
 parse_options(int argc, char *argv[], char **pcap_file, struct arg_info* info) {
     int c, option_index;
@@ -62,6 +68,7 @@ parse_options(int argc, char *argv[], char **pcap_file, struct arg_info* info) {
     static struct option long_options [] = {
         {"help",                no_argument, 0, 'h'},
         {"parser-test",         required_argument, 0, 'p'},
+        {"set-role",            required_argument, 0, 'R'},
         {0, 0, 0, 0}
     };
 
@@ -81,21 +88,19 @@ parse_options(int argc, char *argv[], char **pcap_file, struct arg_info* info) {
             case 'p':
                 *pcap_file = optarg;
                 break;
+            case 'R':
+                info->role = strtol(optarg, NULL, 0);
+                break;
             default:
                 break;
         }
     }
 }
 
-struct arg_info {
-    double rate;
-    int tracelen;
-};
-
 int main(int argc, char **argv)
 {
     char *pcap_file=NULL;
-    struct arg_info arguments = {0, 0};
+    struct arg_info arguments = {0, 0, 0};
     struct pcap_trace_info pcap_info = {0, 0};
 
     ParserTestIndication echoIndication(IfcNames_ParserTestIndicationH2S);
@@ -104,6 +109,10 @@ int main(int argc, char **argv)
     parse_options(argc, argv, &pcap_file, &arguments);
 
     device->read_version();
+
+    if (arguments.role) {
+        device->setRole(arguments.role);
+    }
 
     if (pcap_file) {
         fprintf(stderr, "Attempts to read pcap file %s\n", pcap_file);

@@ -96,10 +96,10 @@ module mkStateParseEthernet#(Reg#(ParserState) state, FIFOF#(EtherData) datain)(
         let data_this_cycle = packet_in_wire;
         Vector#(128, Bit#(1)) dataVec = unpack(data_this_cycle);
         let ethernet = extract_ethernet(pack(takeAt(0, dataVec)));
-        $display(fshow(ethernet));
+        $display("(%0d) ", $time, fshow(ethernet));
         Vector#(16, Bit#(1)) unparsed = takeAt(112, dataVec);
         let nextState = compute_next_state(ethernet.etherType);
-        $display("Goto state %h", nextState);
+        $display("(%0d) Goto state %h", $time, nextState);
         if (nextState == StateParseArp) begin
             unparsed_parse_arp_fifo.enq(pack(unparsed));
         end
@@ -176,7 +176,7 @@ module mkStateParseArp#(Reg#(ParserState) state, FIFOF#(EtherData) datain)(Parse
         Bit#(272) data = {data_this_cycle, data_last_cycle};
         Vector#(272, Bit#(1)) dataVec = unpack(data);
         let arp = extract_arp(pack(takeAt(0, dataVec)));
-        $display(fshow(arp));
+        $display("(%0d) ", $time, fshow(arp));
         next_state_wire[0] <= tagged Valid StateStart;
     endaction
     endseq;
@@ -253,10 +253,10 @@ module mkStateParseIpv4#(Reg#(ParserState) state, FIFOF#(EtherData) datain)(Pars
         Bit#(272) data = {data_this_cycle, data_last_cycle};
         Vector#(272, Bit#(1)) dataVec = unpack(data);
         let ipv4 = extract_ipv4(pack(takeAt(0, dataVec)));
-        $display(fshow(ipv4));
+        $display("(%0d) ", $time, fshow(ipv4));
         Vector#(112, Bit#(1)) unparsed = takeAt(160, dataVec);
         let nextState = compute_next_state(ipv4.protocol);
-        $display("Goto state %h", nextState);
+        $display("(%0d) Goto state %h", $time, nextState);
         if (nextState == StateParseUdp) begin
             unparsed_parse_udp_fifo.enq(pack(unparsed));
         end
@@ -330,7 +330,7 @@ module mkStateParseIpv6#(Reg#(ParserState) state, FIFOF#(EtherData) datain, FIFO
         Bit#(400) data = {data_this_cycle, data_last_cycle};
         Vector#(400, Bit#(1)) dataVec = unpack(data);
         let ipv6 = extract_ipv6(pack(takeAt(0, dataVec)));
-        $display(fshow(ipv6));
+        $display("(%0d) ", $time, fshow(ipv6));
         parseStateFifo.enq(StateParseIpv6);
         next_state_wire[0] <= tagged Valid StateStart;
     endaction
@@ -400,10 +400,10 @@ module mkStateParseUdp#(Reg#(ParserState) state, FIFOF#(EtherData) datain, FIFOF
         Bit#(240) data = {data_this_cycle, data_last_cycle};
         Vector#(240, Bit#(1)) dataVec = unpack(data);
         let udp = extract_udp(pack(takeAt(0, dataVec)));
-        $display(fshow(udp));
+        $display("(%0d) ", $time, fshow(udp));
         Vector#(176, Bit#(1)) unparsed = takeAt(64, dataVec);
         let nextState = compute_next_state(udp.dstPort);
-        $display("Goto state %h", nextState);
+        $display("(%0d) Goto state %h", $time, nextState);
         if (nextState == StateParsePaxos) begin
             unparsed_parse_paxos_fifo.enq(pack(unparsed));
         end
@@ -475,7 +475,7 @@ module mkStateParsePaxos#(Reg#(ParserState) state, FIFOF#(EtherData) datain, FIF
         Bit#(432) data = {data_this_cycle, data_last_cycle};
         Vector#(432, Bit#(1)) dataVec = unpack(data);
         let paxos = extract_paxos(pack(takeAt(0, dataVec)));
-        $display(fshow(paxos));
+        $display("(%0d0 ", $time, fshow(paxos));
         parsed_paxos_fifo.enq(paxos.msgtype);
         parseStateFifo.enq(StateParsePaxos);
         next_state_wire[0] <= tagged Valid StateStart;
@@ -525,7 +525,7 @@ module mkParser(Parser);
           if (!sentOne && parse_state_in_fifo[port].notEmpty()) begin
              ParserState state <- toGet(parse_state_in_fifo[port]).get();
              sentOne = True;
-             $display("xxx arbitrate %h", port);
+             $display("(%0d) xxx arbitrate %h", $time, port);
              parse_state_out_fifo.enq(state);
           end
        end
@@ -571,8 +571,8 @@ module mkParser(Parser);
       parse_state_out_fifo.deq;
       let dstAddr <- toGet(parse_ethernet.parsedOut_ethernet_dstAddr).get;
       let msgtype <- toGet(parse_paxos.parsedOut_paxos_msgtype).get;
-      if (verbose) $display("HostChannel: dstAddr=%h", dstAddr);
-      if (verbose) $display("HostChannel: msgtype=%h", msgtype);
+      if (verbose) $display("(%0d) HostChannel: dstAddr=%h", $time, dstAddr);
+      if (verbose) $display("(%0d) HostChannel: msgtype=%h", $time, msgtype);
       MetadataT meta = defaultValue;
       meta.dstAddr = dstAddr;
       meta.valid_paxos = True;
@@ -587,7 +587,7 @@ module mkParser(Parser);
       parse_state_out_fifo.deq;
       let dstAddr <- toGet(parse_ethernet.parsedOut_ethernet_dstAddr).get;
       // forward to drop table
-      if (verbose) $display("HostChannel unknown ipv6: dstAddr=%h, size=%d", dstAddr);
+      if (verbose) $display("(%0d) HostChannel unknown ipv6: dstAddr=%h, size=%d", $time, dstAddr);
       MetadataT meta = defaultValue;
       meta.dstAddr = dstAddr;
       meta.valid_ipv6 = True;
@@ -598,7 +598,7 @@ module mkParser(Parser);
    rule handle_unknown_udp_packet if (parse_state_out_fifo.first == StateParseUdp);
       parse_state_out_fifo.deq;
       let dstAddr <- toGet(parse_ethernet.parsedOut_ethernet_dstAddr).get;
-      if (verbose) $display("HostChannel unknown udp: dstAddr=%h, size=%d", dstAddr);
+      if (verbose) $display("(%0d) HostChannel unknown udp: dstAddr=%h, size=%d", $time, dstAddr);
       MetadataT meta = defaultValue;
       meta.dstAddr = dstAddr;
       meta.valid_udp = True;

@@ -65,17 +65,16 @@ module mkSequenceTable#(MetadataClient md)(SequenceTable);
    FIFO#(PacketInstance) currPacketFifo <- mkFIFO;
    FIFO#(MetadataT) currMetadataFifo <- mkFIFO;
 
-   // sequence match table?? only one-entry, register will suffice.
+   MatchTable#(256, SequenceTblReqT, SequenceTblRespT) matchTable <- mkMatchTable_256_sequenceTable();
 
    rule lookup;
       let v <- md.request.get;
       case (v) matches
          tagged SequenceTblRequest { pkt: .pkt, meta: .meta } : begin
-            BBRequest req;
-            req = tagged BBIncreaseInstanceRequest {pkt: pkt};
-            outReqFifo.enq(req);
-            currMetadataFifo.enq(meta);
+            matchTable.lookupPort.request.put(SequenceTblReqT {msgtype: meta.msgtype});
+            if (verbose) $display("(%0d) Sequence: %h %h", $time, pkt.id, meta.msgtype);
             currPacketFifo.enq(pkt);
+            currMetadataFifo.enq(meta);
          end
       endcase
    endrule
@@ -84,6 +83,19 @@ module mkSequenceTable#(MetadataClient md)(SequenceTable);
       let v <- toGet(inRespFifo).get;
       let pkt <- toGet(currPacketFifo).get;
       let meta <- toGet(currMetadataFifo).get;
+      if (v matches tagged Valid .resp) begin
+         case (resp.act) matches
+            IncreaseInstance: begin
+               $display("(%0d) increase instance", $time);
+               BBRequest req;
+               req = tagged BBIncreaseInstanceRequest {pkt: pkt};
+               outReqFifo.enq(req);
+            end
+            default: begin
+               $display("(%d) nop", $time);
+            end
+         endcase
+      end
       MetadataResponse resp = tagged SequenceTblResponse {pkt: pkt, meta: meta};
       md.response.put(resp);
    endrule

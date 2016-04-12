@@ -79,7 +79,8 @@ endinterface
 
 module mkAcceptorTable#(MetadataClient md)(AcceptorTable);
    let verbose = True;
-   MatchTable#(256, MatchFieldAcceptorTbl, ActionArgsAcceptorTbl) matchTable <- mkMatchTable_256_acceptorTable();
+
+   MatchTable#(256, AcceptorTblReqT, AcceptorTblRespT) matchTable <- mkMatchTable_256_acceptorTable();
 
    FIFO#(BBRequest) outReqFifo0 <- mkFIFO;
    FIFO#(BBResponse) inRespFifo0 <- mkFIFO;
@@ -94,30 +95,53 @@ module mkAcceptorTable#(MetadataClient md)(AcceptorTable);
       let v <- md.request.get;
       case (v) matches
          tagged AcceptorTblRequest {pkt: .pkt, meta: .meta} : begin
-            //matchTable.lookupPort.request.put(MatchFieldAcceptorTbl { key_field_0: v.key_field_0 });
-            //currPacketFifo.enq(pkt);
-            if (verbose) $display("Acceptor: %h", pkt.id);
-
+            matchTable.lookupPort.request.put(AcceptorTblReqT { msgtype: meta.msgtype });
+            if (verbose) $display("(%0d) Acceptor: %h %h", $time, pkt.id, meta.msgtype);
+            currPacketFifo.enq(pkt);
+            currMetadataFifo.enq(meta);
          end
       endcase
    endrule
 
    rule lookup_response;
       let v <- matchTable.lookupPort.response.get;
-      $display("acceptor table lookup");
+      let pkt <- toGet(currPacketFifo).get;
+      let meta <- toGet(currMetadataFifo).get;
+      $display("(%0d) acceptor table lookup", $time);
       if (v matches tagged Valid .resp) begin
-         //case (resp) matches
-         //   MetadataRequest req = tagged ForwardQueueRequest {pkt: pkt, meta: meta};
-         //   outReqFifo0.enq(req);
-         //endcase
+         case (resp.act) matches
+            Handle1A: begin
+               $display("(%0d) execute handle_1a", $time);
+               BBRequest req;
+               req = tagged BBHandle1aRequest {pkt: pkt};
+               outReqFifo0.enq(req);
+            end
+            Handle2A: begin
+               $display("(%0d) execute handle_2a", $time);
+               BBRequest req;
+               req = tagged BBHandle2aRequest {pkt: pkt};
+               outReqFifo1.enq(req);
+            end
+            Drop: begin
+               $display("(%0d) execute drop", $time);
+               BBRequest req;
+               req = tagged BBDropRequest {pkt: pkt};
+               outReqFifo2.enq(req);
+            end
+            default: begin
+               $display("(%0d) not valid action", $time);
+            end
+         endcase
       end
+      MetadataResponse resp = tagged AcceptorTblResponse {pkt: pkt, meta: meta};
+      md.response.put(resp);
    endrule
 
    rule bb_handle_1a_resp;
       let v <- toGet(inRespFifo0).get;
       case (v) matches
-         tagged BBHandle1aResponse {}: begin
-
+         tagged BBHandle1aResponse {pkt: .pkt}: begin
+            $display("(%0d) handle_1a: read/write register", $time);
          end
       endcase
    endrule
@@ -125,8 +149,8 @@ module mkAcceptorTable#(MetadataClient md)(AcceptorTable);
    rule bb_handle_2a_resp;
       let v <- toGet(inRespFifo1).get;
       case (v) matches
-         tagged BBHandle2aResponse {}: begin
-
+         tagged BBHandle2aResponse {pkt: .pkt}: begin
+            $display("(%0d) handle_2a: read/write register", $time);
          end
       endcase
    endrule
@@ -134,8 +158,8 @@ module mkAcceptorTable#(MetadataClient md)(AcceptorTable);
    rule bb_drop;
       let v <- toGet(inRespFifo2).get;
       case (v) matches
-         tagged BBDropResponse {}: begin
-
+         tagged BBDropResponse {pkt: .pkt}: begin
+            $display("(%0d) drop", $time);
          end
       endcase
    endrule

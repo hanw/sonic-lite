@@ -97,7 +97,7 @@ module mkDstMacTable#(MetadataClient md)(DstMacTable);
       if (v matches tagged Valid .resp) begin
          case (resp) matches
             tagged Forward {port: .port}: begin
-               $display("dmac response pkt %h(%h) to port %h", pkt.id, pkt.size, port);
+               $display("(%0d) DstMacTable: pkt %h to port %h", $time, pkt.id, port);
                BBRequest req = tagged BBForwardRequest { pkt: pkt, port: port};
                outReqFifo.enq(req);
             end
@@ -110,7 +110,7 @@ module mkDstMacTable#(MetadataClient md)(DstMacTable);
       let meta <- toGet(currMetadataFifo).get;
       case (v) matches
          tagged BBForwardResponse { pkt: .pkt, egress: .egress } : begin
-            $display("update metadata %h", egress);
+            $display("(%0d) DstMacTable: fwd egress %h", $time, egress);
             MetadataResponse resp = tagged DstMacResponse {pkt: pkt, meta: meta};
             md.response.put(resp);
          end

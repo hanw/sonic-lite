@@ -35,7 +35,7 @@ CONNECTALFLAGS += -m $(P4FPGADIR)/bsv/AsymmetricBRAM/mem_model.c
 CONNECTALFLAGS += -m $(P4FPGADIR)/bsv/matchtable_model.cpp
 
 run:
-	(cd bluesim; ./bin/ubuntu.exe -p ../paxos.pcap)
+	(cd bluesim; ./bin/ubuntu.exe -R 1 -p ../paxos.pcap)
 
 include $(SONICDIR)/p4/Makefile.common
 include $(CONNECTALDIR)/Makefile.connectal

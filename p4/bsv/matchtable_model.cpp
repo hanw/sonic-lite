@@ -38,13 +38,13 @@ std::unordered_map<Key, Action> m;
 
 Action matchtable_read(Key *rdata)
 {
-    fprintf(stderr, "match table read %lx\n", *rdata);
+    fprintf(stderr, "CPP: match table read %lx\n", *rdata);
     return m[*rdata];
 }
 
 void matchtable_write(Key *wdata, Action *action)
 {
-    fprintf(stderr, "match table write %lx\n", *wdata);
+    fprintf(stderr, "CPP: match table write %lx\n", *wdata);
     m[*wdata] = *action;
 }
 
