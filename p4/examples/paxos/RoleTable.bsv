@@ -43,7 +43,7 @@ module mkRoleTable#(MetadataClient md)(RoleTable);
       case (v) matches
          tagged RoleLookupRequest {pkt: .pkt, meta: .meta}: begin
             MetadataT t = meta;
-            t.switch_metadata$role = role;
+            t.switch_metadata$role = tagged Valid role;
             MetadataResponse resp = tagged RoleResponse { pkt: pkt, meta: t};
             md.response.put(resp);
          end

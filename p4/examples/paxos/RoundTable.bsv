@@ -70,7 +70,7 @@ module mkRoundTable#(MetadataClient md)(RoundTable);
       case (v) matches
          tagged RoundTblRequest {pkt: .pkt, meta: .meta}: begin
             BBRequest req;
-            req = tagged BBRoundRequest {pkt: pkt, paxos$inst: meta.paxos$inst};
+            req = tagged BBRoundRequest {pkt: pkt, paxos$inst: fromMaybe(?, meta.paxos$inst)};
             $display("(%0d) Round: read inst %d", $time, meta.paxos$inst);
             outReqFifo.enq(req);
             currPacketFifo.enq(pkt);

@@ -122,7 +122,7 @@ module mkIngress#(Vector#(numClients, MetadataClient) mdc)(Ingress);
       let v <- toGet(inReqFifo).get;
       case (v) matches
          tagged DefaultRequest {pkt: .pkt, meta: .meta} : begin
-            if (meta.valid_ipv4) begin
+            if (isValid(meta.valid_ipv4)) begin
                MetadataRequest req = tagged DstMacLookupRequest {pkt: pkt, meta: meta};
                dmacReqFifo.enq(req);
             end
@@ -135,7 +135,7 @@ module mkIngress#(Vector#(numClients, MetadataClient) mdc)(Ingress);
       $display("(%0d) dmac_tbl next control state", $time);
       case (v) matches
          tagged DstMacResponse {pkt: .pkt, meta: .meta}: begin
-            if (meta.valid_paxos) begin
+            if (isValid(meta.valid_paxos)) begin
                MetadataRequest req = tagged RoleLookupRequest {pkt: pkt, meta: meta};
                roleReqFifo.enq(req);
             end
@@ -147,18 +147,20 @@ module mkIngress#(Vector#(numClients, MetadataClient) mdc)(Ingress);
       let v <- toGet(roleRespFifo).get;
       case (v) matches
          tagged RoleResponse {pkt: .pkt, meta: .meta}: begin
-            case (meta.switch_metadata$role) matches
-               ACCEPTOR: begin
-                  $display("(%0d) Role: Acceptor %h", $time, pkt.id);
-                  MetadataRequest req = tagged RoundTblRequest {pkt: pkt, meta: meta};
-                  roundReqFifo.enq(req);
-               end
-               COORDINATOR: begin
-                  $display("(%0d) Role: Coordinator %h", $time, pkt.id);
-                  MetadataRequest req = tagged SequenceTblRequest {pkt: pkt, meta: meta};
-                  sequenceReqFifo.enq(req);
-               end
-            endcase
+            if (meta.switch_metadata$role matches tagged Valid .role) begin
+               case (role) matches
+                  ACCEPTOR: begin
+                     $display("(%0d) Role: Acceptor %h", $time, pkt.id);
+                     MetadataRequest req = tagged RoundTblRequest {pkt: pkt, meta: meta};
+                     roundReqFifo.enq(req);
+                  end
+                  COORDINATOR: begin
+                     $display("(%0d) Role: Coordinator %h", $time, pkt.id);
+                     MetadataRequest req = tagged SequenceTblRequest {pkt: pkt, meta: meta};
+                     sequenceReqFifo.enq(req);
+                  end
+               endcase
+            end
          end
       endcase
    endrule
@@ -182,10 +184,13 @@ module mkIngress#(Vector#(numClients, MetadataClient) mdc)(Ingress);
       $display("(%0d) round table response", $time);
       case (v) matches
          tagged RoundTblResponse {pkt: .pkt, meta: .meta}: begin
-            if (meta.paxos_packet_meta$round <= meta.paxos$rnd) begin
-               MetadataRequest req = tagged AcceptorTblRequest {pkt: pkt, meta: meta};
-               acceptorReqFifo.enq(req);
-               $display("(%0d) Round: Acceptor %h", $time, pkt.id);
+            if (meta.paxos_packet_meta$round matches tagged Valid .round) begin
+               //FIXME:
+               if (round <= fromMaybe(?, meta.paxos$rnd)) begin
+                  MetadataRequest req = tagged AcceptorTblRequest {pkt: pkt, meta: meta};
+                  acceptorReqFifo.enq(req);
+                  $display("(%0d) Round: Acceptor %h", $time, pkt.id);
+               end
             end
          end
       endcase

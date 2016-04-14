@@ -9,19 +9,27 @@ import List::*;
 import StmtFSM::*;
 import SpecialFIFOs::*;
 import Vector::*;
-
 import Pipe::*;
 import Ethernet::*;
 import P4Types::*;
 import PaxosTypes::*;
 
-typedef enum {StateStart,StateParseEthernet,StateParseArp,StateParseIpv4,StateParseIpv6,StateParseCpuHeader,StateParseUdp,StateParsePaxos} ParserState deriving (Bits, Eq);
+typedef enum {
+   StateStart,
+   StateParseEthernet,
+   StateParseArp,
+   StateParseIpv4,
+   StateParseIpv6,
+   StateParseCpuHeader,
+   StateParseUdp,
+   StateParsePaxos
+} ParserState deriving (Bits, Eq);
 instance FShow#(ParserState);
     function Fmt fshow (ParserState state);
         return $format(" State %x", state);
     endfunction
 endinstance
-    
+
 module mkStateStart#(Reg#(ParserState) state, FIFOF#(EtherData) datain, Wire#(Bool) start_fsm)(Empty);
 
     rule load_packet if (state==StateStart);
@@ -574,11 +582,11 @@ module mkParser(Parser);
       if (verbose) $display("(%0d) HostChannel: dstAddr=%h", $time, dstAddr);
       if (verbose) $display("(%0d) HostChannel: msgtype=%h", $time, msgtype);
       MetadataT meta = defaultValue;
-      meta.dstAddr = dstAddr;
-      meta.valid_paxos = True;
-      meta.valid_ipv4 = True;
-      meta.valid_ethernet = True;
-      meta.valid_udp = True;
+      meta.dstAddr = tagged Valid dstAddr;
+      meta.valid_paxos = tagged Valid True;
+      meta.valid_ipv4 = tagged Valid True;
+      meta.valid_ethernet = tagged Valid True;
+      meta.valid_udp = tagged Valid True;
       metadata_out_fifo.enq(meta);
    endrule
 
@@ -589,9 +597,9 @@ module mkParser(Parser);
       // forward to drop table
       if (verbose) $display("(%0d) HostChannel unknown ipv6: dstAddr=%h, size=%d", $time, dstAddr);
       MetadataT meta = defaultValue;
-      meta.dstAddr = dstAddr;
-      meta.valid_ipv6 = True;
-      meta.valid_ethernet = True;
+      meta.dstAddr = tagged Valid dstAddr;
+      meta.valid_ipv6 = tagged Valid True;
+      meta.valid_ethernet = tagged Valid True;
       metadata_out_fifo.enq(meta);
    endrule
 
@@ -600,9 +608,9 @@ module mkParser(Parser);
       let dstAddr <- toGet(parse_ethernet.parsedOut_ethernet_dstAddr).get;
       if (verbose) $display("(%0d) HostChannel unknown udp: dstAddr=%h, size=%d", $time, dstAddr);
       MetadataT meta = defaultValue;
-      meta.dstAddr = dstAddr;
-      meta.valid_udp = True;
-      meta.valid_ethernet = True;
+      meta.dstAddr = tagged Valid dstAddr;
+      meta.valid_udp = tagged Valid True;
+      meta.valid_ethernet = tagged Valid True;
       metadata_out_fifo.enq(meta);
    endrule
 

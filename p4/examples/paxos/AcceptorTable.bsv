@@ -95,8 +95,8 @@ module mkAcceptorTable#(MetadataClient md)(AcceptorTable);
       let v <- md.request.get;
       case (v) matches
          tagged AcceptorTblRequest {pkt: .pkt, meta: .meta} : begin
-            matchTable.lookupPort.request.put(AcceptorTblReqT { msgtype: meta.msgtype });
-            if (verbose) $display("(%0d) Acceptor: %h %h", $time, pkt.id, meta.msgtype);
+            matchTable.lookupPort.request.put(AcceptorTblReqT { msgtype: fromMaybe(?, meta.msgtype) });
+            if (verbose) $display("(%0d) Acceptor: %h", $time, pkt.id, fshow(meta.msgtype));
             currPacketFifo.enq(pkt);
             currMetadataFifo.enq(meta);
          end

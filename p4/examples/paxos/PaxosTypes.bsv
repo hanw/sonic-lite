@@ -14,6 +14,10 @@ typedef 8 MsgTypeSize;
 typedef 16 InstanceSize;
 typedef 512 ValueSize;
 
+typeclass DefaultMask#(type t);
+   t defaultMask;
+endtypeclass
+
 typedef union tagged {
    struct {
       PacketInstance pkt;
@@ -152,6 +156,18 @@ Ipv6T {
     srcAddr: 0,
     dstAddr: 0};
 endinstance
+instance DefaultMask#(Ipv6T);
+defaultMask=
+Ipv6T {
+    version: maxBound,
+    trafficClass: maxBound,
+    flowLabel: maxBound,
+    payloadLen: maxBound,
+    nextHdr: maxBound,
+    hopLimit: maxBound,
+    srcAddr: maxBound,
+    dstAddr: maxBound};
+endinstance
 
 instance FShow#(Ipv6T);
     function Fmt fshow(Ipv6T p);
@@ -197,6 +213,16 @@ UdpT {
     checksum: 0
 };
 endinstance
+instance DefaultMask#(UdpT);
+defaultMask=
+UdpT {
+    srcPort: maxBound,
+    dstPort: maxBound,
+    length_: maxBound,
+    checksum: maxBound
+};
+endinstance
+
 
 instance FShow#(UdpT);
     function Fmt fshow(UdpT p);
@@ -236,6 +262,17 @@ PaxosT {
     acptid: 0,
     msgtype: 0,
     paxosval: 0
+};
+endinstance
+instance DefaultMask#(PaxosT);
+defaultMask=
+PaxosT {
+    inst: maxBound,
+    rnd: maxBound,
+    vrnd: maxBound,
+    acptid: maxBound,
+    msgtype: maxBound,
+    paxosval: maxBound
 };
 endinstance
 
@@ -287,6 +324,20 @@ ArpT {
     spa: 0,
     tha: 0,
     tpa: 0
+};
+endinstance
+instance DefaultMask#(ArpT);
+defaultMask=
+ArpT {
+    hrd: maxBound,
+    pro: maxBound,
+    hln: maxBound,
+    pln: maxBound,
+    op: maxBound,
+    sha: maxBound,
+    spa: maxBound,
+    tha: maxBound,
+    tpa: maxBound
 };
 endinstance
 
@@ -352,6 +403,23 @@ Ipv4T {
     dstAddr: 0
 };
 endinstance
+instance DefaultMask#(Ipv4T);
+defaultMask=
+Ipv4T {
+    version: maxBound,
+    ihl: maxBound,
+    diffserv: maxBound,
+    totalLen: maxBound,
+    identification: maxBound,
+    flags: maxBound,
+    fragOffset: maxBound,
+    ttl: maxBound,
+    protocol: maxBound,
+    hdrChecksum: maxBound,
+    srcAddr: maxBound,
+    dstAddr: maxBound
+};
+endinstance
 
 instance FShow#(Ipv4T);
     function Fmt fshow(Ipv4T p);
@@ -399,6 +467,12 @@ IngressMetadataT {
     round: 0
 };
 endinstance
+instance DefaultMask#(IngressMetadataT);
+defaultMask=
+IngressMetadataT {
+    round: maxBound
+};
+endinstance
 
 instance FShow#(IngressMetadataT);
     function Fmt fshow(IngressMetadataT p);
@@ -426,6 +500,14 @@ EthernetT {
     dstAddr: 0,
     srcAddr: 0,
     etherType: 0
+};
+endinstance
+instance DefaultMask#(EthernetT);
+defaultMask=
+EthernetT {
+   dstAddr: maxBound,
+   srcAddr: maxBound,
+   etherType: maxBound
 };
 endinstance
 
@@ -471,6 +553,19 @@ StandardMetadataT {
     _padding: 0
 };
 endinstance
+instance DefaultMask#(StandardMetadataT);
+defaultMask=
+StandardMetadataT {
+    ingress_port: maxBound,
+    packet_length: maxBound,
+    egress_spec: maxBound,
+    egress_port: maxBound,
+    egress_instance: maxBound,
+    instance_type: maxBound,
+    clone_spec: maxBound,
+    _padding: maxBound
+};
+endinstance
 
 instance FShow#(StandardMetadataT);
     function Fmt fshow(StandardMetadataT p);
@@ -510,6 +605,12 @@ SwitchMetadataT {
     role: 0
 };
 endinstance
+instance DefaultMask#(SwitchMetadataT);
+defaultMask=
+SwitchMetadataT {
+    role: maxBound
+};
+endinstance
 
 instance FShow#(SwitchMetadataT);
     function Fmt fshow(SwitchMetadataT p);
@@ -539,54 +640,55 @@ instance FShow#(Role);
 endinstance
 
 typedef struct {
-   Bit#(16) msgtype; // ethernet$msgtype
-   Bit#(48) dstAddr; // ethernet$dstAddr
-   Bit#(16) etherType; // ethernet$etherType
-   Bit#(8) protocol; // ipv4$protocol
-   Bit#(16) dstPort; // ipv4$dstPort
-   Bit#(16) paxos$inst; // paxos$inst
-   Bit#(16) paxos$rnd;
-   Bit#(16) paxos$vrnd;
-   Bit#(256) paxos$paxosval;
-   Bit#(16) paxos$acptid;
-   Bit#(16) paxos_packet_meta$round;
-   Role switch_metadata$role;
-   Bool valid_ethernet;
-   Bool valid_arp;
-   Bool valid_ipv4;
-   Bool valid_ipv6;
-   Bool valid_udp;
-   Bool valid_paxos;
+   Maybe#(Bit#(16)) msgtype; // ethernet$msgtype
+   Maybe#(Bit#(48)) dstAddr; // ethernet$dstAddr
+   Maybe#(Bit#(16)) etherType; // ethernet$etherType
+   Maybe#(Bit#(8))  protocol; // ipv4$protocol
+   Maybe#(Bit#(16)) dstPort; // ipv4$dstPort
+   Maybe#(Bit#(16)) paxos$inst; // paxos$inst
+   Maybe#(Bit#(16)) paxos$rnd;
+   Maybe#(Bit#(16)) paxos$vrnd;
+   Maybe#(Bit#(256)) paxos$paxosval;
+   Maybe#(Bit#(16)) paxos$acptid;
+   Maybe#(Bit#(16)) paxos_packet_meta$round;
+   Maybe#(Role) switch_metadata$role;
+   Maybe#(Bool) valid_ethernet;
+   Maybe#(Bool) valid_arp;
+   Maybe#(Bool) valid_ipv4;
+   Maybe#(Bool) valid_ipv6;
+   Maybe#(Bool) valid_udp;
+   Maybe#(Bool) valid_paxos;
 } MetadataT deriving (Bits, Eq);
+
 instance DefaultValue#(MetadataT);
 defaultValue =
 MetadataT {
-   msgtype: 0,
-   dstAddr: 0,
-   etherType: 0,
-   protocol: 0,
-   dstPort: 0,
-   paxos$inst: 0,
-   paxos$rnd: 0,
-   paxos$vrnd: 0,
-   paxos$paxosval: 0,
-   paxos$acptid: 0,
-   paxos_packet_meta$round: 0,
-   switch_metadata$role: ACCEPTOR,
-   valid_ethernet: False,
-   valid_arp: False,
-   valid_ipv4: False,
-   valid_ipv6: False,
-   valid_udp: False,
-   valid_paxos: False
+   msgtype: tagged Invalid,
+   dstAddr: tagged Invalid,
+   etherType: tagged Invalid,
+   protocol: tagged Invalid,
+   dstPort: tagged Invalid,
+   paxos$inst: tagged Invalid,
+   paxos$rnd: tagged Invalid,
+   paxos$vrnd: tagged Invalid,
+   paxos$paxosval: tagged Invalid,
+   paxos$acptid: tagged Invalid,
+   paxos_packet_meta$round: tagged Invalid,
+   switch_metadata$role: tagged Valid ACCEPTOR,
+   valid_ethernet: tagged Invalid,
+   valid_arp: tagged Invalid,
+   valid_ipv4: tagged Invalid,
+   valid_ipv6: tagged Invalid,
+   valid_udp: tagged Invalid,
+   valid_paxos: tagged Invalid
 };
 endinstance
+
 instance FShow#(MetadataT);
    function Fmt fshow(MetadataT p);
       return $format("MetadataT: msgtype=%h, dstAddr=%h, etherType=%h, protocol=%h, dstPort=%h", p.msgtype, p.dstAddr, p.etherType, p.protocol, p.dstPort, fshow(p.switch_metadata$role));
    endfunction
 endinstance
-
 
 typedef Client#(MetadataRequest, MetadataResponse) MetadataClient;
 typedef Server#(MetadataRequest, MetadataResponse) MetadataServer;

@@ -84,7 +84,7 @@ module mkDstMacTable#(MetadataClient md)(DstMacTable);
       let v <- md.request.get;
       case (v) matches
          tagged DstMacLookupRequest { pkt: .pkt, meta: .meta } : begin
-            matchTable.lookupPort.request.put(DmacTblReqT{dstAddr: meta.dstAddr, padding: 0});
+            matchTable.lookupPort.request.put(DmacTblReqT{dstAddr: fromMaybe(?, meta.dstAddr), padding: 0});
             currPacketFifo.enq(pkt);
             currMetadataFifo.enq(meta);
          end

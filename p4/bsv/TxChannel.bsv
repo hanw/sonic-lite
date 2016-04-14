@@ -31,6 +31,7 @@ import Pipe::*;
 import PacketBuffer::*;
 import StoreAndForward::*;
 import SharedBuff::*;
+import Deparser::*;
 
 // Encapsulate Egress Pipeline, Tx Ring
 interface TxChannel;
@@ -43,9 +44,12 @@ endinterface
 
 module mkTxChannel#(Clock txClock, Reset txReset)(TxChannel);
    PacketBuffer pktBuff <- mkPacketBuffer();
+   Deparser deparser <- mkDeparser();
    StoreAndFwdFromMemToRing egress <- mkStoreAndFwdFromMemToRing();
    StoreAndFwdFromRingToMac ringToMac <- mkStoreAndFwdFromRingToMac(txClock, txReset);
-   mkConnection(egress.writeClient, pktBuff.writeServer);
+
+   mkConnection(egress.writeClient, deparser.writeServer);
+   mkConnection(deparser.writeClient, pktBuff.writeServer);
    mkConnection(ringToMac.readClient, pktBuff.readServer);
 
    interface macTx = ringToMac.macTx;

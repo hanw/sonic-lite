@@ -72,8 +72,8 @@ module mkSequenceTable#(MetadataClient md)(SequenceTable);
       let v <- md.request.get;
       case (v) matches
          tagged SequenceTblRequest { pkt: .pkt, meta: .meta } : begin
-            matchTable.lookupPort.request.put(SequenceTblReqT {msgtype: meta.msgtype});
-            if (verbose) $display("(%0d) Sequence: %h %h", $time, pkt.id, meta.msgtype);
+            matchTable.lookupPort.request.put(SequenceTblReqT {msgtype: fromMaybe(?, meta.msgtype)});
+            if (verbose) $display("(%0d) Sequence: %h", $time, pkt.id, fshow(meta.msgtype));
             currPacketFifo.enq(pkt);
             currMetadataFifo.enq(meta);
          end
