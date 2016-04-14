@@ -61,8 +61,8 @@ module mkMaxMinFairness (MaxMinFairness);
 
     Reg#(Bit#(1)) stop_adding_removing_flag <- mkReg(0);
 
-    FIFO#(BottleneckCountParams) bottleneck_count_req_fifo <- mkBypassFIFO;
-    FIFO#(ServerIndex) bottleneck_count_res_fifo <- mkBypassFIFO;
+    FIFO#(BottleneckCountParams) bottleneck_count_req_fifo <- mkSizedFIFO(2);
+    FIFO#(ServerIndex) bottleneck_count_res_fifo <- mkSizedFIFO(2);
 
     rule handle_bottleneck_count_req;
         let req <- toGet(bottleneck_count_req_fifo).get;

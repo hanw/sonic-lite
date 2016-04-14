@@ -41,6 +41,17 @@ typedef struct {
     Bit#(1) op;
 } FlowUpdateT deriving(Bits, Eq);
 
+typedef struct {
+    ServerIndex queue_id;
+    ServerIndex node_value;
+    BottleneckCountParams params;
+} BottleneckReq deriving(Bits, Eq);
+
+typedef struct {
+    ServerIndex node_value;
+    ServerIndex bottleneck;
+} BottleneckRes deriving(Bits, Eq);
+
 interface Scheduler#(type readReqType, type readResType,
                      type writeReqType, type writeResType);
 
@@ -368,6 +379,7 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
                                 op  : 0
                             };
                     flow_update_fifo_rx[i].enq(d);
+                    $display("[SCHED %d] Received end-of-flow packet", host_index);
                 end
 
                 else
@@ -422,7 +434,7 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
                     if (d.data.sop == 0 && d.data.eop == 1)
                     begin
                         /* reset state */
-                        buffer_depth[i] <= 3;  //no of data blocks to buffer
+                        buffer_depth[i] <= 3;  //num of data blocks to buffer
                         buffered_data[i] <= 0;
 						ring_buffer_index_fifo[i].enq(0);
                     end
@@ -584,22 +596,33 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
     Reg#(ServerIndex) flow_to_send_next <- mkReg(fromInteger(valueof(NUM_OF_SERVERS)));
 
     FIFO#(FlowStartEndT) flows <- mkSizedFIFO(2*valueof(NUM_OF_SERVERS));
-    Reg#(Bit#(1)) new_flow_blast_phase <- mkReg(0);
-    Reg#(ServerIndex) new_flow_blast_count <- mkReg(0);
     Reg#(ServerIndex) new_flow_dst <- mkReg(fromInteger(valueof(NUM_OF_SERVERS)));
 
-    Reg#(Bit#(1)) flow_end_blast_phase <- mkReg(0);
-    Reg#(ServerIndex) flow_end_blast_count <- mkReg(0);
-    Reg#(Bool) special_buffer <- mkReg(False);
+    Reg#(Bit#(1)) flow_start_flag_1 <- mkReg(0);
+    Reg#(ServerIndex) flow_start_count_1 <- mkReg(0);
+    Reg#(Bit#(1)) flow_end_flag_1 <- mkReg(0);
+    Reg#(ServerIndex) flow_end_count_1 <- mkReg(0);
 
-    rule check_for_flow_start_end (new_flow_blast_phase == 0
-                                  && flow_end_blast_phase == 0);
+    Reg#(Bit#(1)) flow_start_flag_2 <- mkReg(0);
+    Reg#(ServerIndex) flow_start_count_2 <- mkReg(0);
+    Reg#(Bit#(1)) flow_end_flag_2 <- mkReg(0);
+    Reg#(ServerIndex) flow_end_count_2 <- mkReg(0);
+
+    rule check_for_flow_start_end (flow_start_flag_1 == 0 && flow_end_flag_1 == 0
+                                && flow_start_flag_2 == 0 && flow_end_flag_2 == 0);
         let x <- toGet(flows).get;
         new_flow_dst <= x.dst;
+
         if (x.flow_start == 1)
-            new_flow_blast_phase <= 1;
+        begin
+            flow_start_flag_1 <= 1;
+            flow_start_flag_2 <= 1;
+        end
         else
-            flow_end_blast_phase <= 1;
+        begin
+            flow_end_flag_1 <= 1;
+            flow_end_flag_2 <= 1;
+        end
 
         let d = FlowUpdateT {
                     src : host_index,
@@ -611,23 +634,99 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
         flow_update_fifo_tx.enq(d);
     endrule
 
-    Reg#(ServerIndex) node_value <- mkReg(0);
-    Reg#(Bit#(1)) op_in_progress <- mkReg(0);
+    Reg#(Bit#(1)) wait_for_res <- mkReg(0);
+    FIFO#(BottleneckReq) bottleneck_fifo <- mkSizedFIFO(DEFAULT_FIFO_LEN);
+    Reg#(ServerIndex) queue_id <- mkReg(fromInteger(valueof(NUM_OF_SERVERS)));
+    Reg#(ServerIndex) node_value <- mkReg(fromInteger(valueof(NUM_OF_SERVERS)));
+    Vector#(NUM_OF_SERVERS, FIFO#(BottleneckRes))
+        bottleneck_response_fifo <- replicateM(mkSizedFIFO(DEFAULT_FIFO_LEN));
+
+    rule bottleneck_count_request (wait_for_res == 0);
+        let x <- toGet(bottleneck_fifo).get;
+        mmf.bottleneck_count.request.put(x.params);
+        queue_id <= x.queue_id;
+        node_value <= x.node_value;
+        wait_for_res <= 1;
+    endrule
+
+    rule bottleneck_count_response (queue_id != fromInteger(valueof(NUM_OF_SERVERS)));
+        let x <- mmf.bottleneck_count.response.get;
+        let y = BottleneckRes {
+                    node_value : node_value,
+                    bottleneck : x
+                };
+        bottleneck_response_fifo[queue_id].enq(y);
+        wait_for_res <= 0;
+    endrule
 
     for (Integer i = 0; i < valueof(NUM_OF_SERVERS); i = i + 1)
     begin
+        rule add_flow_to_priority_queue (add_flow_to_priority_queue_flag[i] == 1
+                                        && wait_for_insert_to_complete[i] == 0);
+            add_flow_to_priority_queue_flag[i] <= 0;
+            let d = BottleneckCountParams {
+                        src : host_index,
+                        dst : new_flow_dst,
+                        mid : host_id(dst_ip_addr)
+                    };
+            let x = BottleneckReq {
+                        queue_id : i,
+                        node_value : new_flow_dst,
+                        params : d
+                    };
+            bottleneck_fifo.enq(x);
+        endrule
+
+//        rule remove_flow_from_priority_queue
+//                                 (remove_flow_from_priority_queue_flag[i] == 1
+//                                 && wait_for_remove_to_complete[i] == 0);
+//            remove_flow_from_priority_queue_flag[i] <= 0;
+//            Node#(ServerIndex, Bit#(16)) n = Node {
+//                                                v : new_flow_dst,
+//                                                p : 0
+//                                             };
+//            min_priority_queue[i].remove.request.put(n);
+//        endrule
+
         rule get_next_flow (get_host_flow_for_next_slot[i] == 1
-                            && wait_for_insert_to_complete[i] == 0
-                            && op_in_progress == 0);
+                            && wait_for_insert_to_complete[i] == 0);
             ServerIndex table_index = schedule_list[curr_slot];
             IP dst_ip_addr = sched_table[table_index].server_ip;
 
-            let size <- min_priority_queue[i].size;
+            get_host_flow_for_next_slot[i] <= 0;
 
-            if (new_flow_blast_phase == 0 && flow_end_blast_phase == 0 && size > 0)
+            if (flow_start_flag_1 == 1)
+            begin
+                if (i + 1 == valueof(NUM_OF_SERVERS))
+                    add_flow_to_priority_queue[1] <= 1;
+                else
+                    add_flow_to_priority_queue_flag[i + 1] <= 1;
+                if (flow_start_count_1 == fromInteger(valueof(NUM_OF_SERVERS))-2)
+                begin
+                    flow_start_flag_1 <= 0;
+                    flow_start_count_1 <= 0;
+                end
+                else
+                    flow_start_count_1 <= flow_start_count_1 + 1;
+            end
+
+//            else if (flow_end_flag_1 == 1)
+//            begin
+//                remove_flow_from_priority_queue_flag[i] <= 1;
+//                if (flow_end_count_1 == fromInteger(valueof(NUM_OF_SERVERS))-2)
+//                begin
+//                    flow_end_flag_1 <= 0;
+//                    flow_end_count_1 <= 0;
+//                end
+//                else
+//                    flow_end_count_1 <= flow_end_count_1 + 1;
+//            end
+
+            let size <- min_priority_queue[i].size;
+            if (size > 0)
             begin
                 let x <- min_priority_queue[i].first;
-                if (x.p <= curr_epoch+1)
+                if (x.p <= curr_epoch + 1)
                 begin
                     op_in_progress <= 1;
                     min_priority_queue[i].deq;
@@ -636,92 +735,47 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
                                 dst : x.v,
                                 mid : host_id(dst_ip_addr)
                             };
-                    mmf.bottleneck_count.request.put(d);
-                    node_value <= x.v;
+                    let x = BottleneckReq {
+                                queue_id : i,
+                                node_value : x.v,
+                                params : d
+                            };
+                    bottleneck_fifo.enq(x);
                     flow_to_send_next <= x.v;
                 end
                 else
                 begin
                     flow_to_send_next <= fromInteger(valueof(NUM_OF_SERVERS));
-                    get_host_flow_for_next_slot[i] <= 0;
                 end
-
-                special_buffer <= False;
-            end
-
-            else if (new_flow_blast_phase == 1 && flow_end_blast_phase == 0)
-            begin
-                op_in_progress <= 1;
-                flow_to_send_next <= new_flow_dst;
-                special_buffer <= False;
-                let d = BottleneckCountParams {
-                            src : host_index,
-                            dst : new_flow_dst,
-                            mid : host_id(dst_ip_addr)
-                        };
-                mmf.bottleneck_count.request.put(d);
-                node_value <= new_flow_dst;
-                if (new_flow_blast_count == fromInteger(valueof(NUM_OF_SERVERS))-2)
-                begin
-                    new_flow_blast_count <= 0;
-                    new_flow_blast_phase <= 0;
-                end
-                else
-                    new_flow_blast_count <= new_flow_blast_count + 1;
-            end
-
-            else if (new_flow_blast_phase == 0 && flow_end_blast_phase == 1)
-            begin
-                op_in_progress <= 1;
-                flow_to_send_next <= new_flow_dst;
-                special_buffer <= True;
-                Node#(ServerIndex, Bit#(16)) n = Node {
-                                                    v : new_flow_dst,
-                                                    p : 0
-                                                 };
-                min_priority_queue[i].remove.request.put(n);
-                if (flow_end_blast_count == fromInteger(valueof(NUM_OF_SERVERS))-2)
-                begin
-                    flow_end_blast_count <= 0;
-                    flow_end_blast_phase <= 0;
-                end
-                else
-                    flow_end_blast_count <= flow_end_blast_count + 1;
             end
 
             else
             begin
                 flow_to_send_next <= fromInteger(valueof(NUM_OF_SERVERS));
-                get_host_flow_for_next_slot[i] <= 0;
             end
         endrule
 
-        rule update_and_insert (op_in_progress == 1
-                               && get_host_flow_for_next_slot[i] == 1
-                               && wait_for_insert_to_complete[i] == 0);
-            let x <- mmf.bottleneck_count.response.get;
+        rule update_and_insert (wait_for_insert_to_complete[i] == 0);
+            let x <- toGet(bottleneck_response_fifo[i]).get;
             Node#(ServerIndex, Bit#(16)) n = Node {
-                        v : node_value,
-                        p : curr_epoch + 1 + zeroExtend(x)
+                        v : x.node_value,
+                        p : curr_epoch + zeroExtend(x.bottleneck)
                      };
             min_priority_queue[i].insert.request.put(n);
             wait_for_insert_to_complete[i] <= 1;
         endrule
 
-        rule insert_res (op_in_progress == 1
-                        && get_host_flow_for_next_slot[i] == 1);
+        rule insert_res;
             let x <- min_priority_queue[i].insert.response.get;
             wait_for_insert_to_complete[i] <= 0;
-            op_in_progress <= 0;
-            get_host_flow_for_next_slot[i] <= 0;
         endrule
 
-        rule remove_res (op_in_progress == 1
-                        && get_host_flow_for_next_slot[i] == 1);
-            let x <- min_priority_queue[i].remove.response.get;
-            op_in_progress <= 0;
-            get_host_flow_for_next_slot[i] <= 0;
-        endrule
+//        rule remove_res (op_in_progress == 1
+//                        && get_host_flow_for_next_slot[i] == 1);
+//            let x <- min_priority_queue[i].remove.response.get;
+//            op_in_progress <= 0;
+//            get_host_flow_for_next_slot[i] <= 0;
+//        endrule
     end
 
     rule get_dst_addr (curr_state == RUN && start_tx_scheduling == 1);
@@ -771,17 +825,20 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
 			$display("[SCHED (%d)] CLK = %d  buffer index to extract from = %d %d",
 				host_index, clk.currTime(), index, ring_buffer[1][index].elements);
 
-			Bool is_empty <- ring_buffer[1][index].empty;
-            if (flow_to_send_next == fromInteger(valueof(NUM_OF_SERVERS)) && !is_empty)
-				ring_buffer[1][index].read_request.put(makeReadReq(READ));
+            if (flow_to_send_next == fromInteger(valueof(NUM_OF_SERVERS)))
+                Bool is_empty <- ring_buffer[1][index].empty;
+                if (!is_empty)
+                    ring_buffer[1][index].read_request.put(makeReadReq(READ));
+                else
+                    ring_buffer[2][0].read_request.put(makeReadReq(PEEK));
 			else
 			begin
-                if (special_buffer)
-                    ring_buffer[2][flow_to_send_next]
-                                     .read_request.put(makeReadReq(PEEK));
-                else
+                Bool is_empty <- ring_buffer[0][flow_to_send_next].empty;
+                if (!is_empty)
                     ring_buffer[0][flow_to_send_next]
                                      .read_request.put(makeReadReq(READ));
+                else
+                    ring_buffer[2][0].read_request.put(makeReadReq(PEEK));
 			end
 		end
     endrule
@@ -797,13 +854,53 @@ module mkScheduler#(Clock pcieClock, Reset pcieReset,
 	Vector#(3, Vector#(NUM_OF_SERVERS, Wire#(PortIndex)))
         correct_tx_index <- replicateM(replicateM(mkDWire(fromInteger(valueof(NUM_OF_ALTERA_PORTS)))));
 
+    Vector#(3, Vector#(NUM_OF_SERVERS, Reg#(Bit#(2))))
+        block_count <- replicateM(replicateM(mkReg(0)));
+
     for (Integer k = 0; k < 3; k = k + 1)
     begin
     for (Integer i = 0; i < valueof(NUM_OF_SERVERS); i = i + 1)
     begin
         rule update_mac_header (curr_state == RUN);
             let d <- ring_buffer[k][i].read_response.get;
-            if (d.data.sop == 1 && d.data.eop == 0)
+            block_count[k][i] <= block_count[k][i] + 1;
+            if (block_count == 1)
+            begin
+                Bit#(2) ctrl = 0;
+                Bit#(10) dst = 0;
+                if (flow_start_flag_2 == 1)
+                begin
+                    ctrl = 'b01;
+                    dst = zeroExtend(new_flow_dst);
+                    if (flow_start_count_2 == fromInteger(valueof(NUM_OF_SERVERS))-2)
+                    begin
+                        flow_start_flag_2 <= 0;
+                        flow_start_count_2 <= 0;
+                    end
+                    else
+                        flow_start_count_2 <= flow_start_count_2 + 1;
+                end
+                else if (flow_end_flag_2 == 1)
+                begin
+                    ctrl = 'b10;
+                    dst = zeroExtend(new_flow_dst);
+                    if (flow_end_count_2 == fromInteger(valueof(NUM_OF_SERVERS))-2)
+                    begin
+                        flow_end_flag_2 <= 0;
+                        flow_end_count_2 <= 0;
+                    end
+                    else
+                        flow_end_count_2 <= flow_end_count_2 + 1;
+                end
+                else
+                    ctrl = 'b11;
+
+                Bit#(12) temp = {ctrl, dst};
+                Bit#(BUS_WIDTH) mask1 = {'h1111, temp, '1};
+                Bit#(BUS_WIDTH) mask2 = {'h0000, temp, '0};
+                d.data.payload = (d.data.payload & mask1) | mask2;
+            end
+            if (block_count == 0)
             begin
                 Bit#(96) new_addr = {dst_mac_addr, mac_address(host_index)};
                 Bit#(96) zero = 0;

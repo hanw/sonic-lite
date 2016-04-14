@@ -132,6 +132,7 @@ module mkSchedulerTopSim#(SchedulerTopSimIndication indication2)(SchedulerTopSim
         begin
             for (Integer i = 0; i < valueof(NUM_OF_SERVERS); i = i + 1)
             begin
+                $display("STOPPING DMA & SCHEDULER");
 			    dma_sim[i].stop();
 			    scheduler[i].stop();
                 get_dma_stats_flag[i] <= 1;

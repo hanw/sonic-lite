@@ -126,9 +126,12 @@ module mkDMASimulator#(Scheduler#(ReadReqType, ReadResType,
     begin
         rule manage_flows (fromInteger(i) != host_index && start_flag == 1
                         && clk.currTime() == dma_start_time + (2*fromInteger(i)+5));
-            count[i] <= num_of_cycles_to_wait;
-            flow_length[i] <= 15;
-            start_flow[i] <= 1;
+            if (fromInteger(i) == (host_index + 1)%fromInteger(valueof(NUM_OF_SERVERS)))
+            begin
+                count[i] <= num_of_cycles_to_wait;
+                flow_length[i] <= 1000;
+                start_flow[i] <= 1;
+            end
         endrule
     end
 
