@@ -45,18 +45,15 @@ interface Ingress;
    interface MemWriteClient#(`DataBusWidth) writeClient;
    interface PipeOut#(PacketInstance) eventPktSend;
    method IngressPipelineDbgRec dbg;
-   method Action setRole(Bit#(32) v);
+   method Action setRole(Role v);
    method Action roundReq(RoundRegRequest r);
+   method Action roleReq(RoleRegRequest r);
 endinterface
 
 module mkIngress#(Vector#(numClients, MetadataClient) mdc)(Ingress);
    let verbose = True;
-
    Reg#(Bit#(64)) fwdCount <- mkReg(0);
-
    FIFOF#(PacketInstance) currPacketFifo <- mkFIFOF;
-
-   // In
    FIFO#(MetadataRequest) inReqFifo <- mkFIFO;
    FIFO#(MetadataResponse) outRespFifo <- mkFIFO;
 
@@ -109,6 +106,7 @@ module mkIngress#(Vector#(numClients, MetadataClient) mdc)(Ingress);
    BasicBlockHandle2A bb_handle_2a <- mkBasicBlockHandle2A();
    BasicBlockDrop bb_handle_drop <- mkBasicBlockDrop();
    BasicBlockRound bb_read_round <- mkBasicBlockRound();
+   BasicBlockRole bb_read_role <- mkBasicBlockRole();
 
    // Registers
    FIFO#(RoundRegRequest) roundRegReqFifo <- mkFIFO;
@@ -129,13 +127,25 @@ module mkIngress#(Vector#(numClients, MetadataClient) mdc)(Ingress);
                                             FIFO#(RoundRegResponse) respFifo);
       RoundRegClient ret_ifc;
       ret_ifc = (interface RoundRegClient;
-         interface Get request = toGet(roundRegReqFifo);
-         interface Put response = toPut(roundRegRespFifo);
+         interface Get request = toGet(reqFifo);
+         interface Put response = toPut(respFifo);
+      endinterface);
+      return ret_ifc;
+   endfunction
+
+   function RoleRegClient toRoleRegClient(FIFO#(RoleRegRequest) reqFifo,
+                                          FIFO#(RoleRegResponse) respFifo);
+      RoleRegClient ret_ifc;
+      ret_ifc = (interface RoleRegClient;
+         interface Get request = toGet(reqFifo);
+         interface Put response = toPut(respFifo);
       endinterface);
       return ret_ifc;
    endfunction
 
    P4RegisterIfc#(Bit#(InstanceSize), Bit#(RoundSize)) roundReg <- mkP4Register(vec(bb_read_round.regClient, toRoundRegClient(roundRegReqFifo, roundRegRespFifo)));
+   P4RegisterIfc#(Bit#(1), Bit#(8)) roleReg <- mkP4Register(vec(bb_read_role.regClient, toRoleRegClient(roleRegReqFifo, roleRegRespFifo)));
+   //P4RegisterIfc#(Bit#(1), Bit#(64)) datapathIdReg <- mkP4Register()
 
    // Connect Table with BasicBlock
    mkConnection(dstMacTable.next_control_state_0, bb_fwd.prev_control_state);
@@ -144,6 +154,7 @@ module mkIngress#(Vector#(numClients, MetadataClient) mdc)(Ingress);
    mkConnection(acceptorTable.next_control_state_1, bb_handle_2a.prev_control_state);
    mkConnection(acceptorTable.next_control_state_2, bb_handle_drop.prev_control_state);
    mkConnection(roundTable.next_control_state_0, bb_read_round.prev_control_state);
+   mkConnection(roleTable.next_control_state_0, bb_read_role.prev_control_state);
 
    // Control Flow
    rule start_control_state;
@@ -177,12 +188,12 @@ module mkIngress#(Vector#(numClients, MetadataClient) mdc)(Ingress);
          tagged RoleResponse {pkt: .pkt, meta: .meta}: begin
             if (meta.switch_metadata$role matches tagged Valid .role) begin
                case (role) matches
-                  ACCEPTOR: begin
+                  'h1: begin
                      $display("(%0d) Role: Acceptor %h", $time, pkt.id);
                      MetadataRequest req = tagged RoundTblRequest {pkt: pkt, meta: meta};
                      roundReqFifo.enq(req);
                   end
-                  COORDINATOR: begin
+                  'h2: begin
                      $display("(%0d) Role: Coordinator %h", $time, pkt.id);
                      MetadataRequest req = tagged SequenceTblRequest {pkt: pkt, meta: meta};
                      sequenceReqFifo.enq(req);
@@ -214,9 +225,9 @@ module mkIngress#(Vector#(numClients, MetadataClient) mdc)(Ingress);
          tagged RoundTblResponse {pkt: .pkt, meta: .meta}: begin
             if (meta.paxos_packet_meta$round matches tagged Valid .round) begin
                if (round <= fromMaybe(?, meta.paxos$rnd)) begin
+                  $display("(%0d) Round: Acceptor %h, round=%h, rnd=%h", $time, pkt.id, round, meta.paxos$rnd);
                   MetadataRequest req = tagged AcceptorTblRequest {pkt: pkt, meta: meta};
                   acceptorReqFifo.enq(req);
-                  $display("(%0d) Round: Acceptor %h", $time, pkt.id);
                end
             end
             else
@@ -243,8 +254,10 @@ module mkIngress#(Vector#(numClients, MetadataClient) mdc)(Ingress);
          fwdCount: fwdCount
       };
    endmethod
-   method setRole = roleTable.setRole;
    method Action roundReq(RoundRegRequest req);
       roundRegReqFifo.enq(req);
+   endmethod
+   method Action roleReq(RoleRegRequest req);
+      roleRegReqFifo.enq(req);
    endmethod
 endmodule

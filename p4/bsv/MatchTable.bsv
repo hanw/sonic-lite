@@ -162,7 +162,7 @@ module mkMatchTableBluesim(MatchTable#(depth, keys, actions))
 
    rule do_read (isInitialized);
       let v <- toGet(readReqFifo).get;
-      $display("(%0d) do read %h", $time, v);
+      $display("(%0d) MatchTable: do_read %h", $time, v);
       let ret <- matchtable_read(v);
       readDataFifo.enq(tagged Valid unpack(ret));
    endrule

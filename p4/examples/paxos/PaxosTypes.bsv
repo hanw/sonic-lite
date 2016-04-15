@@ -93,9 +93,15 @@ typedef union tagged {
    } BBIncreaseInstanceRequest;
    struct {
       PacketInstance pkt;
+      Bit#(32) inst;
+      Bit#(16) rnd;
    } BBHandle1aRequest;
    struct {
       PacketInstance pkt;
+      Bit#(64) datapath_id;
+      Bit#(16) instance_;
+      Bit#(16) vround;
+      Bit#(16) round;
    } BBHandle2aRequest;
    struct {
       PacketInstance pkt;
@@ -104,6 +110,9 @@ typedef union tagged {
       PacketInstance pkt;
       Bit#(InstanceSize) paxos$inst;
    } BBRoundRequest;
+   struct {
+      PacketInstance pkt;
+   } BBRoleRequest;
 } BBRequest deriving (Bits, Eq, FShow);
 
 typedef union tagged {
@@ -116,6 +125,9 @@ typedef union tagged {
    } BBIncreaseInstanceResponse;
    struct {
       PacketInstance pkt;
+      Bit#(64) datapath;
+      Bit#(16) vround;
+      Bit#(ValueSize) value;
    } BBHandle1aResponse;
    struct {
       PacketInstance pkt;
@@ -127,6 +139,10 @@ typedef union tagged {
       PacketInstance pkt;
       IngressMetadataT ingress_metadata;
    } BBRoundResponse;
+   struct {
+      PacketInstance pkt;
+      Bit#(8) role;
+   } BBRoleResponse;
 } BBResponse deriving (Bits, Eq);
 
 typedef struct {
@@ -622,19 +638,6 @@ function SwitchMetadataT extract_switch_metadata(Bit#(8) data);
     return switch_metadata_t;
 endfunction
 
-typedef enum {
-   ACCEPTOR = 1,
-   COORDINATOR = 2
-} Role deriving (Bits, Eq);
-instance FShow#(Role);
-   function Fmt fshow(Role role);
-      case(role)
-         ACCEPTOR: return fshow("ACCEPTOR");
-         COORDINATOR: return fshow("COORDINATOR");
-      endcase
-   endfunction
-endinstance
-
 typedef struct {
    Maybe#(Bit#(16)) msgtype; // ethernet$msgtype
    Maybe#(Bit#(48)) dstAddr; // ethernet$dstAddr
@@ -646,8 +649,9 @@ typedef struct {
    Maybe#(Bit#(16)) paxos$vrnd;
    Maybe#(Bit#(256)) paxos$paxosval;
    Maybe#(Bit#(16)) paxos$acptid;
+   Maybe#(Bit#(16)) paxos$msgtype;
    Maybe#(Bit#(16)) paxos_packet_meta$round;
-   Maybe#(Role) switch_metadata$role;
+   Maybe#(Bit#(8)) switch_metadata$role;
    Maybe#(Bool) valid_ethernet;
    Maybe#(Bool) valid_arp;
    Maybe#(Bool) valid_ipv4;
@@ -670,7 +674,7 @@ MetadataT {
    paxos$paxosval: tagged Invalid,
    paxos$acptid: tagged Invalid,
    paxos_packet_meta$round: tagged Invalid,
-   switch_metadata$role: tagged Valid ACCEPTOR,
+   switch_metadata$role: tagged Invalid,
    valid_ethernet: tagged Invalid,
    valid_arp: tagged Invalid,
    valid_ipv4: tagged Invalid,
@@ -698,41 +702,6 @@ endinterface
 typeclass MkP4Register#(type addr, type data, type req, type resp);
    module mkP4Register#(Vector#(n, Client#(req, resp)) clients)(P4RegisterIfc#(addr, data));
 endtypeclass
-
-typedef struct {
-   addrT addr;
-   dataT data;
-   Bool write;
-} RegRequest#(type addrT, type dataT) deriving (Bits);
-
-typedef struct {
-   dataT data;
-} RegResponse#(type dataT) deriving (Bits);
-
-//typedef RegRequest#(Bit#(InstanceSize), Bit#(RoundSize)) RoundRegRequest;
-//typedef RegResponse#(Bit#(RoundSize)) RoundRegResponse;
-typedef RegRequest#(Bit#(1), Bit#(8)) RoleRegRequest;
-typedef RegResponse#(Bit#(8)) RoleRegResponse;
-typedef RegRequest#(Bit#(1), Bit#(64)) DatapathIdRegRequest;
-typedef RegResponse#(Bit#(64)) DatapathIdRegResponse;
-typedef RegRequest#(Bit#(1), Bit#(16)) InstanceRegRequest;
-typedef RegResponse#(Bit#(16)) InstanceRegResponse;
-typedef RegRequest#(Bit#(InstanceSize), Bit#(RoundSize)) VRoundRegRequest;
-typedef RegResponse#(Bit#(RoundSize)) VRoundRegResponse;
-typedef RegRequest#(Bit#(InstanceSize), Bit#(ValueSize)) ValueRegRequest;
-typedef RegResponse#(Bit#(ValueSize)) ValueRegResponse;
-
-typedef Client#(RoundRegRequest, RoundRegResponse) RoundRegClient;
-typedef Server#(RoundRegRequest, RoundRegResponse) RoundRegServer;
-
-typedef enum {
-   RoundReg = 1,
-   RoleReg = 2,
-   DatapathId = 3,
-   Instance = 4,
-   VRound = 5,
-   Value = 6
-} P4RegT deriving (Bits, Eq);
 
 instance MkP4Register#(Bit#(InstanceSize), Bit#(RoundSize), RoundRegRequest, RoundRegResponse);
    module mkP4Register#(Vector#(numClients, Client#(RoundRegRequest, RoundRegResponse)) clients)(P4RegisterIfc#(Bit#(InstanceSize), Bit#(RoundSize)));
@@ -929,11 +898,11 @@ typedef struct {
 typedef enum {
     IncreaseInstance = 1,
     Nop = 2
-} SequenceTblActionT deriving (Bits, Eq);
+} SequenceTblActionT deriving (Bits, Eq, FShow);
 
 typedef struct {
    SequenceTblActionT act;
-} SequenceTblRespT deriving (Bits, Eq);
+} SequenceTblRespT deriving (Bits, Eq, FShow);
 
 typedef struct {
     Bit#(16) msgtype;
@@ -944,11 +913,11 @@ typedef enum {
     Handle1A = 1,
     Handle2A = 2,
     Drop = 3
-} AcceptorTblActionT deriving (Bits, Eq);
+} AcceptorTblActionT deriving (Bits, Eq, FShow);
 
 typedef struct {
    AcceptorTblActionT act;
-} AcceptorTblRespT deriving (Bits, Eq);
+} AcceptorTblRespT deriving (Bits, Eq, FShow);
 
 (* synthesize *)
 module mkMatchTable_256_dmacTable(MatchTable#(256, DmacTblReqT, DmacTblRespT));

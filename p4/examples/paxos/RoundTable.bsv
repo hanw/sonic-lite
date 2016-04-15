@@ -76,7 +76,6 @@ module mkBasicBlockRound(BasicBlockRound);
 endmodule
 
 interface RoundTable;
-   interface Client#(RoundRegRequest, RoundRegResponse) regAccess;
    interface BBClient next_control_state_0;
 endinterface
 
@@ -104,7 +103,10 @@ module mkRoundTable#(MetadataClient md)(RoundTable);
       let v <- toGet(inRespFifo).get;
       let meta <- toGet(currMetadataFifo).get;
       let pkt <- toGet(currPacketFifo).get;
-      // update metadata
+      if (v matches tagged BBRoundResponse {pkt: .pkt, ingress_metadata: .ingress_meta}) begin
+         $display("(%0d) Round Response: ", $time, fshow(ingress_meta));
+         meta.paxos_packet_meta$round = tagged Valid ingress_meta.round;
+      end
       MetadataResponse resp;
       resp = tagged RoundTblResponse {pkt: pkt, meta: meta};
       md.response.put(resp);

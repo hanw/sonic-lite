@@ -26,31 +26,89 @@ import Ethernet::*;
 import FIFO::*;
 import GetPut::*;
 import PaxosTypes::*;
+import ConnectalTypes::*;
+
+interface BasicBlockRole;
+   interface BBServer prev_control_state;
+   interface Client#(RoleRegRequest, RoleRegResponse) regClient;
+endinterface
+
+module mkBasicBlockRole(BasicBlockRole);
+   FIFO#(BBRequest) bb_role_request_fifo <- mkFIFO;
+   FIFO#(BBResponse) bb_role_response_fifo <- mkFIFO;
+   FIFO#(RoleRegRequest) reg_role_request_fifo <- mkFIFO;
+   FIFO#(RoleRegResponse) reg_role_response_fifo <- mkFIFO;
+   FIFO#(PacketInstance) curr_packet_fifo <- mkFIFO;
+
+   rule bb_role;
+      let v <- toGet(bb_role_request_fifo).get;
+      case (v) matches
+         tagged BBRoleRequest {pkt: .pkt}: begin
+            RoleRegRequest req;
+            req = RoleRegRequest {addr: 0, data: ?, write: False};
+            reg_role_request_fifo.enq(req);
+            $display("(%0d) role reg", $time);
+            curr_packet_fifo.enq(pkt);
+         end
+      endcase
+   endrule
+
+   rule reg_resp;
+      let v <- toGet(reg_role_response_fifo).get;
+      let pkt <- toGet(curr_packet_fifo).get;
+      $display("(%0d) register response %h", $time, v);
+      BBResponse resp = tagged BBRoleResponse {pkt: pkt, role: v.data};
+      bb_role_response_fifo.enq(resp);
+   endrule
+
+   interface prev_control_state = (interface BBServer;
+      interface request = toPut(bb_role_request_fifo);
+      interface response = toGet(bb_role_response_fifo);
+   endinterface);
+   interface regClient = (interface Client#(RoleRegRequest, RoleRegResponse);
+      interface request = toGet(reg_role_request_fifo);
+      interface response = toPut(reg_role_response_fifo);
+   endinterface);
+endmodule
 
 interface RoleTable;
    interface Client#(RoleRegRequest, RoleRegResponse) regClient;
-   method Action setRole(Bit#(32) role);
+   interface BBClient next_control_state_0;
 endinterface
 
 module mkRoleTable#(MetadataClient md)(RoleTable);
-   Reg#(Role) role <- mkReg(COORDINATOR);
-
+   FIFO#(BBRequest) outReqFifo <- mkFIFO;
+   FIFO#(BBResponse) inRespFifo <- mkFIFO;
    FIFO#(PacketInstance) currPacketFifo <- mkFIFO;
+   FIFO#(MetadataT) currMetadataFifo <- mkFIFO;
 
    rule tableLookupRequest;
       let v <- md.request.get;
       $display("(%0d) Role: table lookup request", $time);
       case (v) matches
          tagged RoleLookupRequest {pkt: .pkt, meta: .meta}: begin
-            MetadataT t = meta;
-            t.switch_metadata$role = tagged Valid role;
-            MetadataResponse resp = tagged RoleResponse { pkt: pkt, meta: t};
-            md.response.put(resp);
+            BBRequest req;
+            req = tagged BBRoleRequest {pkt: pkt};
+            $display("(%0d) Role read", $time);
+            outReqFifo.enq(req);
+            currPacketFifo.enq(pkt);
+            currMetadataFifo.enq(meta);
          end
       endcase
    endrule
 
-   method Action setRole(Bit#(32) v);
-      role <= unpack(truncate(v));
-   endmethod
+   rule readRoleResp;
+      let v <- toGet(inRespFifo).get;
+      let meta <- toGet(currMetadataFifo).get;
+      let pkt <- toGet(currPacketFifo).get;
+      if (v matches tagged BBRoleResponse {pkt: .pkt, role: .role}) begin
+         meta.switch_metadata$role = tagged Valid role;
+      end
+      MetadataResponse resp = tagged RoleResponse { pkt: pkt, meta: meta};
+      md.response.put(resp);
+   endrule
+   interface next_control_state_0 = (interface BBClient;
+      interface request = toGet(outReqFifo);
+      interface response = toPut(inRespFifo);
+   endinterface);
 endmodule

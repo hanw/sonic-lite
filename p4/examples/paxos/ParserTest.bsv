@@ -42,8 +42,8 @@ endinterface
 interface ParserTestRequest;
    method Action read_version();
    method Action writePacketData(Vector#(2, Bit#(64)) data, Vector#(2, Bit#(8)) mask, Bit#(1) sop, Bit#(1) eop);
-   method Action setRole(Bit#(32) v);
    method Action roundReq(RoundRegRequest r);
+   method Action roleReq(RoleRegRequest r);
 endinterface
 
 interface ParserTest;
@@ -89,8 +89,8 @@ module mkParserTest#(ParserTestIndication indication
          beat.eop = unpack(eop);
          hostchan.writeServer.writeData.put(beat);
       endmethod
-      method setRole = ingress.setRole;
       method roundReq = ingress.roundReq;
+      method roleReq = ingress.roleReq;
    endinterface
 endmodule: mkParserTest
 endpackage: ParserTest

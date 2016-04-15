@@ -58,7 +58,7 @@ void usage (const char *program_name) {
 struct arg_info {
     double rate;
     int tracelen;
-    int role;
+    Role role;
 };
 
 static void 
@@ -89,7 +89,8 @@ parse_options(int argc, char *argv[], char **pcap_file, struct arg_info* info) {
                 *pcap_file = optarg;
                 break;
             case 'R':
-                info->role = strtol(optarg, NULL, 0);
+                //info->role = {0}; //strtol(optarg, NULL, 0);
+                info->role = ACCEPTOR;
                 break;
             default:
                 break;
@@ -100,7 +101,7 @@ parse_options(int argc, char *argv[], char **pcap_file, struct arg_info* info) {
 int main(int argc, char **argv)
 {
     char *pcap_file=NULL;
-    struct arg_info arguments = {0, 0, 0};
+    struct arg_info arguments = {0, 0, ACCEPTOR};
     struct pcap_trace_info pcap_info = {0, 0};
 
     ParserTestIndication echoIndication(IfcNames_ParserTestIndicationH2S);
@@ -111,12 +112,14 @@ int main(int argc, char **argv)
     device->read_version();
 
     if (arguments.role) {
-        device->setRole(arguments.role);
     }
 
     // reset registers
     RoundRegRequest r = {0, 0, 1};
     device->roundReq(r);
+
+    RoleRegRequest role_req = {0, 1, 1};
+    device->roleReq(role_req);
 
     if (pcap_file) {
         fprintf(stderr, "Attempts to read pcap file %s\n", pcap_file);
