@@ -439,14 +439,14 @@ module mkStateParseUdp#(Reg#(ParserState) state, FIFOF#(EtherData) datain, FIFOF
 endmodule
 interface ParsePaxos;
     interface Put#(Bit#(176)) parse_udp;
-    interface Get#(Bit#(16)) parsedOut_paxos_msgtype;
+    interface Get#(PaxosT) parsedOut_paxos_msgtype;
     method Action start;
     method Action clear;
 endinterface
 module mkStateParsePaxos#(Reg#(ParserState) state, FIFOF#(EtherData) datain, FIFOF#(ParserState) parseStateFifo)(ParsePaxos);
     FIFOF#(Bit#(304)) internal_fifo <- mkSizedFIFOF(1);
     FIFOF#(Bit#(176)) unparsed_parse_udp_fifo <- mkBypassFIFOF;
-    FIFOF#(Bit#(16)) parsed_paxos_fifo <- mkFIFOF;
+    FIFOF#(PaxosT) parsed_paxos_fifo <- mkFIFOF;
     Wire#(Bit#(128)) packet_in_wire <- mkDWire(0);
     Vector#(1, Wire#(Maybe#(ParserState))) next_state_wire <- replicateM(mkDWire(tagged Invalid));
     PulseWire start_wire <- mkPulseWire();
@@ -483,8 +483,8 @@ module mkStateParsePaxos#(Reg#(ParserState) state, FIFOF#(EtherData) datain, FIF
         Bit#(432) data = {data_this_cycle, data_last_cycle};
         Vector#(432, Bit#(1)) dataVec = unpack(data);
         let paxos = extract_paxos(pack(takeAt(0, dataVec)));
-        $display("(%0d0 ", $time, fshow(paxos));
-        parsed_paxos_fifo.enq(paxos.msgtype);
+        $display("(%0d) ", $time, fshow(paxos));
+        parsed_paxos_fifo.enq(paxos);
         parseStateFifo.enq(StateParsePaxos);
         next_state_wire[0] <= tagged Valid StateStart;
     endaction
@@ -578,11 +578,17 @@ module mkParser(Parser);
    rule handle_paxos_packet if (parse_state_out_fifo.first == StateParsePaxos);
       parse_state_out_fifo.deq;
       let dstAddr <- toGet(parse_ethernet.parsedOut_ethernet_dstAddr).get;
-      let msgtype <- toGet(parse_paxos.parsedOut_paxos_msgtype).get;
+      let paxos <- toGet(parse_paxos.parsedOut_paxos_msgtype).get;
       if (verbose) $display("(%0d) HostChannel: dstAddr=%h", $time, dstAddr);
-      if (verbose) $display("(%0d) HostChannel: msgtype=%h", $time, msgtype);
+      if (verbose) $display("(%0d) HostChannel: msgtype=%h", $time, paxos.msgtype);
+      //if (verbose) $display("(%0d) HostChannel: inst=%h", $time, inst);
       MetadataT meta = defaultValue;
       meta.dstAddr = tagged Valid dstAddr;
+      meta.paxos$inst = tagged Valid paxos.inst;
+      meta.paxos$rnd = tagged Valid paxos.rnd;
+      meta.paxos$vrnd = tagged Valid paxos.vrnd;
+      meta.paxos$paxosval = tagged Valid paxos.paxosval;
+      meta.paxos$acptid = tagged Valid paxos.acptid;
       meta.valid_paxos = tagged Valid True;
       meta.valid_ipv4 = tagged Valid True;
       meta.valid_ethernet = tagged Valid True;

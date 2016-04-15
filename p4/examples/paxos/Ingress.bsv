@@ -38,12 +38,15 @@ import RoleTable::*;
 import RoundTable::*;
 import SequenceTable::*;
 import Vector::*;
+import BuildVector::*;
+import ConnectalTypes::*;
 
 interface Ingress;
    interface MemWriteClient#(`DataBusWidth) writeClient;
    interface PipeOut#(PacketInstance) eventPktSend;
    method IngressPipelineDbgRec dbg;
    method Action setRole(Bit#(32) v);
+   method Action roundReq(RoundRegRequest r);
 endinterface
 
 module mkIngress#(Vector#(numClients, MetadataClient) mdc)(Ingress);
@@ -99,8 +102,6 @@ module mkIngress#(Vector#(numClients, MetadataClient) mdc)(Ingress);
    AcceptorTable acceptorTable <- mkAcceptorTable(toMetadataClient(acceptorReqFifo, acceptorRespFifo));
    //DropTable dropTable <- mkDropTable();//roundTable.next1);
 
-   // Registers
-
    // BasicBlocks
    BasicBlockForward bb_fwd <- mkBasicBlockForward();
    BasicBlockIncreaseInstance bb_increase_instance <- mkBasicBlockIncreaseInstance();
@@ -108,6 +109,33 @@ module mkIngress#(Vector#(numClients, MetadataClient) mdc)(Ingress);
    BasicBlockHandle2A bb_handle_2a <- mkBasicBlockHandle2A();
    BasicBlockDrop bb_handle_drop <- mkBasicBlockDrop();
    BasicBlockRound bb_read_round <- mkBasicBlockRound();
+
+   // Registers
+   FIFO#(RoundRegRequest) roundRegReqFifo <- mkFIFO;
+   FIFO#(RoleRegRequest) roleRegReqFifo <- mkFIFO;
+   FIFO#(DatapathIdRegRequest) datapathIdRegReqFifo <- mkFIFO;
+   FIFO#(InstanceRegRequest) instanceRegReqFifo <- mkFIFO;
+   FIFO#(VRoundRegRequest) vroundRegReqFifo <- mkFIFO;
+   FIFO#(ValueRegRequest) valueRegReqFifo <- mkFIFO;
+
+   FIFO#(RoundRegResponse) roundRegRespFifo <- mkFIFO;
+   FIFO#(RoleRegResponse) roleRegRespFifo <- mkFIFO;
+   FIFO#(DatapathIdRegResponse) datapathIdRegRespFifo <- mkFIFO;
+   FIFO#(InstanceRegResponse) instanceRegRespFifo <- mkFIFO;
+   FIFO#(VRoundRegResponse) vroundRegRespFifo <- mkFIFO;
+   FIFO#(ValueRegResponse) valueRegRespFifo <- mkFIFO;
+
+   function RoundRegClient toRoundRegClient(FIFO#(RoundRegRequest) reqFifo,
+                                            FIFO#(RoundRegResponse) respFifo);
+      RoundRegClient ret_ifc;
+      ret_ifc = (interface RoundRegClient;
+         interface Get request = toGet(roundRegReqFifo);
+         interface Put response = toPut(roundRegRespFifo);
+      endinterface);
+      return ret_ifc;
+   endfunction
+
+   P4RegisterIfc#(Bit#(InstanceSize), Bit#(RoundSize)) roundReg <- mkP4Register(vec(bb_read_round.regClient, toRoundRegClient(roundRegReqFifo, roundRegRespFifo)));
 
    // Connect Table with BasicBlock
    mkConnection(dstMacTable.next_control_state_0, bb_fwd.prev_control_state);
@@ -185,13 +213,14 @@ module mkIngress#(Vector#(numClients, MetadataClient) mdc)(Ingress);
       case (v) matches
          tagged RoundTblResponse {pkt: .pkt, meta: .meta}: begin
             if (meta.paxos_packet_meta$round matches tagged Valid .round) begin
-               //FIXME:
                if (round <= fromMaybe(?, meta.paxos$rnd)) begin
                   MetadataRequest req = tagged AcceptorTblRequest {pkt: pkt, meta: meta};
                   acceptorReqFifo.enq(req);
                   $display("(%0d) Round: Acceptor %h", $time, pkt.id);
                end
             end
+            else
+               $display("(%0d) Invalid round", $time);
          end
       endcase
    endrule
@@ -215,4 +244,7 @@ module mkIngress#(Vector#(numClients, MetadataClient) mdc)(Ingress);
       };
    endmethod
    method setRole = roleTable.setRole;
+   method Action roundReq(RoundRegRequest req);
+      roundRegReqFifo.enq(req);
+   endmethod
 endmodule

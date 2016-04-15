@@ -114,6 +114,10 @@ int main(int argc, char **argv)
         device->setRole(arguments.role);
     }
 
+    // reset registers
+    RoundRegRequest r = {0, 0, 1};
+    device->roundReq(r);
+
     if (pcap_file) {
         fprintf(stderr, "Attempts to read pcap file %s\n", pcap_file);
         load_pcap_file(pcap_file, &pcap_info);

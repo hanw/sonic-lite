@@ -8,11 +8,7 @@ import Pipe::*;
 import RegFile::*;
 import Vector::*;
 import DefaultValue::*;
-
-typedef 8 RoundSize;
-typedef 8 MsgTypeSize;
-typedef 16 InstanceSize;
-typedef 512 ValueSize;
+import ConnectalTypes::*;
 
 typeclass DefaultMask#(type t);
    t defaultMask;
@@ -106,7 +102,7 @@ typedef union tagged {
    } BBDropRequest;
    struct {
       PacketInstance pkt;
-      Bit#(16) paxos$inst;
+      Bit#(InstanceSize) paxos$inst;
    } BBRoundRequest;
 } BBRequest deriving (Bits, Eq, FShow);
 
@@ -645,7 +641,7 @@ typedef struct {
    Maybe#(Bit#(16)) etherType; // ethernet$etherType
    Maybe#(Bit#(8))  protocol; // ipv4$protocol
    Maybe#(Bit#(16)) dstPort; // ipv4$dstPort
-   Maybe#(Bit#(16)) paxos$inst; // paxos$inst
+   Maybe#(Bit#(32)) paxos$inst; // paxos$inst
    Maybe#(Bit#(16)) paxos$rnd;
    Maybe#(Bit#(16)) paxos$vrnd;
    Maybe#(Bit#(256)) paxos$paxosval;
@@ -699,6 +695,10 @@ typedef Server#(BBRequest, BBResponse) BBServer;
 interface P4RegisterIfc#(type addr, type data);
 endinterface
 
+typeclass MkP4Register#(type addr, type data, type req, type resp);
+   module mkP4Register#(Vector#(n, Client#(req, resp)) clients)(P4RegisterIfc#(addr, data));
+endtypeclass
+
 typedef struct {
    addrT addr;
    dataT data;
@@ -709,12 +709,8 @@ typedef struct {
    dataT data;
 } RegResponse#(type dataT) deriving (Bits);
 
-typeclass MkP4Register#(type addr, type data, type req, type resp);
-   module mkP4Register#(Vector#(n, Client#(req, resp)) clients)(P4RegisterIfc#(addr, data));
-endtypeclass
-
-typedef RegRequest#(Bit#(InstanceSize), Bit#(RoundSize)) RoundRegRequest;
-typedef RegResponse#(Bit#(RoundSize)) RoundRegResponse;
+//typedef RegRequest#(Bit#(InstanceSize), Bit#(RoundSize)) RoundRegRequest;
+//typedef RegResponse#(Bit#(RoundSize)) RoundRegResponse;
 typedef RegRequest#(Bit#(1), Bit#(8)) RoleRegRequest;
 typedef RegResponse#(Bit#(8)) RoleRegResponse;
 typedef RegRequest#(Bit#(1), Bit#(64)) DatapathIdRegRequest;
@@ -725,6 +721,18 @@ typedef RegRequest#(Bit#(InstanceSize), Bit#(RoundSize)) VRoundRegRequest;
 typedef RegResponse#(Bit#(RoundSize)) VRoundRegResponse;
 typedef RegRequest#(Bit#(InstanceSize), Bit#(ValueSize)) ValueRegRequest;
 typedef RegResponse#(Bit#(ValueSize)) ValueRegResponse;
+
+typedef Client#(RoundRegRequest, RoundRegResponse) RoundRegClient;
+typedef Server#(RoundRegRequest, RoundRegResponse) RoundRegServer;
+
+typedef enum {
+   RoundReg = 1,
+   RoleReg = 2,
+   DatapathId = 3,
+   Instance = 4,
+   VRound = 5,
+   Value = 6
+} P4RegT deriving (Bits, Eq);
 
 instance MkP4Register#(Bit#(InstanceSize), Bit#(RoundSize), RoundRegRequest, RoundRegResponse);
    module mkP4Register#(Vector#(numClients, Client#(RoundRegRequest, RoundRegResponse)) clients)(P4RegisterIfc#(Bit#(InstanceSize), Bit#(RoundSize)));
@@ -739,6 +747,7 @@ instance MkP4Register#(Bit#(InstanceSize), Bit#(RoundSize), RoundRegRequest, Rou
          end
          else begin
             match {.data} = regFile.sub(req.addr);
+            $display("(%0d) req addr %h data %h", $time, req.addr, data);
             let resp = RoundRegResponse { data: data };
             outRespFifo.enq(resp);
          end

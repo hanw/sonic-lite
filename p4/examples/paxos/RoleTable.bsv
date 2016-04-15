@@ -28,7 +28,7 @@ import GetPut::*;
 import PaxosTypes::*;
 
 interface RoleTable;
-   interface Client#(RoundRegRequest, RoundRegResponse) regAccess;
+   interface Client#(RoleRegRequest, RoleRegResponse) regClient;
    method Action setRole(Bit#(32) role);
 endinterface
 

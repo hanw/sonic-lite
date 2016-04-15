@@ -28,7 +28,7 @@ S2H_INTERFACES=ParserTestRequest:ParserTest.request
 H2S_INTERFACES=ParserTest:ParserTestIndication,MemServerIndication
 CPPFILES=test.cpp
 CPPFILES+=$(SONICDIR)/sw/lpcap.c
-BSVFILES=ParserTest.bsv
+BSVFILES=ParserTest.bsv ConnectalTypes.bsv
 FPGAMAKE_CONNECTALFLAGS += -P mkPcieHostTop
 
 CONNECTALFLAGS += -m $(P4FPGADIR)/bsv/AsymmetricBRAM/mem_model.c

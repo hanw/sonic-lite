@@ -26,11 +26,11 @@ import TxChannel::*;
 import Ingress::*;
 import Sims::*;
 import PaxosTypes::*;
-//import RoundRegister::*;
-//import RoleRegister::*;
+import ConnectalTypes::*;
 
 typedef 12 PktSize; // maximum 4096b
 typedef TDiv#(`DataBusWidth, 32) WordsPerBeat;
+
 
 interface ParserTestIndication;
    method Action read_version_resp(Bit#(32) version);
@@ -43,6 +43,7 @@ interface ParserTestRequest;
    method Action read_version();
    method Action writePacketData(Vector#(2, Bit#(64)) data, Vector#(2, Bit#(8)) mask, Bit#(1) sop, Bit#(1) eop);
    method Action setRole(Bit#(32) v);
+   method Action roundReq(RoundRegRequest r);
 endinterface
 
 interface ParserTest;
@@ -89,6 +90,7 @@ module mkParserTest#(ParserTestIndication indication
          hostchan.writeServer.writeData.put(beat);
       endmethod
       method setRole = ingress.setRole;
+      method roundReq = ingress.roundReq;
    endinterface
 endmodule: mkParserTest
 endpackage: ParserTest

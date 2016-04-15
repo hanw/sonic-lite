@@ -25,32 +25,53 @@ import DbgTypes::*;
 import Ethernet::*;
 import FIFO::*;
 import GetPut::*;
-import PaxosTypes::*;
 import RegFile::*;
 import DefaultValue::*;
+import PaxosTypes::*;
+import ConnectalTypes::*;
 
 interface BasicBlockRound;
    interface BBServer prev_control_state;
+   interface Client#(RoundRegRequest, RoundRegResponse) regClient;
 endinterface
 
 module mkBasicBlockRound(BasicBlockRound);
    FIFO#(BBRequest) bb_round_request_fifo <- mkFIFO;
    FIFO#(BBResponse) bb_round_response_fifo <- mkFIFO;
+   FIFO#(RoundRegRequest) reg_round_request_fifo <- mkFIFO;
+   FIFO#(RoundRegResponse) reg_round_response_fifo <- mkFIFO;
+   FIFO#(PacketInstance) curr_packet_fifo <- mkFIFO;
 
    rule bb_round;
       let v <- toGet(bb_round_request_fifo).get;
       case (v) matches
          tagged BBRoundRequest {pkt: .pkt, paxos$inst: .inst}: begin
-            IngressMetadataT d = defaultValue;
-            // use inst to read round register.
-            BBResponse resp = tagged BBRoundResponse {pkt: pkt, ingress_metadata: d};
-            bb_round_response_fifo.enq(resp);
+            RoundRegRequest req;
+            req = RoundRegRequest{addr: inst, data: ?, write: False};
+            reg_round_request_fifo.enq(req);
+            $display("(%0d) packet inst %h", $time, inst);
+            curr_packet_fifo.enq(pkt);
          end
       endcase
    endrule
+
+   rule reg_resp;
+      let v <- toGet(reg_round_response_fifo).get;
+      let pkt <- toGet(curr_packet_fifo).get;
+      $display("(%0d) register response %h", $time, v);
+      IngressMetadataT d = defaultValue;
+      d.round = v.data;
+      BBResponse resp = tagged BBRoundResponse {pkt: pkt, ingress_metadata: d};
+      bb_round_response_fifo.enq(resp);
+   endrule
+
    interface prev_control_state = (interface BBServer;
       interface request = toPut(bb_round_request_fifo);
       interface response = toGet(bb_round_response_fifo);
+   endinterface);
+   interface regClient = (interface Client#(RoundRegRequest, RoundRegResponse);
+      interface request = toGet(reg_round_request_fifo);
+      interface response = toPut(reg_round_response_fifo);
    endinterface);
 endmodule
 
@@ -71,7 +92,7 @@ module mkRoundTable#(MetadataClient md)(RoundTable);
          tagged RoundTblRequest {pkt: .pkt, meta: .meta}: begin
             BBRequest req;
             req = tagged BBRoundRequest {pkt: pkt, paxos$inst: fromMaybe(?, meta.paxos$inst)};
-            $display("(%0d) Round: read inst %d", $time, meta.paxos$inst);
+            $display("(%0d) Round: read inst %h", $time, meta.paxos$inst);
             outReqFifo.enq(req);
             currPacketFifo.enq(pkt);
             currMetadataFifo.enq(meta);
