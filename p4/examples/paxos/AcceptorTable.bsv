@@ -43,45 +43,32 @@ module mkBasicBlockHandle1A(BasicBlockHandle1A);
    FIFO#(BBResponse) bb_handle_1a_response_fifo <- mkFIFO;
    FIFO#(PacketInstance) curr_packet_fifo <- mkFIFO;
 
-   FIFO#(DatapathIdRegRequest) reg_datapath_request_fifo <- mkFIFO;
-   FIFO#(DatapathIdRegResponse) reg_datapath_response_fifo <- mkFIFO;
-   FIFO#(VRoundRegRequest) reg_vround_request_fifo <- mkFIFO;
-   FIFO#(VRoundRegResponse) reg_vround_response_fifo <- mkFIFO;
-   FIFO#(ValueRegRequest) reg_value_request_fifo <- mkFIFO;
-   FIFO#(ValueRegResponse) reg_value_response_fifo <- mkFIFO;
-   FIFO#(RoundRegRequest) reg_round_request_fifo <- mkFIFO;
-   FIFO#(RoundRegResponse) reg_round_response_fifo<- mkFIFO;
+   FIFO#(DatapathIdRegRequest) datapathIdReqFifo <- mkFIFO;
+   FIFO#(DatapathIdRegResponse) datapathIdRespFifo <- mkFIFO;
+   FIFO#(VRoundRegRequest) vroundReqFifo <- mkFIFO;
+   FIFO#(VRoundRegResponse) vroundRespFifo <- mkFIFO;
+   FIFO#(ValueRegRequest) valueReqFifo <- mkFIFO;
+   FIFO#(ValueRegResponse) valueRespFifo <- mkFIFO;
+   FIFO#(RoundRegRequest) roundReqFifo <- mkFIFO;
+   FIFO#(RoundRegResponse) roundRespFifo<- mkFIFO;
 
    rule bb_handle1a;
       let v <- toGet(bb_handle_1a_request_fifo).get;
       case (v) matches
          tagged BBHandle1aRequest {pkt: .pkt, inst: .inst, rnd: .rnd} : begin
-            // register_read
-            VRoundRegRequest vround_req;
-            vround_req = VRoundRegRequest {addr: inst, data: ?, write: False};
-            reg_vround_request_fifo.enq(vround_req);
-            // register_read
-            ValueRegRequest value_req;
-            value_req = ValueRegRequest {addr: inst, data: ?, write: False};
-            reg_value_request_fifo.enq(value_req);
-            // register_read
-            DatapathIdRegRequest datapath_req;
-            datapath_req = DatapathIdRegRequest {addr: 0, data: ?, write: False};
-            reg_datapath_request_fifo.enq(datapath_req);
-            // register_write
-            RoundRegRequest round_req;
-            round_req = RoundRegRequest {addr: inst, data: rnd, write: True};
-            reg_round_request_fifo.enq(round_req);
-            // current packet
+            vroundReqFifo.enq(VRoundRegRequest {addr: inst, data: ?, write: False});
+            valueReqFifo.enq(ValueRegRequest {addr: inst, data: ?, write: False});
+            datapathIdReqFifo.enq(DatapathIdRegRequest {addr: 0, data: ?, write: False});
+            roundReqFifo.enq(RoundRegRequest {addr: inst, data: rnd, write: True});
             curr_packet_fifo.enq(pkt);
          end
       endcase
    endrule
 
    rule reg_resp;
-      let datapath <- toGet(reg_datapath_response_fifo).get;
-      let vround <- toGet(reg_vround_response_fifo).get;
-      let value <- toGet(reg_value_response_fifo).get;
+      let datapath <- toGet(datapathIdRespFifo).get;
+      let vround <- toGet(vroundRespFifo).get;
+      let value <- toGet(valueRespFifo).get;
       let pkt <- toGet(curr_packet_fifo).get;
       BBResponse resp = tagged BBHandle1aResponse {pkt: pkt, datapath: datapath.data,
                                                    vround: vround.data, value: value.data};
@@ -93,35 +80,86 @@ module mkBasicBlockHandle1A(BasicBlockHandle1A);
       interface response = toGet(bb_handle_1a_response_fifo);
    endinterface);
    interface regClient_datapath_id = (interface DatapathIdRegClient;
-      interface request = toGet(reg_datapath_request_fifo);
-      interface response = toPut(reg_datapath_response_fifo);
+      interface request = toGet(datapathIdReqFifo);
+      interface response = toPut(datapathIdRespFifo);
    endinterface);
    interface regClient_vround = (interface VRoundRegClient;
-      interface request = toGet(reg_vround_request_fifo);
-      interface response = toPut(reg_vround_response_fifo);
+      interface request = toGet(vroundReqFifo);
+      interface response = toPut(vroundRespFifo);
    endinterface);
    interface regClient_value = (interface ValueRegClient;
-      interface request = toGet(reg_value_request_fifo);
-      interface response = toPut(reg_value_response_fifo);
+      interface request = toGet(valueReqFifo);
+      interface response = toPut(valueRespFifo);
    endinterface);
    interface regClient_round = (interface RoundRegClient;
-      interface request = toGet(reg_round_request_fifo);
-      interface response = toPut(reg_round_response_fifo);
+      interface request = toGet(roundReqFifo);
+      interface response = toPut(roundRespFifo);
    endinterface);
 endmodule
 
 interface BasicBlockHandle2A;
    interface BBServer prev_control_state;
+   interface DatapathIdRegClient regClient_datapath_id;
+   interface VRoundRegClient regClient_vround;
+   interface ValueRegClient regClient_value;
+   interface RoundRegClient regClient_round;
 endinterface
 
 module mkBasicBlockHandle2A(BasicBlockHandle2A);
    FIFO#(BBRequest) bb_handle_2a_request_fifo <- mkFIFO;
    FIFO#(BBResponse) bb_handle_2a_response_fifo <- mkFIFO;
+   FIFO#(PacketInstance) curr_packet_fifo <- mkFIFO;
+
+   FIFO#(DatapathIdRegRequest) datapathIdReqFifo <- mkFIFO;
+   FIFO#(DatapathIdRegResponse) datapathIdRespFifo <- mkFIFO;
+   FIFO#(VRoundRegRequest) vroundReqFifo <- mkFIFO;
+   FIFO#(VRoundRegResponse) vroundRespFifo <- mkFIFO;
+   FIFO#(ValueRegRequest) valueReqFifo <- mkFIFO;
+   FIFO#(ValueRegResponse) valueRespFifo <- mkFIFO;
+   FIFO#(RoundRegRequest) roundReqFifo <- mkFIFO;
+   FIFO#(RoundRegResponse) roundRespFifo<- mkFIFO;
+
+   rule bb_handle2a;
+      let v <- toGet(bb_handle_2a_request_fifo).get;
+      case (v) matches
+         tagged BBHandle2aRequest {pkt: .pkt, inst: .inst, rnd: .rnd, paxosval: .paxosval}: begin
+            roundReqFifo.enq(RoundRegRequest {addr: inst, data: rnd, write: True});
+            vroundReqFifo.enq(VRoundRegRequest {addr: inst, data: rnd, write: True});
+            valueReqFifo.enq(ValueRegRequest {addr: inst, data: paxosval, write: True});
+            datapathIdReqFifo.enq(DatapathIdRegRequest {addr: 0, data: ?, write: False});
+            curr_packet_fifo.enq(pkt);
+         end
+      endcase
+   endrule
+
+   rule reg_resp;
+      let pkt <- toGet(curr_packet_fifo).get;
+      let datapath <- toGet(datapathIdRespFifo).get;
+      BBResponse resp = tagged BBHandle2aResponse {pkt: pkt, datapath: datapath.data};
+      bb_handle_2a_response_fifo.enq(resp);
+   endrule
 
    interface prev_control_state = (interface BBServer;
       interface request = toPut(bb_handle_2a_request_fifo);
       interface response = toGet(bb_handle_2a_response_fifo);
    endinterface);
+   interface regClient_datapath_id = (interface DatapathIdRegClient;
+      interface request = toGet(datapathIdReqFifo);
+      interface response = toPut(datapathIdRespFifo);
+   endinterface);
+   interface regClient_vround = (interface VRoundRegClient;
+      interface request = toGet(vroundReqFifo);
+      interface response = toPut(vroundRespFifo);
+   endinterface);
+   interface regClient_value = (interface ValueRegClient;
+      interface request = toGet(valueReqFifo);
+      interface response = toPut(valueRespFifo);
+   endinterface);
+   interface regClient_round = (interface RoundRegClient;
+      interface request = toGet(roundReqFifo);
+      interface response = toPut(roundRespFifo);
+   endinterface);
+
 endmodule
 
 interface BasicBlockDrop;

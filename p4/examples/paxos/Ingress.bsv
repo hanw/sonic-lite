@@ -145,7 +145,10 @@ module mkIngress#(Vector#(numClients, MetadataClient) mdc)(Ingress);
 
    P4RegisterIfc#(Bit#(InstanceSize), Bit#(RoundSize)) roundReg <- mkP4Register(vec(bb_read_round.regClient, toRoundRegClient(roundRegReqFifo, roundRegRespFifo)));
    P4RegisterIfc#(Bit#(1), Bit#(8)) roleReg <- mkP4Register(vec(bb_read_role.regClient, toRoleRegClient(roleRegReqFifo, roleRegRespFifo)));
-   //P4RegisterIfc#(Bit#(1), Bit#(64)) datapathIdReg <- mkP4Register()
+   P4RegisterIfc#(Bit#(1), Bit#(64)) datapathIdReg <- mkP4Register(vec(bb_handle_1a.regClient_datapath_id, bb_handle_2a.regClient_datapath_id));
+   P4RegisterIfc#(Bit#(1), Bit#(16)) instanceReg <- mkP4Register(vec(bb_increase_instance.regClient));
+   P4RegisterIfc#(Bit#(InstanceSize), Bit#(RoundSize)) vroundReg <- mkP4Register(vec(bb_handle_1a.regClient_vround, bb_handle_2a.regClient_vround));
+   P4RegisterIfc#(Bit#(InstanceSize), Bit#(ValueSize)) valueReg <- mkP4Register(vec(bb_handle_1a.regClient_value, bb_handle_2a.regClient_value));
 
    // Connect Table with BasicBlock
    mkConnection(dstMacTable.next_control_state_0, bb_fwd.prev_control_state);

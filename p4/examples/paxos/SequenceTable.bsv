@@ -28,24 +28,39 @@ import GetPut::*;
 import MatchTable::*;
 import PaxosTypes::*;
 import RegFile::*;
+import ConnectalTypes::*;
 
 interface BasicBlockIncreaseInstance;
    interface BBServer prev_control_state;
+   interface InstanceRegClient regClient;
 endinterface
 
 module mkBasicBlockIncreaseInstance(BasicBlockIncreaseInstance);
    FIFO#(BBRequest) bb_increase_instance_request_fifo <- mkFIFO;
    FIFO#(BBResponse) bb_increase_instance_response_fifo <- mkFIFO;
+   FIFO#(PacketInstance) curr_packet_fifo <- mkFIFO;
+
+   FIFO#(InstanceRegRequest) instanceReqFifo <- mkFIFO;
+   FIFO#(InstanceRegResponse) instanceRespFifo <- mkFIFO;
 
    rule bb_increase_instance;
       let v <- toGet(bb_increase_instance_request_fifo).get;
       case (v) matches
          tagged BBIncreaseInstanceRequest {pkt: .pkt}: begin
-            // read-modify-write register
-            BBResponse resp = tagged BBIncreaseInstanceResponse {pkt: pkt};
-            bb_increase_instance_response_fifo.enq(resp);
+            instanceReqFifo.enq(InstanceRegRequest {addr: 0, data: ?, write: False});
+            curr_packet_fifo.enq(pkt);
          end
       endcase
+   endrule
+
+   rule reg_resp;
+      let pkt <- toGet(curr_packet_fifo).get;
+      let inst <- toGet(instanceRespFifo).get;
+      $display("(%0d) inst = %h", inst.data);
+      let next_inst = inst.data + 1;
+      instanceReqFifo.enq(InstanceRegRequest {addr: 0, data: next_inst, write:True});
+      BBResponse resp = tagged BBIncreaseInstanceResponse {pkt: pkt};
+      bb_increase_instance_response_fifo.enq(resp);
    endrule
 
    interface prev_control_state = (interface BBServer;
@@ -68,19 +83,19 @@ module mkSequenceTable#(MetadataClient md)(SequenceTable);
 
    MatchTable#(256, SequenceTblReqT, SequenceTblRespT) matchTable <- mkMatchTable_256_sequenceTable();
 
-   rule lookup;
+   rule lookup_request;
       let v <- md.request.get;
       case (v) matches
          tagged SequenceTblRequest { pkt: .pkt, meta: .meta } : begin
-            matchTable.lookupPort.request.put(SequenceTblReqT {msgtype: fromMaybe(?, meta.msgtype)});
-            if (verbose) $display("(%0d) Sequence: %h", $time, pkt.id, fshow(meta.msgtype));
+            matchTable.lookupPort.request.put(SequenceTblReqT {msgtype: fromMaybe(?, meta.paxos$msgtype)});
+            if (verbose) $display("(%0d) Sequence: %h", $time, pkt.id, fshow(meta.paxos$msgtype));
             currPacketFifo.enq(pkt);
             currMetadataFifo.enq(meta);
          end
       endcase
    endrule
 
-   rule lookup_resp;
+   rule lookup_response;
       let v <- matchTable.lookupPort.response.get;
       let pkt <- toGet(currPacketFifo).get;
       let meta <- toGet(currMetadataFifo).get;
@@ -93,7 +108,7 @@ module mkSequenceTable#(MetadataClient md)(SequenceTable);
                outReqFifo.enq(req);
             end
             default: begin
-               $display("(%d) nop", $time);
+               $display("(%0d) nop", $time);
             end
          endcase
       end

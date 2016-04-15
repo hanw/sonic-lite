@@ -93,15 +93,14 @@ typedef union tagged {
    } BBIncreaseInstanceRequest;
    struct {
       PacketInstance pkt;
-      Bit#(32) inst;
+      Bit#(InstanceSize) inst;
       Bit#(16) rnd;
    } BBHandle1aRequest;
    struct {
       PacketInstance pkt;
-      Bit#(64) datapath_id;
-      Bit#(16) instance_;
-      Bit#(16) vround;
-      Bit#(16) round;
+      Bit#(InstanceSize) inst;
+      Bit#(16) rnd;
+      Bit#(ValueSize) paxosval;
    } BBHandle2aRequest;
    struct {
       PacketInstance pkt;
@@ -131,6 +130,7 @@ typedef union tagged {
    } BBHandle1aResponse;
    struct {
       PacketInstance pkt;
+      Bit#(64) datapath;
    } BBHandle2aResponse;
    struct {
       PacketInstance pkt;
@@ -702,6 +702,40 @@ endinterface
 typeclass MkP4Register#(type addr, type data, type req, type resp);
    module mkP4Register#(Vector#(n, Client#(req, resp)) clients)(P4RegisterIfc#(addr, data));
 endtypeclass
+
+instance MkP4Register#(Bit#(InstanceSize), Bit#(RoundSize), VRoundRegRequest, VRoundRegResponse);
+   module mkP4Register#(Vector#(numClients, Client#(VRoundRegRequest, VRoundRegResponse)) clients)(P4RegisterIfc#(Bit#(InstanceSize), Bit#(RoundSize)));
+      RegFile#(Bit#(InstanceSize), Bit#(RoundSize)) regFile <- mkRegFileFull();
+      FIFO#(VRoundRegRequest) inReqFifo <- mkFIFO;
+      FIFO#(VRoundRegResponse) outRespFifo <- mkFIFO;
+
+      rule processReq;
+         let req <- toGet(inReqFifo).get;
+         if (req.write) begin
+            regFile.upd(req.addr, req.data);
+         end
+         else begin
+            match {.data} = regFile.sub(req.addr);
+            $display("(%0d) req addr %h data %h", $time, req.addr, data);
+            let resp = VRoundRegResponse { data: data };
+            outRespFifo.enq(resp);
+         end
+      endrule
+
+      Vector#(numClients, Server#(VRoundRegRequest, VRoundRegResponse)) servers = newVector;
+      for (Integer i=0; i<valueOf(numClients); i=i+1) begin
+         servers[i] = (interface Server;
+            interface Put request;
+               method Action put(VRoundRegRequest req);
+                  inReqFifo.enq(req);
+               endmethod
+            endinterface
+            interface response = toGet(outRespFifo);
+         endinterface);
+      end
+      zipWithM_(mkConnection, clients, servers);
+   endmodule
+endinstance
 
 instance MkP4Register#(Bit#(InstanceSize), Bit#(RoundSize), RoundRegRequest, RoundRegResponse);
    module mkP4Register#(Vector#(numClients, Client#(RoundRegRequest, RoundRegResponse)) clients)(P4RegisterIfc#(Bit#(InstanceSize), Bit#(RoundSize)));
