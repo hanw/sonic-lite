@@ -47,9 +47,9 @@ public:
     DmaCallback() {}
     virtual ~DmaCallback() {}
     //  DmaChannel calls transferToFpgaDone from DmaChannel::checkIndications when it is notified that a DMA transferToFpga request has completed
-    virtual void transferToFpgaDone ( uint32_t sglId, uint32_t base, const uint8_t tag, uint32_t cycles ) = 0;
+    virtual void transferToFpgaDone ( const uint8_t tag) = 0;
     //  DmaChannel calls transferFromFpgaDone from DmaChannel::checkIndications when it is notified that a DMA transferFromFpga request has completed
-    virtual void transferFromFpgaDone ( uint32_t sglId, uint32_t base, uint8_t tag, uint32_t cycles, uint32_t len ) = 0;
+    virtual void transferFromFpgaDone ( uint32_t sglId, uint32_t len ) = 0;
 };
 
 class DmaIndication;

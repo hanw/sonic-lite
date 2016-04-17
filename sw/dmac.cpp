@@ -8,10 +8,18 @@
 #include "DmaRequest.h"
 
 static int proxyNames[] = {
-  IfcNames_DmaRequestS2H,
+//  IfcNames_DmaRequestS2H,
+  IfcNames_DmaRequestS2H0,
+  IfcNames_DmaRequestS2H1,
+  IfcNames_DmaRequestS2H2,
+  IfcNames_DmaRequestS2H3,
 };
 static int wrapperNames[] = {
-  IfcNames_DmaIndicationH2S,
+//  IfcNames_DmaIndicationH2S,
+  IfcNames_DmaIndicationH2S0,
+  IfcNames_DmaIndicationH2S1,
+  IfcNames_DmaIndicationH2S2,
+  IfcNames_DmaIndicationH2S3, 
 };
 
 DmaManager *mgr;
@@ -64,13 +72,13 @@ public:
 	: DmaIndicationWrapper(id, poller), channel(channel), callbacks(callbacks) {
     }
 
-    void transferToFpgaDone ( uint32_t sglId, uint32_t base, const uint8_t tag, uint32_t cycles ) {
+    void transferToFpgaDone ( const uint8_t tag ) {
 	if (callbacks)
-	    callbacks->transferToFpgaDone(sglId, base, tag, cycles);
+	    callbacks->transferToFpgaDone(tag);
     }
-    void transferFromFpgaDone ( uint32_t sglId, uint32_t base, uint8_t tag, uint32_t cycles, uint32_t len ) {
+    void transferFromFpgaDone ( uint32_t sglId, uint32_t len ) {
 	if (callbacks)
-	    callbacks->transferFromFpgaDone(sglId, base, tag, cycles, len);
+	    callbacks->transferFromFpgaDone(sglId, len);
     }
     void readTransferToFpgaStatDone(uint32_t a, uint64_t b, uint64_t c, uint64_t d) {
         fprintf(stderr, "Channel %d  Bytes: %ld  Sops: %ld  Eops: %ld\n", a, b, c, d);

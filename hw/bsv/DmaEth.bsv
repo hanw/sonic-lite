@@ -66,9 +66,9 @@ endinterface
 
 interface DmaIndication;
    // Indicates completion of transferToFpga request, identified by tag, from offset base of objId
-   method Action transferToFpgaDone(Bit#(32) objId, Bit#(32) base, Bit#(8) tag, Bit#(32) cycles);
+   method Action transferToFpgaDone(Bit#(8) tag);
    // Indicates completion of transferFromFpga request, identified by tag, to offset base of objId
-   method Action transferFromFpgaDone(Bit#(32) objId, Bit#(32) base, Bit#(8) tag, Bit#(32) cycles, Bit#(32) len);
+   method Action transferFromFpgaDone(Bit#(32) objId, Bit#(32) len);
 endinterface
 
 //
@@ -159,7 +159,7 @@ module mkDmaController#(Vector#(numChannels,DmaIndication) indication, Clock txC
       Reg#(Bool) readProcessing <- mkReg(False);
       Reg#(Bool) writeProcessing <- mkReg(False);
 
-      rule transferToFpgaReqRule (!readProcessing);
+      rule transferToFpgaReqRule;
          let cmd <- toGet(readCmds[channel]).get();
          if (verbose) $display ("transferToFpgaReqRule [%d / %d]", channel, valueOf(numChannels));
          readLens[channel].enq(cmd.len);
@@ -169,7 +169,7 @@ module mkDmaController#(Vector#(numChannels,DmaIndication) indication, Clock txC
          re.readServers[channel].request.put(cmd);
          readProcessing <= True;
       endrule
-      rule transferToFpgaDataRule (readProcessing);
+      rule transferToFpgaDataRule;
          let mdf <- toGet(re.readServers[channel].data).get();
          probe_readLast[channel] <= mdf.last;
          Bit#(32) count = readCount + 1;
@@ -198,7 +198,7 @@ module mkDmaController#(Vector#(numChannels,DmaIndication) indication, Clock txC
          readCount <= count;
          transferToFpgaFifo[channel].enq(etherData);
       endrule
-      rule transferToFpgaDoneRule (readProcessing);
+      rule transferToFpgaDoneRule;
          match { .objId, .base, .cycles} <- toGet(readReqs[channel]).get();
          cycles = cycles - cyclesReg;
 `ifdef MEMENGINE_REQUEST_CYCLES
@@ -208,8 +208,7 @@ module mkDmaController#(Vector#(numChannels,DmaIndication) indication, Clock txC
          //let done <- re.readServers[channel].done.get();
          let tag <- toGet(readTags[channel]).get();
          probe_readDone[channel] <= tag;
-         indication[channel].transferToFpgaDone(objId, base, tag, cycles);
-         readProcessing <= False;
+         indication[channel].transferToFpgaDone(tag);
       endrule
       // From DMA to packet buffer
       rule transferToNetwork;
@@ -268,7 +267,7 @@ module mkDmaController#(Vector#(numChannels,DmaIndication) indication, Clock txC
          let tag <- toGet(writeTags[channel]).get();
          if (verbose) $display ("transferFromFpgaDoneRule done");
          let pktLen = writeLens[channel].first();
-         indication[channel].transferFromFpgaDone(objId, base, tag, cycles, pktLen);
+         indication[channel].transferFromFpgaDone(objId, pktLen);
          writeLens[channel].deq;
          writeProcessing <= False;
       endrule
