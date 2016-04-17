@@ -44,6 +44,10 @@ interface ParserTestRequest;
    method Action writePacketData(Vector#(2, Bit#(64)) data, Vector#(2, Bit#(8)) mask, Bit#(1) sop, Bit#(1) eop);
    method Action roundReq(RoundRegRequest r);
    method Action roleReq(RoleRegRequest r);
+   method Action sequenceTable_add_entry(Bit#(16) msgtype, SequenceTblActionT action_);
+   method Action acceptorTable_add_entry(Bit#(16) msgtype, AcceptorTblActionT action_);
+   //method Action dmacTable_add_entry(Bit#(48) mac, DmacTblActionT action_, Bit#(9) port_);
+   method Action dmacTable_add_entry(Bit#(48) mac, Bit#(9) port_);
 endinterface
 
 interface ParserTest;
@@ -72,8 +76,6 @@ module mkParserTest#(ParserTestIndication indication
                                                   );
 
    mkConnection(ingress.eventPktSend, txchan.eventPktSend);
-   //P4Register#(InstanceSize, RoundSize) roundRegs <- mkP4RoundRegister(vec(roleTable.regAccess));
-   //P4Register#(1, 8) roleRegs <- mkP4RoleRegister(vec(roundTable.regAccess));
 
    interface ParserTestRequest request;
       method Action read_version();
@@ -91,6 +93,9 @@ module mkParserTest#(ParserTestIndication indication
       endmethod
       method roundReq = ingress.roundReq;
       method roleReq = ingress.roleReq;
+      method sequenceTable_add_entry = ingress.sequenceTable_add_entry;
+      method acceptorTable_add_entry = ingress.acceptorTable_add_entry;
+      method dmacTable_add_entry = ingress.dmacTable_add_entry;
    endinterface
 endmodule: mkParserTest
 endpackage: ParserTest

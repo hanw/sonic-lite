@@ -119,7 +119,12 @@ int main(int argc, char **argv)
     RoleRegRequest role_req = {0, 2, WRITE};
     device->roleReq(role_req);
 
-    // program sequence table
+    //device->dmacTable_add_entry(0x80a810270008, FORWARD, 1);
+    device->dmacTable_add_entry(0x80a810270008, 1);
+
+    device->sequenceTable_add_entry(1, IncreaseInstance);
+    device->acceptorTable_add_entry(1, Handle1A);
+    device->acceptorTable_add_entry(2, Handle2A);
 
     if (pcap_file) {
         fprintf(stderr, "Attempts to read pcap file %s\n", pcap_file);

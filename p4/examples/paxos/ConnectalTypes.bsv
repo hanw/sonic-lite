@@ -95,3 +95,21 @@ typedef Server#(VRoundRegRequest, VRoundRegResponse) VRoundRegServer;
 typedef Client#(ValueRegRequest, ValueRegResponse) ValueRegClient;
 typedef Server#(ValueRegRequest, ValueRegResponse) ValueRegServer;
 
+/* Tables */
+typedef enum {
+    FORWARD = 1,
+    BROADCAST = 2
+} DmacTblActionT deriving (Bits, Eq, FShow);
+
+typedef enum {
+    IncreaseInstance = 1,
+    Nop = 2
+} SequenceTblActionT deriving (Bits, Eq, FShow);
+
+typedef enum {
+    Handle1A = 1,
+    Handle2A = 2,
+    Drop = 3,
+    None = 4
+} AcceptorTblActionT deriving (Bits, Eq, FShow);
+

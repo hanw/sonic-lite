@@ -11,29 +11,86 @@ import Pipe::*;
 import Bcam::*;
 import BcamTypes::*;
 
-interface MatchTable#(numeric type depth, type keys, type actions);
-   interface Server#(keys, Maybe#(actions)) lookupPort;
-   interface Put#(Tuple2#(keys, actions)) add_entry;
+interface MatchTable#(numeric type depth, numeric type keySz, numeric type actionSz);
+   interface Server#(Bit#(keySz), Maybe#(Bit#(actionSz))) lookupPort;
+   interface Put#(Tuple2#(Bit#(keySz), Bit#(actionSz))) add_entry;
    interface Put#(Bit#(TLog#(depth))) delete_entry;
-   interface Put#(Tuple2#(Bit#(TLog#(depth)), actions)) modify_entry;
+   interface Put#(Tuple2#(Bit#(TLog#(depth)), Bit#(actionSz))) modify_entry;
 endinterface
 
-module mkMatchTable(MatchTable#(depth, keys, actions))
-   provisos(Bits#(keys, a__),
-            Bits#(actions, b__),
-            Mul#(c__, 256, d__),
+import "BDPI" function ActionValue#(Bit#(11)) matchtable_read_dmac(Bit#(54) dstAddr);
+import "BDPI" function Action matchtable_write_dmac(Bit#(54) dstAddr, Bit#(11) data);
+import "BDPI" function ActionValue#(Bit#(3)) matchtable_read_acceptor(Bit#(18) msgtype);
+import "BDPI" function Action matchtable_write_acceptor(Bit#(18) msgtype, Bit#(3) data);
+import "BDPI" function ActionValue#(Bit#(2)) matchtable_read_sequence(Bit#(18) msgtype);
+import "BDPI" function Action matchtable_write_sequence(Bit#(18) msgtype, Bit#(2) data);
+
+typeclass MatchTableSim#(numeric type ksz, numeric type vsz);
+   function ActionValue#(Bit#(vsz)) matchtable_read(Bit#(ksz) key);
+   function Action matchtable_write(Bit#(ksz) key, Bit#(vsz) data);
+endtypeclass
+
+instance MatchTableSim#(54, 11);
+   function ActionValue#(Bit#(11)) matchtable_read(Bit#(54) key);
+   actionvalue
+      let v <- matchtable_read_dmac(key);
+      return v;
+   endactionvalue
+   endfunction
+   function Action matchtable_write(Bit#(54) key, Bit#(11) data);
+   action
+      $display("(%0d) matchtable write dmac %h %h", $time, key, data);
+      matchtable_write_dmac(key, data);
+      $display("(%0d) matchtable write dmac done", $time);
+   endaction
+   endfunction
+endinstance
+
+instance MatchTableSim#(18, 2);
+   function ActionValue#(Bit#(2)) matchtable_read(Bit#(18) key);
+   actionvalue
+      let v <- matchtable_read_sequence(key);
+      return v;
+   endactionvalue
+   endfunction
+   function Action matchtable_write(Bit#(18) key, Bit#(2) data);
+   action
+      matchtable_write_sequence(key, data);
+   endaction
+   endfunction
+endinstance
+
+instance MatchTableSim#(18, 3);
+   function ActionValue#(Bit#(3)) matchtable_read(Bit#(18) key);
+   actionvalue
+      let v <- matchtable_read_acceptor(key);
+      return v;
+   endactionvalue
+   endfunction
+   function Action matchtable_write(Bit#(18) key, Bit#(3) data);
+   action
+      matchtable_write_acceptor(key, data);
+   endaction
+   endfunction
+endinstance
+
+module mkMatchTable(MatchTable#(depth, keySz, actionSz))
+   provisos(Mul#(c__, 256, d__),
             Add#(c__, 7, TLog#(depth)),
             Log#(d__, TLog#(depth)),
-            Mul#(e__, 9, a__),
+            Mul#(e__, 9, keySz),
             Add#(TAdd#(TLog#(c__), 4), 2, TLog#(TDiv#(depth, 4))),
             Log#(TDiv#(depth, 16), TAdd#(TLog#(c__), 4)),
-            Add#(9, f__, a__),
+            Add#(9, f__, keySz),
             PriorityEncoder::PEncoder#(d__),
             Add#(2, g__, TLog#(depth)),
             Add#(4, h__, TLog#(depth)),
+`ifdef SIMULATION
+            MatchTableSim#(keySz, actionSz),
+`endif
             Add#(TAdd#(TLog#(c__), 4), i__, TLog#(depth)));
 
-   MatchTable#(depth, keys, actions) ret_ifc;
+   MatchTable#(depth, keySz, actionSz) ret_ifc;
 `ifdef SIMULATION
    ret_ifc <- mkMatchTableBluesim();
 `else
@@ -42,10 +99,8 @@ module mkMatchTable(MatchTable#(depth, keys, actions))
    return ret_ifc;
 endmodule
 
-module mkMatchTableSynth(MatchTable#(depth, keys, actions))
-   provisos (Bits#(keys, keySz),
-             Bits#(actions, actionSz),
-             NumAlias#(depthSz, TLog#(depth)),
+module mkMatchTableSynth(MatchTable#(depth, keySz, actionSz))
+   provisos (NumAlias#(depthSz, TLog#(depth)),
              Mul#(a__, 256, b__),
              Add#(a__, 7, depthSz),
              Log#(b__, depthSz),
@@ -91,19 +146,19 @@ module mkMatchTableSynth(MatchTable#(depth, keys, actions))
    // Interface for lookup from data-plane modules
    interface Server lookupPort;
       interface Put request;
-         method Action put (keys v);
-            BcamReadReq#(keys) req_bcam = BcamReadReq{data: v};
+         method Action put (Bit#(keySz) v);
+            BcamReadReq#(Bit#(keySz)) req_bcam = BcamReadReq{data: v};
             bcam.readServer.request.put(pack(req_bcam));
             //if (verbose) $display("matchTable %d: lookup ", cycle, fshow(req_bcam));
          endmethod
       endinterface
       interface Get response;
-         method ActionValue#(Maybe#(actions)) get();
+         method ActionValue#(Maybe#(Bit#(actionSz))) get();
             let m <- toGet(bcamMatchFifo).get;
-            let v <- ram.portA.response.get;
-            if (verbose) $display("(%0d) matchTable: recv ram response ", $time, fshow(v));
+            let act <- ram.portA.response.get;
+            if (verbose) $display("(%0d) matchTable: recv ram response ", $time, fshow(act));
             case (m) matches
-               True: return tagged Valid unpack(v);
+               True: return tagged Valid act;
                False: return tagged Invalid;
             endcase
          endmethod
@@ -112,7 +167,7 @@ module mkMatchTableSynth(MatchTable#(depth, keys, actions))
 
    // Interface for write from control-plane
    interface Put add_entry;
-      method Action put (Tuple2#(keys, actions) v);
+      method Action put (Tuple2#(Bit#(keySz), Bit#(actionSz)) v);
          BcamWriteReq#(Bit#(depthSz), Bit#(keySz)) req_bcam = BcamWriteReq{addr: addrIdx, data: pack(tpl_1(v))};
          BRAMRequest#(Bit#(depthSz), Bit#(actionSz)) req_ram = BRAMRequest{write: True, responseOnWrite: False, address: addrIdx, datain: 0};
          bcam.writeServer.put(req_bcam);
@@ -131,7 +186,7 @@ module mkMatchTableSynth(MatchTable#(depth, keys, actions))
       endmethod
    endinterface
    interface Put modify_entry;
-      method Action put (Tuple2#(Bit#(depthSz), actions) v);
+      method Action put (Tuple2#(Bit#(depthSz), Bit#(actionSz)) v);
          match { .flowid, .act} = v;
          BRAMRequest#(Bit#(depthSz), Bit#(actionSz)) req_ram = BRAMRequest{write: True, responseOnWrite: False, address: flowid, datain: pack(act)};
          ram.portA.request.put(req_ram);
@@ -139,32 +194,26 @@ module mkMatchTableSynth(MatchTable#(depth, keys, actions))
    endinterface
 endmodule
 
-import "BDPI" matchtable_read = function ActionValue#(data_t) matchtable_read (key_t key)
-   provisos (Bits#(key_t, keySz),
-             Bits#(data_t, dataSz));
-
-import "BDPI" matchtable_write = function Action matchtable_write (key_t key, data_t actions)
-   provisos (Bits#(key_t, keySz),
-             Bits#(data_t, dataSz));
-
-module mkMatchTableBluesim(MatchTable#(depth, keys, actions))
-   provisos (Bits#(keys, keySz),
-             Bits#(actions, actionSz),
+module mkMatchTableBluesim(MatchTable#(depth, keySz, actionSz))
+   provisos (MatchTableSim#(keySz, actionSz),
              Log#(depth, depthSz));
-
    let verbose = True;
 
-   FIFO#(Tuple2#(keys, actions)) writeReqFifo <- mkFIFO;
-   FIFO#(keys) readReqFifo <- mkFIFO;
-   FIFO#(Maybe#(actions)) readDataFifo <- mkFIFO;
+   FIFO#(Tuple2#(Bit#(keySz), Bit#(actionSz))) writeReqFifo <- mkFIFO;
+   FIFO#(Bit#(keySz)) readReqFifo <- mkFIFO;
+   FIFO#(Maybe#(Bit#(actionSz))) readDataFifo <- mkFIFO;
 
    Reg#(Bool)      isInitialized   <- mkReg(False);
 
    rule do_read (isInitialized);
       let v <- toGet(readReqFifo).get;
       $display("(%0d) MatchTable: do_read %h", $time, v);
-      let ret <- matchtable_read(v);
-      readDataFifo.enq(tagged Valid unpack(ret));
+      let ret <- matchtable_read(pack(v));
+      $display("(%0d) MatchTable: read %h", $time, ret);
+      if (ret != 0)
+         readDataFifo.enq(tagged Valid ret);
+      else
+         readDataFifo.enq(tagged Invalid);
    endrule
 
    rule do_init (!isInitialized);
@@ -176,7 +225,8 @@ module mkMatchTableBluesim(MatchTable#(depth, keys, actions))
       interface Get response = toGet(readDataFifo);
    endinterface
    interface Put add_entry;
-      method Action put (Tuple2#(keys, actions) v);
+      method Action put (Tuple2#(Bit#(keySz), Bit#(actionSz)) v);
+         $display("(%0d) MatchTable: insert %h %h", $time, tpl_1(v), tpl_2(v));
          matchtable_write(tpl_1(v), tpl_2(v));
       endmethod
    endinterface
@@ -186,7 +236,7 @@ module mkMatchTableBluesim(MatchTable#(depth, keys, actions))
       endmethod
    endinterface
    interface Put modify_entry;
-      method Action put (Tuple2#(Bit#(depthSz), actions) v);
+      method Action put (Tuple2#(Bit#(depthSz), Bit#(actionSz)) v);
 
       endmethod
    endinterface

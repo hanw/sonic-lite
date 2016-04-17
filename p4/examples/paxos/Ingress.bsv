@@ -48,6 +48,9 @@ interface Ingress;
    method Action setRole(Role v);
    method Action roundReq(RoundRegRequest r);
    method Action roleReq(RoleRegRequest r);
+   method Action sequenceTable_add_entry(Bit#(16) msgtype, SequenceTblActionT action_);
+   method Action acceptorTable_add_entry(Bit#(16) msgtype, AcceptorTblActionT action_);
+   method Action dmacTable_add_entry(Bit#(48) mac, Bit#(9) port);
 endinterface
 
 module mkIngress#(Vector#(numClients, MetadataClient) mdc)(Ingress);
@@ -263,4 +266,7 @@ module mkIngress#(Vector#(numClients, MetadataClient) mdc)(Ingress);
    method Action roleReq(RoleRegRequest req);
       roleRegReqFifo.enq(req);
    endmethod
+   method sequenceTable_add_entry = sequenceTable.add_entry;
+   method acceptorTable_add_entry = acceptorTable.add_entry;
+   method dmacTable_add_entry = dstMacTable.add_entry;
 endmodule

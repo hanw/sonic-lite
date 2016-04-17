@@ -905,69 +905,62 @@ endinstance
 
 /* generate tables */
 typedef struct {
-    Bit#(48) dstAddr;
     Bit#(6) padding;
+    Bit#(48) dstAddr;
 } DmacTblReqT deriving (Bits, Eq, FShow);
 
-typedef enum {
-    FORWARD = 1,
-    BROADCAST = 2
-} ActionDmacTableValue5 deriving (Bits, Eq);
+//typedef union tagged {
+//    struct {
+//        Bit#(9) port;
+//    } Forward;
+//
+//    struct {
+//        Bit#(4) group;
+//    } Broadcast;
+//} DmacTblRespT deriving (Bits, Eq, FShow);
 
-typedef union tagged {
-    struct {
-        Bit#(9) port;
-    } Forward;
+typedef struct {
+   Bit#(9) port;
+} DmacTblParamT deriving (Bits, Eq, FShow);
 
-    struct {
-        Bit#(4) group;
-    } Broadcast;
+typedef struct {
+   DmacTblActionT act;
+   DmacTblParamT param;
 } DmacTblRespT deriving (Bits, Eq, FShow);
 
 typedef struct {
-    Bit#(16) msgtype;
     Bit#(2) padding;
+    Bit#(16) msgtype;
 } SequenceTblReqT deriving (Bits, Eq, FShow);
-
-typedef enum {
-    IncreaseInstance = 1,
-    Nop = 2
-} SequenceTblActionT deriving (Bits, Eq, FShow);
 
 typedef struct {
    SequenceTblActionT act;
 } SequenceTblRespT deriving (Bits, Eq, FShow);
 
 typedef struct {
-    Bit#(16) msgtype;
     Bit#(2) padding;
+    Bit#(16) msgtype;
 } AcceptorTblReqT deriving (Bits, Eq, FShow);
-
-typedef enum {
-    Handle1A = 1,
-    Handle2A = 2,
-    Drop = 3
-} AcceptorTblActionT deriving (Bits, Eq, FShow);
 
 typedef struct {
    AcceptorTblActionT act;
 } AcceptorTblRespT deriving (Bits, Eq, FShow);
 
 (* synthesize *)
-module mkMatchTable_256_dmacTable(MatchTable#(256, DmacTblReqT, DmacTblRespT));
-   MatchTable#(256, DmacTblReqT, DmacTblRespT) ifc <- mkMatchTable();
+module mkMatchTable_256_dmacTable(MatchTable#(256, SizeOf#(DmacTblReqT), SizeOf#(DmacTblRespT)));
+   MatchTable#(256, SizeOf#(DmacTblReqT), SizeOf#(DmacTblRespT)) ifc <- mkMatchTable();
    return ifc;
 endmodule
 
 (* synthesize *)
-module mkMatchTable_256_acceptorTable(MatchTable#(256, AcceptorTblReqT, AcceptorTblRespT));
-   MatchTable#(256, AcceptorTblReqT, AcceptorTblRespT) ifc <- mkMatchTable();
+module mkMatchTable_256_acceptorTable(MatchTable#(256, SizeOf#(AcceptorTblReqT), SizeOf#(AcceptorTblRespT)));
+   MatchTable#(256, SizeOf#(AcceptorTblReqT), SizeOf#(AcceptorTblRespT)) ifc <- mkMatchTable();
    return ifc;
 endmodule
 
 (* synthesize *)
-module mkMatchTable_256_sequenceTable(MatchTable#(256, SequenceTblReqT, SequenceTblRespT));
-   MatchTable#(256, SequenceTblReqT, SequenceTblRespT) ifc <- mkMatchTable();
+module mkMatchTable_256_sequenceTable(MatchTable#(256, SizeOf#(SequenceTblReqT), SizeOf#(SequenceTblRespT)));
+   MatchTable#(256, SizeOf#(SequenceTblReqT), SizeOf#(SequenceTblRespT)) ifc <- mkMatchTable();
    return ifc;
 endmodule
 

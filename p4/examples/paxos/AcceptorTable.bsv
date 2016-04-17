@@ -180,12 +180,13 @@ interface AcceptorTable;
    interface BBClient next_control_state_0;
    interface BBClient next_control_state_1;
    interface BBClient next_control_state_2;
+   method Action add_entry(Bit#(16) msgtype, AcceptorTblActionT action_);
 endinterface
 
 module mkAcceptorTable#(MetadataClient md)(AcceptorTable);
    let verbose = True;
 
-   MatchTable#(256, AcceptorTblReqT, AcceptorTblRespT) matchTable <- mkMatchTable_256_acceptorTable();
+   MatchTable#(256, SizeOf#(AcceptorTblReqT), SizeOf#(AcceptorTblRespT)) matchTable <- mkMatchTable();//_256_acceptorTable();
 
    FIFO#(BBRequest) outReqFifo0 <- mkFIFO;
    FIFO#(BBResponse) inRespFifo0 <- mkFIFO;
@@ -200,7 +201,8 @@ module mkAcceptorTable#(MetadataClient md)(AcceptorTable);
       let v <- md.request.get;
       case (v) matches
          tagged AcceptorTblRequest {pkt: .pkt, meta: .meta} : begin
-            matchTable.lookupPort.request.put(AcceptorTblReqT { msgtype: fromMaybe(?, meta.paxos$msgtype) });
+            AcceptorTblReqT req = AcceptorTblReqT {msgtype: fromMaybe(?, meta.paxos$msgtype)};
+            matchTable.lookupPort.request.put(pack(req));
             if (verbose) $display("(%0d) Acceptor: %h ", $time, pkt.id, fshow(meta.paxos$msgtype));
             currPacketFifo.enq(pkt);
             currMetadataFifo.enq(meta);
@@ -213,7 +215,8 @@ module mkAcceptorTable#(MetadataClient md)(AcceptorTable);
       let pkt <- toGet(currPacketFifo).get;
       let meta <- toGet(currMetadataFifo).get;
       $display("(%0d) acceptor table lookup ", $time, fshow(v));
-      if (v matches tagged Valid .resp) begin
+      if (v matches tagged Valid .data) begin
+         AcceptorTblRespT resp = unpack(data);
          case (resp.act) matches
             Handle1A: begin
                $display("(%0d) execute handle_1a", $time);
@@ -281,4 +284,9 @@ module mkAcceptorTable#(MetadataClient md)(AcceptorTable);
       interface request = toGet(outReqFifo2);
       interface response = toPut(inRespFifo2);
    endinterface);
+   method Action add_entry(Bit#(16) msgtype, AcceptorTblActionT action_);
+      AcceptorTblReqT req = AcceptorTblReqT {msgtype: msgtype, padding: 0};
+      AcceptorTblRespT resp = AcceptorTblRespT {act: action_};
+      matchTable.add_entry.put(tuple2(pack(req), pack(resp)));
+   endmethod
 endmodule

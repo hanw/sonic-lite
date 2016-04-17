@@ -29,6 +29,7 @@ import Ethernet::*;
 import MemTypes::*;
 import PaxosTypes::*;
 import MatchTable::*;
+import ConnectalTypes::*;
 
 interface BasicBlockForward;
    // Register Access
@@ -58,12 +59,14 @@ endmodule
 interface DstMacTable;
    interface BBClient next_control_state_0;
    interface MemWriteClient#(`DataBusWidth) writeClient;
+   //method Action add_entry (Bit#(48) dstAddr, DmacTblActionT action_, Bit#(9) port);
+   method Action add_entry (Bit#(48) dstAddr, Bit#(9) port);
 endinterface
 
 module mkDstMacTable#(MetadataClient md)(DstMacTable);
 
    // internal bcam match table
-   MatchTable#(256, DmacTblReqT, DmacTblRespT) matchTable <- mkMatchTable_256_dmacTable();
+   MatchTable#(256, SizeOf#(DmacTblReqT), SizeOf#(DmacTblRespT)) matchTable <- mkMatchTable();//_256_dmacTable();
 
    FIFO#(BBRequest) outReqFifo <- mkFIFO;
    FIFO#(BBResponse) inRespFifo <- mkFIFO;
@@ -84,7 +87,8 @@ module mkDstMacTable#(MetadataClient md)(DstMacTable);
       let v <- md.request.get;
       case (v) matches
          tagged DstMacLookupRequest { pkt: .pkt, meta: .meta } : begin
-            matchTable.lookupPort.request.put(DmacTblReqT{dstAddr: fromMaybe(?, meta.dstAddr), padding: 0});
+            DmacTblReqT req = DmacTblReqT {dstAddr: fromMaybe(?, meta.dstAddr), padding: 0};
+            matchTable.lookupPort.request.put(pack(req));
             currPacketFifo.enq(pkt);
             currMetadataFifo.enq(meta);
          end
@@ -94,14 +98,12 @@ module mkDstMacTable#(MetadataClient md)(DstMacTable);
    rule dmac_resp;
       let v <- matchTable.lookupPort.response.get;
       let pkt <- toGet(currPacketFifo).get;
-      if (v matches tagged Valid .resp) begin
-         case (resp) matches
-            tagged Forward {port: .port}: begin
-               $display("(%0d) DstMacTable: pkt %h to port %h", $time, pkt.id, port);
-               BBRequest req = tagged BBForwardRequest { pkt: pkt, port: port};
-               outReqFifo.enq(req);
-            end
-         endcase
+      if (v matches tagged Valid .data) begin
+         DmacTblRespT resp = unpack(data);
+         $display("(%0d) dmac: resp=%h", $time, resp);
+         $display("(%0d) DstMacTable: pkt %h to port %h", $time, pkt.id, resp.param.port);
+         BBRequest req = tagged BBForwardRequest { pkt: pkt, port: resp.param.port};
+         outReqFifo.enq(req);
       end
    endrule
 
@@ -123,5 +125,13 @@ module mkDstMacTable#(MetadataClient md)(DstMacTable);
       interface response = toPut(inRespFifo);
    endinterface);
    interface writeClient = dmaWriteClient;
+   //method Action add_entry (Bit#(48) dstAddr, DmacTblActionT action_, Bit#(9) port);
+   method Action add_entry (Bit#(48) dstAddr, Bit#(9) port);
+      DmacTblReqT req = DmacTblReqT {dstAddr: dstAddr, padding: 0};
+      DmacTblParamT param = DmacTblParamT {port: port};
+      DmacTblRespT resp = DmacTblRespT {act: FORWARD, param: param};
+      $display("(%0d) add_entry %h, %h", $time, pack(req), pack(resp));
+      matchTable.add_entry.put(tuple2(pack(req), pack(resp))); // do packing here.
+   endmethod
 endmodule
 

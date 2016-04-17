@@ -71,6 +71,7 @@ endmodule
 
 interface SequenceTable;
    interface BBClient next_control_state_0;
+   method Action add_entry(Bit#(16) msgtype, SequenceTblActionT action_);
 endinterface
 
 module mkSequenceTable#(MetadataClient md)(SequenceTable);
@@ -81,13 +82,14 @@ module mkSequenceTable#(MetadataClient md)(SequenceTable);
    FIFO#(PacketInstance) currPacketFifo <- mkFIFO;
    FIFO#(MetadataT) currMetadataFifo <- mkFIFO;
 
-   MatchTable#(256, SequenceTblReqT, SequenceTblRespT) matchTable <- mkMatchTable_256_sequenceTable();
+   MatchTable#(256, SizeOf#(SequenceTblReqT), SizeOf#(SequenceTblRespT)) matchTable <- mkMatchTable();//_256_sequenceTable();
 
    rule lookup_request;
       let v <- md.request.get;
       case (v) matches
          tagged SequenceTblRequest { pkt: .pkt, meta: .meta } : begin
-            matchTable.lookupPort.request.put(SequenceTblReqT {msgtype: fromMaybe(?, meta.paxos$msgtype)});
+            SequenceTblReqT req = SequenceTblReqT {msgtype: fromMaybe(?, meta.paxos$msgtype)};
+            matchTable.lookupPort.request.put(pack(req));
             if (verbose) $display("(%0d) Sequence: %h", $time, pkt.id, fshow(meta.paxos$msgtype));
             currPacketFifo.enq(pkt);
             currMetadataFifo.enq(meta);
@@ -99,7 +101,8 @@ module mkSequenceTable#(MetadataClient md)(SequenceTable);
       let v <- matchTable.lookupPort.response.get;
       let pkt <- toGet(currPacketFifo).get;
       let meta <- toGet(currMetadataFifo).get;
-      if (v matches tagged Valid .resp) begin
+      if (v matches tagged Valid .data) begin
+         SequenceTblRespT resp = unpack(data);
          case (resp.act) matches
             IncreaseInstance: begin
                $display("(%0d) increase instance", $time);
@@ -112,8 +115,8 @@ module mkSequenceTable#(MetadataClient md)(SequenceTable);
             end
          endcase
       end
-      MetadataResponse resp = tagged SequenceTblResponse {pkt: pkt, meta: meta};
-      md.response.put(resp);
+      MetadataResponse meta_resp = tagged SequenceTblResponse {pkt: pkt, meta: meta};
+      md.response.put(meta_resp);
    endrule
 
    rule bb_increase_instance_resp;
@@ -129,4 +132,9 @@ module mkSequenceTable#(MetadataClient md)(SequenceTable);
       interface request = toGet(outReqFifo);
       interface response = toPut(inRespFifo);
    endinterface);
+   method Action add_entry(Bit#(16) msgtype, SequenceTblActionT action_);
+      SequenceTblReqT req = SequenceTblReqT {msgtype: msgtype, padding: 0};
+      SequenceTblRespT resp = SequenceTblRespT {act: action_};
+      matchTable.add_entry.put(tuple2(pack(req), pack(resp)));
+   endmethod
 endmodule
