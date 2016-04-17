@@ -69,7 +69,9 @@ instance MatchTableSim#(18, 3);
    endfunction
    function Action matchtable_write(Bit#(18) key, Bit#(3) data);
    action
+      $display("(%0d) matchtable write acceptor %h %h", $time, key, data);
       matchtable_write_acceptor(key, data);
+      $display("(%0d) matchtable write acceptor done", $time);
    endaction
    endfunction
 endinstance

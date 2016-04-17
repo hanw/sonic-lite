@@ -85,5 +85,8 @@ typedef enum {
     Handle2A = 2,
     Drop = 3,
     None = 4
-} AcceptorTblActionT deriving (Bits, Eq, FShow);
+} AcceptorTblAction deriving (Bits, Eq, FShow);
 
+typedef struct {
+   AcceptorTblAction act;
+} AcceptorTblActionT deriving (Bits, Eq, FShow);

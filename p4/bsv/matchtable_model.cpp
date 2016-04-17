@@ -93,7 +93,7 @@ extern "C" AcceptorRespT matchtable_read_acceptor(AcceptorReqT rdata)
 {
     fprintf(stderr, "CPP: match table read %x\n", rdata);
     for( const auto& n : acceptor_table) {
-        std::cout << "READ: Key:[" << std::hex << n.first << "] Value:[" << std::hex << n.second << "]\n";
+        std::cout << "READ: Key:[" << std::hex << n.first << "] Value:[" << n.second << "]\n";
     }
     fprintf(stderr, "accessing table %p with key %x\n", &acceptor_table, rdata);
     auto it = acceptor_table.find(rdata);
@@ -109,7 +109,7 @@ extern "C" void matchtable_write_acceptor(AcceptorReqT wdata, AcceptorRespT acti
     fprintf(stderr, "CPP: match table write %x %x\n", wdata, action);
     acceptor_table[wdata] = action;
     for( const auto& n : acceptor_table ) {
-        std::cout << "WRITE: Key:[" << std::hex << n.first << "] Value:[" << std::hex << n.second << "]\n";
+        std::cout << "WRITE: Key:[" << std::hex << n.first << "] Value:[" << n.second << "]\n";
     }
 }
 

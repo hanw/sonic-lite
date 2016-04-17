@@ -241,8 +241,8 @@ module mkAcceptorTable#(MetadataClient md)(AcceptorTable);
             end
          endcase
       end
-      MetadataResponse resp = tagged AcceptorTblResponse {pkt: pkt, meta: meta};
-      md.response.put(resp);
+      MetadataResponse meta_resp = tagged AcceptorTblResponse {pkt: pkt, meta: meta};
+      md.response.put(meta_resp);
    endrule
 
    rule bb_handle_1a_resp;
@@ -286,7 +286,8 @@ module mkAcceptorTable#(MetadataClient md)(AcceptorTable);
    endinterface);
    method Action add_entry(Bit#(16) msgtype, AcceptorTblActionT action_);
       AcceptorTblReqT req = AcceptorTblReqT {msgtype: msgtype, padding: 0};
-      AcceptorTblRespT resp = AcceptorTblRespT {act: action_};
+      AcceptorTblRespT resp = AcceptorTblRespT {act: action_.act};
+      $display("(%0d) acceptor resp=%h", $time, pack(resp));
       matchTable.add_entry.put(tuple2(pack(req), pack(resp)));
    endmethod
 endmodule

@@ -68,7 +68,8 @@ parse_options(int argc, char *argv[], char **pcap_file, struct arg_info* info) {
     static struct option long_options [] = {
         {"help",                no_argument, 0, 'h'},
         {"parser-test",         required_argument, 0, 'p'},
-        {"set-role",            required_argument, 0, 'R'},
+        {"acceptor",            no_argument, 0, 'A'},
+        {"coordinator",         no_argument, 0, 'C'},
         {0, 0, 0, 0}
     };
 
@@ -119,8 +120,10 @@ int main(int argc, char **argv)
     device->dmacTable_add_entry(0x80a810270008, 1);
 
     device->sequenceTable_add_entry(1, IncreaseInstance);
-    device->acceptorTable_add_entry(1, Handle1A);
-    device->acceptorTable_add_entry(2, Handle2A);
+    AcceptorTblActionT act = {Handle1A};
+    device->acceptorTable_add_entry(1, act);
+    AcceptorTblActionT act2 = {Handle2A};
+    device->acceptorTable_add_entry(2, act2);
 
     if (pcap_file) {
         fprintf(stderr, "Attempts to read pcap file %s\n", pcap_file);

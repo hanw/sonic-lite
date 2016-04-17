@@ -119,7 +119,7 @@ module mkIngress#(Vector#(numClients, MetadataClient) mdc)(Ingress);
 
    RegisterIfc#(1, SizeOf#(Role)) roleReg <- mkP4Register(vec(bb_read_role.regClient, toGPClient(roleRegReqFifo, roleRegRespFifo)));
    RegisterIfc#(1, 64) datapathIdReg <- mkP4Register(vec(bb_handle_1a.regClient_datapath_id, bb_handle_2a.regClient_datapath_id, toGPClient(datapathIdRegReqFifo, datapathIdRegRespFifo)));
-   RegisterIfc#(1, 16) instanceReg <- mkP4Register(vec(bb_increase_instance.regClient, toGPClient(instanceRegReqFifo, instanceRegRespFifo)));
+   //RegisterIfc#(1, 16) instanceReg <- mkP4Register(vec(bb_increase_instance.regClient, toGPClient(instanceRegReqFifo, instanceRegRespFifo)));
    RegisterIfc#(InstanceSize, RoundSize) roundReg <- mkP4Register(vec(bb_read_round.regClient, toGPClient(roundRegReqFifo, roundRegRespFifo)));
    RegisterIfc#(InstanceSize, RoundSize) vroundReg <- mkP4Register(vec(bb_handle_1a.regClient_vround, bb_handle_2a.regClient_vround, toGPClient(vroundRegReqFifo, vroundRegRespFifo)));
    RegisterIfc#(InstanceSize, ValueSize) valueReg <- mkP4Register(vec(bb_handle_1a.regClient_value, bb_handle_2a.regClient_value, toGPClient(valueRegReqFifo, valueRegRespFifo)));

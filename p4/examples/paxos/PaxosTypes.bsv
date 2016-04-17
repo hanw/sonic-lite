@@ -772,7 +772,7 @@ typedef struct {
 } AcceptorTblReqT deriving (Bits, Eq, FShow);
 
 typedef struct {
-   AcceptorTblActionT act;
+   AcceptorTblAction act;
 } AcceptorTblRespT deriving (Bits, Eq, FShow);
 
 (* synthesize *)
