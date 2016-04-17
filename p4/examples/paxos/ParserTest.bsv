@@ -42,8 +42,8 @@ endinterface
 interface ParserTestRequest;
    method Action read_version();
    method Action writePacketData(Vector#(2, Bit#(64)) data, Vector#(2, Bit#(8)) mask, Bit#(1) sop, Bit#(1) eop);
-   method Action roundReq(RoundRegRequest r);
-   method Action roleReq(RoleRegRequest r);
+   method Action round_reg_write(Bit#(16) r);
+   method Action role_reg_write(Role r);
    method Action sequenceTable_add_entry(Bit#(16) msgtype, SequenceTblActionT action_);
    method Action acceptorTable_add_entry(Bit#(16) msgtype, AcceptorTblActionT action_);
    //method Action dmacTable_add_entry(Bit#(48) mac, DmacTblActionT action_, Bit#(9) port_);
@@ -91,8 +91,8 @@ module mkParserTest#(ParserTestIndication indication
          beat.eop = unpack(eop);
          hostchan.writeServer.writeData.put(beat);
       endmethod
-      method roundReq = ingress.roundReq;
-      method roleReq = ingress.roleReq;
+      method round_reg_write = ingress.round_reg_write;
+      method role_reg_write = ingress.role_reg_write;
       method sequenceTable_add_entry = ingress.sequenceTable_add_entry;
       method acceptorTable_add_entry = ingress.acceptorTable_add_entry;
       method dmacTable_add_entry = ingress.dmacTable_add_entry;

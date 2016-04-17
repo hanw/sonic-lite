@@ -29,17 +29,17 @@ instance FShow#(Role);
 endinstance
 
 typedef struct {
-   Bit#(8) role;
+   Role role;
 } RoleT deriving (Bits, Eq);
 
 typedef struct {
    Bit#(1) addr;
-   Bit#(8) data;
+   Role data;
    Bool write;
 } RoleRegRequest deriving (Bits);
 
 typedef struct {
-   Bit#(8) data;
+   Role data;
 } RoleRegResponse deriving (Bits);
 
 typedef struct {

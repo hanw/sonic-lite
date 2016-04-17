@@ -32,7 +32,6 @@ import MatchTable::*;
 import ConnectalTypes::*;
 
 interface BasicBlockForward;
-   // Register Access
    interface BBServer prev_control_state;
 endinterface
 
@@ -64,7 +63,6 @@ interface DstMacTable;
 endinterface
 
 module mkDstMacTable#(MetadataClient md)(DstMacTable);
-
    // internal bcam match table
    MatchTable#(256, SizeOf#(DmacTblReqT), SizeOf#(DmacTblRespT)) matchTable <- mkMatchTable();//_256_dmacTable();
 
@@ -131,7 +129,7 @@ module mkDstMacTable#(MetadataClient md)(DstMacTable);
       DmacTblParamT param = DmacTblParamT {port: port};
       DmacTblRespT resp = DmacTblRespT {act: FORWARD, param: param};
       $display("(%0d) add_entry %h, %h", $time, pack(req), pack(resp));
-      matchTable.add_entry.put(tuple2(pack(req), pack(resp))); // do packing here.
+      matchTable.add_entry.put(tuple2(pack(req), pack(resp)));
    endmethod
 endmodule
 

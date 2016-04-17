@@ -30,9 +30,6 @@ using namespace std;
 
 #define DATA_WIDTH 128
 
-#define READ 0
-#define WRITE 1
-
 static ParserTestRequestProxy *device = 0;
 uint16_t flowid;
 
@@ -91,8 +88,11 @@ parse_options(int argc, char *argv[], char **pcap_file, struct arg_info* info) {
             case 'p':
                 *pcap_file = optarg;
                 break;
-            case 'R':
+            case 'A':
                 info->role = ACCEPTOR;
+                break;
+            case 'C':
+                info->role = COORDINATOR;
                 break;
             default:
                 break;
@@ -112,12 +112,8 @@ int main(int argc, char **argv)
     parse_options(argc, argv, &pcap_file, &arguments);
 
     device->read_version();
-
-    RoundRegRequest round_req = {0, 0, WRITE};
-    device->roundReq(round_req);
-
-    RoleRegRequest role_req = {0, 2, WRITE};
-    device->roleReq(role_req);
+    device->round_reg_write(0);
+    device->role_reg_write(arguments.role);
 
     //device->dmacTable_add_entry(0x80a810270008, FORWARD, 1);
     device->dmacTable_add_entry(0x80a810270008, 1);

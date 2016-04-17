@@ -45,9 +45,8 @@ interface Ingress;
    interface MemWriteClient#(`DataBusWidth) writeClient;
    interface PipeOut#(PacketInstance) eventPktSend;
    method IngressPipelineDbgRec dbg;
-   method Action setRole(Role v);
-   method Action roundReq(RoundRegRequest r);
-   method Action roleReq(RoleRegRequest r);
+   method Action round_reg_write(Bit#(16) r);
+   method Action role_reg_write(Role r);
    method Action sequenceTable_add_entry(Bit#(16) msgtype, SequenceTblActionT action_);
    method Action acceptorTable_add_entry(Bit#(16) msgtype, AcceptorTblActionT action_);
    method Action dmacTable_add_entry(Bit#(48) mac, Bit#(9) port);
@@ -147,7 +146,7 @@ module mkIngress#(Vector#(numClients, MetadataClient) mdc)(Ingress);
    endfunction
 
    P4RegisterIfc#(Bit#(InstanceSize), Bit#(RoundSize)) roundReg <- mkP4Register(vec(bb_read_round.regClient, toRoundRegClient(roundRegReqFifo, roundRegRespFifo)));
-   P4RegisterIfc#(Bit#(1), Bit#(8)) roleReg <- mkP4Register(vec(bb_read_role.regClient, toRoleRegClient(roleRegReqFifo, roleRegRespFifo)));
+   P4RegisterIfc#(Bit#(1), Role) roleReg <- mkP4Register(vec(bb_read_role.regClient, toRoleRegClient(roleRegReqFifo, roleRegRespFifo)));
    P4RegisterIfc#(Bit#(1), Bit#(64)) datapathIdReg <- mkP4Register(vec(bb_handle_1a.regClient_datapath_id, bb_handle_2a.regClient_datapath_id));
    P4RegisterIfc#(Bit#(1), Bit#(16)) instanceReg <- mkP4Register(vec(bb_increase_instance.regClient));
    P4RegisterIfc#(Bit#(InstanceSize), Bit#(RoundSize)) vroundReg <- mkP4Register(vec(bb_handle_1a.regClient_vround, bb_handle_2a.regClient_vround));
@@ -194,12 +193,12 @@ module mkIngress#(Vector#(numClients, MetadataClient) mdc)(Ingress);
          tagged RoleResponse {pkt: .pkt, meta: .meta}: begin
             if (meta.switch_metadata$role matches tagged Valid .role) begin
                case (role) matches
-                  'h1: begin
+                  ACCEPTOR: begin
                      $display("(%0d) Role: Acceptor %h", $time, pkt.id);
                      MetadataRequest req = tagged RoundTblRequest {pkt: pkt, meta: meta};
                      roundReqFifo.enq(req);
                   end
-                  'h2: begin
+                  COORDINATOR: begin
                      $display("(%0d) Role: Coordinator %h", $time, pkt.id);
                      MetadataRequest req = tagged SequenceTblRequest {pkt: pkt, meta: meta};
                      sequenceReqFifo.enq(req);
@@ -216,7 +215,7 @@ module mkIngress#(Vector#(numClients, MetadataClient) mdc)(Ingress);
       case (v) matches
          tagged SequenceTblResponse {pkt: .pkt, meta: .meta}: begin
             currPacketFifo.enq(pkt);
-            $display("(%0d) Sequence: fwd", pkt.id);
+            $display("(%0d) Sequence: fwd %h", $time, pkt.id);
             //if (v.p4_action == 1) begin
             //   MetadataRequest req = tagged ForwardQueueRequest {};
             //end
@@ -260,10 +259,12 @@ module mkIngress#(Vector#(numClients, MetadataClient) mdc)(Ingress);
          fwdCount: fwdCount
       };
    endmethod
-   method Action roundReq(RoundRegRequest req);
+   method Action round_reg_write(Bit#(16) round);
+      RoundRegRequest req = RoundRegRequest {addr: 0, data: round, write: True};
       roundRegReqFifo.enq(req);
    endmethod
-   method Action roleReq(RoleRegRequest req);
+   method Action role_reg_write(Role role);
+      RoleRegRequest req = RoleRegRequest {addr: 0, data: role, write: True};
       roleRegReqFifo.enq(req);
    endmethod
    method sequenceTable_add_entry = sequenceTable.add_entry;

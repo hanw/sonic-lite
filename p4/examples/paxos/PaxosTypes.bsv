@@ -141,7 +141,7 @@ typedef union tagged {
    } BBRoundResponse;
    struct {
       PacketInstance pkt;
-      Bit#(8) role;
+      Role role;
    } BBRoleResponse;
 } BBResponse deriving (Bits, Eq);
 
@@ -651,7 +651,7 @@ typedef struct {
    Maybe#(Bit#(16)) paxos$acptid;
    Maybe#(Bit#(16)) paxos$msgtype;
    Maybe#(Bit#(16)) paxos_packet_meta$round;
-   Maybe#(Bit#(8)) switch_metadata$role;
+   Maybe#(Role) switch_metadata$role;
    Maybe#(Bool) valid_ethernet;
    Maybe#(Bool) valid_arp;
    Maybe#(Bool) valid_ipv4;
@@ -771,9 +771,9 @@ instance MkP4Register#(Bit#(InstanceSize), Bit#(RoundSize), RoundRegRequest, Rou
    endmodule
 endinstance
 
-instance MkP4Register#(Bit#(1), Bit#(8), RoleRegRequest, RoleRegResponse);
-   module mkP4Register#(Vector#(numClients, Client#(RoleRegRequest, RoleRegResponse)) clients)(P4RegisterIfc#(Bit#(1), Bit#(8)));
-      RegFile#(Bit#(1), Bit#(8)) regFile <- mkRegFileFull();
+instance MkP4Register#(Bit#(1), Role, RoleRegRequest, RoleRegResponse);
+   module mkP4Register#(Vector#(numClients, Client#(RoleRegRequest, RoleRegResponse)) clients)(P4RegisterIfc#(Bit#(1), Role));
+      RegFile#(Bit#(1), Role) regFile <- mkRegFileFull();
       FIFO#(RoleRegRequest) inReqFifo <- mkFIFO;
       FIFO#(RoleRegResponse) outRespFifo <- mkFIFO;
 
