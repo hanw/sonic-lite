@@ -39,20 +39,23 @@ instance FShow#(Role);
    endfunction
 endinstance
 
+typedef RegRequest#(1, SizeOf#(Role)) RoleRegRequest;
+typedef RegResponse#(SizeOf#(Role)) RoleRegResponse;
+
 typedef struct {
    Role role;
 } RoleT deriving (Bits, Eq);
 
-typedef struct {
-   Bit#(1) addr;
-   Role data;
-   Bool write;
-} RoleRegRequest deriving (Bits);
-
-typedef struct {
-   Role data;
-} RoleRegResponse deriving (Bits);
-
+//typedef struct {
+//   Bit#(1) addr;
+//   Role data;
+//   Bool write;
+//} RoleRegRequest deriving (Bits);
+//
+//typedef struct {
+//   Role data;
+//} RoleRegResponse deriving (Bits);
+//
 typedef Client#(RoundRegRequest, RoundRegResponse) RoundRegClient;
 typedef Server#(RoundRegRequest, RoundRegResponse) RoundRegServer;
 typedef Client#(RoleRegRequest, RoleRegResponse) RoleRegClient;

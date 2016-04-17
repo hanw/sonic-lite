@@ -697,178 +697,40 @@ typedef Server#(MetadataRequest, MetadataResponse) MetadataServer;
 typedef Client#(BBRequest, BBResponse) BBClient;
 typedef Server#(BBRequest, BBResponse) BBServer;
 
-interface RegIfc#(type addr, type data);
+interface RegisterIfc#(numeric type asz, numeric type dsz);
 endinterface
 
-typeclass MkP4Reg#(type addr, type data, type req, type resp);
-   module mkP4Reg#(Vector#(n, Client#(req, resp)) clients)(RegIfc#(addr, data));
-endtypeclass
+module mkP4Register#(Vector#(numClients, Client#(RegRequest#(asz, dsz), RegResponse#(dsz))) clients)(RegisterIfc#(asz, dsz));
+   RegFile#(Bit#(asz), Bit#(dsz)) regFile <- mkRegFileFull();
+   FIFO#(RegRequest#(asz, dsz)) inReqFifo <- mkFIFO;
+   FIFO#(RegResponse#(dsz)) outRespFifo <- mkFIFO;
 
-instance MkP4Reg#(Bit#(InstanceSize), Bit#(RoundSize), RoundRegRequest, RoundRegResponse);
-   module mkP4Reg#(Vector#(numClients, Client#(RoundRegRequest, RoundRegResponse)) clients)(RegIfc#(Bit#(InstanceSize), Bit#(RoundSize)));
-      RegFile#(Bit#(InstanceSize), Bit#(RoundSize)) regFile <- mkRegFileFull();
-      FIFO#(RoundRegRequest) inReqFifo <- mkFIFO;
-      FIFO#(RoundRegResponse) outRespFifo <- mkFIFO;
-
-      rule processReq;
-         let req <- toGet(inReqFifo).get;
-         if (req.write) begin
-            regFile.upd(req.addr, req.data);
-         end
-         else begin
-            match {.data} = regFile.sub(req.addr);
-            $display("(%0d) req addr %h data %h", $time, req.addr, data);
-            let resp = RoundRegResponse { data: data };
-            outRespFifo.enq(resp);
-         end
-      endrule
-
-      Vector#(numClients, Server#(RoundRegRequest, RoundRegResponse)) servers = newVector;
-      for (Integer i=0; i<valueOf(numClients); i=i+1) begin
-         servers[i] = (interface Server;
-            interface Put request;
-               method Action put(RoundRegRequest req);
-                  inReqFifo.enq(req);
-               endmethod
-            endinterface
-            interface response = toGet(outRespFifo);
-         endinterface);
+   rule processReq;
+      RegRequest#(asz, dsz) req <- toGet(inReqFifo).get;
+      if (req.write) begin
+         regFile.upd(req.addr, req.data);
       end
-      zipWithM_(mkConnection, clients, servers);
-   endmodule
-endinstance
-
-instance MkP4Reg#(Bit#(1), Role, RoleRegRequest, RoleRegResponse);
-   module mkP4Reg#(Vector#(numClients, Client#(RoleRegRequest, RoleRegResponse)) clients)(RegIfc#(Bit#(1), Role));
-      RegFile#(Bit#(1), Role) regFile <- mkRegFileFull();
-      FIFO#(RoleRegRequest) inReqFifo <- mkFIFO;
-      FIFO#(RoleRegResponse) outRespFifo <- mkFIFO;
-
-      rule processReq;
-         let req <- toGet(inReqFifo).get;
-         if (req.write) begin
-            regFile.upd(req.addr, req.data);
-         end
-         else begin
-            match {.data} = regFile.sub(req.addr);
-            let resp = RoleRegResponse { data: data };
-            outRespFifo.enq(resp);
-         end
-      endrule
-
-      Vector#(numClients, Server#(RoleRegRequest, RoleRegResponse)) servers = newVector;
-      for (Integer i=0; i<valueOf(numClients); i=i+1) begin
-         servers[i] = (interface Server;
-            interface Put request;
-               method Action put(RoleRegRequest req);
-                  inReqFifo.enq(req);
-               endmethod
-            endinterface
-            interface response = toGet(outRespFifo);
-         endinterface);
+      else begin
+         match {.data} = regFile.sub(req.addr);
+         $display("(%0d) req addr %h data %h", $time, req.addr, data);
+         let resp = RegResponse {data: data};
+         outRespFifo.enq(resp);
       end
-      zipWithM_(mkConnection, clients, servers);
-   endmodule
-endinstance
+   endrule
 
-instance MkP4Reg#(Bit#(1), Bit#(64), DatapathIdRegRequest, DatapathIdRegResponse);
-   module mkP4Reg#(Vector#(numClients, Client#(DatapathIdRegRequest, DatapathIdRegResponse)) clients)(RegIfc#(Bit#(1), Bit#(64)));
-      RegFile#(Bit#(1), Bit#(64)) regFile <- mkRegFileFull();
-      FIFO#(DatapathIdRegRequest) inReqFifo <- mkFIFO;
-      FIFO#(DatapathIdRegResponse) outRespFifo <- mkFIFO;
-
-      rule processReq;
-         let req <- toGet(inReqFifo).get;
-         if (req.write) begin
-            regFile.upd(req.addr, req.data);
-         end
-         else begin
-            match {.data} = regFile.sub(req.addr);
-            let resp = DatapathIdRegResponse { data: data };
-            outRespFifo.enq(resp);
-         end
-      endrule
-
-      Vector#(numClients, Server#(DatapathIdRegRequest, DatapathIdRegResponse)) servers = newVector;
-      for (Integer i=0; i<valueOf(numClients); i=i+1) begin
-         servers[i] = (interface Server;
-            interface Put request;
-               method Action put(DatapathIdRegRequest req);
-                  inReqFifo.enq(req);
-               endmethod
-            endinterface
-            interface response = toGet(outRespFifo);
-         endinterface);
-      end
-      zipWithM_(mkConnection, clients, servers);
-   endmodule
-endinstance
-
-instance MkP4Reg#(Bit#(1), Bit#(16), InstanceRegRequest, InstanceRegResponse);
-   module mkP4Reg#(Vector#(numClients, Client#(InstanceRegRequest, InstanceRegResponse)) clients)(RegIfc#(Bit#(1), Bit#(16)));
-      RegFile#(Bit#(1), Bit#(16)) regFile <- mkRegFileFull();
-      FIFO#(InstanceRegRequest) inReqFifo <- mkFIFO;
-      FIFO#(InstanceRegResponse) outRespFifo <- mkFIFO;
-
-      rule processReq;
-         let req <- toGet(inReqFifo).get;
-         if (req.write) begin
-            regFile.upd(req.addr, req.data);
-         end
-         else begin
-            match {.data} = regFile.sub(req.addr);
-            let resp = InstanceRegResponse { data: data };
-            outRespFifo.enq(resp);
-         end
-      endrule
-
-      Vector#(numClients, Server#(InstanceRegRequest, InstanceRegResponse)) servers = newVector;
-      for (Integer i=0; i<valueOf(numClients); i=i+1) begin
-         servers[i] = (interface Server;
-            interface Put request;
-               method Action put(InstanceRegRequest req);
-                  inReqFifo.enq(req);
-               endmethod
-            endinterface
-            interface response = toGet(outRespFifo);
-         endinterface);
-      end
-      zipWithM_(mkConnection, clients, servers);
-   endmodule
-endinstance
-
-instance MkP4Reg#(Bit#(InstanceSize), Bit#(ValueSize), ValueRegRequest, ValueRegResponse);
-   module mkP4Reg#(Vector#(numClients, Client#(ValueRegRequest, ValueRegResponse)) clients)(RegIfc#(Bit#(InstanceSize), Bit#(ValueSize)));
-      RegFile#(Bit#(InstanceSize), Bit#(ValueSize)) regFile <- mkRegFileFull();
-      FIFO#(ValueRegRequest) inReqFifo <- mkFIFO;
-      FIFO#(ValueRegResponse) outRespFifo <- mkFIFO;
-
-      rule processReq;
-         let req <- toGet(inReqFifo).get;
-         if (req.write) begin
-            regFile.upd(req.addr, req.data);
-         end
-         else begin
-            match {.data} = regFile.sub(req.addr);
-            let resp = ValueRegResponse { data: data };
-            outRespFifo.enq(resp);
-         end
-      endrule
-
-      Vector#(numClients, Server#(ValueRegRequest, ValueRegResponse)) servers = newVector;
-      for (Integer i=0; i<valueOf(numClients); i=i+1) begin
-         servers[i] = (interface Server;
-            interface Put request;
-               method Action put(ValueRegRequest req);
-                  inReqFifo.enq(req);
-               endmethod
-            endinterface
-            interface response = toGet(outRespFifo);
-         endinterface);
-      end
-      zipWithM_(mkConnection, clients, servers);
-   endmodule
-endinstance
+   Vector#(numClients, Server#(RegRequest#(asz, dsz), RegResponse#(dsz))) servers = newVector;
+   for (Integer i=0; i<valueOf(numClients); i=i+1) begin
+      servers[i] = (interface Server;
+         interface Put request;
+            method Action put(RegRequest#(asz, dsz) req);
+               inReqFifo.enq(req);
+            endmethod
+         endinterface
+         interface response = toGet(outRespFifo);
+      endinterface);
+   end
+   zipWithM_(mkConnection, clients, servers);
+endmodule
 
 /* generate tables */
 typedef struct {

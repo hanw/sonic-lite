@@ -117,12 +117,12 @@ module mkIngress#(Vector#(numClients, MetadataClient) mdc)(Ingress);
    FIFO#(VRoundRegResponse) vroundRegRespFifo <- mkFIFO;
    FIFO#(ValueRegResponse) valueRegRespFifo <- mkFIFO;
 
-   RegIfc#(Bit#(InstanceSize), Bit#(RoundSize)) roundReg <- mkP4Reg(vec(bb_read_round.regClient, toGPClient(roundRegReqFifo, roundRegRespFifo)));
-   RegIfc#(Bit#(1), Role) roleReg <- mkP4Reg(vec(bb_read_role.regClient, toGPClient(roleRegReqFifo, roleRegRespFifo)));
-   RegIfc#(Bit#(1), Bit#(64)) datapathIdReg <- mkP4Reg(vec(bb_handle_1a.regClient_datapath_id, bb_handle_2a.regClient_datapath_id, toGPClient(datapathIdRegReqFifo, datapathIdRegRespFifo)));
-   RegIfc#(Bit#(1), Bit#(16)) instanceReg <- mkP4Reg(vec(bb_increase_instance.regClient, toGPClient(instanceRegReqFifo, instanceRegRespFifo)));
-   RegIfc#(Bit#(InstanceSize), Bit#(RoundSize)) vroundReg <- mkP4Reg(vec(bb_handle_1a.regClient_vround, bb_handle_2a.regClient_vround, toGPClient(vroundRegReqFifo, vroundRegRespFifo)));
-   RegIfc#(Bit#(InstanceSize), Bit#(ValueSize)) valueReg <- mkP4Reg(vec(bb_handle_1a.regClient_value, bb_handle_2a.regClient_value, toGPClient(valueRegReqFifo, valueRegRespFifo)));
+   RegisterIfc#(1, SizeOf#(Role)) roleReg <- mkP4Register(vec(bb_read_role.regClient, toGPClient(roleRegReqFifo, roleRegRespFifo)));
+   RegisterIfc#(1, 64) datapathIdReg <- mkP4Register(vec(bb_handle_1a.regClient_datapath_id, bb_handle_2a.regClient_datapath_id, toGPClient(datapathIdRegReqFifo, datapathIdRegRespFifo)));
+   RegisterIfc#(1, 16) instanceReg <- mkP4Register(vec(bb_increase_instance.regClient, toGPClient(instanceRegReqFifo, instanceRegRespFifo)));
+   RegisterIfc#(InstanceSize, RoundSize) roundReg <- mkP4Register(vec(bb_read_round.regClient, toGPClient(roundRegReqFifo, roundRegRespFifo)));
+   RegisterIfc#(InstanceSize, RoundSize) vroundReg <- mkP4Register(vec(bb_handle_1a.regClient_vround, bb_handle_2a.regClient_vround, toGPClient(vroundRegReqFifo, vroundRegRespFifo)));
+   RegisterIfc#(InstanceSize, ValueSize) valueReg <- mkP4Register(vec(bb_handle_1a.regClient_value, bb_handle_2a.regClient_value, toGPClient(valueRegReqFifo, valueRegRespFifo)));
 
    // Connect Table with BasicBlock
    mkConnection(dstMacTable.next_control_state_0, bb_fwd.prev_control_state);
@@ -236,7 +236,7 @@ module mkIngress#(Vector#(numClients, MetadataClient) mdc)(Ingress);
       roundRegReqFifo.enq(req);
    endmethod
    method Action role_reg_write(Role role);
-      RoleRegRequest req = RoleRegRequest {addr: 0, data: role, write: True};
+      RoleRegRequest req = RoleRegRequest {addr: 0, data: pack(role), write: True};
       roleRegReqFifo.enq(req);
    endmethod
    method Action datapath_id_reg_write(Bit#(64) datapath);

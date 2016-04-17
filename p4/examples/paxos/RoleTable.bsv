@@ -57,7 +57,7 @@ module mkBasicBlockRole(BasicBlockRole);
       let v <- toGet(reg_role_response_fifo).get;
       let pkt <- toGet(curr_packet_fifo).get;
       $display("(%0d) register response %h", $time, v);
-      BBResponse resp = tagged BBRoleResponse {pkt: pkt, role: v.data};
+      BBResponse resp = tagged BBRoleResponse {pkt: pkt, role: unpack(v.data)};
       bb_role_response_fifo.enq(resp);
    endrule
 
