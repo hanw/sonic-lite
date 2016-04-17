@@ -85,23 +85,12 @@ module mkIngress#(Vector#(numClients, MetadataClient) mdc)(Ingress);
    FIFO#(MetadataResponse) acceptorRespFifo <- mkFIFO;
    // FIFO#(MetadataResponse) dropResponseFifo <- mkFIFO;
 
-   // MetadataClients
-   function MetadataClient toMetadataClient(FIFO#(MetadataRequest) reqFifo,
-                                            FIFO#(MetadataResponse) respFifo);
-      MetadataClient ret_ifc;
-      ret_ifc = (interface MetadataClient;
-         interface Get request = toGet(reqFifo);
-         interface Put response = toPut(respFifo);
-      endinterface);
-      return ret_ifc;
-   endfunction
-
    // Tables
-   DstMacTable dstMacTable <- mkDstMacTable(toMetadataClient(dmacReqFifo, dmacRespFifo));
-   RoleTable roleTable <- mkRoleTable(toMetadataClient(roleReqFifo, roleRespFifo));
-   RoundTable roundTable <- mkRoundTable(toMetadataClient(roundReqFifo, roundRespFifo));
-   SequenceTable sequenceTable <- mkSequenceTable(toMetadataClient(sequenceReqFifo, sequenceRespFifo));
-   AcceptorTable acceptorTable <- mkAcceptorTable(toMetadataClient(acceptorReqFifo, acceptorRespFifo));
+   DstMacTable dstMacTable <- mkDstMacTable(toGPClient(dmacReqFifo, dmacRespFifo));
+   RoleTable roleTable <- mkRoleTable(toGPClient(roleReqFifo, roleRespFifo));
+   RoundTable roundTable <- mkRoundTable(toGPClient(roundReqFifo, roundRespFifo));
+   SequenceTable sequenceTable <- mkSequenceTable(toGPClient(sequenceReqFifo, sequenceRespFifo));
+   AcceptorTable acceptorTable <- mkAcceptorTable(toGPClient(acceptorReqFifo, acceptorRespFifo));
    //DropTable dropTable <- mkDropTable();//roundTable.next1);
 
    // BasicBlocks
@@ -128,34 +117,12 @@ module mkIngress#(Vector#(numClients, MetadataClient) mdc)(Ingress);
    FIFO#(VRoundRegResponse) vroundRegRespFifo <- mkFIFO;
    FIFO#(ValueRegResponse) valueRegRespFifo <- mkFIFO;
 
-   function RoundRegClient toRoundRegClient(FIFO#(RoundRegRequest) reqFifo,
-                                            FIFO#(RoundRegResponse) respFifo);
-      RoundRegClient ret_ifc;
-      ret_ifc = (interface RoundRegClient;
-         interface Get request = toGet(reqFifo);
-         interface Put response = toPut(respFifo);
-      endinterface);
-      return ret_ifc;
-   endfunction
-
-   function RoleRegClient toRoleRegClient(FIFO#(RoleRegRequest) reqFifo,
-                                          FIFO#(RoleRegResponse) respFifo);
-      RoleRegClient ret_ifc;
-      ret_ifc = (interface RoleRegClient;
-         interface Get request = toGet(reqFifo);
-         interface Put response = toPut(respFifo);
-      endinterface);
-      return ret_ifc;
-   endfunction
-
-   Client#(RoundRegRequest, RoundRegResponse) round2 = toGPClient(roundRegReqFifo, roundRegRespFifo);
-
-   RegIfc#(Bit#(InstanceSize), Bit#(RoundSize)) roundReg <- mkP4Reg(vec(bb_read_round.regClient, toRoundRegClient(roundRegReqFifo, roundRegRespFifo)));
-   RegIfc#(Bit#(1), Role) roleReg <- mkP4Reg(vec(bb_read_role.regClient, toRoleRegClient(roleRegReqFifo, roleRegRespFifo)));
-   RegIfc#(Bit#(1), Bit#(64)) datapathIdReg <- mkP4Reg(vec(bb_handle_1a.regClient_datapath_id, bb_handle_2a.regClient_datapath_id));
-   RegIfc#(Bit#(1), Bit#(16)) instanceReg <- mkP4Reg(vec(bb_increase_instance.regClient));
-   RegIfc#(Bit#(InstanceSize), Bit#(RoundSize)) vroundReg <- mkP4Reg(vec(bb_handle_1a.regClient_vround, bb_handle_2a.regClient_vround));
-   RegIfc#(Bit#(InstanceSize), Bit#(ValueSize)) valueReg <- mkP4Reg(vec(bb_handle_1a.regClient_value, bb_handle_2a.regClient_value));
+   RegIfc#(Bit#(InstanceSize), Bit#(RoundSize)) roundReg <- mkP4Reg(vec(bb_read_round.regClient, toGPClient(roundRegReqFifo, roundRegRespFifo)));
+   RegIfc#(Bit#(1), Role) roleReg <- mkP4Reg(vec(bb_read_role.regClient, toGPClient(roleRegReqFifo, roleRegRespFifo)));
+   RegIfc#(Bit#(1), Bit#(64)) datapathIdReg <- mkP4Reg(vec(bb_handle_1a.regClient_datapath_id, bb_handle_2a.regClient_datapath_id, toGPClient(datapathIdRegReqFifo, datapathIdRegRespFifo)));
+   RegIfc#(Bit#(1), Bit#(16)) instanceReg <- mkP4Reg(vec(bb_increase_instance.regClient, toGPClient(instanceRegReqFifo, instanceRegRespFifo)));
+   RegIfc#(Bit#(InstanceSize), Bit#(RoundSize)) vroundReg <- mkP4Reg(vec(bb_handle_1a.regClient_vround, bb_handle_2a.regClient_vround, toGPClient(vroundRegReqFifo, vroundRegRespFifo)));
+   RegIfc#(Bit#(InstanceSize), Bit#(ValueSize)) valueReg <- mkP4Reg(vec(bb_handle_1a.regClient_value, bb_handle_2a.regClient_value, toGPClient(valueRegReqFifo, valueRegRespFifo)));
 
    // Connect Table with BasicBlock
    mkConnection(dstMacTable.next_control_state_0, bb_fwd.prev_control_state);
