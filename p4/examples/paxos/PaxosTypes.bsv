@@ -704,40 +704,6 @@ typeclass MkP4Reg#(type addr, type data, type req, type resp);
    module mkP4Reg#(Vector#(n, Client#(req, resp)) clients)(RegIfc#(addr, data));
 endtypeclass
 
-instance MkP4Reg#(Bit#(InstanceSize), Bit#(RoundSize), VRoundRegRequest, VRoundRegResponse);
-   module mkP4Reg#(Vector#(numClients, Client#(VRoundRegRequest, VRoundRegResponse)) clients)(RegIfc#(Bit#(InstanceSize), Bit#(RoundSize)));
-      RegFile#(Bit#(InstanceSize), Bit#(RoundSize)) regFile <- mkRegFileFull();
-      FIFO#(VRoundRegRequest) inReqFifo <- mkFIFO;
-      FIFO#(VRoundRegResponse) outRespFifo <- mkFIFO;
-
-      rule processReq;
-         let req <- toGet(inReqFifo).get;
-         if (req.write) begin
-            regFile.upd(req.addr, req.data);
-         end
-         else begin
-            match {.data} = regFile.sub(req.addr);
-            $display("(%0d) req addr %h data %h", $time, req.addr, data);
-            let resp = VRoundRegResponse { data: data };
-            outRespFifo.enq(resp);
-         end
-      endrule
-
-      Vector#(numClients, Server#(VRoundRegRequest, VRoundRegResponse)) servers = newVector;
-      for (Integer i=0; i<valueOf(numClients); i=i+1) begin
-         servers[i] = (interface Server;
-            interface Put request;
-               method Action put(VRoundRegRequest req);
-                  inReqFifo.enq(req);
-               endmethod
-            endinterface
-            interface response = toGet(outRespFifo);
-         endinterface);
-      end
-      zipWithM_(mkConnection, clients, servers);
-   endmodule
-endinstance
-
 instance MkP4Reg#(Bit#(InstanceSize), Bit#(RoundSize), RoundRegRequest, RoundRegResponse);
    module mkP4Reg#(Vector#(numClients, Client#(RoundRegRequest, RoundRegResponse)) clients)(RegIfc#(Bit#(InstanceSize), Bit#(RoundSize)));
       RegFile#(Bit#(InstanceSize), Bit#(RoundSize)) regFile <- mkRegFileFull();
@@ -964,4 +930,5 @@ module mkMatchTable_256_sequenceTable(MatchTable#(256, SizeOf#(SequenceTblReqT),
    MatchTable#(256, SizeOf#(SequenceTblReqT), SizeOf#(SequenceTblRespT)) ifc <- mkMatchTable();
    return ifc;
 endmodule
+
 

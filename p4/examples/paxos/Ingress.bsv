@@ -148,6 +148,8 @@ module mkIngress#(Vector#(numClients, MetadataClient) mdc)(Ingress);
       return ret_ifc;
    endfunction
 
+   Client#(RoundRegRequest, RoundRegResponse) round2 = toGPClient(roundRegReqFifo, roundRegRespFifo);
+
    RegIfc#(Bit#(InstanceSize), Bit#(RoundSize)) roundReg <- mkP4Reg(vec(bb_read_round.regClient, toRoundRegClient(roundRegReqFifo, roundRegRespFifo)));
    RegIfc#(Bit#(1), Role) roleReg <- mkP4Reg(vec(bb_read_role.regClient, toRoleRegClient(roleRegReqFifo, roleRegRespFifo)));
    RegIfc#(Bit#(1), Bit#(64)) datapathIdReg <- mkP4Reg(vec(bb_handle_1a.regClient_datapath_id, bb_handle_2a.regClient_datapath_id));
