@@ -6,14 +6,25 @@ typedef 32 InstanceSize;
 typedef 64 ValueSize;
 
 typedef struct {
-   Bit#(InstanceSize) addr;
-   Bit#(RoundSize) data;
+   Bit#(addrSz) addr;
+   Bit#(dataSz) data;
    Bool write;
-} RoundRegRequest deriving (Bits);
+} RegRequest#(numeric type addrSz, numeric type dataSz) deriving (Bits, Eq);
 
 typedef struct {
-   Bit#(RoundSize) data;
-} RoundRegResponse deriving (Bits);
+   Bit#(dataSz) data;
+} RegResponse#(numeric type dataSz) deriving (Bits, Eq);
+
+typedef RegRequest#(InstanceSize, RoundSize) RoundRegRequest;
+typedef RegResponse#(RoundSize) RoundRegResponse;
+typedef RegRequest#(1, 64) DatapathIdRegRequest;
+typedef RegResponse#(64) DatapathIdRegResponse;
+typedef RegRequest#(1, 16) InstanceRegRequest;
+typedef RegResponse#(16) InstanceRegResponse;
+typedef RegRequest#(InstanceSize, RoundSize) VRoundRegRequest;
+typedef RegResponse#(RoundSize) VRoundRegResponse;
+typedef RegRequest#(InstanceSize, ValueSize) ValueRegRequest;
+typedef RegResponse#(ValueSize) ValueRegResponse;
 
 typedef enum {
    ACCEPTOR = 1,
@@ -41,46 +52,6 @@ typedef struct {
 typedef struct {
    Role data;
 } RoleRegResponse deriving (Bits);
-
-typedef struct {
-   Bit#(1) addr;
-   Bit#(64) data;
-   Bool write;
-} DatapathIdRegRequest deriving (Bits);
-
-typedef struct {
-   Bit#(64) data;
-} DatapathIdRegResponse deriving (Bits);
-
-typedef struct {
-   Bit#(1) addr;
-   Bit#(16) data;
-   Bool write;
-} InstanceRegRequest deriving (Bits);
-
-typedef struct {
-   Bit#(16) data;
-} InstanceRegResponse deriving (Bits);
-
-typedef struct {
-   Bit#(InstanceSize) addr;
-   Bit#(RoundSize) data;
-   Bool write;
-} VRoundRegRequest deriving (Bits);
-
-typedef struct {
-   Bit#(RoundSize) data;
-} VRoundRegResponse deriving (Bits);
-
-typedef struct {
-   Bit#(InstanceSize) addr;
-   Bit#(ValueSize) data;
-   Bool write;
-} ValueRegRequest deriving (Bits);
-
-typedef struct {
-   Bit#(ValueSize) data;
-} ValueRegResponse deriving (Bits);
 
 typedef Client#(RoundRegRequest, RoundRegResponse) RoundRegClient;
 typedef Server#(RoundRegRequest, RoundRegResponse) RoundRegServer;

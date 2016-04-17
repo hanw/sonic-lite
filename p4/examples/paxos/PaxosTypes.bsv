@@ -673,6 +673,7 @@ MetadataT {
    paxos$vrnd: tagged Invalid,
    paxos$paxosval: tagged Invalid,
    paxos$acptid: tagged Invalid,
+   paxos$msgtype: tagged Invalid,
    paxos_packet_meta$round: tagged Invalid,
    switch_metadata$role: tagged Invalid,
    valid_ethernet: tagged Invalid,
@@ -696,15 +697,15 @@ typedef Server#(MetadataRequest, MetadataResponse) MetadataServer;
 typedef Client#(BBRequest, BBResponse) BBClient;
 typedef Server#(BBRequest, BBResponse) BBServer;
 
-interface P4RegisterIfc#(type addr, type data);
+interface RegIfc#(type addr, type data);
 endinterface
 
-typeclass MkP4Register#(type addr, type data, type req, type resp);
-   module mkP4Register#(Vector#(n, Client#(req, resp)) clients)(P4RegisterIfc#(addr, data));
+typeclass MkP4Reg#(type addr, type data, type req, type resp);
+   module mkP4Reg#(Vector#(n, Client#(req, resp)) clients)(RegIfc#(addr, data));
 endtypeclass
 
-instance MkP4Register#(Bit#(InstanceSize), Bit#(RoundSize), VRoundRegRequest, VRoundRegResponse);
-   module mkP4Register#(Vector#(numClients, Client#(VRoundRegRequest, VRoundRegResponse)) clients)(P4RegisterIfc#(Bit#(InstanceSize), Bit#(RoundSize)));
+instance MkP4Reg#(Bit#(InstanceSize), Bit#(RoundSize), VRoundRegRequest, VRoundRegResponse);
+   module mkP4Reg#(Vector#(numClients, Client#(VRoundRegRequest, VRoundRegResponse)) clients)(RegIfc#(Bit#(InstanceSize), Bit#(RoundSize)));
       RegFile#(Bit#(InstanceSize), Bit#(RoundSize)) regFile <- mkRegFileFull();
       FIFO#(VRoundRegRequest) inReqFifo <- mkFIFO;
       FIFO#(VRoundRegResponse) outRespFifo <- mkFIFO;
@@ -737,8 +738,8 @@ instance MkP4Register#(Bit#(InstanceSize), Bit#(RoundSize), VRoundRegRequest, VR
    endmodule
 endinstance
 
-instance MkP4Register#(Bit#(InstanceSize), Bit#(RoundSize), RoundRegRequest, RoundRegResponse);
-   module mkP4Register#(Vector#(numClients, Client#(RoundRegRequest, RoundRegResponse)) clients)(P4RegisterIfc#(Bit#(InstanceSize), Bit#(RoundSize)));
+instance MkP4Reg#(Bit#(InstanceSize), Bit#(RoundSize), RoundRegRequest, RoundRegResponse);
+   module mkP4Reg#(Vector#(numClients, Client#(RoundRegRequest, RoundRegResponse)) clients)(RegIfc#(Bit#(InstanceSize), Bit#(RoundSize)));
       RegFile#(Bit#(InstanceSize), Bit#(RoundSize)) regFile <- mkRegFileFull();
       FIFO#(RoundRegRequest) inReqFifo <- mkFIFO;
       FIFO#(RoundRegResponse) outRespFifo <- mkFIFO;
@@ -771,8 +772,8 @@ instance MkP4Register#(Bit#(InstanceSize), Bit#(RoundSize), RoundRegRequest, Rou
    endmodule
 endinstance
 
-instance MkP4Register#(Bit#(1), Role, RoleRegRequest, RoleRegResponse);
-   module mkP4Register#(Vector#(numClients, Client#(RoleRegRequest, RoleRegResponse)) clients)(P4RegisterIfc#(Bit#(1), Role));
+instance MkP4Reg#(Bit#(1), Role, RoleRegRequest, RoleRegResponse);
+   module mkP4Reg#(Vector#(numClients, Client#(RoleRegRequest, RoleRegResponse)) clients)(RegIfc#(Bit#(1), Role));
       RegFile#(Bit#(1), Role) regFile <- mkRegFileFull();
       FIFO#(RoleRegRequest) inReqFifo <- mkFIFO;
       FIFO#(RoleRegResponse) outRespFifo <- mkFIFO;
@@ -804,8 +805,8 @@ instance MkP4Register#(Bit#(1), Role, RoleRegRequest, RoleRegResponse);
    endmodule
 endinstance
 
-instance MkP4Register#(Bit#(1), Bit#(64), DatapathIdRegRequest, DatapathIdRegResponse);
-   module mkP4Register#(Vector#(numClients, Client#(DatapathIdRegRequest, DatapathIdRegResponse)) clients)(P4RegisterIfc#(Bit#(1), Bit#(64)));
+instance MkP4Reg#(Bit#(1), Bit#(64), DatapathIdRegRequest, DatapathIdRegResponse);
+   module mkP4Reg#(Vector#(numClients, Client#(DatapathIdRegRequest, DatapathIdRegResponse)) clients)(RegIfc#(Bit#(1), Bit#(64)));
       RegFile#(Bit#(1), Bit#(64)) regFile <- mkRegFileFull();
       FIFO#(DatapathIdRegRequest) inReqFifo <- mkFIFO;
       FIFO#(DatapathIdRegResponse) outRespFifo <- mkFIFO;
@@ -837,8 +838,8 @@ instance MkP4Register#(Bit#(1), Bit#(64), DatapathIdRegRequest, DatapathIdRegRes
    endmodule
 endinstance
 
-instance MkP4Register#(Bit#(1), Bit#(16), InstanceRegRequest, InstanceRegResponse);
-   module mkP4Register#(Vector#(numClients, Client#(InstanceRegRequest, InstanceRegResponse)) clients)(P4RegisterIfc#(Bit#(1), Bit#(16)));
+instance MkP4Reg#(Bit#(1), Bit#(16), InstanceRegRequest, InstanceRegResponse);
+   module mkP4Reg#(Vector#(numClients, Client#(InstanceRegRequest, InstanceRegResponse)) clients)(RegIfc#(Bit#(1), Bit#(16)));
       RegFile#(Bit#(1), Bit#(16)) regFile <- mkRegFileFull();
       FIFO#(InstanceRegRequest) inReqFifo <- mkFIFO;
       FIFO#(InstanceRegResponse) outRespFifo <- mkFIFO;
@@ -870,8 +871,8 @@ instance MkP4Register#(Bit#(1), Bit#(16), InstanceRegRequest, InstanceRegRespons
    endmodule
 endinstance
 
-instance MkP4Register#(Bit#(InstanceSize), Bit#(ValueSize), ValueRegRequest, ValueRegResponse);
-   module mkP4Register#(Vector#(numClients, Client#(ValueRegRequest, ValueRegResponse)) clients)(P4RegisterIfc#(Bit#(InstanceSize), Bit#(ValueSize)));
+instance MkP4Reg#(Bit#(InstanceSize), Bit#(ValueSize), ValueRegRequest, ValueRegResponse);
+   module mkP4Reg#(Vector#(numClients, Client#(ValueRegRequest, ValueRegResponse)) clients)(RegIfc#(Bit#(InstanceSize), Bit#(ValueSize)));
       RegFile#(Bit#(InstanceSize), Bit#(ValueSize)) regFile <- mkRegFileFull();
       FIFO#(ValueRegRequest) inReqFifo <- mkFIFO;
       FIFO#(ValueRegResponse) outRespFifo <- mkFIFO;
