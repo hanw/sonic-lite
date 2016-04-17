@@ -103,9 +103,8 @@ class ChannelWorker : public DmaCallback {
         return totalBeats / (double)(-cycles);
     }
 
-    void transferToFpgaDone ( uint32_t sglId, uint32_t base, const uint8_t tag, uint32_t cycles ) {
-        fprintf(stderr, "[%s:%d] sglId=%d base=%08x tag=%d readReqBytes=%d cycles=%d transferToFpga bandwidth %5.2f MB/s link utilization %5.2f%%\n",
-        __FUNCTION__, __LINE__, sglId, base, tag, readReqBytes, cycles, 16*250*linkUtilization(cycles), 100.0*linkUtilization(cycles, 1));
+    void transferToFpgaDone ( const uint8_t tag) {
+        fprintf(stderr, "[%s:%d] tag=%d sent\n", __FUNCTION__, __LINE__, tag);
         numReads--;
         if (numReads) {
             fprintf(stderr, "[%s:%d] channel %d requesting dma transferToFpga size=%d\n", __FUNCTION__, __LINE__, channelNumber, arraySize);
@@ -113,9 +112,8 @@ class ChannelWorker : public DmaCallback {
             channel->transferToFpga(buffers[1], 0, arraySize, channelNumber);
         } 
     }
-    void transferFromFpgaDone ( uint32_t sglId, uint32_t base, uint8_t tag, uint32_t cycles, uint32_t len ) {
-        fprintf(stderr, "[%s:%d] sglId=%d base=%08x tag=%d writeReqBytes=%d cycles=%d len=%d transferFromFpga bandwidth %5.2f MB/s link utilization %5.2f%%\n",
-        __FUNCTION__, __LINE__, sglId, base, tag, writeReqBytes, cycles, len, 16*250*linkUtilization(cycles), 100.0*linkUtilization(cycles, 1));
+    void transferFromFpgaDone ( uint32_t sglId, uint32_t len ) {
+        fprintf(stderr, "[%s:%d] sglId=%d len=%d received\n", __FUNCTION__, __LINE__, sglId, len);
         if (0)
             for (int i = 0; i < 4; i++) {
                 if (buffers[i]->reference() == sglId) {
