@@ -118,8 +118,8 @@ module mkIngress#(Vector#(numClients, MetadataClient) mdc)(Ingress);
    FIFO#(ValueRegResponse) valueRegRespFifo <- mkFIFO;
 
    RegisterIfc#(1, SizeOf#(Role)) roleReg <- mkP4Register(vec(bb_read_role.regClient, toGPClient(roleRegReqFifo, roleRegRespFifo)));
-   RegisterIfc#(1, 64) datapathIdReg <- mkP4Register(vec(bb_handle_1a.regClient_datapath_id, bb_handle_2a.regClient_datapath_id, toGPClient(datapathIdRegReqFifo, datapathIdRegRespFifo)));
-   //RegisterIfc#(1, 16) instanceReg <- mkP4Register(vec(bb_increase_instance.regClient, toGPClient(instanceRegReqFifo, instanceRegRespFifo)));
+   RegisterIfc#(1, 64) datapathIdReg <- mkP4Register(vec(bb_handle_2a.regClient_datapath_id, bb_handle_1a.regClient_datapath_id, toGPClient(datapathIdRegReqFifo, datapathIdRegRespFifo)));
+   RegisterIfc#(1, 16) instanceReg <- mkP4Register(vec(bb_increase_instance.regClient, toGPClient(instanceRegReqFifo, instanceRegRespFifo)));
    RegisterIfc#(InstanceSize, RoundSize) roundReg <- mkP4Register(vec(bb_read_round.regClient, toGPClient(roundRegReqFifo, roundRegRespFifo)));
    RegisterIfc#(InstanceSize, RoundSize) vroundReg <- mkP4Register(vec(bb_handle_1a.regClient_vround, bb_handle_2a.regClient_vround, toGPClient(vroundRegReqFifo, vroundRegRespFifo)));
    RegisterIfc#(InstanceSize, ValueSize) valueReg <- mkP4Register(vec(bb_handle_1a.regClient_value, bb_handle_2a.regClient_value, toGPClient(valueRegReqFifo, valueRegRespFifo)));
@@ -202,7 +202,7 @@ module mkIngress#(Vector#(numClients, MetadataClient) mdc)(Ingress);
          tagged RoundTblResponse {pkt: .pkt, meta: .meta}: begin
             if (meta.paxos_packet_meta$round matches tagged Valid .round) begin
                if (round <= fromMaybe(?, meta.paxos$rnd)) begin
-                  $display("(%0d) Round: Acceptor %h, round=%h, rnd=%h", $time, pkt.id, round, meta.paxos$rnd);
+                  $display("(%0d) Round: Acceptor %h, round=%h, rnd=%h", $time, pkt.id, round, fromMaybe(?, meta.paxos$rnd));
                   MetadataRequest req = tagged AcceptorTblRequest {pkt: pkt, meta: meta};
                   acceptorReqFifo.enq(req);
                end

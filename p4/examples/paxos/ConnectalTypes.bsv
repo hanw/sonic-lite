@@ -3,7 +3,7 @@ import ClientServer::*;
 typedef 16 RoundSize;
 typedef 16 MsgTypeSize;
 typedef 32 InstanceSize;
-typedef 64 ValueSize;
+typedef 256 ValueSize;
 
 typedef struct {
    Bit#(addrSz) addr;
@@ -71,22 +71,22 @@ typedef Server#(ValueRegRequest, ValueRegResponse) ValueRegServer;
 
 /* Tables */
 typedef enum {
-    FORWARD = 1,
-    BROADCAST = 2
+    FORWARD,
+    BROADCAST
 } DmacTblActionT deriving (Bits, Eq, FShow);
 
 typedef enum {
-    IncreaseInstance = 1,
-    Nop = 2
+    IncreaseInstance,
+    Nop
 } SequenceTblActionT deriving (Bits, Eq, FShow);
 
 typedef enum {
-    Handle1A = 1,
-    Handle2A = 2,
-    Drop = 3,
-    None = 4
-} AcceptorTblAction deriving (Bits, Eq, FShow);
-
-typedef struct {
-   AcceptorTblAction act;
+    Handle1A,
+    Handle2A,
+    Drop,
+    Unused
 } AcceptorTblActionT deriving (Bits, Eq, FShow);
+
+//typedef struct {
+//   AcceptorTblAction act;
+//} AcceptorTblActionT deriving (Bits, Eq, FShow);

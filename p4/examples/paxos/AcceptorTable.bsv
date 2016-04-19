@@ -121,8 +121,10 @@ module mkBasicBlockHandle2A(BasicBlockHandle2A);
 
    rule bb_handle2a;
       let v <- toGet(bb_handle_2a_request_fifo).get;
+      $display("(%0d) handle_2a bb_request", $time);
       case (v) matches
          tagged BBHandle2aRequest {pkt: .pkt, inst: .inst, rnd: .rnd, paxosval: .paxosval}: begin
+            $display("(%0d) handle_2a bb_request %h %h %h", $time, inst, rnd, paxosval);
             roundReqFifo.enq(RoundRegRequest {addr: inst, data: rnd, write: True});
             vroundReqFifo.enq(VRoundRegRequest {addr: inst, data: rnd, write: True});
             valueReqFifo.enq(ValueRegRequest {addr: inst, data: paxosval, write: True});
@@ -136,6 +138,7 @@ module mkBasicBlockHandle2A(BasicBlockHandle2A);
       let pkt <- toGet(curr_packet_fifo).get;
       let datapath <- toGet(datapathIdRespFifo).get;
       BBResponse resp = tagged BBHandle2aResponse {pkt: pkt, datapath: datapath.data};
+      $display("(%0d) handle2A response datapath=%h", $time, datapath.data);
       bb_handle_2a_response_fifo.enq(resp);
    endrule
 
@@ -221,13 +224,18 @@ module mkAcceptorTable#(MetadataClient md)(AcceptorTable);
             Handle1A: begin
                $display("(%0d) execute handle_1a", $time);
                BBRequest req;
-               req = tagged BBHandle1aRequest {pkt: pkt};
+               req = tagged BBHandle1aRequest {pkt: pkt,
+                                               inst: fromMaybe(?, meta.paxos$inst),
+                                               rnd: fromMaybe(?, meta.paxos$rnd)};
                outReqFifo0.enq(req);
             end
             Handle2A: begin
                $display("(%0d) execute handle_2a", $time);
                BBRequest req;
-               req = tagged BBHandle2aRequest {pkt: pkt};
+               req = tagged BBHandle2aRequest {pkt: pkt,
+                                               inst: fromMaybe(?, meta.paxos$inst),
+                                               rnd: fromMaybe(?, meta.paxos$rnd),
+                                               paxosval: fromMaybe(?, meta.paxos$paxosval)};
                outReqFifo1.enq(req);
             end
             Drop: begin
@@ -237,7 +245,7 @@ module mkAcceptorTable#(MetadataClient md)(AcceptorTable);
                outReqFifo2.enq(req);
             end
             default: begin
-               $display("(%0d) not valid action", $time);
+               $display("(%0d) not valid action %h", $time, resp.act);
             end
          endcase
       end
@@ -256,6 +264,7 @@ module mkAcceptorTable#(MetadataClient md)(AcceptorTable);
 
    rule bb_handle_2a_resp;
       let v <- toGet(inRespFifo1).get;
+      $display("(%0d) handle_2a_resp", $time);
       case (v) matches
          tagged BBHandle2aResponse {pkt: .pkt}: begin
             $display("(%0d) handle_2a: read/write register", $time);
@@ -286,7 +295,8 @@ module mkAcceptorTable#(MetadataClient md)(AcceptorTable);
    endinterface);
    method Action add_entry(Bit#(16) msgtype, AcceptorTblActionT action_);
       AcceptorTblReqT req = AcceptorTblReqT {msgtype: msgtype, padding: 0};
-      AcceptorTblRespT resp = AcceptorTblRespT {act: action_.act};
+      AcceptorTblRespT resp = AcceptorTblRespT {act: action_};
+      //AcceptorTblRespT resp = AcceptorTblRespT {act: AcceptorTblActionT {act: Handle2A}};
       $display("(%0d) acceptor resp=%h", $time, pack(resp));
       matchTable.add_entry.put(tuple2(pack(req), pack(resp)));
    endmethod

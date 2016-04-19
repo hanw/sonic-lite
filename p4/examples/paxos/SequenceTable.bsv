@@ -67,6 +67,10 @@ module mkBasicBlockIncreaseInstance(BasicBlockIncreaseInstance);
       interface request = toPut(bb_increase_instance_request_fifo);
       interface response = toGet(bb_increase_instance_response_fifo);
    endinterface);
+   interface regClient = (interface InstanceRegClient;
+      interface request = toGet(instanceReqFifo);
+      interface response = toPut(instanceRespFifo);
+   endinterface);
 endmodule
 
 interface SequenceTable;

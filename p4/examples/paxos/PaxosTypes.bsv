@@ -2,6 +2,7 @@ import ClientServer::*;
 import Connectable::*;
 import Ethernet::*;
 import FIFO::*;
+import FIFOF::*;
 import GetPut::*;
 import MatchTable::*;
 import Pipe::*;
@@ -701,8 +702,10 @@ interface RegisterIfc#(numeric type asz, numeric type dsz);
 endinterface
 
 module mkP4Register#(Vector#(numClients, Client#(RegRequest#(asz, dsz), RegResponse#(dsz))) clients)(RegisterIfc#(asz, dsz));
+   let verbose = True;
    RegFile#(Bit#(asz), Bit#(dsz)) regFile <- mkRegFileFull();
    FIFO#(RegRequest#(asz, dsz)) inReqFifo <- mkFIFO;
+   FIFOF#(Bit#(TAdd#(1, TLog#(numClients)))) client <- mkFIFOF;
    FIFO#(RegResponse#(dsz)) outRespFifo <- mkFIFO;
 
    rule processReq;
@@ -712,7 +715,7 @@ module mkP4Register#(Vector#(numClients, Client#(RegRequest#(asz, dsz), RegRespo
       end
       else begin
          match {.data} = regFile.sub(req.addr);
-         $display("(%0d) req addr %h data %h", $time, req.addr, data);
+         $display("(%0d) Reg: request addr=%h data=%h", $time, req.addr, data);
          let resp = RegResponse {data: data};
          outRespFifo.enq(resp);
       end
@@ -724,9 +727,21 @@ module mkP4Register#(Vector#(numClients, Client#(RegRequest#(asz, dsz), RegRespo
          interface Put request;
             method Action put(RegRequest#(asz, dsz) req);
                inReqFifo.enq(req);
+               if (!req.write) begin
+                  client.enq(fromInteger(i));
+               end
+               if (verbose) $display("(%0d) Reg: server request %d/%d", $time, fromInteger(i), valueOf(numClients));
             endmethod
          endinterface
-         interface response = toGet(outRespFifo);
+         interface Get response;
+            method ActionValue#(RegResponse#(dsz)) get if (client.notEmpty() && client.first == fromInteger(i));
+               let v <- toGet(outRespFifo).get;
+               let id = client.first;
+               client.deq;
+               if (verbose) $display("(%0d) Reg: server response %d %h %h", $time, fromInteger(i), v, id);
+               return v;
+            endmethod
+         endinterface
       endinterface);
    end
    zipWithM_(mkConnection, clients, servers);
@@ -772,7 +787,7 @@ typedef struct {
 } AcceptorTblReqT deriving (Bits, Eq, FShow);
 
 typedef struct {
-   AcceptorTblAction act;
+   AcceptorTblActionT act;
 } AcceptorTblRespT deriving (Bits, Eq, FShow);
 
 (* synthesize *)

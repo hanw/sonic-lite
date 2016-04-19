@@ -18,26 +18,26 @@ interface MatchTable#(numeric type depth, numeric type keySz, numeric type actio
    interface Put#(Tuple2#(Bit#(TLog#(depth)), Bit#(actionSz))) modify_entry;
 endinterface
 
-import "BDPI" function ActionValue#(Bit#(11)) matchtable_read_dmac(Bit#(54) dstAddr);
-import "BDPI" function Action matchtable_write_dmac(Bit#(54) dstAddr, Bit#(11) data);
-import "BDPI" function ActionValue#(Bit#(3)) matchtable_read_acceptor(Bit#(18) msgtype);
-import "BDPI" function Action matchtable_write_acceptor(Bit#(18) msgtype, Bit#(3) data);
-import "BDPI" function ActionValue#(Bit#(2)) matchtable_read_sequence(Bit#(18) msgtype);
-import "BDPI" function Action matchtable_write_sequence(Bit#(18) msgtype, Bit#(2) data);
+import "BDPI" function ActionValue#(Bit#(10)) matchtable_read_dmac(Bit#(54) dstAddr);
+import "BDPI" function Action matchtable_write_dmac(Bit#(54) dstAddr, Bit#(10) data);
+import "BDPI" function ActionValue#(Bit#(2)) matchtable_read_acceptor(Bit#(18) msgtype);
+import "BDPI" function Action matchtable_write_acceptor(Bit#(18) msgtype, Bit#(2) data);
+import "BDPI" function ActionValue#(Bit#(1)) matchtable_read_sequence(Bit#(18) msgtype);
+import "BDPI" function Action matchtable_write_sequence(Bit#(18) msgtype, Bit#(1) data);
 
 typeclass MatchTableSim#(numeric type ksz, numeric type vsz);
    function ActionValue#(Bit#(vsz)) matchtable_read(Bit#(ksz) key);
    function Action matchtable_write(Bit#(ksz) key, Bit#(vsz) data);
 endtypeclass
 
-instance MatchTableSim#(54, 11);
-   function ActionValue#(Bit#(11)) matchtable_read(Bit#(54) key);
+instance MatchTableSim#(54, 10);
+   function ActionValue#(Bit#(10)) matchtable_read(Bit#(54) key);
    actionvalue
       let v <- matchtable_read_dmac(key);
       return v;
    endactionvalue
    endfunction
-   function Action matchtable_write(Bit#(54) key, Bit#(11) data);
+   function Action matchtable_write(Bit#(54) key, Bit#(10) data);
    action
       $display("(%0d) matchtable write dmac %h %h", $time, key, data);
       matchtable_write_dmac(key, data);
@@ -46,28 +46,28 @@ instance MatchTableSim#(54, 11);
    endfunction
 endinstance
 
-instance MatchTableSim#(18, 2);
-   function ActionValue#(Bit#(2)) matchtable_read(Bit#(18) key);
+instance MatchTableSim#(18, 1);
+   function ActionValue#(Bit#(1)) matchtable_read(Bit#(18) key);
    actionvalue
       let v <- matchtable_read_sequence(key);
       return v;
    endactionvalue
    endfunction
-   function Action matchtable_write(Bit#(18) key, Bit#(2) data);
+   function Action matchtable_write(Bit#(18) key, Bit#(1) data);
    action
       matchtable_write_sequence(key, data);
    endaction
    endfunction
 endinstance
 
-instance MatchTableSim#(18, 3);
-   function ActionValue#(Bit#(3)) matchtable_read(Bit#(18) key);
+instance MatchTableSim#(18, 2);
+   function ActionValue#(Bit#(2)) matchtable_read(Bit#(18) key);
    actionvalue
       let v <- matchtable_read_acceptor(key);
       return v;
    endactionvalue
    endfunction
-   function Action matchtable_write(Bit#(18) key, Bit#(3) data);
+   function Action matchtable_write(Bit#(18) key, Bit#(2) data);
    action
       $display("(%0d) matchtable write acceptor %h %h", $time, key, data);
       matchtable_write_acceptor(key, data);

@@ -115,15 +115,17 @@ int main(int argc, char **argv)
     device->read_version();
     device->round_reg_write(0);
     device->role_reg_write(arguments.role);
+    device->datapath_id_reg_write(1);
 
     //device->dmacTable_add_entry(0x80a810270008, FORWARD, 1);
     device->dmacTable_add_entry(0x80a810270008, 1);
 
     device->sequenceTable_add_entry(1, IncreaseInstance);
-    AcceptorTblActionT act = {Handle1A};
-    device->acceptorTable_add_entry(1, act);
-    AcceptorTblActionT act2 = {Handle2A};
-    device->acceptorTable_add_entry(2, act2);
+    AcceptorTblActionT action_ = Handle2A;
+    device->acceptorTable_add_entry(0x4, action_);
+    device->acceptorTable_add_entry(0x3, action_);
+    device->acceptorTable_add_entry(0x2, action_);
+    device->acceptorTable_add_entry(0x1, action_);
 
     if (pcap_file) {
         fprintf(stderr, "Attempts to read pcap file %s\n", pcap_file);

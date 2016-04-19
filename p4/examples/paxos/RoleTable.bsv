@@ -47,7 +47,7 @@ module mkBasicBlockRole(BasicBlockRole);
             RoleRegRequest req;
             req = RoleRegRequest {addr: 0, data: ?, write: False};
             reg_role_request_fifo.enq(req);
-            $display("(%0d) role reg", $time);
+            $display("(%0d) RoleBB: request ", $time);
             curr_packet_fifo.enq(pkt);
          end
       endcase
@@ -56,7 +56,7 @@ module mkBasicBlockRole(BasicBlockRole);
    rule reg_resp;
       let v <- toGet(reg_role_response_fifo).get;
       let pkt <- toGet(curr_packet_fifo).get;
-      $display("(%0d) register response %h", $time, v);
+      $display("(%0d) RoleBB: response %h", $time, v);
       BBResponse resp = tagged BBRoleResponse {pkt: pkt, role: unpack(v.data)};
       bb_role_response_fifo.enq(resp);
    endrule
@@ -89,7 +89,7 @@ module mkRoleTable#(MetadataClient md)(RoleTable);
          tagged RoleLookupRequest {pkt: .pkt, meta: .meta}: begin
             BBRequest req;
             req = tagged BBRoleRequest {pkt: pkt};
-            $display("(%0d) Role read", $time);
+            $display("(%0d) Role: read", $time);
             outReqFifo.enq(req);
             currPacketFifo.enq(pkt);
             currMetadataFifo.enq(meta);

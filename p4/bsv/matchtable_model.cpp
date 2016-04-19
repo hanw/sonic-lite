@@ -46,7 +46,7 @@ extern "C" uint16_t matchtable_read_dmac(DmacReqT rdata)
 {
     fprintf(stderr, "CPP: match table read %lx\n", rdata);
     for( const auto& n : dmac_table ) {
-        std::cout << "READ: Key:[" << std::hex << n.first << "] Value:[" << std::hex << n.second << "]\n";
+        fprintf(stderr, "READ: Key:[%lx] Value:[%x]\n", n.first, n.second);
     }
     auto it = dmac_table.find(rdata);
     if (it != dmac_table.end()) {
@@ -61,7 +61,7 @@ extern "C" void matchtable_write_dmac(DmacReqT wdata, DmacRespT action)
     fprintf(stderr, "CPP: match table write %lx %x\n", wdata, action);
     dmac_table[wdata] = action;
     for( const auto& n : dmac_table ) {
-        std::cout << "WRITE: Key:[" << std::hex << n.first << "] Value:[" << std::hex << n.second << "]\n";
+        fprintf(stderr, "WRITE: Key:[%lx] Value:[%x]\n", n.first, n.second);
     }
 }
 
@@ -69,7 +69,7 @@ extern "C" SequenceRespT matchtable_read_sequence(SequenceReqT rdata)
 {
     std::cout << "CPP: match table read" << std::hex << rdata << "\n";
     for( const auto& n : sequence_table) {
-        std::cout << "READ: Key:[" << std::hex << n.first << "] Value:[" << std::hex << n.second << "]\n";
+        fprintf(stderr, "READ: Key:[%x] Value:[%x]\n", n.first, n.second);
     }
     fprintf(stderr, "accessing table %p with key %x\n", &sequence_table, rdata);
     auto it = sequence_table.find(rdata);
@@ -85,7 +85,7 @@ extern "C" void matchtable_write_sequence(SequenceReqT wdata, SequenceRespT acti
     fprintf(stderr, "CPP: match table write %x %x\n", wdata, action);
     sequence_table[wdata] = action;
     for( const auto& n : sequence_table ) {
-        std::cout << "WRITE: Key:[" << std::hex << n.first << "] Value:[" << std::hex << n.second << "]\n";
+        fprintf(stderr, "WRITE: Key:[%x] Value:[%x]\n", n.first, n.second);
     }
 }
 
@@ -93,7 +93,7 @@ extern "C" AcceptorRespT matchtable_read_acceptor(AcceptorReqT rdata)
 {
     fprintf(stderr, "CPP: match table read %x\n", rdata);
     for( const auto& n : acceptor_table) {
-        std::cout << "READ: Key:[" << std::hex << n.first << "] Value:[" << n.second << "]\n";
+        fprintf(stderr, "READ: Key:[%x] Value:[%x]\n", n.first, n.second);
     }
     fprintf(stderr, "accessing table %p with key %x\n", &acceptor_table, rdata);
     auto it = acceptor_table.find(rdata);
@@ -109,7 +109,7 @@ extern "C" void matchtable_write_acceptor(AcceptorReqT wdata, AcceptorRespT acti
     fprintf(stderr, "CPP: match table write %x %x\n", wdata, action);
     acceptor_table[wdata] = action;
     for( const auto& n : acceptor_table ) {
-        std::cout << "WRITE: Key:[" << std::hex << n.first << "] Value:[" << n.second << "]\n";
+        fprintf(stderr, "WRITE: Key:[%x] Value:[%x]\n", n.first, n.second);
     }
 }
 
