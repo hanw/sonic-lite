@@ -40,5 +40,8 @@ run:
 run2:
 	(cd bluesim; ./bin/ubuntu.exe -C -p ../paxos.pcap)
 
+run3:
+	(cd bluesim; ./bin/ubuntu.exe -A -p ../tests/test_phase2a.pcap)
+
 include $(SONICDIR)/p4/Makefile.common
 include $(CONNECTALDIR)/Makefile.connectal

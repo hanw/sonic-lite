@@ -45,6 +45,7 @@ interface ParserTestRequest;
    method Action round_reg_write(Bit#(16) r);
    method Action role_reg_write(Role r);
    method Action datapath_id_reg_write(Bit#(64) datapath);
+
    method Action instance_reg_write(Bit#(16) instance_);
    method Action vround_reg_write(Bit#(InstanceSize) inst, Bit#(RoundSize) round);
    method Action sequenceTable_add_entry(Bit#(16) msgtype, SequenceTblActionT action_);

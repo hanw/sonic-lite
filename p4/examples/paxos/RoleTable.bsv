@@ -27,6 +27,7 @@ import FIFO::*;
 import GetPut::*;
 import PaxosTypes::*;
 import ConnectalTypes::*;
+import Register::*;
 
 interface BasicBlockRole;
    interface BBServer prev_control_state;
@@ -34,6 +35,7 @@ interface BasicBlockRole;
 endinterface
 
 module mkBasicBlockRole(BasicBlockRole);
+   let verbose = False;
    FIFO#(BBRequest) bb_role_request_fifo <- mkFIFO;
    FIFO#(BBResponse) bb_role_response_fifo <- mkFIFO;
    FIFO#(RoleRegRequest) reg_role_request_fifo <- mkFIFO;
@@ -47,7 +49,7 @@ module mkBasicBlockRole(BasicBlockRole);
             RoleRegRequest req;
             req = RoleRegRequest {addr: 0, data: ?, write: False};
             reg_role_request_fifo.enq(req);
-            $display("(%0d) RoleBB: request ", $time);
+            if (verbose) $display("(%0d) RoleBB: request ", $time);
             curr_packet_fifo.enq(pkt);
          end
       endcase
@@ -56,7 +58,7 @@ module mkBasicBlockRole(BasicBlockRole);
    rule reg_resp;
       let v <- toGet(reg_role_response_fifo).get;
       let pkt <- toGet(curr_packet_fifo).get;
-      $display("(%0d) RoleBB: response %h", $time, v);
+      if (verbose) $display("(%0d) RoleBB: response %h", $time, v);
       BBResponse resp = tagged BBRoleResponse {pkt: pkt, role: unpack(v.data)};
       bb_role_response_fifo.enq(resp);
    endrule
@@ -72,7 +74,6 @@ module mkBasicBlockRole(BasicBlockRole);
 endmodule
 
 interface RoleTable;
-   interface Client#(RoleRegRequest, RoleRegResponse) regClient;
    interface BBClient next_control_state_0;
 endinterface
 
@@ -84,12 +85,11 @@ module mkRoleTable#(MetadataClient md)(RoleTable);
 
    rule tableLookupRequest;
       let v <- md.request.get;
-      $display("(%0d) Role: table lookup request", $time);
       case (v) matches
          tagged RoleLookupRequest {pkt: .pkt, meta: .meta}: begin
             BBRequest req;
             req = tagged BBRoleRequest {pkt: pkt};
-            $display("(%0d) Role: read", $time);
+            $display("(%0d) Role: table lookup request", $time);
             outReqFifo.enq(req);
             currPacketFifo.enq(pkt);
             currMetadataFifo.enq(meta);
@@ -102,6 +102,7 @@ module mkRoleTable#(MetadataClient md)(RoleTable);
       let meta <- toGet(currMetadataFifo).get;
       let pkt <- toGet(currPacketFifo).get;
       if (v matches tagged BBRoleResponse {pkt: .pkt, role: .role}) begin
+         $display("(%0d) Role: BB response role=%h", $time, role);
          meta.switch_metadata$role = tagged Valid role;
       end
       MetadataResponse resp = tagged RoleResponse { pkt: pkt, meta: meta};

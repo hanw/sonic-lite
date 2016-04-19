@@ -29,6 +29,7 @@ import RegFile::*;
 import DefaultValue::*;
 import PaxosTypes::*;
 import ConnectalTypes::*;
+import Register::*;
 
 interface BasicBlockRound;
    interface BBServer prev_control_state;
@@ -49,7 +50,6 @@ module mkBasicBlockRound(BasicBlockRound);
             RoundRegRequest req;
             req = RoundRegRequest{addr: inst, data: ?, write: False};
             reg_round_request_fifo.enq(req);
-            $display("(%0d) packet inst %h", $time, inst);
             curr_packet_fifo.enq(pkt);
          end
       endcase
@@ -58,9 +58,9 @@ module mkBasicBlockRound(BasicBlockRound);
    rule reg_resp;
       let v <- toGet(reg_round_response_fifo).get;
       let pkt <- toGet(curr_packet_fifo).get;
-      $display("(%0d) register response %h", $time, v);
       IngressMetadataT d = defaultValue;
       d.round = v.data;
+      //FIXME: remove pkt??
       BBResponse resp = tagged BBRoundResponse {pkt: pkt, ingress_metadata: d};
       bb_round_response_fifo.enq(resp);
    endrule
@@ -91,7 +91,7 @@ module mkRoundTable#(MetadataClient md)(RoundTable);
          tagged RoundTblRequest {pkt: .pkt, meta: .meta}: begin
             BBRequest req;
             req = tagged BBRoundRequest {pkt: pkt, paxos$inst: fromMaybe(?, meta.paxos$inst)};
-            $display("(%0d) Round: read inst %h", $time, meta.paxos$inst);
+            $display("(%0d) Round: read inst %h", $time, fromMaybe(?, meta.paxos$inst));
             outReqFifo.enq(req);
             currPacketFifo.enq(pkt);
             currMetadataFifo.enq(meta);

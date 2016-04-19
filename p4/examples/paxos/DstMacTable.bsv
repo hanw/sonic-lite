@@ -30,6 +30,7 @@ import MemTypes::*;
 import PaxosTypes::*;
 import MatchTable::*;
 import ConnectalTypes::*;
+import Register::*;
 
 interface BasicBlockForward;
    interface BBServer prev_control_state;
@@ -43,7 +44,7 @@ module mkBasicBlockForward(BasicBlockForward);
       let v <- toGet(bb_forward_request_fifo).get;
       case (v) matches
          tagged BBForwardRequest { pkt: .pkt, port: .port}: begin
-            BBResponse resp = tagged BBForwardResponse {egress: port};
+            BBResponse resp = tagged BBForwardResponse {pkt: pkt, egress: port};
             bb_forward_response_fifo.enq(resp);
          end
       endcase
@@ -98,7 +99,6 @@ module mkDstMacTable#(MetadataClient md)(DstMacTable);
       let pkt <- toGet(currPacketFifo).get;
       if (v matches tagged Valid .data) begin
          DmacTblRespT resp = unpack(data);
-         $display("(%0d) dmac: resp=%h", $time, resp);
          $display("(%0d) DstMacTable: pkt %h to port %h", $time, pkt.id, resp.param.port);
          BBRequest req = tagged BBForwardRequest { pkt: pkt, port: resp.param.port};
          outReqFifo.enq(req);

@@ -29,6 +29,7 @@ import MatchTable::*;
 import RegFile::*;
 import PaxosTypes::*;
 import ConnectalTypes::*;
+import Register::*;
 
 interface BasicBlockHandle1A;
    interface BBServer prev_control_state;
@@ -106,6 +107,7 @@ interface BasicBlockHandle2A;
 endinterface
 
 module mkBasicBlockHandle2A(BasicBlockHandle2A);
+   let verbose = False;
    FIFO#(BBRequest) bb_handle_2a_request_fifo <- mkFIFO;
    FIFO#(BBResponse) bb_handle_2a_response_fifo <- mkFIFO;
    FIFO#(PacketInstance) curr_packet_fifo <- mkFIFO;
@@ -121,10 +123,10 @@ module mkBasicBlockHandle2A(BasicBlockHandle2A);
 
    rule bb_handle2a;
       let v <- toGet(bb_handle_2a_request_fifo).get;
-      $display("(%0d) handle_2a bb_request", $time);
+      if (verbose) $display("(%0d) handle_2a bb_request", $time);
       case (v) matches
          tagged BBHandle2aRequest {pkt: .pkt, inst: .inst, rnd: .rnd, paxosval: .paxosval}: begin
-            $display("(%0d) handle_2a bb_request %h %h %h", $time, inst, rnd, paxosval);
+            if (verbose) $display("(%0d) handle_2a bb_request %h %h %h", $time, inst, rnd, paxosval);
             roundReqFifo.enq(RoundRegRequest {addr: inst, data: rnd, write: True});
             vroundReqFifo.enq(VRoundRegRequest {addr: inst, data: rnd, write: True});
             valueReqFifo.enq(ValueRegRequest {addr: inst, data: paxosval, write: True});
@@ -138,7 +140,7 @@ module mkBasicBlockHandle2A(BasicBlockHandle2A);
       let pkt <- toGet(curr_packet_fifo).get;
       let datapath <- toGet(datapathIdRespFifo).get;
       BBResponse resp = tagged BBHandle2aResponse {pkt: pkt, datapath: datapath.data};
-      $display("(%0d) handle2A response datapath=%h", $time, datapath.data);
+      if (verbose) $display("(%0d) handle2A response datapath=%h", $time, datapath.data);
       bb_handle_2a_response_fifo.enq(resp);
    endrule
 
@@ -204,7 +206,7 @@ module mkAcceptorTable#(MetadataClient md)(AcceptorTable);
       let v <- md.request.get;
       case (v) matches
          tagged AcceptorTblRequest {pkt: .pkt, meta: .meta} : begin
-            AcceptorTblReqT req = AcceptorTblReqT {msgtype: fromMaybe(?, meta.paxos$msgtype)};
+            AcceptorTblReqT req = AcceptorTblReqT {msgtype: fromMaybe(?, meta.paxos$msgtype), padding:0};
             matchTable.lookupPort.request.put(pack(req));
             if (verbose) $display("(%0d) Acceptor: %h ", $time, pkt.id, fshow(meta.paxos$msgtype));
             currPacketFifo.enq(pkt);
@@ -217,12 +219,12 @@ module mkAcceptorTable#(MetadataClient md)(AcceptorTable);
       let v <- matchTable.lookupPort.response.get;
       let pkt <- toGet(currPacketFifo).get;
       let meta <- toGet(currMetadataFifo).get;
-      $display("(%0d) acceptor table lookup ", $time, fshow(v));
+      if (verbose) $display("(%0d) acceptor table lookup ", $time, fshow(v));
       if (v matches tagged Valid .data) begin
          AcceptorTblRespT resp = unpack(data);
          case (resp.act) matches
             Handle1A: begin
-               $display("(%0d) execute handle_1a", $time);
+               if (verbose) $display("(%0d) execute handle_1a", $time);
                BBRequest req;
                req = tagged BBHandle1aRequest {pkt: pkt,
                                                inst: fromMaybe(?, meta.paxos$inst),
@@ -230,7 +232,7 @@ module mkAcceptorTable#(MetadataClient md)(AcceptorTable);
                outReqFifo0.enq(req);
             end
             Handle2A: begin
-               $display("(%0d) execute handle_2a", $time);
+               if (verbose) $display("(%0d) execute handle_2a", $time);
                BBRequest req;
                req = tagged BBHandle2aRequest {pkt: pkt,
                                                inst: fromMaybe(?, meta.paxos$inst),
@@ -239,13 +241,13 @@ module mkAcceptorTable#(MetadataClient md)(AcceptorTable);
                outReqFifo1.enq(req);
             end
             Drop: begin
-               $display("(%0d) execute drop", $time);
+               if (verbose) $display("(%0d) execute drop", $time);
                BBRequest req;
                req = tagged BBDropRequest {pkt: pkt};
                outReqFifo2.enq(req);
             end
             default: begin
-               $display("(%0d) not valid action %h", $time, resp.act);
+               if (verbose) $display("(%0d) not valid action %h", $time, resp.act);
             end
          endcase
       end
@@ -257,7 +259,7 @@ module mkAcceptorTable#(MetadataClient md)(AcceptorTable);
       let v <- toGet(inRespFifo0).get;
       case (v) matches
          tagged BBHandle1aResponse {pkt: .pkt}: begin
-            $display("(%0d) handle_1a: read/write register", $time);
+            if (verbose) $display("(%0d) handle_1a: read/write register", $time);
          end
       endcase
    endrule
@@ -267,7 +269,7 @@ module mkAcceptorTable#(MetadataClient md)(AcceptorTable);
       $display("(%0d) handle_2a_resp", $time);
       case (v) matches
          tagged BBHandle2aResponse {pkt: .pkt}: begin
-            $display("(%0d) handle_2a: read/write register", $time);
+            if (verbose) $display("(%0d) handle_2a: read/write register", $time);
          end
       endcase
    endrule
@@ -276,7 +278,7 @@ module mkAcceptorTable#(MetadataClient md)(AcceptorTable);
       let v <- toGet(inRespFifo2).get;
       case (v) matches
          tagged BBDropResponse {pkt: .pkt}: begin
-            $display("(%0d) drop", $time);
+            if (verbose) $display("(%0d) drop", $time);
          end
       endcase
    endrule
@@ -296,8 +298,7 @@ module mkAcceptorTable#(MetadataClient md)(AcceptorTable);
    method Action add_entry(Bit#(16) msgtype, AcceptorTblActionT action_);
       AcceptorTblReqT req = AcceptorTblReqT {msgtype: msgtype, padding: 0};
       AcceptorTblRespT resp = AcceptorTblRespT {act: action_};
-      //AcceptorTblRespT resp = AcceptorTblRespT {act: AcceptorTblActionT {act: Handle2A}};
-      $display("(%0d) acceptor resp=%h", $time, pack(resp));
+      if (verbose) $display("(%0d) acceptor resp=%h", $time, pack(resp));
       matchTable.add_entry.put(tuple2(pack(req), pack(resp)));
    endmethod
 endmodule

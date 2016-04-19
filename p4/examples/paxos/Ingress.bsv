@@ -40,6 +40,7 @@ import SequenceTable::*;
 import Vector::*;
 import BuildVector::*;
 import ConnectalTypes::*;
+import Register::*;
 
 interface Ingress;
    interface MemWriteClient#(`DataBusWidth) writeClient;
@@ -148,13 +149,16 @@ module mkIngress#(Vector#(numClients, MetadataClient) mdc)(Ingress);
 
    rule dmac_tbl_next_control_state;
       let v <- toGet(dmacRespFifo).get;
-      $display("(%0d) dmac_tbl next control state", $time);
+      $display("(%0d) Ingress: dmac_tbl next control state", $time);
       case (v) matches
          tagged DstMacResponse {pkt: .pkt, meta: .meta}: begin
             if (isValid(meta.valid_paxos)) begin
                MetadataRequest req = tagged RoleLookupRequest {pkt: pkt, meta: meta};
                roleReqFifo.enq(req);
             end
+         end
+         default: begin
+            $display("(%0d) [ERROR] DstMac Table: Unexpected response %h", $time, v);
          end
       endcase
    endrule
@@ -178,6 +182,9 @@ module mkIngress#(Vector#(numClients, MetadataClient) mdc)(Ingress);
                endcase
             end
          end
+         default: begin
+            $display("(%0d) [ERROR] Role Table: Unexpected response %h", $time, v);
+         end
       endcase
    endrule
 
@@ -191,6 +198,9 @@ module mkIngress#(Vector#(numClients, MetadataClient) mdc)(Ingress);
             //if (v.p4_action == 1) begin
             //   MetadataRequest req = tagged ForwardQueueRequest {};
             //end
+         end
+         default: begin
+            $display("(%0d) [ERROR] Sequence Table: Unexpected response %h", $time, v);
          end
       endcase
    endrule
@@ -210,6 +220,9 @@ module mkIngress#(Vector#(numClients, MetadataClient) mdc)(Ingress);
             else
                $display("(%0d) Invalid round", $time);
          end
+         default: begin
+            $display("(%0d) [ERROR] Round Table: Unexpected response %h", $time, v);
+         end
       endcase
    endrule
 
@@ -220,6 +233,9 @@ module mkIngress#(Vector#(numClients, MetadataClient) mdc)(Ingress);
          tagged AcceptorTblResponse {pkt: .pkt, meta: .meta}: begin
             //MetadataRequest req = tagged ForwardQueueRequest {};
             currPacketFifo.enq(pkt);
+         end
+         default: begin
+            $display("(%0d) [ERROR] Acceptor Table: Unexpected response %h", $time, v);
          end
       endcase
    endrule

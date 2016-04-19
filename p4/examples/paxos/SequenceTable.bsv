@@ -29,6 +29,7 @@ import MatchTable::*;
 import PaxosTypes::*;
 import RegFile::*;
 import ConnectalTypes::*;
+import Register::*;
 
 interface BasicBlockIncreaseInstance;
    interface BBServer prev_control_state;
@@ -36,6 +37,7 @@ interface BasicBlockIncreaseInstance;
 endinterface
 
 module mkBasicBlockIncreaseInstance(BasicBlockIncreaseInstance);
+   let verbose = False;
    FIFO#(BBRequest) bb_increase_instance_request_fifo <- mkFIFO;
    FIFO#(BBResponse) bb_increase_instance_response_fifo <- mkFIFO;
    FIFO#(PacketInstance) curr_packet_fifo <- mkFIFO;
@@ -56,7 +58,7 @@ module mkBasicBlockIncreaseInstance(BasicBlockIncreaseInstance);
    rule reg_resp;
       let pkt <- toGet(curr_packet_fifo).get;
       let inst <- toGet(instanceRespFifo).get;
-      $display("(%0d) inst = %h", inst.data);
+      if (verbose) $display("(%0d) inst = %h", inst.data);
       let next_inst = inst.data + 1;
       instanceReqFifo.enq(InstanceRegRequest {addr: 0, data: next_inst, write:True});
       BBResponse resp = tagged BBIncreaseInstanceResponse {pkt: pkt};
@@ -92,7 +94,7 @@ module mkSequenceTable#(MetadataClient md)(SequenceTable);
       let v <- md.request.get;
       case (v) matches
          tagged SequenceTblRequest { pkt: .pkt, meta: .meta } : begin
-            SequenceTblReqT req = SequenceTblReqT {msgtype: fromMaybe(?, meta.paxos$msgtype)};
+            SequenceTblReqT req = SequenceTblReqT {msgtype: fromMaybe(?, meta.paxos$msgtype), padding:0};
             matchTable.lookupPort.request.put(pack(req));
             if (verbose) $display("(%0d) Sequence: %h", $time, pkt.id, fshow(meta.paxos$msgtype));
             currPacketFifo.enq(pkt);
@@ -109,13 +111,13 @@ module mkSequenceTable#(MetadataClient md)(SequenceTable);
          SequenceTblRespT resp = unpack(data);
          case (resp.act) matches
             IncreaseInstance: begin
-               $display("(%0d) increase instance", $time);
+               if (verbose) $display("(%0d) increase instance", $time);
                BBRequest req;
                req = tagged BBIncreaseInstanceRequest {pkt: pkt};
                outReqFifo.enq(req);
             end
             default: begin
-               $display("(%0d) nop", $time);
+               if (verbose) $display("(%0d) nop", $time);
             end
          endcase
       end
@@ -127,7 +129,7 @@ module mkSequenceTable#(MetadataClient md)(SequenceTable);
       let v <- toGet(inRespFifo).get;
       case (v) matches
          tagged BBIncreaseInstanceResponse {pkt: .pkt}: begin
-            $display("(%0d) increase instance: ", $time);
+            if (verbose) $display("(%0d) TODO: increase instance: ", $time);
          end
       endcase
    endrule

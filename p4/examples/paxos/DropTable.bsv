@@ -27,6 +27,7 @@ import FIFO::*;
 import GetPut::*;
 import PaxosTypes::*;
 import RegFile::*;
+import Register::*;
 
 interface DropTable;
    interface MetadataClient next;
