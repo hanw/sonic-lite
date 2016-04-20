@@ -44,10 +44,11 @@ module mkP4Register#(Vector#(numClients, Client#(RegRequest#(asz, dsz), RegRespo
       RegRequest#(asz, dsz) req <- toGet(inReqFifo).get;
       if (req.write) begin
          regFile.upd(req.addr, req.data);
+         if (verbose) $display("(%0d) Reg: write addr=%h data=%h", $time, req.addr, req.data);
       end
       else begin
          match {.data} = regFile.sub(req.addr);
-         $display("(%0d) Reg: request addr=%h data=%h", $time, req.addr, data);
+         if (verbose) $display("(%0d) Reg: read addr=%h data=%h", $time, req.addr, data);
          let resp = RegResponse {data: data};
          outRespFifo.enq(resp);
       end

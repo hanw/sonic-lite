@@ -20,8 +20,8 @@
  */
 
 #include "MemServerIndication.h"
-#include "ParserTestIndication.h"
-#include "ParserTestRequest.h"
+#include "MemoryTestIndication.h"
+#include "MemoryTestRequest.h"
 #include "GeneratedTypes.h"
 #include "lutils.h"
 #include "lpcap.h"
@@ -29,21 +29,40 @@
 using namespace std;
 
 #define DATA_WIDTH 128
+#define InstanceSize 32
 
-static ParserTestRequestProxy *device = 0;
+static MemoryTestRequestProxy *device = 0;
 uint16_t flowid;
 
 void device_writePacketData(uint64_t* data, uint8_t* mask, int sop, int eop) {
     device->writePacketData(data, mask, sop, eop);
 }
 
-class ParserTestIndication : public ParserTestIndicationWrapper
+class MemoryTestIndication : public MemoryTestIndicationWrapper
 {
 public:
     virtual void read_version_resp(uint32_t a) {
         fprintf(stderr, "version %x\n", a);
     }
-    ParserTestIndication(unsigned int id) : ParserTestIndicationWrapper(id) {}
+    MemoryTestIndication(unsigned int id) : MemoryTestIndicationWrapper(id) {}
+};
+
+class MemServerIndication : public MemServerIndicationWrapper
+{
+public:
+    virtual void error(uint32_t code, uint32_t sglId, uint64_t offset, uint64_t extra) {
+        fprintf(stderr, "memServer Indication.error=%d\n", code);
+    }
+    virtual void addrResponse ( const uint64_t physAddr ) {
+        fprintf(stderr, "phyaddr=%lx\n", physAddr);
+    }
+    virtual void reportStateDbg ( const DmaDbgRec rec ) {
+        fprintf(stderr, "rec\n");
+    }
+    virtual void reportMemoryTraffic ( const uint64_t words ) {
+        fprintf(stderr, "words %lx\n", words);
+    }
+    MemServerIndication(unsigned int id) : MemServerIndicationWrapper(id) {}
 };
 
 void usage (const char *program_name) {
@@ -101,21 +120,33 @@ parse_options(int argc, char *argv[], char **pcap_file, struct arg_info* info) {
     }
 }
 
+
+
 int main(int argc, char **argv)
 {
     char *pcap_file=NULL;
     struct arg_info arguments = {0, 0, ACCEPTOR};
     struct pcap_trace_info pcap_info = {0, 0};
 
-    ParserTestIndication echoIndication(IfcNames_ParserTestIndicationH2S);
-    device = new ParserTestRequestProxy(IfcNames_ParserTestRequestS2H);
+    MemoryTestIndication echoIndication(IfcNames_MemoryTestIndicationH2S);
+    device = new MemoryTestRequestProxy(IfcNames_MemoryTestRequestS2H);
 
     parse_options(argc, argv, &pcap_file, &arguments);
 
     device->read_version();
-    device->round_reg_write(0);
-    device->role_reg_write(arguments.role);
+
     device->datapath_id_reg_write(1);
+    device->role_reg_write(arguments.role);
+    device->instance_reg_write(0x1234);
+    bsvvector_Luint32_t_L8 vect;
+    for (int i = 0; i < 8; i++)
+        vect[i] = 0;
+
+    for (int index=0; index<InstanceSize; index++){
+        device->vround_reg_write(index, 0);
+        device->round_reg_write(index, 0);
+        device->value_reg_write(index, vect);
+    }
 
     //device->dmacTable_add_entry(0x80a810270008, FORWARD, 1);
     device->dmacTable_add_entry(0x80a810270008, 1);

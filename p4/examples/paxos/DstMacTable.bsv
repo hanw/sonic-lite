@@ -64,6 +64,7 @@ interface DstMacTable;
 endinterface
 
 module mkDstMacTable#(MetadataClient md)(DstMacTable);
+   let verbose = True;
    // internal bcam match table
    MatchTable#(256, SizeOf#(DmacTblReqT), SizeOf#(DmacTblRespT)) matchTable <- mkMatchTable();//_256_dmacTable();
 
@@ -73,8 +74,8 @@ module mkDstMacTable#(MetadataClient md)(DstMacTable);
    FIFO#(MetadataT) currMetadataFifo <- mkFIFO;
 
    // memory client
-   FIFO#(MemRequest) writeReqFifo <- mkSizedFIFO(4);
-   FIFO#(MemData#(`DataBusWidth)) writeDataFifo <- mkSizedFIFO(16);
+   FIFO#(MemRequest) writeReqFifo <- mkSizedFIFO(1);
+   FIFO#(MemData#(`DataBusWidth)) writeDataFifo <- mkSizedFIFO(1);
    FIFO#(Bit#(MemTagSize)) writeDoneFifo <- mkSizedFIFO(4);
    MemWriteClient#(`DataBusWidth) dmaWriteClient = (interface MemWriteClient;
       interface Get writeReq = toGet(writeReqFifo);
@@ -91,6 +92,9 @@ module mkDstMacTable#(MetadataClient md)(DstMacTable);
             currPacketFifo.enq(pkt);
             currMetadataFifo.enq(meta);
          end
+         default: begin
+            if (verbose) $display("(%0d) DstMacTable: unknown request type");
+         end
       endcase
    endrule
 
@@ -103,6 +107,9 @@ module mkDstMacTable#(MetadataClient md)(DstMacTable);
          BBRequest req = tagged BBForwardRequest { pkt: pkt, port: resp.param.port};
          outReqFifo.enq(req);
       end
+      else begin
+         if (verbose) $display("(%0d) DstMacTable: Invalid table response");
+      end
    endrule
 
    rule bb_forward_resp;
@@ -113,6 +120,9 @@ module mkDstMacTable#(MetadataClient md)(DstMacTable);
             $display("(%0d) DstMacTable: fwd egress %h", $time, egress);
             MetadataResponse resp = tagged DstMacResponse {pkt: pkt, meta: meta};
             md.response.put(resp);
+         end
+         default: begin
+            if (verbose) $display("(%0d) DstMacTable: unknown BB response");
          end
       endcase
    endrule

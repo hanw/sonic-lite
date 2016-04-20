@@ -47,10 +47,11 @@ interface Ingress;
    interface PipeOut#(PacketInstance) eventPktSend;
    method IngressPipelineDbgRec dbg;
    method Action datapath_id_reg_write(Bit#(64) datapath);
-   method Action instance_reg_write(Bit#(16) instance_);
-   method Action vround_reg_write(Bit#(InstanceSize) inst, Bit#(RoundSize) round);
-   method Action round_reg_write(Bit#(16) r);
+   method Action instance_reg_write(Bit#(InstanceSize) instance_);
    method Action role_reg_write(Role r);
+   method Action vround_reg_write(Bit#(TLog#(InstanceCount)) inst, Bit#(RoundSize) vround);
+   method Action round_reg_write(Bit#(TLog#(InstanceCount)) inst, Bit#(RoundSize) round);
+   method Action value_reg_write(Bit#(TLog#(InstanceCount)) inst, Vector#(8, Bit#(32)) value);
    method Action sequenceTable_add_entry(Bit#(16) msgtype, SequenceTblActionT action_);
    method Action acceptorTable_add_entry(Bit#(16) msgtype, AcceptorTblActionT action_);
    method Action dmacTable_add_entry(Bit#(48) mac, Bit#(9) port);
@@ -120,10 +121,10 @@ module mkIngress#(Vector#(numClients, MetadataClient) mdc)(Ingress);
 
    RegisterIfc#(1, SizeOf#(Role)) roleReg <- mkP4Register(vec(bb_read_role.regClient, toGPClient(roleRegReqFifo, roleRegRespFifo)));
    RegisterIfc#(1, 64) datapathIdReg <- mkP4Register(vec(bb_handle_2a.regClient_datapath_id, bb_handle_1a.regClient_datapath_id, toGPClient(datapathIdRegReqFifo, datapathIdRegRespFifo)));
-   RegisterIfc#(1, 16) instanceReg <- mkP4Register(vec(bb_increase_instance.regClient, toGPClient(instanceRegReqFifo, instanceRegRespFifo)));
-   RegisterIfc#(InstanceSize, RoundSize) roundReg <- mkP4Register(vec(bb_read_round.regClient, toGPClient(roundRegReqFifo, roundRegRespFifo)));
-   RegisterIfc#(InstanceSize, RoundSize) vroundReg <- mkP4Register(vec(bb_handle_1a.regClient_vround, bb_handle_2a.regClient_vround, toGPClient(vroundRegReqFifo, vroundRegRespFifo)));
-   RegisterIfc#(InstanceSize, ValueSize) valueReg <- mkP4Register(vec(bb_handle_1a.regClient_value, bb_handle_2a.regClient_value, toGPClient(valueRegReqFifo, valueRegRespFifo)));
+   RegisterIfc#(1, InstanceSize) instanceReg <- mkP4Register(vec(bb_increase_instance.regClient, toGPClient(instanceRegReqFifo, instanceRegRespFifo)));
+   RegisterIfc#(TLog#(InstanceCount), RoundSize) roundReg <- mkP4Register(vec(bb_read_round.regClient, bb_handle_2a.regClient_round, bb_handle_1a.regClient_round, toGPClient(roundRegReqFifo, roundRegRespFifo)));
+   RegisterIfc#(TLog#(InstanceCount), RoundSize) vroundReg <- mkP4Register(vec(bb_handle_1a.regClient_vround, bb_handle_2a.regClient_vround, toGPClient(vroundRegReqFifo, vroundRegRespFifo)));
+   RegisterIfc#(TLog#(InstanceCount), ValueSize) valueReg <- mkP4Register(vec(bb_handle_1a.regClient_value, bb_handle_2a.regClient_value, toGPClient(valueRegReqFifo, valueRegRespFifo)));
 
    // Connect Table with BasicBlock
    mkConnection(dstMacTable.next_control_state_0, bb_fwd.prev_control_state);
@@ -247,9 +248,13 @@ module mkIngress#(Vector#(numClients, MetadataClient) mdc)(Ingress);
          fwdCount: fwdCount
       };
    endmethod
-   method Action round_reg_write(Bit#(16) round);
-      RoundRegRequest req = RoundRegRequest {addr: 0, data: round, write: True};
+   method Action round_reg_write(Bit#(TLog#(InstanceCount)) inst, Bit#(RoundSize) round);
+      RoundRegRequest req = RoundRegRequest {addr: inst, data: round, write: True};
       roundRegReqFifo.enq(req);
+   endmethod
+   method Action vround_reg_write(Bit#(TLog#(InstanceCount)) inst, Bit#(RoundSize) round);
+      VRoundRegRequest req = VRoundRegRequest {addr: inst, data: round, write: True};
+      vroundRegReqFifo.enq(req);
    endmethod
    method Action role_reg_write(Role role);
       RoleRegRequest req = RoleRegRequest {addr: 0, data: pack(role), write: True};
@@ -259,13 +264,13 @@ module mkIngress#(Vector#(numClients, MetadataClient) mdc)(Ingress);
       DatapathIdRegRequest req = DatapathIdRegRequest {addr: 0, data: datapath, write: True};
       datapathIdRegReqFifo.enq(req);
    endmethod
-   method Action instance_reg_write(Bit#(16) instance_);
+   method Action instance_reg_write(Bit#(InstanceSize) instance_);
       InstanceRegRequest req = InstanceRegRequest {addr: 0, data: instance_, write: True};
       instanceRegReqFifo.enq(req);
    endmethod
-   method Action vround_reg_write(Bit#(InstanceSize) inst, Bit#(RoundSize) round);
-      VRoundRegRequest req = VRoundRegRequest {addr: inst, data: round, write: True};
-      vroundRegReqFifo.enq(req);
+   method Action value_reg_write(Bit#(TLog#(InstanceCount)) inst, Vector#(8, Bit#(32)) value);
+      ValueRegRequest req = ValueRegRequest {addr: inst, data: pack(value), write: True};
+      valueRegReqFifo.enq(req);
    endmethod
    method sequenceTable_add_entry = sequenceTable.add_entry;
    method acceptorTable_add_entry = acceptorTable.add_entry;

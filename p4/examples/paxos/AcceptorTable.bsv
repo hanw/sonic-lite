@@ -40,27 +40,27 @@ interface BasicBlockHandle1A;
 endinterface
 
 module mkBasicBlockHandle1A(BasicBlockHandle1A);
-   FIFO#(BBRequest) bb_handle_1a_request_fifo <- mkFIFO;
-   FIFO#(BBResponse) bb_handle_1a_response_fifo <- mkFIFO;
-   FIFO#(PacketInstance) curr_packet_fifo <- mkFIFO;
+   FIFO#(BBRequest) bb_handle_1a_request_fifo <- mkSizedFIFO(1);
+   FIFO#(BBResponse) bb_handle_1a_response_fifo <- mkSizedFIFO(1);
+   FIFO#(PacketInstance) curr_packet_fifo <- mkSizedFIFO(1);
 
-   FIFO#(DatapathIdRegRequest) datapathIdReqFifo <- mkFIFO;
-   FIFO#(DatapathIdRegResponse) datapathIdRespFifo <- mkFIFO;
-   FIFO#(VRoundRegRequest) vroundReqFifo <- mkFIFO;
-   FIFO#(VRoundRegResponse) vroundRespFifo <- mkFIFO;
-   FIFO#(ValueRegRequest) valueReqFifo <- mkFIFO;
-   FIFO#(ValueRegResponse) valueRespFifo <- mkFIFO;
-   FIFO#(RoundRegRequest) roundReqFifo <- mkFIFO;
-   FIFO#(RoundRegResponse) roundRespFifo<- mkFIFO;
+   FIFO#(DatapathIdRegRequest) datapathIdReqFifo <- mkSizedFIFO(1);
+   FIFO#(DatapathIdRegResponse) datapathIdRespFifo <- mkSizedFIFO(1);
+   FIFO#(VRoundRegRequest) vroundReqFifo <- mkSizedFIFO(1);
+   FIFO#(VRoundRegResponse) vroundRespFifo <- mkSizedFIFO(1);
+   FIFO#(ValueRegRequest) valueReqFifo <- mkSizedFIFO(1);
+   FIFO#(ValueRegResponse) valueRespFifo <- mkSizedFIFO(1);
+   FIFO#(RoundRegRequest) roundReqFifo <- mkSizedFIFO(1);
+   FIFO#(RoundRegResponse) roundRespFifo<- mkSizedFIFO(1);
 
    rule bb_handle1a;
       let v <- toGet(bb_handle_1a_request_fifo).get;
       case (v) matches
          tagged BBHandle1aRequest {pkt: .pkt, inst: .inst, rnd: .rnd} : begin
-            vroundReqFifo.enq(VRoundRegRequest {addr: inst, data: ?, write: False});
-            valueReqFifo.enq(ValueRegRequest {addr: inst, data: ?, write: False});
+            vroundReqFifo.enq(VRoundRegRequest {addr: truncate(inst), data: ?, write: False});
+            valueReqFifo.enq(ValueRegRequest {addr: truncate(inst), data: ?, write: False});
             datapathIdReqFifo.enq(DatapathIdRegRequest {addr: 0, data: ?, write: False});
-            roundReqFifo.enq(RoundRegRequest {addr: inst, data: rnd, write: True});
+            roundReqFifo.enq(RoundRegRequest {addr: truncate(inst), data: rnd, write: True});
             curr_packet_fifo.enq(pkt);
          end
       endcase
@@ -108,18 +108,18 @@ endinterface
 
 module mkBasicBlockHandle2A(BasicBlockHandle2A);
    let verbose = False;
-   FIFO#(BBRequest) bb_handle_2a_request_fifo <- mkFIFO;
-   FIFO#(BBResponse) bb_handle_2a_response_fifo <- mkFIFO;
-   FIFO#(PacketInstance) curr_packet_fifo <- mkFIFO;
+   FIFO#(BBRequest) bb_handle_2a_request_fifo <- mkSizedFIFO(1);
+   FIFO#(BBResponse) bb_handle_2a_response_fifo <- mkSizedFIFO(1);
+   FIFO#(PacketInstance) curr_packet_fifo <- mkSizedFIFO(1);
 
-   FIFO#(DatapathIdRegRequest) datapathIdReqFifo <- mkFIFO;
-   FIFO#(DatapathIdRegResponse) datapathIdRespFifo <- mkFIFO;
-   FIFO#(VRoundRegRequest) vroundReqFifo <- mkFIFO;
-   FIFO#(VRoundRegResponse) vroundRespFifo <- mkFIFO;
-   FIFO#(ValueRegRequest) valueReqFifo <- mkFIFO;
-   FIFO#(ValueRegResponse) valueRespFifo <- mkFIFO;
-   FIFO#(RoundRegRequest) roundReqFifo <- mkFIFO;
-   FIFO#(RoundRegResponse) roundRespFifo<- mkFIFO;
+   FIFO#(DatapathIdRegRequest) datapathIdReqFifo <- mkSizedFIFO(1);
+   FIFO#(DatapathIdRegResponse) datapathIdRespFifo <- mkSizedFIFO(1);
+   FIFO#(VRoundRegRequest) vroundReqFifo <- mkSizedFIFO(1);
+   FIFO#(VRoundRegResponse) vroundRespFifo <- mkSizedFIFO(1);
+   FIFO#(ValueRegRequest) valueReqFifo <- mkSizedFIFO(1);
+   FIFO#(ValueRegResponse) valueRespFifo <- mkSizedFIFO(1);
+   FIFO#(RoundRegRequest) roundReqFifo <- mkSizedFIFO(1);
+   FIFO#(RoundRegResponse) roundRespFifo<- mkSizedFIFO(1);
 
    rule bb_handle2a;
       let v <- toGet(bb_handle_2a_request_fifo).get;
@@ -127,11 +127,15 @@ module mkBasicBlockHandle2A(BasicBlockHandle2A);
       case (v) matches
          tagged BBHandle2aRequest {pkt: .pkt, inst: .inst, rnd: .rnd, paxosval: .paxosval}: begin
             if (verbose) $display("(%0d) handle_2a bb_request %h %h %h", $time, inst, rnd, paxosval);
-            roundReqFifo.enq(RoundRegRequest {addr: inst, data: rnd, write: True});
-            vroundReqFifo.enq(VRoundRegRequest {addr: inst, data: rnd, write: True});
-            valueReqFifo.enq(ValueRegRequest {addr: inst, data: paxosval, write: True});
+            //FIXME: inst
+            roundReqFifo.enq(RoundRegRequest {addr: truncate(inst), data: rnd, write: True});
+            vroundReqFifo.enq(VRoundRegRequest {addr: truncate(inst), data: rnd, write: True});
+            valueReqFifo.enq(ValueRegRequest {addr: truncate(inst), data: paxosval, write: True});
             datapathIdReqFifo.enq(DatapathIdRegRequest {addr: 0, data: ?, write: False});
             curr_packet_fifo.enq(pkt);
+         end
+         default: begin
+            if (verbose) $display("(%0d) Not valid request", $time);
          end
       endcase
    endrule
@@ -172,8 +176,8 @@ interface BasicBlockDrop;
 endinterface
 
 module mkBasicBlockDrop(BasicBlockDrop);
-   FIFO#(BBRequest) bb_drop_request_fifo <- mkFIFO;
-   FIFO#(BBResponse) bb_drop_response_fifo <- mkFIFO;
+   FIFO#(BBRequest) bb_drop_request_fifo <- mkSizedFIFO(1);
+   FIFO#(BBResponse) bb_drop_response_fifo <- mkSizedFIFO(1);
 
    interface prev_control_state = (interface BBServer;
       interface request = toPut(bb_drop_request_fifo);
@@ -201,6 +205,7 @@ module mkAcceptorTable#(MetadataClient md)(AcceptorTable);
    FIFO#(BBResponse) inRespFifo2 <- mkFIFO;
    FIFO#(PacketInstance) currPacketFifo <- mkFIFO;
    FIFO#(MetadataT) currMetadataFifo <- mkFIFO;
+   FIFO#(MetadataT) bbMetadataFifo <- mkFIFO;
 
    rule lookup_request;
       let v <- md.request.get;
@@ -250,35 +255,55 @@ module mkAcceptorTable#(MetadataClient md)(AcceptorTable);
                if (verbose) $display("(%0d) not valid action %h", $time, resp.act);
             end
          endcase
+         bbMetadataFifo.enq(meta);
       end
-      MetadataResponse meta_resp = tagged AcceptorTblResponse {pkt: pkt, meta: meta};
-      md.response.put(meta_resp);
+      else begin
+         //FIXME: handle exception, punt or drop?
+      end
    endrule
 
    rule bb_handle_1a_resp;
       let v <- toGet(inRespFifo0).get;
+      let meta <- toGet(bbMetadataFifo).get;
       case (v) matches
          tagged BBHandle1aResponse {pkt: .pkt}: begin
             if (verbose) $display("(%0d) handle_1a: read/write register", $time);
+            MetadataResponse meta_resp = tagged AcceptorTblResponse {pkt: pkt, meta: meta};
+            md.response.put(meta_resp);
+         end
+         default: begin
+            $display("(%0d) Unexpected response type %h", v);
          end
       endcase
    endrule
 
    rule bb_handle_2a_resp;
       let v <- toGet(inRespFifo1).get;
+      let meta <- toGet(bbMetadataFifo).get;
       $display("(%0d) handle_2a_resp", $time);
       case (v) matches
          tagged BBHandle2aResponse {pkt: .pkt}: begin
             if (verbose) $display("(%0d) handle_2a: read/write register", $time);
+            MetadataResponse meta_resp = tagged AcceptorTblResponse {pkt: pkt, meta: meta};
+            md.response.put(meta_resp);
+         end
+         default: begin
+            $display("(%0d) Unexpected response type %h", v);
          end
       endcase
    endrule
 
    rule bb_drop;
       let v <- toGet(inRespFifo2).get;
+      let meta <- toGet(bbMetadataFifo).get;
       case (v) matches
          tagged BBDropResponse {pkt: .pkt}: begin
             if (verbose) $display("(%0d) drop", $time);
+            MetadataResponse meta_resp = tagged AcceptorTblResponse {pkt: pkt, meta: meta};
+            md.response.put(meta_resp);
+         end
+         default: begin
+            $display("(%0d) Unexpected response type %h", v);
          end
       endcase
    endrule

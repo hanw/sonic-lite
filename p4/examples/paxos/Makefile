@@ -11,37 +11,62 @@ P4FPGADIR?=$(DEV_ROOT)/sonic-lite/p4
 CONNECTALFLAGS += --bsvpath=$(P4FPGADIR)/bsv/
 CONNECTALFLAGS += --bsvpath=$(P4FPGADIR)/bsv/AsymmetricBRAM
 CONNECTALFLAGS += --bsvpath=$(P4FPGADIR)/bsv/Bcam
-#
-ifeq ($(BOARD), de5)
-PIN_BINDINGS?=PCIE:PCIE LED:LED OSC:OSC SFPA:SFPA SFPB:SFPB SFPC:SFPC SFPD:SFPD SFP:SFP I2C:I2C BUTTON:BUTTON
-PINOUT_FILE=$(SONICDIR)/boards/de5.json
-endif
-
-ifeq ($(BOARD), nfsume)
-
-endif
 
 ########################################################
 # Connectal Support
 ########################################################
-S2H_INTERFACES=ParserTestRequest:ParserTest.request
-H2S_INTERFACES=ParserTest:ParserTestIndication,MemServerIndication
+S2H_INTERFACES=MemoryTestRequest:MemoryTest.request
+H2S_INTERFACES=MemoryTest:MemoryTestIndication,MemServerIndication
+
+BSVFILES=MemoryTest.bsv MemoryAPI.bsv ConnectalTypes.bsv
 CPPFILES=test.cpp
-CPPFILES+=$(SONICDIR)/sw/lpcap.c
-BSVFILES=ParserTest.bsv ConnectalTypes.bsv
-FPGAMAKE_CONNECTALFLAGS += -P mkPcieHostTop
+CPPFILES += $(SONICDIR)/sw/lpcap.c
 
 CONNECTALFLAGS += -m $(P4FPGADIR)/bsv/AsymmetricBRAM/mem_model.c
 CONNECTALFLAGS += -m $(P4FPGADIR)/bsv/matchtable_model.cpp
 
-run:
-	(cd bluesim; ./bin/ubuntu.exe -A -p ../paxos.pcap)
+#######################################################
+# DE5 Specific Settings
+#######################################################
+ifeq ($(BOARD), de5)
+AUTOTOP = --interface pins:MemoryTest.pins
+PIN_TYPE = DE5Pins
+PIN_TYPE_INCLUDE = DE5Pins
+PIN_BINDINGS ?= PCIE:PCIE OSC:OSC SFPA:SFPA SFPB:SFPB SFPC:SFPC SFPD:SFPD SFP:SFP LED:LED I2C:I2C
+PINOUT_FILE = $(SONICDIR)/boards/de5.json
+endif
 
-run2:
-	(cd bluesim; ./bin/ubuntu.exe -C -p ../paxos.pcap)
+CONNECTALFLAGS += --bsvpath=$(P4FPGADIR)/bsv
+CONNECTALFLAGS += --verilog=$(SONICDIR)/hw/verilog/si570/
+CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/mac_10gbe.qip
+CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/altera_xcvr_10gbaser_wrapper.qip
+CONNECTALFLAGS += --xci=$(IPDIR)/$(BOARD)/synthesis/pll_156/altera_pll_156.qip
+CONNECTALFLAGS += --tcl=constraint.sdc
+CONNECTALFLAGS += --constraint=constraint.sdc
+CONNECTALFLAGS += --implconstraint=constraint.sdc
 
-run3:
-	(cd bluesim; ./bin/ubuntu.exe -A -p ../tests/test_phase2a.pcap)
+CONNECTALFLAGS += -D BYTE_ENABLES
+
+BURST_LEN_SIZE=12
+
+#######################################################
+# IP Generation Scripts
+#######################################################
+ifeq ($(BOARD), de5)
+prebuild::
+	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) quartus_sh -t $(SONICDIR)/hw/scripts/generate-mac.tcl)
+	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) quartus_sh -t $(SONICDIR)/hw/scripts/connectal-synth-phy.tcl)
+	(cd $(BOARD); BUILDCACHE_CACHEDIR=$(BUILDCACHE_CACHEDIR) $(BUILDCACHE) quartus_sh -t $(CONNECTALDIR)/scripts/connectal-synth-pll.tcl)
+endif
+
+#######################################################
+# Default Rules
+#######################################################
+run-small:
+	(cd bluesim; ./bin/ubuntu.exe -p ../tests/udp-small.pcap)
+
+run-paxos:
+	(cd bluesim; ./bin/ubuntu.exe -p ../tests/multipaxos.pcap)
 
 include $(SONICDIR)/p4/Makefile.common
 include $(CONNECTALDIR)/Makefile.connectal

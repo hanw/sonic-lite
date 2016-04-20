@@ -4,6 +4,7 @@ typedef 16 RoundSize;
 typedef 16 MsgTypeSize;
 typedef 32 InstanceSize;
 typedef 256 ValueSize;
+typedef 65535 InstanceCount;
 
 typedef struct {
    Bit#(addrSz) addr;
@@ -15,15 +16,15 @@ typedef struct {
    Bit#(dataSz) data;
 } RegResponse#(numeric type dataSz) deriving (Bits, Eq);
 
-typedef RegRequest#(InstanceSize, RoundSize) RoundRegRequest;
+typedef RegRequest#(16, RoundSize) RoundRegRequest;
 typedef RegResponse#(RoundSize) RoundRegResponse;
 typedef RegRequest#(1, 64) DatapathIdRegRequest;
 typedef RegResponse#(64) DatapathIdRegResponse;
-typedef RegRequest#(1, 16) InstanceRegRequest;
-typedef RegResponse#(16) InstanceRegResponse;
-typedef RegRequest#(InstanceSize, RoundSize) VRoundRegRequest;
+typedef RegRequest#(1, InstanceSize) InstanceRegRequest;
+typedef RegResponse#(InstanceSize) InstanceRegResponse;
+typedef RegRequest#(16, RoundSize) VRoundRegRequest;
 typedef RegResponse#(RoundSize) VRoundRegResponse;
-typedef RegRequest#(InstanceSize, ValueSize) ValueRegRequest;
+typedef RegRequest#(16, ValueSize) ValueRegRequest;
 typedef RegResponse#(ValueSize) ValueRegResponse;
 
 typedef enum {

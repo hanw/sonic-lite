@@ -95,12 +95,12 @@ typedef union tagged {
    struct {
       PacketInstance pkt;
       Bit#(InstanceSize) inst;
-      Bit#(16) rnd;
+      Bit#(RoundSize) rnd;
    } BBHandle1aRequest;
    struct {
       PacketInstance pkt;
       Bit#(InstanceSize) inst;
-      Bit#(16) rnd;
+      Bit#(RoundSize) rnd;
       Bit#(ValueSize) paxosval;
    } BBHandle2aRequest;
    struct {
@@ -126,7 +126,7 @@ typedef union tagged {
    struct {
       PacketInstance pkt;
       Bit#(64) datapath;
-      Bit#(16) vround;
+      Bit#(RoundSize) vround;
       Bit#(ValueSize) value;
    } BBHandle1aResponse;
    struct {
@@ -471,7 +471,7 @@ function Ipv4T extract_ipv4(Bit#(160) data);
 endfunction
 
 typedef struct {
-    Bit#(16) round;
+    Bit#(RoundSize) round;
 } IngressMetadataT deriving (Bits, Eq);
 
 instance DefaultValue#(IngressMetadataT);
@@ -645,13 +645,13 @@ typedef struct {
    Maybe#(Bit#(16)) etherType; // ethernet$etherType
    Maybe#(Bit#(8))  protocol; // ipv4$protocol
    Maybe#(Bit#(16)) dstPort; // ipv4$dstPort
-   Maybe#(Bit#(32)) paxos$inst; // paxos$inst
-   Maybe#(Bit#(16)) paxos$rnd;
-   Maybe#(Bit#(16)) paxos$vrnd;
+   Maybe#(Bit#(InstanceSize)) paxos$inst; // paxos$inst
+   Maybe#(Bit#(RoundSize)) paxos$rnd;
+   Maybe#(Bit#(RoundSize)) paxos$vrnd;
    Maybe#(Bit#(256)) paxos$paxosval;
    Maybe#(Bit#(16)) paxos$acptid;
    Maybe#(Bit#(16)) paxos$msgtype;
-   Maybe#(Bit#(16)) paxos_packet_meta$round;
+   Maybe#(Bit#(RoundSize)) paxos_packet_meta$round;
    Maybe#(Role) switch_metadata$role;
    Maybe#(Bool) valid_ethernet;
    Maybe#(Bool) valid_arp;

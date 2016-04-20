@@ -48,7 +48,7 @@ module mkBasicBlockRound(BasicBlockRound);
       case (v) matches
          tagged BBRoundRequest {pkt: .pkt, paxos$inst: .inst}: begin
             RoundRegRequest req;
-            req = RoundRegRequest{addr: inst, data: ?, write: False};
+            req = RoundRegRequest{addr: truncate(inst), data: ?, write: False};
             reg_round_request_fifo.enq(req);
             curr_packet_fifo.enq(pkt);
          end
