@@ -305,7 +305,7 @@ module mkStoreAndFwdFromRingToMac#(Clock txClock, Reset txReset)(StoreAndFwdFrom
       v[0].sop = pack(in.sop);
 `ifdef ALTERA
       v[0].data = pack(reverse(v0_data));
-`elsif XILINX
+`else
       v[0].data = pack(v0_data);
 `endif
       v[0].eop = (in.mask[15:8] == 0) ? pack(in.eop) : 0;
@@ -313,7 +313,7 @@ module mkStoreAndFwdFromRingToMac#(Clock txClock, Reset txReset)(StoreAndFwdFrom
       v[1].sop = 0;
 `ifdef ALTERA
       v[1].data = pack(reverse(v1_data));
-`elsif XILINX
+`else
       v[1].data = pack(v1_data);
 `endif
       v[1].eop = pack(in.eop);
@@ -416,7 +416,7 @@ module mkStoreAndFwdFromMacToRing#(Clock rxClock, Reset rxReset)(StoreAndFwdFrom
       Vector#(8, Bit#(8)) v1_data = unpack(v[1].data);
 `ifdef ALTERA
       data.data = {pack(reverse(v1_data)), pack(reverse(v0_data))};
-`elsif XILINX
+`else
       data.data = {pack(v1_data), pack(v0_data)};
 `endif
       data.mask = {v[1].mask, v[0].mask};
