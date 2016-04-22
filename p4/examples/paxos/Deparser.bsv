@@ -97,6 +97,7 @@ module mkStateDeparseIdle#(Reg#(DeparserState) state, FIFOF#(EtherData) datain, 
       else begin
          datain.deq;
          dataout.enq(v);
+         $display("(%0d) payload ", $time, fshow(v));
          start_fsm <= False;
       end
    endrule
@@ -430,8 +431,10 @@ module mkStateDeparsePaxos#(Reg#(DeparserState) state,
       //let out = apply_metadata(304, data_this_cycle, paxos_meta.first, paxos_mask.first);
       Vector#(48, Bit#(1)) curr_meta = takeAt(304, unpack(byteSwap(pack(paxos_meta.first))));
       Vector#(48, Bit#(1)) curr_mask = takeAt(304, unpack(byteSwap(pack(paxos_mask.first))));
-      let out = (data_this_cycle.data[47:0] & pack(curr_mask)) | pack(curr_meta);
-      data_this_cycle.data = zeroExtend(out);
+      Vector#(48, Bit#(1)) data = takeAt(0, unpack(pack(data_this_cycle.data)));
+      Vector#(80, Bit#(1)) payload = takeAt(48, unpack(pack(data_this_cycle.data)));
+      let out = (pack(data) & pack(curr_mask)) | pack(curr_meta);
+      data_this_cycle.data = { pack(payload), out };
       $display("(%0d) dataout ", $time, fshow(data_this_cycle));
       dataout.enq(data_this_cycle);
       paxos_meta.deq;
