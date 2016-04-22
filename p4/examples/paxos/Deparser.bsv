@@ -85,7 +85,7 @@ function Tuple2#(PaxosT, PaxosT) toPaxos(MetadataT meta);
    return tuple2(paxos, mask);
 endfunction
 
-module mkStateDeparseIdle#(Reg#(DeparserState) state, FIFOF#(EtherData) datain, Wire#(Bool) start_fsm)(Empty);
+module mkStateDeparseIdle#(Reg#(DeparserState) state, FIFOF#(EtherData) datain, FIFOF#(EtherData) dataout, Wire#(Bool) start_fsm)(Empty);
 
    rule load_packet if (state == StateDeparseIdle);
       let v = datain.first;
@@ -96,6 +96,7 @@ module mkStateDeparseIdle#(Reg#(DeparserState) state, FIFOF#(EtherData) datain, 
       end
       else begin
          datain.deq;
+         dataout.enq(v);
          start_fsm <= False;
       end
    endrule
@@ -531,7 +532,7 @@ module mkDeparser(Deparser);
       paxos_mask_fifo.enq(paxos_mask);
    endrule
 
-   Empty init_state <- mkStateDeparseIdle(curr_state, data_in_fifo, start_fsm);
+   Empty init_state <- mkStateDeparseIdle(curr_state, data_in_fifo, data_out_fifo, start_fsm);
    DeparseEthernet deparse_ethernet <- mkStateDeparseEthernet(curr_state, data_in_fifo, data_out_fifo, ethernet_meta_fifo, ethernet_mask_fifo);
    //DeparseArp deparse_arp <- mkStateDeparseArp(curr_state, data_in_fifo);
    DeparseIpv4 deparse_ipv4 <- mkStateDeparseIpv4(curr_state, data_in_fifo, data_out_fifo, ipv4_meta_fifo, ipv4_mask_fifo);
@@ -543,13 +544,7 @@ module mkDeparser(Deparser);
    mkConnection(deparse_ipv4.deparse_ethernet, deparse_ethernet.deparse_ipv4);
    //mkConnection(deparse_ipv6.deparse_ethernet, deparse_ethernet.deparse_ipv6);
    mkConnection(deparse_udp.deparse_ipv4, deparse_ipv4.deparse_udp);
-
-   rule debug;
-      let v <- deparse_udp.deparse_paxos.get;
-      $display("(%0d) enqueue to paxos ", $time, fshow(v));
-      deparse_paxos.deparse_udp.put(v);
-   endrule
-   //mkConnection(deparse_paxos.deparse_udp, deparse_udp.deparse_paxos);
+   mkConnection(deparse_paxos.deparse_udp, deparse_udp.deparse_paxos);
 
    rule start if (start_fsm);
       if (!started) begin

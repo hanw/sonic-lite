@@ -77,7 +77,7 @@ module mkMemoryTest#(MemoryTestIndication indication
                     ,ConnectalMemory::MMUIndication mmuInd
 `endif
                     )(MemoryTest);
-   let verbose = False;
+   let verbose = True;
 
    Clock defaultClock <- exposeCurrentClock();
    Reset defaultReset <- exposeCurrentReset();
@@ -132,7 +132,7 @@ module mkMemoryTest#(MemoryTestIndication indication
 `ifdef SIMULATION
    rule drain_mac;
       let v <- toGet(txchan.macTx).get;
-      if (verbose) $display("(%0d) ParserTest: tx data %h", $time, fshow(v));
+      if (verbose) $display("(%0d) tx data ", $time, fshow(v));
    endrule
 `endif
 
