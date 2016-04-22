@@ -32,12 +32,13 @@ import PacketBuffer::*;
 import StoreAndForward::*;
 import SharedBuff::*;
 import Deparser::*;
+import PaxosTypes::*;
 
 // Encapsulate Egress Pipeline, Tx Ring
 interface TxChannel;
    interface MemReadClient#(`DataBusWidth) readClient;
    interface MemFreeClient freeClient;
-   interface PipeIn#(PacketInstance) eventPktSend;
+   interface PipeIn#(MetadataRequest) eventPktSend;
    interface Get#(PacketDataT#(64)) macTx;
    method PktBuffDbgRec dbg;
 endinterface
@@ -50,12 +51,25 @@ module mkTxChannel#(Clock txClock, Reset txReset)(TxChannel);
 
    mkConnection(egress.writeClient, deparser.writeServer);
    mkConnection(deparser.writeClient, pktBuff.writeServer);
+
    mkConnection(ringToMac.readClient, pktBuff.readServer);
 
    interface macTx = ringToMac.macTx;
    interface readClient = egress.readClient;
    interface freeClient = egress.free;
-   interface eventPktSend = egress.eventPktSend;
+   interface PipeIn eventPktSend;
+      method Action enq (MetadataRequest req);
+         case (req) matches
+            tagged ForwardQueueRequest {pkt: .pkt, meta: .meta}: begin
+               egress.eventPktSend.enq(pkt);
+               deparser.metadata.enq(meta);
+            end
+         endcase
+      endmethod
+      method Bool notFull;
+         return True;
+      endmethod
+   endinterface
    method dbg = pktBuff.dbg;
 endmodule
 

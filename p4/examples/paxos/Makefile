@@ -62,6 +62,9 @@ endif
 #######################################################
 # Default Rules
 #######################################################
+run:
+	(cd bluesim; ./bin/ubuntu.exe -p ../paxos.pcap)
+
 run-small:
 	(cd bluesim; ./bin/ubuntu.exe -p ../tests/udp-small.pcap)
 

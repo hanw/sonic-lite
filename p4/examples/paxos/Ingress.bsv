@@ -44,7 +44,7 @@ import Register::*;
 
 interface Ingress;
    interface MemWriteClient#(`DataBusWidth) writeClient;
-   interface PipeOut#(PacketInstance) eventPktSend;
+   interface PipeOut#(MetadataRequest) eventPktSend;
    method IngressPipelineDbgRec dbg;
    method Action datapath_id_reg_write(Bit#(64) datapath);
    method Action instance_reg_write(Bit#(InstanceSize) instance_);
@@ -60,7 +60,7 @@ endinterface
 module mkIngress#(Vector#(numClients, MetadataClient) mdc)(Ingress);
    let verbose = True;
    Reg#(Bit#(64)) fwdCount <- mkReg(0);
-   FIFOF#(PacketInstance) currPacketFifo <- mkFIFOF;
+   FIFOF#(MetadataRequest) currPacketFifo <- mkFIFOF;
    FIFO#(MetadataRequest) inReqFifo <- mkFIFO;
    FIFO#(MetadataResponse) outRespFifo <- mkFIFO;
 
@@ -194,11 +194,10 @@ module mkIngress#(Vector#(numClients, MetadataClient) mdc)(Ingress);
       $display("(%0d) sequence tbl response", $time);
       case (v) matches
          tagged SequenceTblResponse {pkt: .pkt, meta: .meta}: begin
-            currPacketFifo.enq(pkt);
             $display("(%0d) Sequence: fwd %h", $time, pkt.id);
-            //if (v.p4_action == 1) begin
-            //   MetadataRequest req = tagged ForwardQueueRequest {};
-            //end
+            //FIXME: check action
+            MetadataRequest req = tagged ForwardQueueRequest {pkt: pkt, meta: meta};
+            currPacketFifo.enq(req);
          end
          default: begin
             $display("(%0d) [ERROR] Sequence Table: Unexpected response %h", $time, v);
@@ -232,8 +231,9 @@ module mkIngress#(Vector#(numClients, MetadataClient) mdc)(Ingress);
       $display("(%0d) acceptor table response", $time);
       case (v) matches
          tagged AcceptorTblResponse {pkt: .pkt, meta: .meta}: begin
-            //MetadataRequest req = tagged ForwardQueueRequest {};
-            currPacketFifo.enq(pkt);
+            $display("(%0d) Acceptor: fwd ", $time, fshow(meta));
+            MetadataRequest req = tagged ForwardQueueRequest {pkt: pkt, meta: meta};
+            currPacketFifo.enq(req);
          end
          default: begin
             $display("(%0d) [ERROR] Acceptor Table: Unexpected response %h", $time, v);

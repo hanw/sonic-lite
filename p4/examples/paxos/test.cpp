@@ -158,6 +158,7 @@ int main(int argc, char **argv)
     device->acceptorTable_add_entry(0x3, action_);
     device->acceptorTable_add_entry(0x2, action_);
     device->acceptorTable_add_entry(0x1, action_);
+    device->acceptorTable_add_entry(0x0, action_);
 
     if (pcap_file) {
         fprintf(stderr, "Attempts to read pcap file %s\n", pcap_file);

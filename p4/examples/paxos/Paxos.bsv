@@ -49,6 +49,7 @@ interface ParseEthernet;
     interface Get#(Bit#(16)) parse_ipv4;
     interface Get#(Bit#(16)) parse_ipv6;
     interface Get#(Bit#(48)) parsedOut_ethernet_dstAddr;
+    interface Get#(Bit#(16)) parsedOut_ethernet_etherType;
     method Action start;
     method Action clear;
 endinterface
@@ -58,6 +59,7 @@ module mkStateParseEthernet#(Reg#(ParserState) state, FIFOF#(EtherData) datain)(
     FIFOF#(Bit#(16)) unparsed_parse_ipv6_fifo <- mkSizedFIFOF(1);
 
     FIFOF#(Bit#(48)) parsed_ethernet_fifo <- mkFIFOF;
+    FIFOF#(Bit#(16)) parsed_etherType_fifo <- mkFIFOF;
 
     Wire#(Bit#(128)) packet_in_wire <- mkDWire(0);
     Vector#(4, Wire#(Maybe#(ParserState))) next_state_wire <- replicateM(mkDWire(tagged Invalid));
@@ -118,6 +120,7 @@ module mkStateParseEthernet#(Reg#(ParserState) state, FIFOF#(EtherData) datain)(
             unparsed_parse_ipv6_fifo.enq(pack(unparsed));
         end
         parsed_ethernet_fifo.enq(ethernet.dstAddr);
+        parsed_etherType_fifo.enq(ethernet.etherType);
         next_state_wire[0] <= tagged Valid nextState;
     endaction
     endseq;
@@ -138,6 +141,7 @@ module mkStateParseEthernet#(Reg#(ParserState) state, FIFOF#(EtherData) datain)(
     interface parse_ipv4 = toGet(unparsed_parse_ipv4_fifo);
     interface parse_ipv6 = toGet(unparsed_parse_ipv6_fifo);
     interface parsedOut_ethernet_dstAddr = toGet(parsed_ethernet_fifo);
+    interface parsedOut_ethernet_etherType = toGet(parsed_etherType_fifo);
 endmodule
 interface ParseArp;
     interface Put#(Bit#(16)) parse_ethernet;
@@ -206,12 +210,14 @@ endmodule
 interface ParseIpv4;
     interface Put#(Bit#(16)) parse_ethernet;
     interface Get#(Bit#(112)) parse_udp;
+    interface Get#(Bit#(8)) parsedOut_ipv4_protocol;
     method Action start;
     method Action clear;
 endinterface
 module mkStateParseIpv4#(Reg#(ParserState) state, FIFOF#(EtherData) datain)(ParseIpv4);
     FIFOF#(Bit#(16)) unparsed_parse_ethernet_fifo <- mkBypassFIFOF;
     FIFOF#(Bit#(112)) unparsed_parse_udp_fifo <- mkSizedFIFOF(1);
+    FIFOF#(Bit#(8)) parsed_ipv4_protocol_fifo <- mkFIFOF;
     FIFOF#(Bit#(144)) internal_fifo <- mkSizedFIFOF(1);
     Wire#(Bit#(128)) packet_in_wire <- mkDWire(0);
     Vector#(2, Wire#(Maybe#(ParserState))) next_state_wire <- replicateM(mkDWire(tagged Invalid));
@@ -268,6 +274,7 @@ module mkStateParseIpv4#(Reg#(ParserState) state, FIFOF#(EtherData) datain)(Pars
         if (nextState == StateParseUdp) begin
             unparsed_parse_udp_fifo.enq(pack(unparsed));
         end
+        parsed_ipv4_protocol_fifo.enq(ipv4.protocol);
         next_state_wire[0] <= tagged Valid nextState;
     endaction
     endseq;
@@ -286,6 +293,7 @@ module mkStateParseIpv4#(Reg#(ParserState) state, FIFOF#(EtherData) datain)(Pars
     endmethod
     interface parse_ethernet = toPut(unparsed_parse_ethernet_fifo);
     interface parse_udp = toGet(unparsed_parse_udp_fifo);
+    interface parsedOut_ipv4_protocol = toGet(parsed_ipv4_protocol_fifo);
 endmodule
 interface ParseIpv6;
     interface Put#(Bit#(16)) parse_ethernet;
@@ -361,12 +369,14 @@ endmodule
 interface ParseUdp;
     interface Put#(Bit#(112)) parse_ipv4;
     interface Get#(Bit#(176)) parse_paxos;
+    interface Get#(Bit#(16)) parsedOut_udp_dstPort;
     method Action start;
     method Action clear;
 endinterface
 module mkStateParseUdp#(Reg#(ParserState) state, FIFOF#(EtherData) datain, FIFOF#(ParserState) parseStateFifo)(ParseUdp);
     FIFOF#(Bit#(112)) unparsed_parse_ipv4_fifo <- mkBypassFIFOF;
     FIFOF#(Bit#(176)) unparsed_parse_paxos_fifo <- mkSizedFIFOF(1);
+    FIFOF#(Bit#(16)) parsed_udp_dstPort_fifo <- mkFIFOF;
     Wire#(Bit#(128)) packet_in_wire <- mkDWire(0);
     Vector#(2, Wire#(Maybe#(ParserState))) next_state_wire <- replicateM(mkDWire(tagged Invalid));
     PulseWire start_wire <- mkPulseWire();
@@ -418,6 +428,7 @@ module mkStateParseUdp#(Reg#(ParserState) state, FIFOF#(EtherData) datain, FIFOF
         else begin
             parseStateFifo.enq(StateParseUdp);
         end
+        parsed_udp_dstPort_fifo.enq(udp.dstPort);
         next_state_wire[0] <= tagged Valid nextState;
     endaction
     endseq;
@@ -436,6 +447,7 @@ module mkStateParseUdp#(Reg#(ParserState) state, FIFOF#(EtherData) datain, FIFOF
     endmethod
     interface parse_ipv4 = toPut(unparsed_parse_ipv4_fifo);
     interface parse_paxos = toGet(unparsed_parse_paxos_fifo);
+    interface parsedOut_udp_dstPort = toGet(parsed_udp_dstPort_fifo);
 endmodule
 interface ParsePaxos;
     interface Put#(Bit#(176)) parse_udp;
@@ -578,11 +590,17 @@ module mkParser(Parser);
    rule handle_paxos_packet if (parse_state_out_fifo.first == StateParsePaxos);
       parse_state_out_fifo.deq;
       let dstAddr <- toGet(parse_ethernet.parsedOut_ethernet_dstAddr).get;
+      let etherType <- toGet(parse_ethernet.parsedOut_ethernet_etherType).get;
+      let protocol <- toGet(parse_ipv4.parsedOut_ipv4_protocol).get;
       let paxos <- toGet(parse_paxos.parsedOut_paxos_msgtype).get;
+      let dstPort <- toGet(parse_udp.parsedOut_udp_dstPort).get;
       if (verbose) $display("(%0d) HostChannel: dstAddr=%h", $time, dstAddr);
       if (verbose) $display("(%0d) HostChannel: msgtype=%h", $time, paxos.msgtype);
       MetadataT meta = defaultValue;
+      meta.etherType = tagged Valid etherType;
       meta.dstAddr = tagged Valid dstAddr;
+      meta.dstPort = tagged Valid dstPort;
+      meta.protocol = tagged Valid protocol;
       meta.paxos$inst = tagged Valid byteSwap(paxos.inst);
       meta.paxos$rnd = tagged Valid byteSwap(paxos.rnd);
       meta.paxos$vrnd = tagged Valid byteSwap(paxos.vrnd);

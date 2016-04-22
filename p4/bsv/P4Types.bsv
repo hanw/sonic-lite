@@ -51,6 +51,20 @@ instance ByteSwap#(Bit#(32));
    endfunction
 endinstance
 
+instance ByteSwap#(Bit#(160));
+   function Bit#(160) byteSwap(Bit#(160) x);
+      Vector#(20, Bit#(8)) bytes = unpack(x);
+      return pack(reverse(bytes));
+   endfunction
+endinstance
+
+instance ByteSwap#(Bit#(352));
+   function Bit#(352) byteSwap(Bit#(352) x);
+      Vector#(44, Bit#(8)) bytes = unpack(x);
+      return pack(reverse(bytes));
+   endfunction
+endinstance
+
 typedef struct {
    Bit#(32) cnt;
 } Cycle_t deriving(Bits, Eq);

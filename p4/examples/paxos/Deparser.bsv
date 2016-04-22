@@ -44,30 +44,31 @@ typedef enum {
    StateDeparseIpv6,
    StateDeparseUdp,
    StateDeparsePaxos
-} DeparserState deriving (Bits, Eq);
-instance FShow#(DeparserState);
-   function Fmt fshow(DeparserState state);
-      return $format("State %h", state);
-   endfunction
-endinstance
+} DeparserState deriving (Bits, Eq, FShow);
 
 function Tuple2#(EthernetT, EthernetT) toEthernet(MetadataT meta);
    EthernetT data = defaultValue;
    EthernetT mask = defaultMask;
    data.dstAddr = fromMaybe(?, meta.dstAddr);
    mask.dstAddr = 0;
+   data.etherType = fromMaybe(?, meta.etherType);
+   mask.etherType = 0;
    return tuple2(data, mask);
 endfunction
 
 function Tuple2#(Ipv4T, Ipv4T) toIpv4(MetadataT meta);
    Ipv4T ipv4 = defaultValue;
    Ipv4T mask = defaultMask;
+   ipv4.protocol = fromMaybe(?, meta.protocol);
+   mask.protocol = 0;
    return tuple2(ipv4, mask);
 endfunction
 
 function Tuple2#(UdpT, UdpT) toUdp(MetadataT meta);
    UdpT udp = defaultValue;
    UdpT mask = defaultMask;
+   udp.dstPort = fromMaybe(?, meta.dstPort);
+   mask.dstPort = 0;
    return tuple2(udp, mask);
 endfunction
 
@@ -81,17 +82,17 @@ endfunction
 function Tuple2#(PaxosT, PaxosT) toPaxos(MetadataT meta);
    PaxosT paxos = defaultValue;
    PaxosT mask = defaultMask;
-   // copy meta -> paxos
    return tuple2(paxos, mask);
 endfunction
 
 module mkStateDeparseIdle#(Reg#(DeparserState) state, FIFOF#(EtherData) datain, Wire#(Bool) start_fsm)(Empty);
 
    rule load_packet if (state == StateDeparseIdle);
-   let v = datain.first;
+      let v = datain.first;
       if (v.sop) begin
          state <= StateDeparseEthernet;
          start_fsm <= True;
+         $display("(%0d) Deparse Ethernet Start", $time);
       end
       else begin
          datain.deq;
@@ -101,28 +102,24 @@ module mkStateDeparseIdle#(Reg#(DeparserState) state, FIFOF#(EtherData) datain, 
 endmodule
 
 interface DeparseEthernet;
-   interface Get#(Bit#(128)) deparse_arp;
-   interface Get#(Bit#(128)) deparse_ipv4;
-   interface Get#(Bit#(128)) deparse_ipv6;
+   interface Get#(EtherData) deparse_arp;
+   interface Get#(EtherData) deparse_ipv4;
+   interface Get#(EtherData) deparse_ipv6;
    method Action start;
    method Action clear;
 endinterface
 
 module mkStateDeparseEthernet#(Reg#(DeparserState) state,
                                FIFOF#(EtherData) datain,
+                               FIFOF#(EtherData) dataout,
                                FIFOF#(EthernetT) ethernet_meta,
                                FIFOF#(EthernetT) ethernet_mask)
                                (DeparseEthernet);
    let verbose = True;
-
-   Wire#(Bit#(128)) packet_in_wire <- mkDWire(0);
-   FIFO#(Bit#(128)) packet_out_fifo <- mkFIFO;
-   Wire#(EthernetT) metadata_wire <- mkDWire(defaultValue);
-   Wire#(EthernetT) mask_wire <- mkDWire(defaultMask);
-
-   FIFO#(Bit#(128)) parse_arp_fifo <- mkFIFO;
-   FIFO#(Bit#(128)) parse_ipv4_fifo <- mkFIFO;
-   FIFO#(Bit#(128)) parse_ipv6_fifo <- mkFIFO;
+   Wire#(EtherData) packet_in_wire <- mkDWire(defaultValue);
+   FIFO#(EtherData) parse_arp_fifo <- mkFIFO;
+   FIFO#(EtherData) parse_ipv4_fifo <- mkFIFO;
+   FIFO#(EtherData) parse_ipv6_fifo <- mkFIFO;
 
    PulseWire start_wire <- mkPulseWire;
    PulseWire clear_wire <- mkPulseWire;
@@ -148,34 +145,36 @@ module mkStateDeparseEthernet#(Reg#(DeparserState) state,
 
    rule load_packet if (state == StateDeparseEthernet);
       let data_current <- toGet(datain).get;
-      packet_in_wire <= data_current.data;
-   endrule
-
-   rule load_metadata if (state == StateDeparseEthernet);
-      metadata_wire <= ethernet_meta.first;
-      mask_wire <= ethernet_mask.first;
+      packet_in_wire <= data_current;
+      $display("(%0d) Ether: ", $time, fshow(data_current));
    endrule
 
    Stmt deparse_ethernet =
    seq
    action
       let data_this_cycle = packet_in_wire;
-      Vector#(128, Bit#(1)) dataVec = unpack(data_this_cycle);
-      Vector#(112, Bit#(1)) unsent = takeAt(0, dataVec);
+      let metadata = ethernet_meta.first;
+      let mask = ethernet_mask.first;
+      Vector#(128, Bit#(1)) dataVec = unpack(data_this_cycle.data);
+      Vector#(112, Bit#(1)) hdr = takeAt(0, dataVec);
       Vector#(16, Bit#(1)) unchanged = takeAt(112, dataVec);
-      EthernetT ethernet = unpack(pack(unsent));
-      let nextState = compute_next_state(metadata_wire.etherType);
-      if (verbose) $display("(%0d) Goto state %h", $time, nextState);
+      EthernetT ethernet = unpack(pack(hdr));
+      let nextState = compute_next_state(metadata.etherType);
+      if (verbose) $display("(%0d) Eth: %h", $time, metadata.etherType);
+      if (verbose) $display("(%0d) Goto ", $time, fshow(nextState));
+      data_this_cycle.data = {pack(unchanged), pack(hdr)};
       if (nextState == StateDeparseArp) begin
-         parse_arp_fifo.enq({pack(unsent), pack(unchanged)});
+         parse_arp_fifo.enq(data_this_cycle);
       end
       else if (nextState == StateDeparseIpv4) begin
-         parse_ipv4_fifo.enq({pack(unsent), pack(unchanged)});
+         parse_ipv4_fifo.enq(data_this_cycle);
       end
       else if (nextState == StateDeparseIpv6) begin
-         parse_ipv6_fifo.enq({pack(unsent), pack(unchanged)});
+         parse_ipv6_fifo.enq(data_this_cycle);
       end
-      //next_state_wire[0] <= tagged Valid nextState;
+      state <= nextState;
+      ethernet_meta.deq;
+      ethernet_mask.deq;
    endaction
    endseq;
 
@@ -198,22 +197,21 @@ module mkStateDeparseEthernet#(Reg#(DeparserState) state,
 endmodule
 
 interface DeparseIpv4;
-   interface Put#(Bit#(128)) deparse_ethernet;
-   interface Get#(Bit#(128)) deparse_udp;
+   interface Put#(EtherData) deparse_ethernet;
+   interface Get#(EtherData) deparse_udp;
    method Action start;
    method Action clear;
 endinterface
 module mkStateDeparseIpv4#(Reg#(DeparserState) state,
                            FIFOF#(EtherData) datain,
+                           FIFOF#(EtherData) dataout,
                            FIFOF#(Ipv4T) ipv4_meta,
                            FIFOF#(Ipv4T) ipv4_mask)
                            (DeparseIpv4);
 
-   Wire#(Bit#(128)) packet_in_wire <- mkDWire(0);
-   FIFO#(Bit#(128)) packet_out_fifo <- mkFIFO;
-   FIFO#(Bit#(128)) parse_udp_fifo <- mkFIFO;
-   Wire#(Ipv4T) metadata_wire <- mkDWire(defaultValue);
-   Wire#(Ipv4T) mask_wire <- mkDWire(defaultMask);
+   Wire#(EtherData) packet_in_wire <- mkDWire(defaultValue);
+   FIFOF#(EtherData) deparse_ethernet_fifo <- mkBypassFIFOF;
+   FIFO#(EtherData) deparse_udp_fifo <- mkFIFO;
    PulseWire start_wire <- mkPulseWire();
    PulseWire clear_wire <- mkPulseWire();
 
@@ -230,75 +228,91 @@ module mkStateDeparseIpv4#(Reg#(DeparserState) state,
        return nextState;
    endfunction
 
-//   rule load_last_cycle if (state == StateDeparseIpv4 && !load_new);
-//      let data_current <- toGet(lastcycle).get;
-//      packet_in_wire <= data_current.data;
-//   endrule
-
-   rule load_packet if (state == StateDeparseIpv4);
+   rule load_packet if (state == StateDeparseIpv4 && !deparse_ethernet_fifo.notEmpty());
        let data_current <- toGet(datain).get;
-       packet_in_wire <= data_current.data;
-   endrule
-
-   rule load_metadata if (state == StateDeparseIpv4);
-      //let data = toIpv4(ipv4_meta.first);
-      metadata_wire <= ipv4_meta.first;
-      mask_wire <= ipv4_mask.first;
+       packet_in_wire <= data_current;
+       $display("(%0d) IPv4: ", $time, fshow(data_current));
    endrule
 
    Stmt deparse_ipv4 = 
    seq
    action
-      let data_this_cycle = packet_in_wire;
-      Vector#(112, Bit#(1)) last_data = takeAt(0, unpack(data_this_cycle));
-      Vector#(16, Bit#(1)) data = takeAt(112, unpack(data_this_cycle));
-      Vector#(16, Bit#(1)) curr_meta = takeAt(0, unpack(pack(ipv4_meta.first)));
-      Vector#(16, Bit#(1)) curr_mask = takeAt(0, unpack(pack(ipv4_mask.first)));
+      let data_this_cycle <- toGet(deparse_ethernet_fifo).get;
+      Vector#(112, Bit#(1)) last_data = takeAt(0, unpack(data_this_cycle.data));
+      Vector#(16, Bit#(1)) data = takeAt(112, unpack(data_this_cycle.data));
+      Vector#(16, Bit#(1)) curr_meta = takeAt(0, unpack(byteSwap(pack(ipv4_meta.first))));
+      Vector#(16, Bit#(1)) curr_mask = takeAt(0, unpack(byteSwap(pack(ipv4_mask.first))));
       let masked_data = pack(data) & pack(curr_mask);
       let out_data = masked_data | pack(curr_meta);
-      packet_out_fifo.enq({pack(last_data), out_data});
+      $display("(%0d) IPv4: [1] ", $time, fshow(data_this_cycle), " meta=%h, mask=%h", curr_mask, curr_meta);
+      data_this_cycle.data = {out_data, pack(last_data)};
+      dataout.enq(data_this_cycle);
    endaction
    action
       let data_this_cycle = packet_in_wire;
-      Vector#(128, Bit#(1)) curr_meta = takeAt(16, unpack(pack(ipv4_meta.first)));
-      Vector#(128, Bit#(1)) curr_mask = takeAt(16, unpack(pack(ipv4_mask.first)));
-      let masked_data = data_this_cycle & pack(curr_mask);
+      Vector#(128, Bit#(1)) curr_meta = takeAt(16, unpack(byteSwap(pack(ipv4_meta.first))));
+      Vector#(128, Bit#(1)) curr_mask = takeAt(16, unpack(byteSwap(pack(ipv4_mask.first))));
+      let masked_data = data_this_cycle.data & pack(curr_mask);
       let curr_data = masked_data | pack(curr_meta);
-      packet_out_fifo.enq(curr_data);
+      data_this_cycle.data = curr_data;
+      dataout.enq(data_this_cycle);
+      $display("(%0d) IPv4: [2] ", $time, fshow(data_this_cycle));
    endaction
    action
       let data_this_cycle = packet_in_wire;
-      Vector#(16, Bit#(1)) buff_data = takeAt(0, unpack(data_this_cycle));
-      Vector#(112, Bit#(1)) unchanged = takeAt(16, unpack(data_this_cycle));
-      Vector#(16, Bit#(1)) curr_mask = takeAt(144, unpack(pack(ipv4_mask.first)));
-      Vector#(16, Bit#(1)) curr_meta = takeAt(144, unpack(pack(ipv4_meta.first)));
+      Vector#(16, Bit#(1)) buff_data = takeAt(0, unpack(data_this_cycle.data));
+      Vector#(112, Bit#(1)) unchanged = takeAt(16, unpack(data_this_cycle.data));
+      Vector#(16, Bit#(1)) curr_mask = takeAt(144, unpack(byteSwap(pack(ipv4_mask.first))));
+      Vector#(16, Bit#(1)) curr_meta = takeAt(144, unpack(byteSwap(pack(ipv4_meta.first))));
       let masked_data = pack(buff_data) & pack(curr_mask);
       let curr_data = masked_data | pack(curr_meta);
-      let nextState = compute_next_state(metadata_wire.protocol);
+      let nextState = compute_next_state(ipv4_meta.first.protocol);
+      $display("(%0d) compute_next_state ", $time, fshow(ipv4_meta.first.protocol));
+      $display("(%0d) Goto ", $time, fshow(nextState));
       if (nextState == StateDeparseUdp) begin
-         parse_udp_fifo.enq({pack(curr_data), pack(unchanged)});
+         data_this_cycle.data = {pack(unchanged), pack(curr_data)};
+         deparse_udp_fifo.enq(data_this_cycle);
       end
+      ipv4_meta.deq;
+      ipv4_mask.deq;
+      state <= nextState;
    endaction
    endseq;
+
+   FSM fsm_deparse_ipv4 <- mkFSM(deparse_ipv4);
+   rule start_fsm if (start_wire);
+      fsm_deparse_ipv4.start;
+   endrule
+   rule clear_fsm if (clear_wire);
+      fsm_deparse_ipv4.abort;
+   endrule
+   method Action start();
+      start_wire.send();
+   endmethod
+   method Action clear();
+      clear_wire.send();
+   endmethod
+   interface deparse_ethernet = toPut(deparse_ethernet_fifo);
+   interface deparse_udp = toGet(deparse_udp_fifo);
 endmodule
 
 interface DeparseUdp;
-   interface Put#(Bit#(128)) deparse_ipv4;
-   interface Get#(Bit#(128)) deparse_paxos;
+   interface Put#(EtherData) deparse_ipv4;
+   interface Get#(EtherData) deparse_paxos;
    method Action start;
    method Action clear;
 endinterface
 module mkStateDeparseUdp#(Reg#(DeparserState) state,
                           FIFOF#(EtherData) datain,
+                          FIFOF#(EtherData) dataout,
                           FIFOF#(UdpT) udp_meta,
                           FIFOF#(UdpT) udp_mask)
                           (DeparseUdp);
 
-   Wire#(Bit#(128)) packet_in_wire <- mkDWire(0);
-   FIFO#(Bit#(128)) packet_out_fifo <- mkFIFO;
-   FIFO#(Bit#(128)) parse_paxos_fifo <- mkFIFO;
-   Wire#(UdpT) metadata_wire <- mkDWire(defaultValue);
-   Wire#(UdpT) mask_wire <- mkDWire(defaultMask);
+   let verbose = True;
+   Wire#(EtherData) packet_in_wire <- mkDWire(defaultValue);
+   FIFOF#(EtherData) deparse_ipv4_fifo <- mkBypassFIFOF;
+   FIFO#(EtherData) deparse_paxos_fifo <- mkFIFO;
 
    PulseWire start_wire <- mkPulseWire();
    PulseWire clear_wire <- mkPulseWire();
@@ -316,31 +330,22 @@ module mkStateDeparseUdp#(Reg#(DeparserState) state,
        return nextState;
    endfunction
 
-//   rule load_last_cycle if (state == StateDeparseUdp && !load);
-//      let data_current <- toGet(lastcycle).get;
-//      packet_in_wire <= data_current.data;
-//   endrule
-
-   rule load_packet if (state == StateDeparseUdp);
-       let data_current <- toGet(datain).get;
-       packet_in_wire <= data_current.data;
-   endrule
-
-   rule load_metadata if (state == StateDeparseUdp);
-      metadata_wire <= udp_meta.first;
-      mask_wire <= udp_mask.first;
-   endrule
-
    Stmt deparse_udp =
    seq
    action
-      let data_this_cycle = packet_in_wire;
-      Vector#(80, Bit#(1)) unsent = takeAt(0, unpack(data_this_cycle));
-      Vector#(48, Bit#(1)) unchanged = takeAt(80, unpack(data_this_cycle));
-      let nextState = compute_next_state(metadata_wire.dstPort);
+      let data_this_cycle <- toGet(deparse_ipv4_fifo).get;
+      Vector#(80, Bit#(1)) unsent = takeAt(0, unpack(data_this_cycle.data));
+      Vector#(48, Bit#(1)) unchanged = takeAt(80, unpack(data_this_cycle.data));
+      let nextState = compute_next_state(udp_meta.first.dstPort);
+      if (verbose) $display("(%0d) udp_meta.dstport=", $time, fshow(udp_meta.first.dstPort));
+      if (verbose) $display("(%0d) Goto ", $time, fshow(nextState));
       if (nextState == StateDeparsePaxos) begin
-         parse_paxos_fifo.enq({pack(unsent), pack(unchanged)});
+         data_this_cycle.data = {pack(unchanged), pack(unsent)};
+         deparse_paxos_fifo.enq(data_this_cycle);
       end
+      udp_meta.deq;
+      udp_mask.deq;
+      state <= nextState;
    endaction
    endseq;
 
@@ -357,74 +362,80 @@ module mkStateDeparseUdp#(Reg#(DeparserState) state,
    method Action clear();
       clear_wire.send();
    endmethod
+   interface deparse_ipv4 = toPut(deparse_ipv4_fifo);
+   interface deparse_paxos = toGet(deparse_paxos_fifo);
 endmodule
 
 interface DeparsePaxos;
-   interface Put#(Bit#(128)) deparse_udp;
+   interface Put#(EtherData) deparse_udp;
    method Action start;
    method Action clear;
 endinterface
 module mkStateDeparsePaxos#(Reg#(DeparserState) state,
                             FIFOF#(EtherData) datain,
+                            FIFOF#(EtherData) dataout,
                             FIFOF#(PaxosT) paxos_meta,
                             FIFOF#(PaxosT) paxos_mask)
                             (DeparsePaxos);
 
-   Wire#(Bit#(128)) packet_in_wire <- mkDWire(0);
-   FIFO#(Bit#(128)) packet_out_fifo <- mkFIFO;
+   Wire#(EtherData) packet_in_wire <- mkDWire(defaultValue);
+   FIFOF#(EtherData) deparse_udp_fifo <- mkBypassFIFOF;
 
    PulseWire start_wire <- mkPulseWire();
    PulseWire clear_wire <- mkPulseWire();
 
    function Bit#(128) apply_metadata(Integer offset, Bit#(128) field, PaxosT data, PaxosT mask);
-      Vector#(128, Bit#(1)) curr_meta = takeAt(offset, unpack(pack(data)));
-      Vector#(128, Bit#(1)) curr_mask = takeAt(offset, unpack(pack(mask)));
+      Vector#(128, Bit#(1)) curr_meta = takeAt(offset, unpack(byteSwap(pack(data))));
+      Vector#(128, Bit#(1)) curr_mask = takeAt(offset, unpack(byteSwap(pack(mask))));
       return (field & pack(curr_mask)) | pack(curr_meta);
    endfunction
 
-   rule load_packet if (state == StateDeparsePaxos);
+   rule load_packet if (state == StateDeparsePaxos && !deparse_udp_fifo.notEmpty());
        let data_current <- toGet(datain).get;
-       packet_in_wire <= data_current.data;
+       packet_in_wire <= data_current;
+       $display("(%0d) Paxos: ", $time, fshow(data_current));
    endrule
 
    Stmt deparse_paxos =
    seq
    action
-      let data_this_cycle = packet_in_wire;
-      Vector#(80, Bit#(1)) prev_data = takeAt(0, unpack(pack(data_this_cycle)));
-      Vector#(48, Bit#(1)) last_data = takeAt(80, unpack(pack(data_this_cycle)));
-      Vector#(48, Bit#(1)) curr_meta = takeAt(0, unpack(pack(paxos_meta.first)));
-      Vector#(48, Bit#(1)) curr_mask = takeAt(0, unpack(pack(paxos_mask.first)));
+      let data_this_cycle <- toGet(deparse_udp_fifo).get;
+      Vector#(80, Bit#(1)) prev_data = takeAt(0, unpack(pack(data_this_cycle.data)));
+      Vector#(48, Bit#(1)) last_data = takeAt(80, unpack(pack(data_this_cycle.data)));
+      Vector#(48, Bit#(1)) curr_meta = takeAt(0, unpack(byteSwap(pack(paxos_meta.first))));
+      Vector#(48, Bit#(1)) curr_mask = takeAt(0, unpack(byteSwap(pack(paxos_mask.first))));
       let masked_data = pack(last_data) & pack(curr_mask);
       let curr_data = masked_data | pack(curr_meta);
-      packet_out_fifo.enq({pack(prev_data), pack(last_data)});
+      data_this_cycle.data = {curr_data, pack(prev_data)};
+      $display("(%0d) dataout ", $time, fshow(data_this_cycle));
+      dataout.enq(data_this_cycle);
    endaction
    action
       let data_this_cycle = packet_in_wire;
-      let out = apply_metadata(48, data_this_cycle, paxos_meta.first, paxos_mask.first);
-      //Vector#(128, Bit#(1)) curr_meta = takeAt(48, unpack(pack(paxos_meta.first)));
-      //Vector#(128, Bit#(1)) curr_mask = takeAt(48, unpack(pack(paxos_mask.first)));
-      //let masked_data = data_this_cycle & pack(curr_mask);
-      //let curr_data = masked_data | pack(curr_meta);
-      packet_out_fifo.enq(out);
+      let out = apply_metadata(48, data_this_cycle.data, paxos_meta.first, paxos_mask.first);
+      data_this_cycle.data = out;
+      $display("(%0d) dataout ", $time, fshow(data_this_cycle));
+      dataout.enq(data_this_cycle);
    endaction
    action
       let data_this_cycle = packet_in_wire;
-      // out = apply_metadata(176, data_this_cycle, paxos_meta, paxos_mask);
-      //Vector#(128, Bit#(1)) curr_meta = takeAt(176, unpack(pack(paxos_meta.first)));
-      //Vector#(128, Bit#(1)) curr_mask = takeAt(176, unpack(pack(paxos_mask.first)));
-      //let masked_data = data_this_cycle & pack(curr_mask);
-      //let curr_data = masked_data | pack(curr_meta);
-      //packet_out_fifo.enq(curr_data);
+      let out = apply_metadata(176, data_this_cycle.data, paxos_meta.first, paxos_mask.first);
+      data_this_cycle.data = out;
+      $display("(%0d) dataout ", $time, fshow(data_this_cycle));
+      dataout.enq(data_this_cycle);
    endaction
    action
       let data_this_cycle = packet_in_wire;
-      // out = apply_metadata(304, data_this_cycle, paxos_meta, paxos_mask);
-      //Vector#(128, Bit#(1)) curr_meta = takeAt(304, unpack(pack(paxos_meta.first)));
-      //Vector#(128, Bit#(1)) curr_mask = takeAt(304, unpack(pack(paxos_mask.first)));
-      //let masked_data = data_this_cycle & pack(curr_mask);
-      //let curr_data = masked_data | pack(curr_meta);
-      //packet_out_fifo.enq(curr_data);
+      //let out = apply_metadata(304, data_this_cycle, paxos_meta.first, paxos_mask.first);
+      Vector#(48, Bit#(1)) curr_meta = takeAt(304, unpack(byteSwap(pack(paxos_meta.first))));
+      Vector#(48, Bit#(1)) curr_mask = takeAt(304, unpack(byteSwap(pack(paxos_mask.first))));
+      let out = (data_this_cycle.data[47:0] & pack(curr_mask)) | pack(curr_meta);
+      data_this_cycle.data = zeroExtend(out);
+      $display("(%0d) dataout ", $time, fshow(data_this_cycle));
+      dataout.enq(data_this_cycle);
+      paxos_meta.deq;
+      paxos_mask.deq;
+      state <= StateDeparseIdle;
    endaction
    endseq;
    FSM fsm_deparse_paxos <- mkFSM(deparse_paxos);
@@ -440,10 +451,12 @@ module mkStateDeparsePaxos#(Reg#(DeparserState) state,
    method Action clear();
        clear_wire.send();
    endmethod
+
+   interface deparse_udp = toPut(deparse_udp_fifo);
 endmodule
 
 interface Deparser;
-   interface Get#(MetadataT) metadata;
+   interface PipeIn#(MetadataT) metadata;
    interface PktWriteServer writeServer;
    interface PktWriteClient writeClient;
 endinterface
@@ -452,15 +465,16 @@ typedef 4 PortMax;
 (* synthesize *)
 module mkDeparser(Deparser);
    let verbose = True;
-   Reg#(DeparserState) curr_state <- mkReg(StateDeparseIdle);
+   FIFOF#(EtherData) data_in_fifo <- mkSizedFIFOF(4);
+   FIFOF#(EtherData) data_out_fifo <- mkFIFOF;
+   FIFOF#(MetadataT) metadata_in_fifo <- mkFIFOF;
+
    Reg#(Bool) started <- mkReg(False);
-   FIFOF#(EtherData) data_in_fifo <- mkFIFOF;
-   FIFOF#(EtherData) writeDataFifo <- mkFIFOF;
    Wire#(Bool) start_fsm <- mkDWire(False);
+   Reg#(DeparserState) curr_state <- mkReg(StateDeparseIdle);
 
    Vector#(PortMax, FIFOF#(DeparserState)) deparse_state_in_fifo <- replicateM(mkGFIFOF(False, True));
    FIFOF#(DeparserState) deparse_state_out_fifo <- mkFIFOF;
-   FIFOF#(MetadataT) metadata_in_fifo <- mkFIFOF;
 
    FIFOF#(EthernetT) ethernet_meta_fifo <- mkFIFOF;
    FIFOF#(Ipv4T) ipv4_meta_fifo <- mkFIFOF;
@@ -490,22 +504,20 @@ module mkDeparser(Deparser);
    rule get_metadata;
       let v <- toGet(metadata_in_fifo).get;
       let ethernet = toEthernet(v);
-      //if (ethernet matches tagged Valid {.data, .mask}) begin
-      //   ethernet_meta_fifo.enq(data);
-      //   ethernet_mask_fifo.enq(mask);
-      //end
+      match {.data, .mask} = ethernet;
+      ethernet_meta_fifo.enq(data);
+      ethernet_mask_fifo.enq(mask);
 
-      //let ipv4 = toIpv4(v);
-      //if (ipv4 matches tagged Valid {.data, .mask}) begin
-      //   ipv4_meta_fifo.enq(data);
-      //   ipv4_mask_fifo.enq(mask);
-      //end
+      let ipv4 = toIpv4(v);
+      match {.ipv4_data, .ipv4_mask} = ipv4;
+      if (verbose) $display("(%0d) ipv4 meta", $time, fshow(ipv4));
+      ipv4_meta_fifo.enq(ipv4_data);
+      ipv4_mask_fifo.enq(ipv4_mask);
 
-      //let udp = toUdp(v);
-      //if (udp matches tagged Valid {.data, .mask}) begin
-      //   udp_meta_fifo.enq(data);
-      //   udp_mask_fifo.enq(mask);
-      //end
+      let udp = toUdp(v);
+      match {.udp_data, .udp_mask} = udp;
+      udp_meta_fifo.enq(udp_data);
+      udp_mask_fifo.enq(udp_mask);
 
       //let ipv6 = toIpv6(v);
       //if (ipv6 matches tagged Valid {.data, .mask}) begin
@@ -513,26 +525,31 @@ module mkDeparser(Deparser);
       //   ipv6_mask_fifo.enq(mask);
       //end
 
-      //let paxos = toPaxos(v);
-      //if (paxos matches tagged Valid {.data, .mask}) begin
-      //   paxos_meta_fifo.enq(data);
-      //   paxos_mask_fifo.enq(mask);
-      //end
+      let paxos = toPaxos(v);
+      match {.paxos_data, .paxos_mask} = paxos;
+      paxos_meta_fifo.enq(paxos_data);
+      paxos_mask_fifo.enq(paxos_mask);
    endrule
 
    Empty init_state <- mkStateDeparseIdle(curr_state, data_in_fifo, start_fsm);
-   DeparseEthernet deparse_ethernet <- mkStateDeparseEthernet(curr_state, data_in_fifo, ethernet_meta_fifo, ethernet_mask_fifo);
+   DeparseEthernet deparse_ethernet <- mkStateDeparseEthernet(curr_state, data_in_fifo, data_out_fifo, ethernet_meta_fifo, ethernet_mask_fifo);
    //DeparseArp deparse_arp <- mkStateDeparseArp(curr_state, data_in_fifo);
-   DeparseIpv4 deparse_ipv4 <- mkStateDeparseIpv4(curr_state, data_in_fifo, ipv4_meta_fifo, ipv4_mask_fifo);
+   DeparseIpv4 deparse_ipv4 <- mkStateDeparseIpv4(curr_state, data_in_fifo, data_out_fifo, ipv4_meta_fifo, ipv4_mask_fifo);
    //DeparseIpv6 deparse_ipv6 <- mkStateDeparseIpv6(curr_state, data_in_fifo);
-   DeparseUdp deparse_udp <- mkStateDeparseUdp(curr_state, data_in_fifo, udp_meta_fifo, udp_mask_fifo);
-   DeparsePaxos deparse_paxos <- mkStateDeparsePaxos(curr_state, data_in_fifo, paxos_meta_fifo, paxos_mask_fifo);
+   DeparseUdp deparse_udp <- mkStateDeparseUdp(curr_state, data_in_fifo, data_out_fifo, udp_meta_fifo, udp_mask_fifo);
+   DeparsePaxos deparse_paxos <- mkStateDeparsePaxos(curr_state, data_in_fifo, data_out_fifo, paxos_meta_fifo, paxos_mask_fifo);
 
    //mkConnection(deparse_arp.deparse_ethernet, deparse_ethernet.deparse_arp);
    mkConnection(deparse_ipv4.deparse_ethernet, deparse_ethernet.deparse_ipv4);
    //mkConnection(deparse_ipv6.deparse_ethernet, deparse_ethernet.deparse_ipv6);
    mkConnection(deparse_udp.deparse_ipv4, deparse_ipv4.deparse_udp);
-   mkConnection(deparse_paxos.deparse_udp, deparse_udp.deparse_paxos);
+
+   rule debug;
+      let v <- deparse_udp.deparse_paxos.get;
+      $display("(%0d) enqueue to paxos ", $time, fshow(v));
+      deparse_paxos.deparse_udp.put(v);
+   endrule
+   //mkConnection(deparse_paxos.deparse_udp, deparse_udp.deparse_paxos);
 
    rule start if (start_fsm);
       if (!started) begin
@@ -559,21 +576,10 @@ module mkDeparser(Deparser);
    endrule
 
    interface PktWriteServer writeServer;
-      interface Put writeData;
-         method Action put(EtherData d);
-            // start of packet
-            if (d.sop) begin
-               started <= True;
-            end
-            else if (d.eop) begin
-               started <= False;
-            end
-            // data from memory
-         endmethod
-      endinterface
+      interface writeData = toPut(data_in_fifo);
    endinterface
    interface PktWriteClient writeClient;
-      interface writeData = toGet(writeDataFifo);
+      interface writeData = toGet(data_out_fifo);
    endinterface
-   interface metadata = toGet(metadata_in_fifo);
+   interface metadata = toPipeIn(metadata_in_fifo);
 endmodule

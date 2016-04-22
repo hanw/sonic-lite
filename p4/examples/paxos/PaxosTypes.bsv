@@ -688,7 +688,19 @@ endinstance
 
 instance FShow#(MetadataT);
    function Fmt fshow(MetadataT p);
-      return $format("MetadataT: msgtype=%h, dstAddr=%h, etherType=%h, protocol=%h, dstPort=%h", p.msgtype, p.dstAddr, p.etherType, p.protocol, p.dstPort, fshow(p.switch_metadata$role));
+      return $format("msgtype=", fshow(p.msgtype), ",")+
+             $format("dstAddr=", fshow(p.dstAddr), ",")+
+             $format("etherType=", fshow(p.etherType), ",")+
+             $format("protocol=", fshow(p.protocol), ",")+
+             $format("dstPort=", fshow(p.dstPort), ",")+
+             $format("role=", fshow(p.switch_metadata$role), ",")+
+             $format("round=", fshow(p.paxos_packet_meta$round), ",")+
+             $format("paxos$inst=", fshow(p.paxos$inst), ",")+
+             $format("paxos$rnd=", fshow(p.paxos$rnd), ",")+
+             $format("paxos$vrnd=", fshow(p.paxos$vrnd), ",")+
+             $format("paxos$val=", fshow(p.paxos$paxosval), ",")+
+             $format("paxos$acpt=", fshow(p.paxos$acptid), ",")+
+             $format("paxos$msgtype=", fshow(p.paxos$msgtype));
    endfunction
 endinstance
 
