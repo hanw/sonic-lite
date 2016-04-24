@@ -48,13 +48,23 @@ import PacketBuffer::*;
 import SharedBuff::*;
 import StoreAndForward::*;
 import DbgTypes::*;
-
-`ifdef SYNTHESIS
-import AlteraMacWrap::*;
 import EthMac::*;
+import HostInterface::*;
+
+`ifdef BOARD_de5
+import AlteraMacWrap::*;
 import AlteraEthPhy::*;
 import DE5Pins::*;
-`else
+`endif
+
+`ifdef BOARD_nfsume
+import Xilinx10GE::*;
+import XilinxMacWrap::*;
+import XilinxEthPhy::*;
+import NfsumePins::*;
+`endif
+
+`ifdef SIMULATION
 import Sims::*;
 `endif
 
@@ -70,12 +80,10 @@ interface MemoryTest;
    interface `PinType pins;
 endinterface
 
-module mkMemoryTest#(MemoryTestIndication indication
+module mkMemoryTest#(
+                    HostInterface host,
+                    MemoryTestIndication indication
                     ,ConnectalMemory::MemServerIndication memServerInd
-`ifdef DEBUG
-                    ,MemMgmtIndication memTestInd
-                    ,ConnectalMemory::MMUIndication mmuInd
-`endif
                     )(MemoryTest);
    let verbose = True;
 
@@ -85,21 +93,27 @@ module mkMemoryTest#(MemoryTestIndication indication
    Wire#(Bit#(1)) clk_644_wire <- mkDWire(0);
    Wire#(Bit#(1)) clk_50_wire <- mkDWire(0);
 
-`ifdef SYNTHESIS
-   De5Clocks clocks <- mkDe5Clocks(clk_50_wire, clk_644_wire);
-`else
+`ifdef SIMULATION
    SimClocks clocks <- mkSimClocks();
-`endif
-
    Clock txClock = clocks.clock_156_25;
    Clock phyClock = clocks.clock_644_53;
    Clock mgmtClock = clocks.clock_50;
    Reset txReset <- mkSyncReset(2, defaultReset, txClock);
    Reset phyReset <- mkSyncReset(2, defaultReset, phyClock);
    Reset mgmtReset <- mkSyncReset(2, defaultReset, mgmtClock);
+`endif
 
-`ifdef SYNTHESIS
-   // DE5 Pins
+   //-------------
+   // DE5 MAC+PHY
+   //-------------
+`ifdef BOARD_de5
+   De5Clocks clocks <- mkDe5Clocks(clk_50_wire, clk_644_wire);
+   Clock txClock = clocks.clock_156_25;
+   Clock phyClock = clocks.clock_644_53;
+   Clock mgmtClock = clocks.clock_50;
+   Reset txReset <- mkSyncReset(2, defaultReset, txClock);
+   Reset phyReset <- mkSyncReset(2, defaultReset, phyClock);
+   Reset mgmtReset <- mkSyncReset(2, defaultReset, mgmtClock);
    De5Leds leds <- mkDe5Leds(defaultClock, txClock, mgmtClock, phyClock);
    De5SfpCtrl#(4) sfpctrl <- mkDe5SfpCtrl();
    De5Buttons#(4) buttons <- mkDe5Buttons(clocked_by mgmtClock, reset_by mgmtReset);
@@ -113,6 +127,24 @@ module mkMemoryTest#(MemoryTestIndication indication
    function Put#(Bit#(72)) getRx(EthMacIfc _mac); return _mac.rx; endfunction
    mapM(uncurry(mkConnection), zip(map(getTx, mac), phys.tx));
    mapM(uncurry(mkConnection), zip(phys.rx, map(getRx, mac)));
+`endif
+
+   //----------------
+   // NFSUME MAC+PHY
+   //----------------
+`ifdef BOARD_nfsume
+   Clock mgmtClock = host.tsys_clk_200mhz_buf;
+   Reset mgmtReset <- mkSyncReset(2, defaultReset, mgmtClock);
+   EthPhyIfc phys <- mkXilinxEthPhy(mgmtClock);
+   Clock txClock = phys.tx_clkout;
+   Reset txReset <- mkSyncReset(2, defaultReset, txClock);
+   Vector#(4, EthMacIfc) mac <- replicateM(mkEthMac(mgmtClock, txClock, txReset, clocked_by txClock, reset_by txReset));
+   function Get#(XGMIIData) getTx(EthMacIfc _mac); return _mac.tx; endfunction
+   function Put#(XGMIIData) getRx(EthMacIfc _mac); return _mac.rx; endfunction
+   mapM(uncurry(mkConnection), zip(map(getTx, mac), phys.tx));
+   mapM(uncurry(mkConnection), zip(phys.rx, map(getRx, mac)));
+   NfsumeLeds leds <- mkNfsumeLeds(mgmtClock, txClock);
+   NfsumeSfpCtrl sfpctrl <- mkNfsumeSfpCtrl(phys);
 `endif
 
    // One P4 Channel
@@ -139,7 +171,7 @@ module mkMemoryTest#(MemoryTestIndication indication
    MemoryAPI api <- mkMemoryAPI(indication, hostchan, ingress);
 
    interface request = api.request;
-`ifdef SYNTHESIS
+`ifdef BOARD_de5
    interface `PinType pins;
       method Action osc_50(Bit#(1) b3d, Bit#(1) b4a, Bit#(1) b4d, Bit#(1) b7a, Bit#(1) b7d, Bit#(1) b8a, Bit#(1) b8d);
          clk_50_wire <= b4a;
@@ -159,6 +191,9 @@ module mkMemoryTest#(MemoryTestIndication indication
       interface deleteme_unused_clock3 = defaultClock;
       interface deleteme_unused_reset = defaultReset;
    endinterface
+`endif
+`ifdef BOARD_nfsume
+   interface pins = mkNfsumePins(defaultClock, phys, leds, sfpctrl);
 `endif
 endmodule
 endpackage

@@ -120,8 +120,6 @@ parse_options(int argc, char *argv[], char **pcap_file, struct arg_info* info) {
     }
 }
 
-
-
 int main(int argc, char **argv)
 {
     char *pcap_file=NULL;

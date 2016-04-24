@@ -195,7 +195,7 @@ endinterface
 module mkAcceptorTable#(MetadataClient md)(AcceptorTable);
    let verbose = True;
 
-   MatchTable#(256, SizeOf#(AcceptorTblReqT), SizeOf#(AcceptorTblRespT)) matchTable <- mkMatchTable();//_256_acceptorTable();
+   MatchTable#(256, SizeOf#(AcceptorTblReqT), SizeOf#(AcceptorTblRespT)) matchTable <- mkMatchTable_256_acceptorTable();
 
    FIFO#(BBRequest) outReqFifo0 <- mkFIFO;
    FIFO#(BBResponse) inRespFifo0 <- mkFIFO;

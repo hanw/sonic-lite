@@ -771,4 +771,3 @@ module mkMatchTable_256_sequenceTable(MatchTable#(256, SizeOf#(SequenceTblReqT),
    return ifc;
 endmodule
 
-

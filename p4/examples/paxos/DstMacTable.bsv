@@ -66,7 +66,7 @@ endinterface
 module mkDstMacTable#(MetadataClient md)(DstMacTable);
    let verbose = True;
    // internal bcam match table
-   MatchTable#(256, SizeOf#(DmacTblReqT), SizeOf#(DmacTblRespT)) matchTable <- mkMatchTable();//_256_dmacTable();
+   MatchTable#(256, SizeOf#(DmacTblReqT), SizeOf#(DmacTblRespT)) matchTable <- mkMatchTable_256_dmacTable();
 
    FIFO#(BBRequest) outReqFifo <- mkFIFO;
    FIFO#(BBResponse) inRespFifo <- mkFIFO;

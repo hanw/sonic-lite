@@ -88,7 +88,7 @@ module mkSequenceTable#(MetadataClient md)(SequenceTable);
    FIFO#(PacketInstance) currPacketFifo <- mkFIFO;
    FIFO#(MetadataT) currMetadataFifo <- mkFIFO;
 
-   MatchTable#(256, SizeOf#(SequenceTblReqT), SizeOf#(SequenceTblRespT)) matchTable <- mkMatchTable();//_256_sequenceTable();
+   MatchTable#(256, SizeOf#(SequenceTblReqT), SizeOf#(SequenceTblRespT)) matchTable <- mkMatchTable_256_sequenceTable();
 
    rule lookup_request;
       let v <- md.request.get;

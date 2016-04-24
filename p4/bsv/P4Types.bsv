@@ -58,6 +58,13 @@ instance ByteSwap#(Bit#(160));
    endfunction
 endinstance
 
+instance ByteSwap#(Bit#(320));
+   function Bit#(320) byteSwap(Bit#(320) x);
+      Vector#(40, Bit#(8)) bytes = unpack(x);
+      return pack(reverse(bytes));
+   endfunction
+endinstance
+
 instance ByteSwap#(Bit#(352));
    function Bit#(352) byteSwap(Bit#(352) x);
       Vector#(44, Bit#(8)) bytes = unpack(x);

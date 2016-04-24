@@ -459,6 +459,93 @@ module mkStateDeparsePaxos#(Reg#(DeparserState) state,
    interface deparse_udp = toPut(deparse_udp_fifo);
 endmodule
 
+interface DeparseIpv6;
+   interface Put#(EtherData) deparse_ethernet;
+   method Action start;
+   method Action clear;
+endinterface
+module mkStateDeparseIpv6#(Reg#(DeparserState) state,
+                           FIFOF#(EtherData) datain,
+                           FIFOF#(EtherData) dataout,
+                           FIFOF#(Ipv6T) ipv6_meta,
+                           FIFOF#(Ipv6T) ipv6_mask)
+                           (DeparseIpv6);
+   Wire#(EtherData) packet_in_wire <- mkDWire(defaultValue);
+   FIFOF#(EtherData) deparse_ethernet_fifo <- mkBypassFIFOF;
+   PulseWire start_wire <- mkPulseWire;
+   PulseWire clear_wire <- mkPulseWire;
+
+   function Bit#(128) apply_metadata(Integer offset, Bit#(128) field, Ipv6T data, Ipv6T mask);
+      Vector#(128, Bit#(1)) curr_meta = takeAt(offset, unpack(byteSwap(pack(data))));
+      Vector#(128, Bit#(1)) curr_mask = takeAt(offset, unpack(byteSwap(pack(mask))));
+      return (field & pack(curr_mask)) | pack(curr_meta);
+   endfunction
+
+   rule load_packet if (state == StateDeparseIpv6 && !deparse_ethernet_fifo.notEmpty());
+      let data_current <- toGet(datain).get;
+      packet_in_wire <= data_current;
+      $display("(%0d) IPv6: ", $time, fshow(data_current));
+   endrule
+
+   Stmt deparse_ipv6 =
+   seq
+   action
+      let data_this_cycle <- toGet(deparse_ethernet_fifo).get;
+      Vector#(112, Bit#(1)) last_data = takeAt(0, unpack(data_this_cycle.data));
+      Vector#(16, Bit#(1)) data = takeAt(112, unpack(data_this_cycle.data));
+      Vector#(16, Bit#(1)) curr_meta = takeAt(0, unpack(byteSwap(pack(ipv6_meta.first))));
+      Vector#(16, Bit#(1)) curr_mask = takeAt(0, unpack(byteSwap(pack(ipv6_meta.first))));
+      let masked_data = pack(data) & pack(curr_mask);
+      let out_data = masked_data | pack(curr_meta);
+      $display("(%0d) IPv6: ", $time, fshow(data_this_cycle));
+      data_this_cycle.data = {out_data, pack(last_data)};
+      dataout.enq(data_this_cycle);
+   endaction
+   action
+      let data_this_cycle = packet_in_wire;
+      let out = apply_metadata(16, data_this_cycle.data, ipv6_meta.first, ipv6_mask.first);
+      data_this_cycle.data = out;
+      $display("(%0d) dataout ", $time, fshow(data_this_cycle));
+      dataout.enq(data_this_cycle);
+   endaction
+   action
+      let data_this_cycle = packet_in_wire;
+      let out = apply_metadata(144, data_this_cycle.data, ipv6_meta.first, ipv6_mask.first);
+      data_this_cycle.data = out;
+      $display("(%0d) dataout ", $time, fshow(data_this_cycle));
+      dataout.enq(data_this_cycle);
+   endaction
+   action
+      let data_this_cycle = packet_in_wire;
+      Vector#(48, Bit#(1)) curr_meta = takeAt(272, unpack(byteSwap(pack(ipv6_meta.first))));
+      Vector#(48, Bit#(1)) curr_mask = takeAt(272, unpack(byteSwap(pack(ipv6_mask.first))));
+      Vector#(48, Bit#(1)) data = takeAt(0, unpack(pack(data_this_cycle.data)));
+      Vector#(80, Bit#(1)) payload = takeAt(48, unpack(pack(data_this_cycle.data)));
+      let out = (pack(data) & pack(curr_mask)) | pack(curr_meta);
+      data_this_cycle.data = { pack(payload), out };
+      dataout.enq(data_this_cycle);
+      $display("(%0d) dataout ", $time, fshow(data_this_cycle));
+      ipv6_meta.deq;
+      ipv6_mask.deq;
+      state <= StateDeparseIdle;
+   endaction
+   endseq;
+   FSM fsm_deparse_ipv6 <- mkFSM(deparse_ipv6);
+   rule start_fsm if (start_wire);
+       fsm_deparse_ipv6.start;
+   endrule
+   rule clear_fsm if (clear_wire);
+       fsm_deparse_ipv6.abort;
+   endrule
+   method Action start();
+       start_wire.send();
+   endmethod
+   method Action clear();
+       clear_wire.send();
+   endmethod
+   interface deparse_ethernet = toPut(deparse_ethernet_fifo);
+endmodule
+
 interface Deparser;
    interface PipeIn#(MetadataT) metadata;
    interface PktWriteServer writeServer;
@@ -539,13 +626,13 @@ module mkDeparser(Deparser);
    DeparseEthernet deparse_ethernet <- mkStateDeparseEthernet(curr_state, data_in_fifo, data_out_fifo, ethernet_meta_fifo, ethernet_mask_fifo);
    //DeparseArp deparse_arp <- mkStateDeparseArp(curr_state, data_in_fifo);
    DeparseIpv4 deparse_ipv4 <- mkStateDeparseIpv4(curr_state, data_in_fifo, data_out_fifo, ipv4_meta_fifo, ipv4_mask_fifo);
-   //DeparseIpv6 deparse_ipv6 <- mkStateDeparseIpv6(curr_state, data_in_fifo);
+   DeparseIpv6 deparse_ipv6 <- mkStateDeparseIpv6(curr_state, data_in_fifo, data_out_fifo, ipv6_meta_fifo, ipv6_mask_fifo);
    DeparseUdp deparse_udp <- mkStateDeparseUdp(curr_state, data_in_fifo, data_out_fifo, udp_meta_fifo, udp_mask_fifo);
    DeparsePaxos deparse_paxos <- mkStateDeparsePaxos(curr_state, data_in_fifo, data_out_fifo, paxos_meta_fifo, paxos_mask_fifo);
 
    //mkConnection(deparse_arp.deparse_ethernet, deparse_ethernet.deparse_arp);
    mkConnection(deparse_ipv4.deparse_ethernet, deparse_ethernet.deparse_ipv4);
-   //mkConnection(deparse_ipv6.deparse_ethernet, deparse_ethernet.deparse_ipv6);
+   mkConnection(deparse_ipv6.deparse_ethernet, deparse_ethernet.deparse_ipv6);
    mkConnection(deparse_udp.deparse_ipv4, deparse_ipv4.deparse_udp);
    mkConnection(deparse_paxos.deparse_udp, deparse_udp.deparse_paxos);
 
