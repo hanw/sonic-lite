@@ -33,6 +33,7 @@ CONNECTALFLAGS += -D BYTE_ENABLES
 CONNECTALFLAGS += --bscflags="-show-range-conflict +RTS -K46777216 -RTS -demote-errors G0066:G0045 -suppress-warnings G0046:G0020:S0015:S0080:S0039 -steps-max-intervals 20"
 CONNECTALFLAGS += -m $(P4FPGADIR)/bsv/AsymmetricBRAM/mem_model.c
 CONNECTALFLAGS += -m $(P4FPGADIR)/bsv/matchtable_model.cpp
+CONNECTALFLAGS += --nocache
 
 BURST_LEN_SIZE=12
 

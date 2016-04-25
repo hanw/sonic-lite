@@ -19,6 +19,7 @@
 // ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
+import BRAM::*;
 import ClientServer::*;
 import Connectable::*;
 import FIFO::*;
@@ -29,13 +30,16 @@ import RegFile::*;
 import Vector::*;
 import DefaultValue::*;
 import ConnectalTypes::*;
+import ConnectalBram::*;
 
 interface RegisterIfc#(numeric type asz, numeric type dsz);
 endinterface
 
 module mkP4Register#(Vector#(numClients, Client#(RegRequest#(asz, dsz), RegResponse#(dsz))) clients)(RegisterIfc#(asz, dsz));
    let verbose = False;
-   RegFile#(Bit#(asz), Bit#(dsz)) regFile <- mkRegFileFull();
+   BRAM_Configure bramConfig = defaultValue;
+   bramConfig.latency = 2;
+   BRAM2Port#(Bit#(asz), Bit#(dsz)) regFile <- ConnectalBram::mkBRAM2Server(bramConfig);
    FIFO#(RegRequest#(asz, dsz)) inReqFifo <- mkFIFO;
    FIFOF#(Bit#(TAdd#(1, TLog#(numClients)))) client <- mkFIFOF;
    FIFO#(RegResponse#(dsz)) outRespFifo <- mkFIFO;
@@ -43,15 +47,21 @@ module mkP4Register#(Vector#(numClients, Client#(RegRequest#(asz, dsz), RegRespo
    rule processReq;
       RegRequest#(asz, dsz) req <- toGet(inReqFifo).get;
       if (req.write) begin
-         regFile.upd(req.addr, req.data);
+         regFile.portA.request.put(BRAMRequest{write: True, responseOnWrite: False,
+            address: req.addr, datain: req.data});
          if (verbose) $display("(%0d) Reg: write addr=%h data=%h", $time, req.addr, req.data);
       end
       else begin
-         match {.data} = regFile.sub(req.addr);
-         if (verbose) $display("(%0d) Reg: read addr=%h data=%h", $time, req.addr, data);
-         let resp = RegResponse {data: data};
-         outRespFifo.enq(resp);
+         regFile.portB.request.put(BRAMRequest{write: False, responseOnWrite: False,
+            address: req.addr, datain: ?});
+         if (verbose) $display("(%0d) Reg: read addr=%h", $time, req.addr);
       end
+   endrule
+
+   rule processResp;
+      let data <- regFile.portB.response.get;
+      let resp = RegResponse {data: data};
+      outRespFifo.enq(resp);
    endrule
 
    Vector#(numClients, Server#(RegRequest#(asz, dsz), RegResponse#(dsz))) servers = newVector;
