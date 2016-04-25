@@ -20,7 +20,7 @@ function Stmt testSeq(BinaryCam#(256, 9) dut,
         endaction
         delay(100);
         action
-            dut.writeServer.put(BcamWriteReq{addr:'h2, data:'h0});
+            dut.writeServer.put(BcamWriteReq{addr:'h2, data:'h});
         endaction
         delay(100);
         action
@@ -108,14 +108,14 @@ endfunction
 (* synthesize *)
 module mkTb (Empty);
 
-   BinaryCam#(256, 9) bcam <- mkBinaryCam();
+   //BinaryCam#(256, 9) bcam <- mkBinaryCam();
    //BinaryCam#(256, 18) bcam <- mkBinaryCam();
-   //BinaryCam#(256, 36) bcam <- mkBinaryCam();
+   BinaryCam#(256, 36) bcam <- mkBinaryCam();
    //PEnc#(1024) pe <- mkPriorityEncoder();
 
-   mkAutoFSM(testSeq(bcam, "bcam"));
+   //mkAutoFSM(testSeq(bcam, "bcam"));
    //mkAutoFSM(testSeq2(bcam, "bcam"));
-   //mkAutoFSM(testSeq3(bcam, "bcam"));
+   mkAutoFSM(testSeq3(bcam, "bcam"));
 
 endmodule: mkTb
 

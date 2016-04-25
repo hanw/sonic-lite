@@ -66,8 +66,8 @@ module mkRam9bx256(Ram9bx256);
       cycle <= cycle + 1;
    endrule
 
-   FIFOF#(Bit#(16)) iVld_fifo <- mkFIFOF;
-   FIFOF#(Bit#(256)) mIndc_fifo <- mkBypassFIFOF();
+   FIFO#(Bit#(16)) iVld_fifo <- mkFIFO;
+   FIFO#(Bit#(256)) mIndc_fifo <- mkFIFO;
 
    // WWID = 1, RWID = 32, WDEP = 16384, OREG = 1, INIT = 1
 `define VLDRAM AsymmetricBRAM#(Bit#(9), Bit#(16), Bit#(13), Bit#(1))
