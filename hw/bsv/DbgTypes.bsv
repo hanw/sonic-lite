@@ -101,16 +101,6 @@ instance DefaultValue#(IPv4RouteDbgRec);
 endinstance
 
 typedef struct {
-   Bit#(64) fwdCount;
-} IngressPipelineDbgRec deriving (Bits, Eq);
-instance DefaultValue#(IngressPipelineDbgRec);
-   defaultValue =
-   IngressPipelineDbgRec {
-      fwdCount : 0
-   };
-endinstance
-
-typedef struct {
    Bit#(64) data_bytes;
    Bit#(64) sops;
    Bit#(64) eops;
