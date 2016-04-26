@@ -135,6 +135,9 @@ module mkIngress#(Vector#(numClients, MetadataClient) mdc)(Ingress);
    mkConnection(roundTable.next_control_state_0, bb_read_round.prev_control_state);
    mkConnection(roleTable.next_control_state_0, bb_read_role.prev_control_state);
 
+   // Resolve rule conflicts
+   (* descending_urgency ="sequence_tbl_next_control_state, acceptor_tbl_next_control_state" *)
+
    // Control Flow
    rule start_control_state;
       let v <- toGet(inReqFifo).get;

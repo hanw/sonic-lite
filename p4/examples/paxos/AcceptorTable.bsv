@@ -262,6 +262,7 @@ module mkAcceptorTable#(MetadataClient md)(AcceptorTable);
       end
    endrule
 
+   (* descending_urgency="bb_handle_1a_resp, bb_handle_2a_resp, bb_drop" *)
    rule bb_handle_1a_resp;
       let v <- toGet(inRespFifo0).get;
       let meta <- toGet(bbMetadataFifo).get;

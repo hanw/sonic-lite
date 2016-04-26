@@ -45,6 +45,7 @@ module mkBasicBlockIncreaseInstance(BasicBlockIncreaseInstance);
    FIFO#(InstanceRegRequest) instanceReqFifo <- mkFIFO;
    FIFO#(InstanceRegResponse) instanceRespFifo <- mkFIFO;
 
+   (* descending_urgency ="bb_increase_instance, reg_resp" *)
    rule bb_increase_instance;
       let v <- toGet(bb_increase_instance_request_fifo).get;
       case (v) matches
