@@ -26,52 +26,6 @@ import Vector::*;
 import DefaultValue::*;
 import PCIE::*;
 
-typeclass ByteSwap#(type a);
-   function a byteSwap(a x);
-endtypeclass
-
-instance ByteSwap#(Bit#(8));
-   function Bit#(8) byteSwap(Bit#(8) x);
-      Vector#(1, Bit#(8)) bytes = unpack(x);
-      return pack(reverse(bytes));
-   endfunction
-endinstance
-
-instance ByteSwap#(Bit#(16));
-   function Bit#(16) byteSwap(Bit#(16) x);
-      Vector#(2, Bit#(8)) bytes = unpack(x);
-      return pack(reverse(bytes));
-   endfunction
-endinstance
-
-instance ByteSwap#(Bit#(32));
-   function Bit#(32) byteSwap(Bit#(32) x);
-      Vector#(4, Bit#(8)) bytes = unpack(x);
-      return pack(reverse(bytes));
-   endfunction
-endinstance
-
-instance ByteSwap#(Bit#(160));
-   function Bit#(160) byteSwap(Bit#(160) x);
-      Vector#(20, Bit#(8)) bytes = unpack(x);
-      return pack(reverse(bytes));
-   endfunction
-endinstance
-
-instance ByteSwap#(Bit#(320));
-   function Bit#(320) byteSwap(Bit#(320) x);
-      Vector#(40, Bit#(8)) bytes = unpack(x);
-      return pack(reverse(bytes));
-   endfunction
-endinstance
-
-instance ByteSwap#(Bit#(352));
-   function Bit#(352) byteSwap(Bit#(352) x);
-      Vector#(44, Bit#(8)) bytes = unpack(x);
-      return pack(reverse(bytes));
-   endfunction
-endinstance
-
 typedef struct {
    Bit#(32) cnt;
 } Cycle_t deriving(Bits, Eq);
