@@ -158,28 +158,10 @@ typedef struct {
 } Ipv6T deriving (Bits, Eq);
 
 instance DefaultValue#(Ipv6T);
-defaultValue=
-Ipv6T {
-    version: 0,
-    trafficClass: 0,
-    flowLabel: 0,
-    payloadLen: 0,
-    nextHdr: 0,
-    hopLimit: 0,
-    srcAddr: 0,
-    dstAddr: 0};
+defaultValue= unpack(0);
 endinstance
 instance DefaultMask#(Ipv6T);
-defaultMask=
-Ipv6T {
-    version: maxBound,
-    trafficClass: maxBound,
-    flowLabel: maxBound,
-    payloadLen: maxBound,
-    nextHdr: maxBound,
-    hopLimit: maxBound,
-    srcAddr: maxBound,
-    dstAddr: maxBound};
+defaultMask= unpack(maxBound);
 endinstance
 
 instance FShow#(Ipv6T);
@@ -218,24 +200,11 @@ typedef struct {
 } UdpT deriving (Bits, Eq);
 
 instance DefaultValue#(UdpT);
-defaultValue=
-UdpT {
-    srcPort: 0,
-    dstPort: 0,
-    length_: 0,
-    checksum: 0
-};
+defaultValue = unpack(0);
 endinstance
 instance DefaultMask#(UdpT);
-defaultMask=
-UdpT {
-    srcPort: maxBound,
-    dstPort: maxBound,
-    length_: maxBound,
-    checksum: maxBound
-};
+defaultMask = unpack(maxBound);
 endinstance
-
 
 instance FShow#(UdpT);
     function Fmt fshow(UdpT p);
@@ -267,26 +236,10 @@ typedef struct {
 } PaxosT deriving (Bits, Eq);
 
 instance DefaultValue#(PaxosT);
-defaultValue=
-PaxosT {
-    inst: 0,
-    rnd: 0,
-    vrnd: 0,
-    acptid: 0,
-    msgtype: 0,
-    paxosval: 0
-};
+defaultValue = unpack(0);
 endinstance
 instance DefaultMask#(PaxosT);
-defaultMask=
-PaxosT {
-    inst: maxBound,
-    rnd: maxBound,
-    vrnd: maxBound,
-    acptid: maxBound,
-    msgtype: maxBound,
-    paxosval: maxBound
-};
+defaultMask = unpack(maxBound);
 endinstance
 
 instance FShow#(PaxosT);
@@ -326,32 +279,10 @@ typedef struct {
 } ArpT deriving (Bits, Eq);
 
 instance DefaultValue#(ArpT);
-defaultValue=
-ArpT {
-    hrd: 0,
-    pro: 0,
-    hln: 0,
-    pln: 0,
-    op: 0,
-    sha: 0,
-    spa: 0,
-    tha: 0,
-    tpa: 0
-};
+defaultValue = unpack(0);
 endinstance
 instance DefaultMask#(ArpT);
-defaultMask=
-ArpT {
-    hrd: maxBound,
-    pro: maxBound,
-    hln: maxBound,
-    pln: maxBound,
-    op: maxBound,
-    sha: maxBound,
-    spa: maxBound,
-    tha: maxBound,
-    tpa: maxBound
-};
+defaultMask = unpack(maxBound);
 endinstance
 
 instance FShow#(ArpT);
@@ -400,38 +331,10 @@ typedef struct {
 } Ipv4T deriving (Bits, Eq);
 
 instance DefaultValue#(Ipv4T);
-defaultValue=
-Ipv4T {
-    version: 0,
-    ihl: 0,
-    diffserv: 0,
-    totalLen: 0,
-    identification: 0,
-    flags: 0,
-    fragOffset: 0,
-    ttl: 0,
-    protocol: 0,
-    hdrChecksum: 0,
-    srcAddr: 0,
-    dstAddr: 0
-};
+defaultValue = unpack(0);
 endinstance
 instance DefaultMask#(Ipv4T);
-defaultMask=
-Ipv4T {
-    version: maxBound,
-    ihl: maxBound,
-    diffserv: maxBound,
-    totalLen: maxBound,
-    identification: maxBound,
-    flags: maxBound,
-    fragOffset: maxBound,
-    ttl: maxBound,
-    protocol: maxBound,
-    hdrChecksum: maxBound,
-    srcAddr: maxBound,
-    dstAddr: maxBound
-};
+defaultMask = unpack(maxBound);
 endinstance
 
 instance FShow#(Ipv4T);
@@ -475,16 +378,10 @@ typedef struct {
 } IngressMetadataT deriving (Bits, Eq);
 
 instance DefaultValue#(IngressMetadataT);
-defaultValue=
-IngressMetadataT {
-    round: 0
-};
+defaultValue = unpack(0);
 endinstance
 instance DefaultMask#(IngressMetadataT);
-defaultMask=
-IngressMetadataT {
-    round: maxBound
-};
+defaultMask = unpack(maxBound);
 endinstance
 
 instance FShow#(IngressMetadataT);
@@ -508,20 +405,10 @@ typedef struct {
 } EthernetT deriving (Bits, Eq);
 
 instance DefaultValue#(EthernetT);
-defaultValue=
-EthernetT {
-    dstAddr: 0,
-    srcAddr: 0,
-    etherType: 0
-};
+defaultValue = unpack(0);
 endinstance
 instance DefaultMask#(EthernetT);
-defaultMask=
-EthernetT {
-   dstAddr: maxBound,
-   srcAddr: maxBound,
-   etherType: maxBound
-};
+defaultMask = unpack(maxBound);
 endinstance
 
 instance FShow#(EthernetT);
@@ -554,30 +441,10 @@ typedef struct {
 } StandardMetadataT deriving (Bits, Eq);
 
 instance DefaultValue#(StandardMetadataT);
-defaultValue=
-StandardMetadataT {
-    ingress_port: 0,
-    packet_length: 0,
-    egress_spec: 0,
-    egress_port: 0,
-    egress_instance: 0,
-    instance_type: 0,
-    clone_spec: 0,
-    _padding: 0
-};
+defaultValue = unpack(0);
 endinstance
 instance DefaultMask#(StandardMetadataT);
-defaultMask=
-StandardMetadataT {
-    ingress_port: maxBound,
-    packet_length: maxBound,
-    egress_spec: maxBound,
-    egress_port: maxBound,
-    egress_instance: maxBound,
-    instance_type: maxBound,
-    clone_spec: maxBound,
-    _padding: maxBound
-};
+defaultMask = unpack(maxBound);
 endinstance
 
 instance FShow#(StandardMetadataT);
@@ -613,16 +480,10 @@ typedef struct {
 } SwitchMetadataT deriving (Bits, Eq);
 
 instance DefaultValue#(SwitchMetadataT);
-defaultValue=
-SwitchMetadataT {
-    role: 0
-};
+defaultValue = unpack(0);
 endinstance
 instance DefaultMask#(SwitchMetadataT);
-defaultMask=
-SwitchMetadataT {
-    role: maxBound
-};
+defaultMask = unpack(maxBound);
 endinstance
 
 instance FShow#(SwitchMetadataT);
