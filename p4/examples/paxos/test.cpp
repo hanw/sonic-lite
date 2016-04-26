@@ -44,6 +44,10 @@ public:
     virtual void read_version_resp(uint32_t a) {
         fprintf(stderr, "version %x\n", a);
     }
+    virtual void read_ingress_debug_info_resp(IngressDbgRec a) {
+        fprintf(stderr, "fwdCount %ld, acc_in %ld, acc_out %ld\n",
+            a.fwdCount, a.accTbl.pktIn, a.accTbl.pktOut);
+    }
     MemoryTestIndication(unsigned int id) : MemoryTestIndicationWrapper(id) {}
 };
 
@@ -162,6 +166,9 @@ int main(int argc, char **argv)
         fprintf(stderr, "Attempts to read pcap file %s\n", pcap_file);
         load_pcap_file(pcap_file, &pcap_info);
     }
+
+    sleep(3);
+    device->read_ingress_debug_info();
 
     sleep(3);
     return 0;
