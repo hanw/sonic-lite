@@ -55,6 +55,7 @@ interface Ingress;
    method Action sequenceTable_add_entry(Bit#(16) msgtype, SequenceTblActionT action_);
    method Action acceptorTable_add_entry(Bit#(16) msgtype, AcceptorTblActionT action_);
    method Action dmacTable_add_entry(Bit#(48) mac, Bit#(9) port);
+   // Debug
 endinterface
 
 module mkIngress#(Vector#(numClients, MetadataClient) mdc)(Ingress);

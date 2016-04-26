@@ -13,6 +13,7 @@ import Pipe::*;
 import Ethernet::*;
 import P4Types::*;
 import PaxosTypes::*;
+import P4Utils::*;
 
 typedef enum {
    StateStart,

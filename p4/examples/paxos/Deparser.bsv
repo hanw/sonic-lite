@@ -35,6 +35,7 @@ import Ethernet::*;
 import PaxosTypes::*;
 import PacketBuffer::*;
 import P4Types::*;
+import P4Utils::*;
 
 typedef enum {
    StateDeparseIdle,
