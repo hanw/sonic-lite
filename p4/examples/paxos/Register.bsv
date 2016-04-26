@@ -64,28 +64,24 @@ module mkP4Register#(Vector#(numClients, Client#(RegRequest#(asz, dsz), RegRespo
       outRespFifo.enq(resp);
    endrule
 
-   Vector#(numClients, Server#(RegRequest#(asz, dsz), RegResponse#(dsz))) servers = newVector;
-   for (Integer i=0; i<valueOf(numClients); i=i+1) begin
-      servers[i] = (interface Server;
-         interface Put request;
-            method Action put(RegRequest#(asz, dsz) req);
-               inReqFifo.enq(req);
+   Rules rs = emptyRules;
+   for (Integer selectClient=0; selectClient < valueOf(numClients); selectClient = selectClient + 1) begin
+      Rules r =
+         rules
+            rule loadRequest;
+               let req <- clients[selectClient].request.get;
                if (!req.write) begin
-                  client.enq(fromInteger(i));
+                  client.enq(fromInteger(selectClient));
                end
-               if (verbose) $display("(%0d) Reg: server request %d/%d", $time, fromInteger(i), valueOf(numClients));
-            endmethod
-         endinterface
-         interface Get response;
-            method ActionValue#(RegResponse#(dsz)) get if (client.notEmpty() && client.first == fromInteger(i));
-               let v <- toGet(outRespFifo).get;
-               let id = client.first;
-               client.deq;
-               if (verbose) $display("(%0d) Reg: server response %d %h %h", $time, fromInteger(i), v, id);
-               return v;
-            endmethod
-         endinterface
-      endinterface);
+               inReqFifo.enq(req);
+            endrule
+         endrules;
+      rs = rJoinDescendingUrgency(rs, r);
+      rule sendResp if (client.first == fromInteger(selectClient));
+         let resp <- toGet(outRespFifo).get;
+         clients[selectClient].response.put(resp);
+         client.deq;
+      endrule
    end
-   zipWithM_(mkConnection, clients, servers);
+   addRules(rs);
 endmodule
