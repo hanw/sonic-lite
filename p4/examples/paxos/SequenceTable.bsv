@@ -21,14 +21,15 @@
 // SOFTWARE.
 
 import ClientServer::*;
+import ConnectalTypes::*;
 import DbgTypes::*;
+import DbgDefs::*;
 import Ethernet::*;
 import FIFO::*;
 import GetPut::*;
 import MatchTable::*;
 import PaxosTypes::*;
 import RegFile::*;
-import ConnectalTypes::*;
 import Register::*;
 
 interface BasicBlockIncreaseInstance;
@@ -79,6 +80,8 @@ endmodule
 interface SequenceTable;
    interface BBClient next_control_state_0;
    method Action add_entry(Bit#(16) msgtype, SequenceTblActionT action_);
+   // Debug
+   method TableDbgRec read_debug_info();
 endinterface
 
 module mkSequenceTable#(MetadataClient md)(SequenceTable);

@@ -23,19 +23,20 @@
 import BuildVector::*;
 import ClientServer::*;
 import Connectable::*;
+import ConnectalTypes::*;
+import DbgDefs::*;
 import DefaultValue::*;
-import GetPut::*;
-import Vector::*;
-
 import Ethernet::*;
-import PacketBuffer::*;
+import GetPut::*;
 import HostChannel::*;
 import Ingress::*;
+import PacketBuffer::*;
 import PaxosTypes::*;
-import ConnectalTypes::*;
+import Vector::*;
 
 interface MemoryTestIndication;
    method Action read_version_resp(Bit#(32) version);
+   method Action read_ingress_debug_info_resp(IngressDbgRec rec);
 endinterface
 
 interface MemoryTestRequest;
@@ -51,6 +52,7 @@ interface MemoryTestRequest;
    method Action acceptorTable_add_entry(Bit#(16) msgtype, AcceptorTblActionT action_);
    //method Action dmacTable_add_entry(Bit#(48) mac, DmacTblActionT action_, Bit#(9) port_);
    method Action dmacTable_add_entry(Bit#(48) mac, Bit#(9) port_);
+   method Action read_ingress_debug_info();
 endinterface
 
 interface MemoryAPI;
@@ -81,5 +83,9 @@ module mkMemoryAPI#(MemoryTestIndication indication, HostChannel hostchan, Ingre
       method sequenceTable_add_entry = ingress.sequenceTable_add_entry;
       method acceptorTable_add_entry = ingress.acceptorTable_add_entry;
       method dmacTable_add_entry = ingress.dmacTable_add_entry;
+      method Action read_ingress_debug_info();
+         let v = ingress.read_debug_info;
+         indication.read_ingress_debug_info_resp(v);
+      endmethod
    endinterface
 endmodule

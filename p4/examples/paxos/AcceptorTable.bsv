@@ -21,15 +21,16 @@
 // SOFTWARE.
 
 import ClientServer::*;
+import ConnectalTypes::*;
 import DbgTypes::*;
+import DbgDefs::*;
 import Ethernet::*;
 import FIFO::*;
 import GetPut::*;
 import MatchTable::*;
 import RegFile::*;
-import PaxosTypes::*;
-import ConnectalTypes::*;
 import Register::*;
+import PaxosTypes::*;
 
 interface BasicBlockHandle1A;
    interface BBServer prev_control_state;
@@ -190,6 +191,8 @@ interface AcceptorTable;
    interface BBClient next_control_state_1;
    interface BBClient next_control_state_2;
    method Action add_entry(Bit#(16) msgtype, AcceptorTblActionT action_);
+   // Debug
+   method TableDbgRec read_debug_info();
 endinterface
 
 module mkAcceptorTable#(MetadataClient md)(AcceptorTable);
@@ -207,6 +210,9 @@ module mkAcceptorTable#(MetadataClient md)(AcceptorTable);
    FIFO#(MetadataT) currMetadataFifo <- mkFIFO;
    FIFO#(MetadataT) bbMetadataFifo <- mkFIFO;
 
+   Array#(Reg#(LUInt)) pktIn <- mkCReg(2, 0);
+   Array#(Reg#(LUInt)) pktOut <- mkCReg(2, 0);
+
    rule lookup_request;
       let v <- md.request.get;
       case (v) matches
@@ -216,6 +222,7 @@ module mkAcceptorTable#(MetadataClient md)(AcceptorTable);
             if (verbose) $display("(%0d) Acceptor: %h ", $time, pkt.id, fshow(meta.paxos$msgtype));
             currPacketFifo.enq(pkt);
             currMetadataFifo.enq(meta);
+            pktIn[0] <= pktIn[0] + 1;
          end
       endcase
    endrule
@@ -271,6 +278,7 @@ module mkAcceptorTable#(MetadataClient md)(AcceptorTable);
             if (verbose) $display("(%0d) handle_1a: read/write register", $time);
             MetadataResponse meta_resp = tagged AcceptorTblResponse {pkt: pkt, meta: meta};
             md.response.put(meta_resp);
+            pktOut[0] <= pktOut[0] + 1;
          end
          default: begin
             $display("(%0d) Unexpected response type %h", v);
@@ -287,6 +295,7 @@ module mkAcceptorTable#(MetadataClient md)(AcceptorTable);
             if (verbose) $display("(%0d) handle_2a: read/write register", $time);
             MetadataResponse meta_resp = tagged AcceptorTblResponse {pkt: pkt, meta: meta};
             md.response.put(meta_resp);
+            pktOut[0] <= pktOut[0] + 1;
          end
          default: begin
             $display("(%0d) Unexpected response type %h", v);
@@ -302,6 +311,7 @@ module mkAcceptorTable#(MetadataClient md)(AcceptorTable);
             if (verbose) $display("(%0d) drop", $time);
             MetadataResponse meta_resp = tagged AcceptorTblResponse {pkt: pkt, meta: meta};
             md.response.put(meta_resp);
+            pktOut[0] <= pktOut[0] + 1;
          end
          default: begin
             $display("(%0d) Unexpected response type %h", v);
@@ -326,5 +336,11 @@ module mkAcceptorTable#(MetadataClient md)(AcceptorTable);
       AcceptorTblRespT resp = AcceptorTblRespT {act: action_};
       if (verbose) $display("(%0d) acceptor resp=%h", $time, pack(resp));
       matchTable.add_entry.put(tuple2(pack(req), pack(resp)));
+   endmethod
+   method TableDbgRec read_debug_info();
+      return TableDbgRec {
+         pktIn: pktIn[1],
+         pktOut: pktOut[1]
+      };
    endmethod
 endmodule

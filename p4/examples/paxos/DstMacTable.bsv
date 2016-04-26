@@ -21,15 +21,15 @@
 // SOFTWARE.
 
 import ClientServer::*;
+import ConnectalTypes::*;
 import DbgTypes::*;
+import DbgDefs::*;
+import Ethernet::*;
 import FIFO::*;
 import GetPut::*;
-
-import Ethernet::*;
 import MemTypes::*;
-import PaxosTypes::*;
 import MatchTable::*;
-import ConnectalTypes::*;
+import PaxosTypes::*;
 import Register::*;
 
 interface BasicBlockForward;
@@ -61,6 +61,7 @@ interface DstMacTable;
    interface MemWriteClient#(`DataBusWidth) writeClient;
    //method Action add_entry (Bit#(48) dstAddr, DmacTblActionT action_, Bit#(9) port);
    method Action add_entry (Bit#(48) dstAddr, Bit#(9) port);
+   method TableDbgRec read_debug_info();
 endinterface
 
 module mkDstMacTable#(MetadataClient md)(DstMacTable);

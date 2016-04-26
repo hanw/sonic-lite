@@ -21,9 +21,12 @@
 // SOFTWARE.
 
 import AcceptorTable::*;
+import BuildVector::*;
 import ClientServer::*;
 import Connectable::*;
+import ConnectalTypes::*;
 import DbgTypes::*;
+import DbgDefs::*;
 import DstMacTable::*;
 import DropTable::*;
 import Ethernet::*;
@@ -34,18 +37,15 @@ import MemTypes::*;
 import PaxosTypes::*;
 import Pipe::*;
 import RegFile::*;
+import Register::*;
 import RoleTable::*;
 import RoundTable::*;
 import SequenceTable::*;
 import Vector::*;
-import BuildVector::*;
-import ConnectalTypes::*;
-import Register::*;
 
 interface Ingress;
    interface MemWriteClient#(`DataBusWidth) writeClient;
    interface PipeOut#(MetadataRequest) eventPktSend;
-   method IngressPipelineDbgRec dbg;
    method Action datapath_id_reg_write(Bit#(64) datapath);
    method Action instance_reg_write(Bit#(InstanceSize) instance_);
    method Action role_reg_write(Role r);
@@ -56,11 +56,12 @@ interface Ingress;
    method Action acceptorTable_add_entry(Bit#(16) msgtype, AcceptorTblActionT action_);
    method Action dmacTable_add_entry(Bit#(48) mac, Bit#(9) port);
    // Debug
+   method IngressDbgRec read_debug_info;
 endinterface
 
 module mkIngress#(Vector#(numClients, MetadataClient) mdc)(Ingress);
    let verbose = True;
-   Reg#(Bit#(64)) fwdCount <- mkReg(0);
+   Reg#(LUInt) fwdCount <- mkReg(0);
    FIFOF#(MetadataRequest) currPacketFifo <- mkFIFOF;
    FIFO#(MetadataRequest) inReqFifo <- mkFIFO;
    FIFO#(MetadataResponse) outRespFifo <- mkFIFO;
@@ -247,9 +248,12 @@ module mkIngress#(Vector#(numClients, MetadataClient) mdc)(Ingress);
 
    interface writeClient = dstMacTable.writeClient;
    interface eventPktSend = toPipeOut(currPacketFifo);
-   method IngressPipelineDbgRec dbg();
-      return IngressPipelineDbgRec {
-         fwdCount: fwdCount
+   method IngressDbgRec read_debug_info();
+      return IngressDbgRec {
+         fwdCount: fwdCount,
+         accTbl: acceptorTable.read_debug_info,
+         seqTbl: sequenceTable.read_debug_info,
+         dmacTbl: dstMacTable.read_debug_info
       };
    endmethod
    method Action round_reg_write(Bit#(TLog#(InstanceCount)) inst, Bit#(RoundSize) round);
