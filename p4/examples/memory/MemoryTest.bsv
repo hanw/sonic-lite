@@ -147,26 +147,8 @@ module mkMemoryTest#(MemoryTestIndication indication
    MemoryAPI api <- mkMemoryAPI(indication, incoming_buff);
 
    interface request = api.request;
-`ifdef SYNTHESIS
-   interface `PinType pins;
-      method Action osc_50(Bit#(1) b3d, Bit#(1) b4a, Bit#(1) b4d, Bit#(1) b7a, Bit#(1) b7d, Bit#(1) b8a, Bit#(1) b8d);
-         clk_50_wire <= b4a;
-      endmethod
-      method serial_tx_data = phys.serial_tx;
-      method serial_rx = phys.serial_rx;
-      method Action sfp(Bit#(1) refclk);
-         clk_644_wire <= refclk;
-      endmethod
-      interface i2c = clocks.i2c;
-      interface led = leds.led_out;
-      interface led_bracket = leds.led_out;
-      interface sfpctrl = sfpctrl;
-      interface buttons = buttons.pins;
-      interface deleteme_unused_clock = defaultClock;
-      interface deleteme_unused_clock2 = clocks.clock_50;
-      interface deleteme_unused_clock3 = defaultClock;
-      interface deleteme_unused_reset = defaultReset;
-   endinterface
+`ifdef BOARD_de5
+   interface pins = mkDE5Pins(defaultClock, defaultReset, clocks, phys, leds, sfpctrl, buttons);
 `endif
 endmodule
 endpackage

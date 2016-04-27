@@ -179,7 +179,7 @@ module mkMemoryTest#(
    interface request = api.request;
 
 `ifdef BOARD_de5
-   interface pins = mkDE5Pins(defaultClock, clocks, phys, leds, sfpctrl, buttons);
+   interface pins = mkDE5Pins(defaultClock, defaultReset, clocks, phys, leds, sfpctrl, buttons);
 `endif
 `ifdef BOARD_nfsume
    interface pins = mkNfsumePins(defaultClock, phys, leds, sfpctrl);
