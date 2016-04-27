@@ -166,7 +166,6 @@ module mkMemoryTest#(
       let v <- toGet(txchan.macTx).get;
       if (verbose) $display("(%0d) tx data ", $time, fshow(v));
    endrule
-`endif
 `else
    // process p0 -> p1
    mkConnection(txchan.macTx, mac[1].packet_tx);
