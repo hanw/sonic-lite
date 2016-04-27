@@ -7,10 +7,12 @@ import PushButtonController::*;
 
 import AlteraExtra::*;
 import ALTERA_SI570_WRAPPER::*;
+import AlteraEthPhy::*;
+import AlteraMacWrap::*;
 
 (* always_ready, always_enabled *)
 interface DE5Pins;
-`ifndef SIMULATION
+`ifdef BOARD_de5
    method Action osc_50(Bit#(1) b3d, Bit#(1) b4a, Bit#(1) b4d, Bit#(1) b7a, Bit#(1) b7d, Bit#(1) b8a, Bit#(1) b8d);
    method Action sfp(Bit#(1) refclk);
    method Vector#(4, Bit#(1)) serial_tx_data;
@@ -22,10 +24,28 @@ interface DE5Pins;
    interface De5SfpCtrl#(4) sfpctrl;
    interface Clock deleteme_unused_clock;
    interface Clock deleteme_unused_clock2;
-   interface Clock deleteme_unused_clock3;
    interface Reset deleteme_unused_reset;
 `endif
 endinterface
+
+function DE5Pins mkDE5Pins(Clock defaultClock, De5Clocks clocks, EthPhyIfc phys, De5Leds leds, De5SfpCtrl#(4) sfpctrl, De5Buttons#(4) buttons) =
+   interface DE5Pins;
+`ifdef BOARD_de5
+      method Action osc_50(Bit#(1) b3d, Bit#(1) b4a, Bit#(1) b4d, Bit#(1) b7a, Bit#(1) b7d, Bit#(1) b8a, Bit#(1) b8d);
+         clocks.set_clk_50(b4a);
+      endmethod
+      method serial_tx_data = phys.serial_tx;
+      method serial_rx = phys.serial_rx;
+      method sfp = clocks.set_clk_644;
+      interface i2c = clocks.i2c;
+      interface led = leds.led_out;
+      interface led_bracket = leds.led_out;
+      interface sfpctrl = sfpctrl;
+      interface buttons = buttons.pins;
+      interface deleteme_unused_clock = defaultClock;
+      interface deleteme_unused_clock2 = clocks.clock_50;
+      //interface deleteme_unused_reset = defaultReset;
+   endinterface;
 
 interface De5Clocks;
    interface Si570wrapI2c i2c;
@@ -34,9 +54,11 @@ interface De5Clocks;
    interface Clock clock_156_25;
    interface Reset reset_156_25_n;
    interface Clock clock_644_53;
+   method Action set_clk_50(Bit#(1) clk);
+   method Action set_clk_644(Bit#(1) clk);
 endinterface
 
-module mkDe5Clocks#(Bit#(1) clk_50, Bit#(1) clk_644)(De5Clocks);
+module mkDe5Clocks(De5Clocks);
    Clock defaultClock <- exposeCurrentClock();
    Reset defaultReset <- exposeCurrentReset();
 
@@ -71,20 +93,14 @@ module mkDe5Clocks#(Bit#(1) clk_50, Bit#(1) clk_644)(De5Clocks);
       si570.istart.go(1'b0);
    endrule
 
-   rule input_clock_50;
-      iclock_50.inputclock(clk_50);
-   endrule
-
-   rule input_clock_644;
-      iclock_644.inputclock(clk_644);
-   endrule
-
    interface i2c = si570.i2c;
    interface clock_50 = iclock_50.c;
    interface reset_50_n = rst_50_n;
    interface clock_156_25 = clk_156_25;
    interface reset_156_25_n = rst_156_n;
    interface clock_644_53 = iclock_644.c;
+   method set_clk_50 = iclock_50.inputclock;
+   method set_clk_644 = iclock_644.inputclock;
 endmodule
 
 interface De5Leds;
