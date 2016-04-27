@@ -45,8 +45,16 @@ public:
         fprintf(stderr, "version %x\n", a);
     }
     virtual void read_ingress_debug_info_resp(IngressDbgRec a) {
-        fprintf(stderr, "fwdCount %ld, acc_in %ld, acc_out %ld\n",
-            a.fwdCount, a.accTbl.pktIn, a.accTbl.pktOut);
+        fprintf(stderr, "fwdCount %ld, acc_in %ld, acc_out %ld, dmac_in %ld, dmac_out %ld\n",
+            a.fwdCount, a.accTbl.pktIn, a.accTbl.pktOut, a.dmacTbl.pktIn, a.dmacTbl.pktOut);
+    }
+    virtual void read_hostchan_debug_info_resp(HostChannelDbgRec a) {
+        fprintf(stderr, "paxosCount %ld, sop %ld/%ld, eop %ld/%ld\n",
+            a.paxosCount, a.pktBuff.sopEnq, a.pktBuff.sopDeq, a.pktBuff.eopEnq, a.pktBuff.eopDeq);
+    }
+    virtual void read_txchan_debug_info_resp(TxChannelDbgRec a) {
+        fprintf(stderr, "egressCount %ld, sop %ld/%ld, eop %ld/%ld\n",
+            a.egressCount, a.pktBuff.sopEnq, a.pktBuff.sopDeq, a.pktBuff.eopEnq, a.pktBuff.eopDeq);
     }
     MemoryTestIndication(unsigned int id) : MemoryTestIndicationWrapper(id) {}
 };
@@ -169,7 +177,8 @@ int main(int argc, char **argv)
 
     sleep(3);
     device->read_ingress_debug_info();
-
+    device->read_hostchan_debug_info();
+    device->read_txchan_debug_info();
     sleep(3);
     return 0;
 }

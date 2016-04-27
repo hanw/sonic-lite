@@ -21,6 +21,7 @@
 // SOFTWARE.
 
 import DefaultValue::*;
+import DbgTypes::*;
 
 typedef UInt#(64) LUInt;
 typedef Int#(64)  LInt;
@@ -42,4 +43,23 @@ typedef struct {
 instance DefaultValue #(IngressDbgRec);
    defaultValue = unpack(0);
 endinstance
+
+typedef struct {
+   LUInt paxosCount;
+   LUInt ipv6Count;
+   LUInt udpCount;
+   PktBuffDbgRec pktBuff;
+} HostChannelDbgRec deriving (Bits, Eq, FShow);
+instance DefaultValue#(HostChannelDbgRec);
+   defaultValue = unpack(0);
+endinstance
+
+typedef struct {
+   LUInt egressCount;
+   PktBuffDbgRec pktBuff;
+} TxChannelDbgRec deriving (Bits, Eq, FShow);
+instance DefaultValue#(TxChannelDbgRec);
+   defaultValue = unpack(0);
+endinstance
+
 

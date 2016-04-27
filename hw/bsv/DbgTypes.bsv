@@ -5,15 +5,9 @@ typedef struct {
    Bit#(64) eopEnq;
    Bit#(64) sopDeq;
    Bit#(64) eopDeq;
-} PktBuffDbgRec deriving (Bits, Eq);
+} PktBuffDbgRec deriving (Bits, Eq, FShow);
 instance DefaultValue#(PktBuffDbgRec);
-   defaultValue = 
-   PktBuffDbgRec {
-      sopEnq: 0,
-      eopEnq: 0,
-      sopDeq: 0,
-      eopDeq: 0
-   };
+   defaultValue = unpack(0);
 endinstance
 
 typedef struct {
@@ -118,16 +112,3 @@ instance DefaultValue#(ThruDbgRec);
    };
 endinstance
 
-typedef struct {
-   Bit#(64) paxosCount;
-   Bit#(64) ipv6Count;
-   Bit#(64) udpCount;
-} HostChannelDbgRec deriving (Bits, Eq);
-instance DefaultValue#(HostChannelDbgRec);
-   defaultValue = 
-   HostChannelDbgRec {
-      paxosCount : 0,
-      ipv6Count : 0,
-      udpCount : 0
-   };
-endinstance

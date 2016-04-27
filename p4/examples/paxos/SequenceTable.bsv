@@ -39,22 +39,18 @@ endinterface
 
 module mkBasicBlockIncreaseInstance(BasicBlockIncreaseInstance);
    let verbose = False;
-   FIFO#(BBRequest) bb_increase_instance_request_fifo <- mkFIFO;
-   FIFO#(BBResponse) bb_increase_instance_response_fifo <- mkFIFO;
+   FIFO#(BBRequest) bbIncrInstRequest <- mkFIFO;
+   FIFO#(BBResponse) bbIncrInstResponse <- mkFIFO;
    FIFO#(PacketInstance) curr_packet_fifo <- mkFIFO;
 
    FIFO#(InstanceRegRequest) instanceReqFifo <- mkFIFO;
    FIFO#(InstanceRegResponse) instanceRespFifo <- mkFIFO;
 
    (* descending_urgency ="bb_increase_instance, reg_resp" *)
-   rule bb_increase_instance;
-      let v <- toGet(bb_increase_instance_request_fifo).get;
-      case (v) matches
-         tagged BBIncreaseInstanceRequest {pkt: .pkt}: begin
-            instanceReqFifo.enq(InstanceRegRequest {addr: 0, data: ?, write: False});
-            curr_packet_fifo.enq(pkt);
-         end
-      endcase
+   rule bb_increase_instance if (bbIncrInstRequest.first matches tagged BBIncreaseInstanceRequest .v);
+      bbIncrInstRequest.deq;
+      instanceReqFifo.enq(InstanceRegRequest {addr: 0, data: ?, write: False});
+      curr_packet_fifo.enq(v.pkt);
    endrule
 
    rule reg_resp;
@@ -64,12 +60,12 @@ module mkBasicBlockIncreaseInstance(BasicBlockIncreaseInstance);
       let next_inst = inst.data + 1;
       instanceReqFifo.enq(InstanceRegRequest {addr: 0, data: next_inst, write:True});
       BBResponse resp = tagged BBIncreaseInstanceResponse {pkt: pkt};
-      bb_increase_instance_response_fifo.enq(resp);
+      bbIncrInstResponse.enq(resp);
    endrule
 
    interface prev_control_state = (interface BBServer;
-      interface request = toPut(bb_increase_instance_request_fifo);
-      interface response = toGet(bb_increase_instance_response_fifo);
+      interface request = toPut(bbIncrInstRequest);
+      interface response = toGet(bbIncrInstResponse);
    endinterface);
    interface regClient = (interface InstanceRegClient;
       interface request = toGet(instanceReqFifo);
@@ -79,11 +75,14 @@ endmodule
 
 interface SequenceTable;
    interface BBClient next_control_state_0;
+   // MetadataClient PipeIn
+   //interface PipeIn#(Metadata) md;
    method Action add_entry(Bit#(16) msgtype, SequenceTblActionT action_);
    // Debug
    method TableDbgRec read_debug_info();
 endinterface
 
+// FIXME: fix interface to allow synthesis boundary
 module mkSequenceTable#(MetadataClient md)(SequenceTable);
    let verbose = True;
 
@@ -91,6 +90,9 @@ module mkSequenceTable#(MetadataClient md)(SequenceTable);
    FIFO#(BBResponse) inRespFifo <- mkFIFO;
    FIFO#(PacketInstance) currPacketFifo <- mkFIFO;
    FIFO#(MetadataT) currMetadataFifo <- mkFIFO;
+
+   Array #(Reg #(LUInt)) pktIn <- mkCReg(2, 0);
+   Array #(Reg #(LUInt)) pktOut <- mkCReg(2, 0);
 
    MatchTable#(256, SizeOf#(SequenceTblReqT), SizeOf#(SequenceTblRespT)) matchTable <- mkMatchTable_256_sequenceTable();
 
@@ -103,6 +105,7 @@ module mkSequenceTable#(MetadataClient md)(SequenceTable);
             if (verbose) $display("(%0d) Sequence: %h", $time, pkt.id, fshow(meta.paxos$msgtype));
             currPacketFifo.enq(pkt);
             currMetadataFifo.enq(meta);
+            pktIn[0] <= pktIn[0] + 1;
          end
       endcase
    endrule
@@ -127,6 +130,7 @@ module mkSequenceTable#(MetadataClient md)(SequenceTable);
       end
       MetadataResponse meta_resp = tagged SequenceTblResponse {pkt: pkt, meta: meta};
       md.response.put(meta_resp);
+      pktOut[0] <= pktOut[0] + 1;
    endrule
 
    rule bb_increase_instance_resp;
@@ -146,5 +150,8 @@ module mkSequenceTable#(MetadataClient md)(SequenceTable);
       SequenceTblReqT req = SequenceTblReqT {msgtype: msgtype, padding: 0};
       SequenceTblRespT resp = SequenceTblRespT {act: action_};
       matchTable.add_entry.put(tuple2(pack(req), pack(resp)));
+   endmethod
+   method TableDbgRec read_debug_info;
+      return TableDbgRec { pktIn: pktIn[1], pktOut: pktOut[1] };
    endmethod
 endmodule

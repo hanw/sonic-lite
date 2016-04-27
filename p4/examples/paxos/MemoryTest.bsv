@@ -167,8 +167,16 @@ module mkMemoryTest#(
       if (verbose) $display("(%0d) tx data ", $time, fshow(v));
    endrule
 `endif
+`else
+   // process p0 -> p1
+   mkConnection(txchan.macTx, mac[1].packet_tx);
+   //mkConnection(mac[0].packet_rx, rxchan.macRx);
+   // bypass p1 -> p0
+   mkConnection(mac[1].packet_rx, mac[0].packet_tx);
+`endif
 
-   MemoryAPI api <- mkMemoryAPI(indication, hostchan, ingress);
+   // Control Interface
+   MemoryAPI api <- mkMemoryAPI(indication, hostchan, txchan, ingress);
 
    interface request = api.request;
 `ifdef BOARD_de5

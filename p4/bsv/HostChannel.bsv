@@ -23,6 +23,7 @@
 import Connectable::*;
 import ClientServer::*;
 import DbgTypes::*;
+import DbgDefs::*;
 import Ethernet::*;
 import GetPut::*;
 import FIFO::*;
@@ -42,8 +43,7 @@ interface HostChannel;
    interface MemWriteClient#(`DataBusWidth) writeClient;
    interface MemAllocClient mallocClient;
    interface Client#(MetadataRequest, MetadataResponse) next;
-   method PktBuffDbgRec dbg;
-   method HostChannelDbgRec hostdbg;
+   method HostChannelDbgRec read_debug_info;
 endinterface
 
 module mkHostChannel(HostChannel);
@@ -51,9 +51,9 @@ module mkHostChannel(HostChannel);
    FIFO#(MetadataRequest) outReqFifo <- mkFIFO;
    FIFO#(MetadataResponse) inRespFifo <- mkFIFO;
 
-   Reg#(Bit#(64)) paxosCount <- mkReg(0);
-   Reg#(Bit#(64)) ipv6Count <- mkReg(0);
-   Reg#(Bit#(64)) udpCount <- mkReg(0);
+   Reg#(LUInt) paxosCount <- mkReg(0);
+   Reg#(LUInt) ipv6Count <- mkReg(0);
+   Reg#(LUInt) udpCount <- mkReg(0);
 
    PacketBuffer pktBuff <- mkPacketBuffer();
    TapPktRead tap <- mkTapPktRead();
@@ -78,12 +78,12 @@ module mkHostChannel(HostChannel);
       interface response = toPut(inRespFifo);
    endinterface);
    interface mallocClient = ingress.malloc;
-   method dbg = pktBuff.dbg;
-   method HostChannelDbgRec hostdbg();
+   method HostChannelDbgRec read_debug_info;
       return HostChannelDbgRec {
          paxosCount : paxosCount,
          ipv6Count : ipv6Count,
-         udpCount : udpCount
+         udpCount : udpCount,
+         pktBuff: pktBuff.dbg
       };
    endmethod
 endmodule

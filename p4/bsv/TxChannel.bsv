@@ -21,7 +21,7 @@
 // SOFTWARE.
 
 import Connectable::*;
-import DbgTypes::*;
+import DbgDefs::*;
 import Ethernet::*;
 import EthMac::*;
 import GetPut::*;
@@ -40,7 +40,7 @@ interface TxChannel;
    interface MemFreeClient freeClient;
    interface PipeIn#(MetadataRequest) eventPktSend;
    interface Get#(PacketDataT#(64)) macTx;
-   method PktBuffDbgRec dbg;
+   method TxChannelDbgRec read_debug_info;
 endinterface
 
 module mkTxChannel#(Clock txClock, Reset txReset)(TxChannel);
@@ -51,12 +51,12 @@ module mkTxChannel#(Clock txClock, Reset txReset)(TxChannel);
 
    mkConnection(egress.writeClient, deparser.writeServer);
    mkConnection(deparser.writeClient, pktBuff.writeServer);
-
    mkConnection(ringToMac.readClient, pktBuff.readServer);
 
    interface macTx = ringToMac.macTx;
    interface readClient = egress.readClient;
    interface freeClient = egress.free;
+   //FIXME
    interface PipeIn eventPktSend;
       method Action enq (MetadataRequest req);
          case (req) matches
@@ -70,6 +70,11 @@ module mkTxChannel#(Clock txClock, Reset txReset)(TxChannel);
          return True;
       endmethod
    endinterface
-   method dbg = pktBuff.dbg;
+   method TxChannelDbgRec read_debug_info;
+      return TxChannelDbgRec {
+         egressCount : 0,
+         pktBuff: pktBuff.dbg
+         };
+   endmethod
 endmodule
 

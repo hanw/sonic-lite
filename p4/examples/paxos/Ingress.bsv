@@ -141,109 +141,66 @@ module mkIngress#(Vector#(numClients, MetadataClient) mdc)(Ingress);
    (* descending_urgency ="sequence_tbl_next_control_state, acceptor_tbl_next_control_state" *)
 
    // Control Flow
-   rule start_control_state;
-      let v <- toGet(inReqFifo).get;
-      case (v) matches
-         tagged DefaultRequest {pkt: .pkt, meta: .meta} : begin
-            if (isValid(meta.valid_ipv4)) begin
-               MetadataRequest req = tagged DstMacLookupRequest {pkt: pkt, meta: meta};
-               dmacReqFifo.enq(req);
-            end
-         end
-      endcase
+   rule start_control_state if (inReqFifo.first matches tagged DefaultRequest {pkt: .pkt, meta: .meta});
+      inReqFifo.deq;
+      if (isValid(meta.valid_ipv4)) begin
+         MetadataRequest req = tagged DstMacLookupRequest {pkt: pkt, meta: meta};
+         dmacReqFifo.enq(req);
+      end
    endrule
 
-   rule dmac_tbl_next_control_state;
-      let v <- toGet(dmacRespFifo).get;
+   rule dmac_tbl_next_control_state if (dmacRespFifo.first matches tagged DstMacResponse {pkt: .pkt, meta: .meta});
+      dmacRespFifo.deq;
+      if (isValid(meta.valid_paxos)) begin
+         MetadataRequest req = tagged RoleLookupRequest {pkt: pkt, meta: meta};
+         roleReqFifo.enq(req);
+      end
       $display("(%0d) Ingress: dmac_tbl next control state", $time);
-      case (v) matches
-         tagged DstMacResponse {pkt: .pkt, meta: .meta}: begin
-            if (isValid(meta.valid_paxos)) begin
-               MetadataRequest req = tagged RoleLookupRequest {pkt: pkt, meta: meta};
-               roleReqFifo.enq(req);
+   endrule
+
+   rule role_tbl_next_control_state if (roleRespFifo.first matches tagged RoleResponse {pkt: .pkt, meta: .meta});
+      roleRespFifo.deq;
+      if (meta.switch_metadata$role matches tagged Valid .role) begin
+         case (role) matches
+            ACCEPTOR: begin
+               $display("(%0d) Role: Acceptor %h", $time, pkt.id);
+               MetadataRequest req = tagged RoundTblRequest {pkt: pkt, meta: meta};
+               roundReqFifo.enq(req);
             end
-         end
-         default: begin
-            $display("(%0d) [ERROR] DstMac Table: Unexpected response %h", $time, v);
-         end
-      endcase
-   endrule
-
-   rule role_tbl_next_control_state;
-      let v <- toGet(roleRespFifo).get;
-      case (v) matches
-         tagged RoleResponse {pkt: .pkt, meta: .meta}: begin
-            if (meta.switch_metadata$role matches tagged Valid .role) begin
-               case (role) matches
-                  ACCEPTOR: begin
-                     $display("(%0d) Role: Acceptor %h", $time, pkt.id);
-                     MetadataRequest req = tagged RoundTblRequest {pkt: pkt, meta: meta};
-                     roundReqFifo.enq(req);
-                  end
-                  COORDINATOR: begin
-                     $display("(%0d) Role: Coordinator %h", $time, pkt.id);
-                     MetadataRequest req = tagged SequenceTblRequest {pkt: pkt, meta: meta};
-                     sequenceReqFifo.enq(req);
-                  end
-               endcase
+            COORDINATOR: begin
+               $display("(%0d) Role: Coordinator %h", $time, pkt.id);
+               MetadataRequest req = tagged SequenceTblRequest {pkt: pkt, meta: meta};
+               sequenceReqFifo.enq(req);
             end
-         end
-         default: begin
-            $display("(%0d) [ERROR] Role Table: Unexpected response %h", $time, v);
-         end
-      endcase
+         endcase
+      end
    endrule
 
-   rule sequence_tbl_next_control_state;
-      let v <- toGet(sequenceRespFifo).get;
-      $display("(%0d) sequence tbl response", $time);
-      case (v) matches
-         tagged SequenceTblResponse {pkt: .pkt, meta: .meta}: begin
-            $display("(%0d) Sequence: fwd %h", $time, pkt.id);
-            //FIXME: check action
-            MetadataRequest req = tagged ForwardQueueRequest {pkt: pkt, meta: meta};
-            currPacketFifo.enq(req);
-         end
-         default: begin
-            $display("(%0d) [ERROR] Sequence Table: Unexpected response %h", $time, v);
-         end
-      endcase
+   rule sequence_tbl_next_control_state if (sequenceRespFifo.first matches tagged SequenceTblResponse {pkt: .pkt, meta: .meta});
+      sequenceRespFifo.deq;
+      $display("(%0d) Sequence: fwd %h", $time, pkt.id);
+      //FIXME: check action
+      MetadataRequest req = tagged ForwardQueueRequest {pkt: pkt, meta: meta};
+      currPacketFifo.enq(req);
    endrule
 
-   rule round_tbl_next_control_state;
-      let v <- toGet(roundRespFifo).get;
+   rule round_tbl_next_control_state if (roundRespFifo.first matches tagged RoundTblResponse {pkt: .pkt, meta: .meta});
+      roundRespFifo.deq;
       $display("(%0d) round table response", $time);
-      case (v) matches
-         tagged RoundTblResponse {pkt: .pkt, meta: .meta}: begin
-            if (meta.paxos_packet_meta$round matches tagged Valid .round) begin
-               if (round <= fromMaybe(?, meta.paxos$rnd)) begin
-                  $display("(%0d) Round: Acceptor %h, round=%h, rnd=%h", $time, pkt.id, round, fromMaybe(?, meta.paxos$rnd));
-                  MetadataRequest req = tagged AcceptorTblRequest {pkt: pkt, meta: meta};
-                  acceptorReqFifo.enq(req);
-               end
-            end
-            else
-               $display("(%0d) Invalid round", $time);
+      if (meta.paxos_packet_meta$round matches tagged Valid .round) begin
+         if (round <= fromMaybe(?, meta.paxos$rnd)) begin
+            $display("(%0d) Round: Acceptor %h, round=%h, rnd=%h", $time, pkt.id, round, fromMaybe(?, meta.paxos$rnd));
+            MetadataRequest req = tagged AcceptorTblRequest {pkt: pkt, meta: meta};
+            acceptorReqFifo.enq(req);
          end
-         default: begin
-            $display("(%0d) [ERROR] Round Table: Unexpected response %h", $time, v);
-         end
-      endcase
+      end
    endrule
 
-   rule acceptor_tbl_next_control_state;
-      let v <- toGet(acceptorRespFifo).get;
-      $display("(%0d) acceptor table response", $time);
-      case (v) matches
-         tagged AcceptorTblResponse {pkt: .pkt, meta: .meta}: begin
-            $display("(%0d) Acceptor: fwd ", $time, fshow(meta));
-            MetadataRequest req = tagged ForwardQueueRequest {pkt: pkt, meta: meta};
-            currPacketFifo.enq(req);
-         end
-         default: begin
-            $display("(%0d) [ERROR] Acceptor Table: Unexpected response %h", $time, v);
-         end
-      endcase
+   rule acceptor_tbl_next_control_state if (acceptorRespFifo.first matches tagged AcceptorTblResponse {pkt: .pkt, meta: .meta});
+      acceptorRespFifo.deq;
+      $display("(%0d) Acceptor: fwd ", $time, fshow(meta));
+      MetadataRequest req = tagged ForwardQueueRequest {pkt: pkt, meta: meta};
+      currPacketFifo.enq(req);
    endrule
 
    interface writeClient = dstMacTable.writeClient;

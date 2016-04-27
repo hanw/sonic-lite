@@ -32,11 +32,14 @@ import HostChannel::*;
 import Ingress::*;
 import PacketBuffer::*;
 import PaxosTypes::*;
+import TxChannel::*;
 import Vector::*;
 
 interface MemoryTestIndication;
    method Action read_version_resp(Bit#(32) version);
    method Action read_ingress_debug_info_resp(IngressDbgRec rec);
+   method Action read_hostchan_debug_info_resp(HostChannelDbgRec rec);
+   method Action read_txchan_debug_info_resp(TxChannelDbgRec rec);
 endinterface
 
 interface MemoryTestRequest;
@@ -53,13 +56,15 @@ interface MemoryTestRequest;
    //method Action dmacTable_add_entry(Bit#(48) mac, DmacTblActionT action_, Bit#(9) port_);
    method Action dmacTable_add_entry(Bit#(48) mac, Bit#(9) port_);
    method Action read_ingress_debug_info();
+   method Action read_hostchan_debug_info();
+   method Action read_txchan_debug_info();
 endinterface
 
 interface MemoryAPI;
    interface MemoryTestRequest request;
 endinterface
 
-module mkMemoryAPI#(MemoryTestIndication indication, HostChannel hostchan, Ingress ingress)(MemoryAPI);
+module mkMemoryAPI#(MemoryTestIndication indication, HostChannel hostchan, TxChannel txchan, Ingress ingress)(MemoryAPI);
 
    interface MemoryTestRequest request;
       method Action read_version();
@@ -86,6 +91,14 @@ module mkMemoryAPI#(MemoryTestIndication indication, HostChannel hostchan, Ingre
       method Action read_ingress_debug_info();
          let v = ingress.read_debug_info;
          indication.read_ingress_debug_info_resp(v);
+      endmethod
+      method Action read_hostchan_debug_info();
+         let v = hostchan.read_debug_info;
+         indication.read_hostchan_debug_info_resp(v);
+      endmethod
+      method Action read_txchan_debug_info();
+         let v = txchan.read_debug_info;
+         indication.read_txchan_debug_info_resp(v);
       endmethod
    endinterface
 endmodule
