@@ -52,9 +52,7 @@ module mkNullTest#(NullTestIndication indication)(NullTest);
    Clock defaultClock <- exposeCurrentClock();
    Reset defaultReset <- exposeCurrentReset();
 
-   Wire#(Bit#(1)) clk_644_wire <- mkDWire(0);
-   Wire#(Bit#(1)) clk_50_wire <- mkDWire(0);
-   De5Clocks clocks <- mkDe5Clocks(clk_50_wire, clk_644_wire);
+   De5Clocks clocks <- mkDe5Clocks();
 
    Clock txClock = clocks.clock_156_25;
    Clock phyClock = clocks.clock_644_53;

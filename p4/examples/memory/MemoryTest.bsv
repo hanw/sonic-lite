@@ -74,11 +74,8 @@ module mkMemoryTest#(MemoryTestIndication indication
    Clock defaultClock <- exposeCurrentClock();
    Reset defaultReset <- exposeCurrentReset();
 
-   Wire#(Bit#(1)) clk_644_wire <- mkDWire(0);
-   Wire#(Bit#(1)) clk_50_wire <- mkDWire(0);
-
 `ifdef SYNTHESIS
-   De5Clocks clocks <- mkDe5Clocks(clk_50_wire, clk_644_wire);
+   De5Clocks clocks <- mkDe5Clocks();
 `else
    SimClocks clocks <- mkSimClocks();
 `endif
