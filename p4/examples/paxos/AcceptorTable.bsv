@@ -26,11 +26,14 @@ import DbgTypes::*;
 import DbgDefs::*;
 import Ethernet::*;
 import FIFO::*;
+import FIFOF::*;
 import GetPut::*;
 import MatchTable::*;
 import RegFile::*;
 import Register::*;
 import PaxosTypes::*;
+import P4Utils::*;
+import Vector::*;
 
 interface BasicBlockHandle1A;
    interface BBServer prev_control_state;
@@ -169,7 +172,6 @@ module mkBasicBlockHandle2A(BasicBlockHandle2A);
       interface request = toGet(roundReqFifo);
       interface response = toPut(roundRespFifo);
    endinterface);
-
 endmodule
 
 interface BasicBlockDrop;
@@ -200,12 +202,19 @@ module mkAcceptorTable#(MetadataClient md)(AcceptorTable);
 
    MatchTable#(256, SizeOf#(AcceptorTblReqT), SizeOf#(AcceptorTblRespT)) matchTable <- mkMatchTable_256_acceptorTable();
 
-   FIFO#(BBRequest) outReqFifo0 <- mkFIFO;
-   FIFO#(BBResponse) inRespFifo0 <- mkFIFO;
-   FIFO#(BBRequest) outReqFifo1 <- mkFIFO;
-   FIFO#(BBResponse) inRespFifo1 <- mkFIFO;
-   FIFO#(BBRequest) outReqFifo2 <- mkFIFO;
-   FIFO#(BBResponse) inRespFifo2 <- mkFIFO;
+   Vector#(3, FIFOF#(BBRequest)) bbReqFifo <- replicateM(mkFIFOF());
+   Vector#(3, FIFOF#(BBResponse)) bbRespFifo <- replicateM(mkFIFOF());
+   Vector#(3, Bool) readyBits = map(fifoNotEmpty, bbRespFifo);
+   Bool interruptStatus = False;
+   Bit#(16) readyChannel = -1;
+
+   for (Integer i = 2; i>=0; i=i-1) begin
+      if (readyBits[i]) begin
+         interruptStatus = True;
+         readyChannel = fromInteger(i);
+      end
+   end
+
    FIFO#(PacketInstance) currPacketFifo <- mkFIFO;
    FIFO#(MetadataT) currMetadataFifo <- mkFIFO;
    FIFO#(MetadataT) bbMetadataFifo <- mkFIFO;
@@ -241,7 +250,7 @@ module mkAcceptorTable#(MetadataClient md)(AcceptorTable);
                req = tagged BBHandle1aRequest {pkt: pkt,
                                                inst: fromMaybe(?, meta.paxos$inst),
                                                rnd: fromMaybe(?, meta.paxos$rnd)};
-               outReqFifo0.enq(req);
+               bbReqFifo[0].enq(req);
             end
             Handle2A: begin
                if (verbose) $display("(%0d) execute handle_2a", $time);
@@ -250,13 +259,13 @@ module mkAcceptorTable#(MetadataClient md)(AcceptorTable);
                                                inst: fromMaybe(?, meta.paxos$inst),
                                                rnd: fromMaybe(?, meta.paxos$rnd),
                                                paxosval: fromMaybe(?, meta.paxos$paxosval)};
-               outReqFifo1.enq(req);
+               bbReqFifo[1].enq(req);
             end
             Drop: begin
                if (verbose) $display("(%0d) execute drop", $time);
                BBRequest req;
                req = tagged BBDropRequest {pkt: pkt};
-               outReqFifo2.enq(req);
+               bbReqFifo[2].enq(req);
             end
             default: begin
                if (verbose) $display("(%0d) not valid action %h", $time, resp.act);
@@ -269,9 +278,8 @@ module mkAcceptorTable#(MetadataClient md)(AcceptorTable);
       end
    endrule
 
-   (* descending_urgency="bb_handle_1a_resp, bb_handle_2a_resp, bb_drop" *)
-   rule bb_handle_1a_resp;
-      let v <- toGet(inRespFifo0).get;
+   rule bb_handle_resp if (interruptStatus);
+      let v <- toGet(bbRespFifo[readyChannel]).get;
       let meta <- toGet(bbMetadataFifo).get;
       case (v) matches
          tagged BBHandle1aResponse {pkt: .pkt}: begin
@@ -280,33 +288,12 @@ module mkAcceptorTable#(MetadataClient md)(AcceptorTable);
             md.response.put(meta_resp);
             pktOut[0] <= pktOut[0] + 1;
          end
-         default: begin
-            $display("(%0d) Unexpected response type %h", v);
-         end
-      endcase
-   endrule
-
-   rule bb_handle_2a_resp;
-      let v <- toGet(inRespFifo1).get;
-      let meta <- toGet(bbMetadataFifo).get;
-      $display("(%0d) handle_2a_resp", $time);
-      case (v) matches
          tagged BBHandle2aResponse {pkt: .pkt}: begin
             if (verbose) $display("(%0d) handle_2a: read/write register", $time);
             MetadataResponse meta_resp = tagged AcceptorTblResponse {pkt: pkt, meta: meta};
             md.response.put(meta_resp);
             pktOut[0] <= pktOut[0] + 1;
          end
-         default: begin
-            $display("(%0d) Unexpected response type %h", v);
-         end
-      endcase
-   endrule
-
-   rule bb_drop;
-      let v <- toGet(inRespFifo2).get;
-      let meta <- toGet(bbMetadataFifo).get;
-      case (v) matches
          tagged BBDropResponse {pkt: .pkt}: begin
             if (verbose) $display("(%0d) drop", $time);
             MetadataResponse meta_resp = tagged AcceptorTblResponse {pkt: pkt, meta: meta};
@@ -314,22 +301,22 @@ module mkAcceptorTable#(MetadataClient md)(AcceptorTable);
             pktOut[0] <= pktOut[0] + 1;
          end
          default: begin
-            $display("(%0d) Unexpected response type %h", v);
+            $display("(%0d) Unexpected response type on channel %h ", $time, readyChannel, fshow(v));
          end
       endcase
    endrule
 
    interface next_control_state_0 = (interface BBClient;
-      interface request = toGet(outReqFifo0);
-      interface response = toPut(inRespFifo0);
+      interface request = toGet(bbReqFifo[0]);
+      interface response = toPut(bbRespFifo[0]);
    endinterface);
    interface next_control_state_1 = (interface BBClient;
-      interface request = toGet(outReqFifo1);
-      interface response = toPut(inRespFifo1);
+      interface request = toGet(bbReqFifo[1]);
+      interface response = toPut(bbRespFifo[1]);
    endinterface);
    interface next_control_state_2 = (interface BBClient;
-      interface request = toGet(outReqFifo2);
-      interface response = toPut(inRespFifo2);
+      interface request = toGet(bbReqFifo[2]);
+      interface response = toPut(bbRespFifo[2]);
    endinterface);
    method Action add_entry(Bit#(16) msgtype, AcceptorTblActionT action_);
       AcceptorTblReqT req = AcceptorTblReqT {msgtype: msgtype, padding: 0};

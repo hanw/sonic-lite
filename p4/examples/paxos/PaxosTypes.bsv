@@ -81,8 +81,7 @@ typedef union tagged {
       PacketInstance pkt;
       MetadataT meta;
    } AcceptorTblResponse;
-} MetadataResponse deriving (Bits, Eq);
-
+} MetadataResponse deriving (Bits, Eq, FShow);
 
 typedef union tagged {
    struct {
@@ -144,7 +143,7 @@ typedef union tagged {
       PacketInstance pkt;
       Role role;
    } BBRoleResponse;
-} BBResponse deriving (Bits, Eq);
+} BBResponse deriving (Bits, Eq, FShow);
 
 typedef struct {
     Bit#(4) version;

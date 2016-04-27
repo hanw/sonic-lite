@@ -20,6 +20,7 @@
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+import FIFOF::*;
 import Vector::*;
 
 function alpha byteSwap(alpha w)
@@ -29,4 +30,9 @@ function alpha byteSwap(alpha w)
    Vector#(avec, Bit#(8)) bytes = unpack(pack(w));
    return unpack(pack(reverse(bytes)));
 endfunction
+
+function Bool fifoNotEmpty(FIFOF#(a) fifo);
+   return fifo.notEmpty();
+endfunction
+
 
