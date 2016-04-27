@@ -115,11 +115,13 @@ module mkMemoryTest#(
    De5SfpCtrl#(4) sfpctrl <- mkDe5SfpCtrl();
    De5Buttons#(4) buttons <- mkDe5Buttons(clocked_by mgmtClock, reset_by mgmtReset);
 
+   // Altera MAC + PHY module
    EthPhyIfc phys <- mkAlteraEthPhy(mgmtClock, phyClock, txClock, defaultReset);
    Clock rxClock = phys.rx_clkout;
    Reset rxReset <- mkSyncReset(2, defaultReset, rxClock);
    Vector#(4, EthMacIfc) mac <- replicateM(mkEthMac(mgmtClock, txClock, rxClock, txReset));
 
+   // Connect MAC and PHY
    function Get#(Bit#(72)) getTx(EthMacIfc _mac); return _mac.tx; endfunction
    function Put#(Bit#(72)) getRx(EthMacIfc _mac); return _mac.rx; endfunction
    mapM(uncurry(mkConnection), zip(map(getTx, mac), phys.tx));
@@ -156,6 +158,7 @@ module mkMemoryTest#(
                                                   ,memServerInd
                                                   );
 
+   // ingress to one tx channel, could be more
    mkConnection(ingress.eventPktSend, txchan.eventPktSend);
 
 `ifdef SIMULATION
@@ -173,8 +176,8 @@ module mkMemoryTest#(
 
    // Control Interface
    MemoryAPI api <- mkMemoryAPI(indication, hostchan, txchan, ingress);
-
    interface request = api.request;
+
 `ifdef BOARD_de5
    interface pins = mkDE5Pins(defaultClock, clocks, phys, leds, sfpctrl, buttons);
 `endif
