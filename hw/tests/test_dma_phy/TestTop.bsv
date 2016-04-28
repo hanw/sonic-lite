@@ -54,6 +54,19 @@ import ALTERA_SI570_WRAPPER::*;
 import AlteraExtra::*;
 //import Sims::*;
 
+`ifdef BOARD_de5
+import AlteraMacWrap::*;
+import AlteraEthPhy::*;
+import DE5Pins::*;
+`endif
+
+`ifdef BOARD_nfsume
+import Xilinx10GE::*;
+import XilinxMacWrap::*;
+import XilinxEthPhy::*;
+import NfsumePins::*;
+`endif
+
 interface TestTop;
    interface TestRequest request1;
    interface DmaRequest request2;
@@ -65,13 +78,22 @@ interface TestTop;
    interface `PinType pins;
 endinterface
 
-module mkTestTop#(TestIndication indication1, DmaIndication indication2, DmaIndication indication3, DmaIndication indication4, DmaIndication indication5)(TestTop);
+module mkTestTop#(
+                  HostInterface host,
+                  TestIndication indication1,
+                  DmaIndication indication2,
+                  DmaIndication indication3,
+                  DmaIndication indication4,
+                  DmaIndication indication5
+                  )(TestTop);
+
    Clock defaultClock <- exposeCurrentClock();
    Reset defaultReset <- exposeCurrentReset();
 
-   Wire#(Bit#(1)) clk_644_wire <- mkDWire(0);
-   Wire#(Bit#(1)) clk_50_wire <- mkDWire(0);
-
+   //-------------
+   // DE5 MAC+PHY
+   //-------------
+`ifdef BOARD_de5
    De5Clocks clocks <- mkDe5Clocks(clk_50_wire, clk_644_wire);
    De5SfpCtrl#(4) sfpctrl <- mkDe5SfpCtrl();
    Clock txClock = clocks.clock_156_25;
@@ -87,6 +109,33 @@ module mkTestTop#(TestIndication indication1, DmaIndication indication2, DmaIndi
    Reset rxReset <- mkAsyncReset(2, defaultReset, rxClock);
    Vector#(4, EthMacIfc) mac <- replicateM(mkEthMac(mgmtClock, txClock, rxClock, txReset, clocked_by txClock, reset_by txReset));
 
+   // Connect MAC and PHY
+   function Get#(Bit#(72)) getTx(EthMacIfc _mac); return _mac.tx; endfunction
+   function Put#(Bit#(72)) getRx(EthMacIfc _mac); return _mac.rx; endfunction
+   mapM(uncurry(mkConnection), zip(map(getTx, mac), phys.tx));
+   mapM(uncurry(mkConnection), zip(phys.rx, map(getRx, mac)));
+`endif
+
+   //----------------
+   // NFSUME MAC+PHY
+   //----------------
+`ifdef BOARD_nfsume
+   Clock mgmtClock = host.tsys_clk_200mhz_buf;
+   Reset mgmtReset <- mkSyncReset(2, defaultReset, mgmtClock);
+   EthPhyIfc phys <- mkXilinxEthPhy(mgmtClock);
+   Clock txClock = phys.tx_clkout;
+   Reset txReset <- mkSyncReset(2, defaultReset, txClock);
+   Clock rxClock = txClock;
+   Reset rxReset = txReset;
+   Vector#(4, EthMacIfc) mac <- replicateM(mkEthMac(mgmtClock, txClock, txReset, clocked_by txClock, reset_by txReset));
+   function Get#(XGMIIData) getTx(EthMacIfc _mac); return _mac.tx; endfunction
+   function Put#(XGMIIData) getRx(EthMacIfc _mac); return _mac.rx; endfunction
+   mapM(uncurry(mkConnection), zip(map(getTx, mac), phys.tx));
+   mapM(uncurry(mkConnection), zip(phys.rx, map(getRx, mac)));
+   NfsumeLeds leds <- mkNfsumeLeds(mgmtClock, txClock);
+   NfsumeSfpCtrl sfpctrl <- mkNfsumeSfpCtrl(phys);
+`endif
+
    Vector#(4, PacketBuffer) txPktBuff <- replicateM(mkPacketBuffer(clocked_by txClock, reset_by txReset));
    Vector#(4, PacketBuffer) rxPktBuff <- replicateM(mkPacketBuffer(clocked_by txClock, reset_by txReset));
    Vector#(4, StoreAndFwdFromRingToMac) ringToMac <- replicateM(mkStoreAndFwdFromRingToMac(txClock, txReset, clocked_by txClock, reset_by txReset));
@@ -100,18 +149,11 @@ module mkTestTop#(TestIndication indication1, DmaIndication indication2, DmaIndi
       mkConnection(dmaController.networkWriteClient[i], txPktBuff[i].writeServer);
       mkConnection(ringToMac[i].readClient, txPktBuff[i].readServer);
       mkConnection(ringToMac[i].macTx, mac[i].packet_tx);
-      mkConnection(mac[i].tx, toPut(phys.tx[i]));
    
-      // debugging
-//      mkConnection(mac[i].tx, mac[i].rx);
-//      mkConnection(ringToMac[i].macTx, macToRing[i].macRx);
-
       //Connect RX Path
-      mkConnection(toGet(phys.rx[i]), mac[i].rx);
       mkConnection(macToRing[i].macRx, mac[i].packet_rx);
       mkConnection(macToRing[i].writeClient, rxPktBuff[i].writeServer);
       mkConnection(dmaController.networkReadClient[i], rxPktBuff[i].readServer);
-
    end
 
    TestAPI api <- mkTestAPI(indication1, txPktBuff, rxPktBuff, ringToMac, macToRing, txClock, txReset, rxClock, rxReset);
@@ -124,21 +166,10 @@ module mkTestTop#(TestIndication indication1, DmaIndication indication2, DmaIndi
    interface readClient = dmaController.readClient;
    interface writeClient = dmaController.writeClient;
 
-   interface `PinType pins;
-      method Action osc_50(Bit#(1) b3d, Bit#(1) b4a, Bit#(1) b4d, Bit#(1) b7a, Bit#(1) b7d, Bit#(1) b8a, Bit#(1) b8d);
-         clk_50_wire <= b4a;
-      endmethod
-      method Action sfp(Bit#(1) refclk);
-         clk_644_wire <= refclk;
-      endmethod
-      method serial_tx_data = phys.serial_tx;
-      method serial_rx = phys.serial_rx;
-      interface i2c = clocks.i2c;
-      interface sfpctrl = sfpctrl;
-      interface deleteme_unused_clock = defaultClock;
-      interface deleteme_unused_clock2 = mgmtClock;
-      interface deleteme_unused_clock3 = defaultClock;
-      interface deleteme_unused_reset = defaultReset;
-   endinterface
-
+`ifdef BOARD_de5
+   interface pins = mkDE5Pins(defaultClock, defaultReset, clocks, phys, leds, sfpctrl, buttons);
+`endif
+`ifdef BOARD_nfsume
+   interface pins = mkNfsumePins(defaultClock, phys, leds, sfpctrl);
+`endif
 endmodule
