@@ -34,6 +34,7 @@ import Connectable::*;
 import Clocks::*;
 import Gearbox::*;
 import Pipe::*;
+import GetPutWithClocks::*;
 
 import MemServerIndication::*;
 //import MemMgmt::*;
@@ -171,7 +172,7 @@ module mkMemoryTest#(
    mkConnection(txchan.macTx, mac[1].packet_tx);
    //mkConnection(mac[0].packet_rx, rxchan.macRx);
    // bypass p1 -> p0
-   mkConnection(mac[1].packet_rx, mac[0].packet_tx);
+   mkConnectionWithClocks(mac[1].packet_rx, mac[0].packet_tx, rxClock, txClock);
 `endif
 
    // Control Interface
