@@ -28,7 +28,7 @@ interface DE5Pins;
 `endif
 endinterface
 
-function DE5Pins mkDE5Pins(Clock defaultClock, De5Clocks clocks, EthPhyIfc phys, De5Leds leds, De5SfpCtrl#(4) sfpctrl, De5Buttons#(4) buttons) =
+function DE5Pins mkDE5Pins(Clock defaultClock, Reset defaultReset, De5Clocks clocks, EthPhyIfc phys, De5Leds leds, De5SfpCtrl#(4) sfpctrl, De5Buttons#(4) buttons) =
    interface DE5Pins;
 `ifdef BOARD_de5
       method Action osc_50(Bit#(1) b3d, Bit#(1) b4a, Bit#(1) b4d, Bit#(1) b7a, Bit#(1) b7d, Bit#(1) b8a, Bit#(1) b8d);
@@ -44,7 +44,8 @@ function DE5Pins mkDE5Pins(Clock defaultClock, De5Clocks clocks, EthPhyIfc phys,
       interface buttons = buttons.pins;
       interface deleteme_unused_clock = defaultClock;
       interface deleteme_unused_clock2 = clocks.clock_50;
-      //interface deleteme_unused_reset = defaultReset;
+      interface deleteme_unused_reset = defaultReset;
+`endif
    endinterface;
 
 interface De5Clocks;
