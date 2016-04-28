@@ -51,6 +51,9 @@ import ConnectalClocks::*;
 import ALTERA_SI570_WRAPPER::*;
 import AlteraExtra::*;
 import LedController::*;
+import AlteraMacWrap::*;
+import AlteraEthPhy::*;
+import DE5Pins::*;
 
 interface DtpTop;
    interface DtpRequest request;
@@ -61,10 +64,7 @@ module mkDtpTop#(DtpIndication indication)(DtpTop);
    Clock defaultClock <- exposeCurrentClock();
    Reset defaultReset <- exposeCurrentReset();
 
-   Wire#(Bit#(1)) clk_644_wire <- mkDWire(0);
-   Wire#(Bit#(1)) clk_50_wire <- mkDWire(0);
-
-   De5Clocks clocks <- mkDe5Clocks(clk_50_wire, clk_644_wire);
+   De5Clocks clocks <- mkDe5Clocks();
    De5SfpCtrl#(4) sfpctrl <- mkDe5SfpCtrl();
    Clock txClock = clocks.clock_156_25;
    Clock phyClock = clocks.clock_644_53;
@@ -79,6 +79,9 @@ module mkDtpTop#(DtpIndication indication)(DtpTop);
    Reset dtp_rst <- mkResetEither(dummyTxReset, rst_api, clocked_by txClock);
 
    NetTopIfc net <- mkNetTop(clock_50, txClock, phyClock, clocked_by txClock, reset_by dtp_rst);
+
+   De5Leds leds <- mkDe5Leds(defaultClock, txClock, mgmtClock, phyClock);
+   De5Buttons#(4) buttons <- mkDe5Buttons(clocked_by mgmtClock, reset_by mgmtReset);
 
    // Connecting DTP request/indication and DTP-PHY looks ugly
    mkConnection(net.api.timestamp, dtp.ifc.timestamp);
@@ -98,26 +101,5 @@ module mkDtpTop#(DtpIndication indication)(DtpTop);
    end
 
    interface request = dtp.request;
-
-   interface `PinType pins;
-      // Clocks
-`ifndef SIMULATION
-      method Action osc_50(Bit#(1) b3d, Bit#(1) b4a, Bit#(1) b4d, Bit#(1) b7a, Bit#(1) b7d, Bit#(1) b8a, Bit#(1) b8d);
-         clk_50_wire <= b4a;
-      endmethod
-      method Action sfp(Bit#(1) refclk);
-         clk_644_wire <= refclk;
-      endmethod
-`ifdef DEBUG_ETH
-      method serial_tx_data = net.ifcs.serial_tx;
-      method serial_rx = net.ifcs.serial_rx;
-      interface i2c = clocks.i2c;
-      interface sfpctrl = sfpctrl;
-`endif  // DEBUG_ETH
-      interface deleteme_unused_clock = defaultClock;
-      interface deleteme_unused_clock2 = clock_50;
-      interface deleteme_unused_clock3 = defaultClock;
-      interface deleteme_unused_reset = defaultReset;
-`endif // SIMULATION
-   endinterface
+   interface pins = mkDE5Pins(defaultClock, defaultReset, clocks, phys, leds, sfpctrl, buttons);
 endmodule
