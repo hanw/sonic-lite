@@ -138,6 +138,7 @@ module mkMemoryTest#(
    EthPhyIfc phys <- mkXilinxEthPhy(mgmtClock);
    Clock txClock = phys.tx_clkout;
    Reset txReset <- mkSyncReset(2, defaultReset, txClock);
+   Clock rxClock = txClock;
    Vector#(4, EthMacIfc) mac <- replicateM(mkEthMac(mgmtClock, txClock, txReset, clocked_by txClock, reset_by txReset));
    function Get#(XGMIIData) getTx(EthMacIfc _mac); return _mac.tx; endfunction
    function Put#(XGMIIData) getRx(EthMacIfc _mac); return _mac.rx; endfunction
