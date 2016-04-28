@@ -315,18 +315,66 @@ module mkSchedulerTopSim#(SchedulerTopSimIndication indication2)(SchedulerTopSim
     SyncFIFOIfc#(Bit#(72)) wire_fifo_0_0 <- mkSyncFIFO(16, txClock, txReset, rxClock[0]);
     SyncFIFOIfc#(Bit#(72)) wire_fifo_0_1 <- mkSyncFIFO(16, txClock, txReset, rxClock[0]);
     SyncFIFOIfc#(Bit#(72)) wire_fifo_0_2 <- mkSyncFIFO(16, txClock, txReset, rxClock[0]);
+    //SyncFIFOIfc#(Bit#(72)) wire_fifo_0_3 <- mkSyncFIFO(16, txClock, txReset, rxClock[0]);
+    //SyncFIFOIfc#(Bit#(72)) wire_fifo_0_4 <- mkSyncFIFO(16, txClock, txReset, rxClock[0]);
+    //SyncFIFOIfc#(Bit#(72)) wire_fifo_0_5 <- mkSyncFIFO(16, txClock, txReset, rxClock[0]);
+    //SyncFIFOIfc#(Bit#(72)) wire_fifo_0_6 <- mkSyncFIFO(16, txClock, txReset, rxClock[0]);
 
     SyncFIFOIfc#(Bit#(72)) wire_fifo_1_0 <- mkSyncFIFO(16, txClock, txReset, rxClock[0]);
     SyncFIFOIfc#(Bit#(72)) wire_fifo_1_1 <- mkSyncFIFO(16, txClock, txReset, rxClock[1]);
     SyncFIFOIfc#(Bit#(72)) wire_fifo_1_2 <- mkSyncFIFO(16, txClock, txReset, rxClock[1]);
+    //SyncFIFOIfc#(Bit#(72)) wire_fifo_1_3 <- mkSyncFIFO(16, txClock, txReset, rxClock[1]);
+    //SyncFIFOIfc#(Bit#(72)) wire_fifo_1_4 <- mkSyncFIFO(16, txClock, txReset, rxClock[1]);
+    //SyncFIFOIfc#(Bit#(72)) wire_fifo_1_5 <- mkSyncFIFO(16, txClock, txReset, rxClock[1]);
+    //SyncFIFOIfc#(Bit#(72)) wire_fifo_1_6 <- mkSyncFIFO(16, txClock, txReset, rxClock[1]);
 
     SyncFIFOIfc#(Bit#(72)) wire_fifo_2_0 <- mkSyncFIFO(16, txClock, txReset, rxClock[1]);
     SyncFIFOIfc#(Bit#(72)) wire_fifo_2_1 <- mkSyncFIFO(16, txClock, txReset, rxClock[1]);
     SyncFIFOIfc#(Bit#(72)) wire_fifo_2_2 <- mkSyncFIFO(16, txClock, txReset, rxClock[2]);
+    //SyncFIFOIfc#(Bit#(72)) wire_fifo_2_3 <- mkSyncFIFO(16, txClock, txReset, rxClock[2]);
+    //SyncFIFOIfc#(Bit#(72)) wire_fifo_2_4 <- mkSyncFIFO(16, txClock, txReset, rxClock[2]);
+    //SyncFIFOIfc#(Bit#(72)) wire_fifo_2_5 <- mkSyncFIFO(16, txClock, txReset, rxClock[2]);
+    //SyncFIFOIfc#(Bit#(72)) wire_fifo_2_6 <- mkSyncFIFO(16, txClock, txReset, rxClock[2]);
 
     SyncFIFOIfc#(Bit#(72)) wire_fifo_3_0 <- mkSyncFIFO(16, txClock, txReset, rxClock[2]);
     SyncFIFOIfc#(Bit#(72)) wire_fifo_3_1 <- mkSyncFIFO(16, txClock, txReset, rxClock[2]);
     SyncFIFOIfc#(Bit#(72)) wire_fifo_3_2 <- mkSyncFIFO(16, txClock, txReset, rxClock[2]);
+    //SyncFIFOIfc#(Bit#(72)) wire_fifo_3_3 <- mkSyncFIFO(16, txClock, txReset, rxClock[3]);
+    //SyncFIFOIfc#(Bit#(72)) wire_fifo_3_4 <- mkSyncFIFO(16, txClock, txReset, rxClock[3]);
+    //SyncFIFOIfc#(Bit#(72)) wire_fifo_3_5 <- mkSyncFIFO(16, txClock, txReset, rxClock[3]);
+    //SyncFIFOIfc#(Bit#(72)) wire_fifo_3_6 <- mkSyncFIFO(16, txClock, txReset, rxClock[3]);
+
+//    SyncFIFOIfc#(Bit#(72)) wire_fifo_4_0 <- mkSyncFIFO(16, txClock, txReset, rxClock[3]);
+//    SyncFIFOIfc#(Bit#(72)) wire_fifo_4_1 <- mkSyncFIFO(16, txClock, txReset, rxClock[3]);
+//    SyncFIFOIfc#(Bit#(72)) wire_fifo_4_2 <- mkSyncFIFO(16, txClock, txReset, rxClock[3]);
+//    SyncFIFOIfc#(Bit#(72)) wire_fifo_4_3 <- mkSyncFIFO(16, txClock, txReset, rxClock[3]);
+//    SyncFIFOIfc#(Bit#(72)) wire_fifo_4_4 <- mkSyncFIFO(16, txClock, txReset, rxClock[4]);
+//    SyncFIFOIfc#(Bit#(72)) wire_fifo_4_5 <- mkSyncFIFO(16, txClock, txReset, rxClock[4]);
+//    SyncFIFOIfc#(Bit#(72)) wire_fifo_4_6 <- mkSyncFIFO(16, txClock, txReset, rxClock[4]);
+//
+//    SyncFIFOIfc#(Bit#(72)) wire_fifo_5_0 <- mkSyncFIFO(16, txClock, txReset, rxClock[4]);
+//    SyncFIFOIfc#(Bit#(72)) wire_fifo_5_1 <- mkSyncFIFO(16, txClock, txReset, rxClock[4]);
+//    SyncFIFOIfc#(Bit#(72)) wire_fifo_5_2 <- mkSyncFIFO(16, txClock, txReset, rxClock[4]);
+//    SyncFIFOIfc#(Bit#(72)) wire_fifo_5_3 <- mkSyncFIFO(16, txClock, txReset, rxClock[4]);
+//    SyncFIFOIfc#(Bit#(72)) wire_fifo_5_4 <- mkSyncFIFO(16, txClock, txReset, rxClock[4]);
+//    SyncFIFOIfc#(Bit#(72)) wire_fifo_5_5 <- mkSyncFIFO(16, txClock, txReset, rxClock[5]);
+//    SyncFIFOIfc#(Bit#(72)) wire_fifo_5_6 <- mkSyncFIFO(16, txClock, txReset, rxClock[5]);
+//
+//    SyncFIFOIfc#(Bit#(72)) wire_fifo_6_0 <- mkSyncFIFO(16, txClock, txReset, rxClock[5]);
+//    SyncFIFOIfc#(Bit#(72)) wire_fifo_6_1 <- mkSyncFIFO(16, txClock, txReset, rxClock[5]);
+//    SyncFIFOIfc#(Bit#(72)) wire_fifo_6_2 <- mkSyncFIFO(16, txClock, txReset, rxClock[5]);
+//    SyncFIFOIfc#(Bit#(72)) wire_fifo_6_3 <- mkSyncFIFO(16, txClock, txReset, rxClock[5]);
+//    SyncFIFOIfc#(Bit#(72)) wire_fifo_6_4 <- mkSyncFIFO(16, txClock, txReset, rxClock[5]);
+//    SyncFIFOIfc#(Bit#(72)) wire_fifo_6_5 <- mkSyncFIFO(16, txClock, txReset, rxClock[5]);
+//    SyncFIFOIfc#(Bit#(72)) wire_fifo_6_6 <- mkSyncFIFO(16, txClock, txReset, rxClock[6]);
+//
+//    SyncFIFOIfc#(Bit#(72)) wire_fifo_7_0 <- mkSyncFIFO(16, txClock, txReset, rxClock[6]);
+//    SyncFIFOIfc#(Bit#(72)) wire_fifo_7_1 <- mkSyncFIFO(16, txClock, txReset, rxClock[6]);
+//    SyncFIFOIfc#(Bit#(72)) wire_fifo_7_2 <- mkSyncFIFO(16, txClock, txReset, rxClock[6]);
+//    SyncFIFOIfc#(Bit#(72)) wire_fifo_7_3 <- mkSyncFIFO(16, txClock, txReset, rxClock[6]);
+//    SyncFIFOIfc#(Bit#(72)) wire_fifo_7_4 <- mkSyncFIFO(16, txClock, txReset, rxClock[6]);
+//    SyncFIFOIfc#(Bit#(72)) wire_fifo_7_5 <- mkSyncFIFO(16, txClock, txReset, rxClock[6]);
+//    SyncFIFOIfc#(Bit#(72)) wire_fifo_7_6 <- mkSyncFIFO(16, txClock, txReset, rxClock[6]);
 
     rule tx_rule_0_0;
         let v = mac[0].tx(0);
@@ -343,6 +391,26 @@ module mkSchedulerTopSim#(SchedulerTopSimIndication indication2)(SchedulerTopSim
         wire_fifo_0_2.enq(v);
     endrule
 
+//    rule tx_rule_0_3;
+//        let v = mac[0].tx(3);
+//        wire_fifo_0_3.enq(v);
+//    endrule
+//
+//    rule tx_rule_0_4;
+//        let v = mac[0].tx(4);
+//        wire_fifo_0_4.enq(v);
+//    endrule
+//
+//    rule tx_rule_0_5;
+//        let v = mac[0].tx(5);
+//        wire_fifo_0_5.enq(v);
+//    endrule
+//
+//    rule tx_rule_0_6;
+//        let v = mac[0].tx(6);
+//        wire_fifo_0_6.enq(v);
+//    endrule
+
     rule tx_rule_1_0;
         let v = mac[1].tx(0);
         wire_fifo_1_0.enq(v);
@@ -357,6 +425,26 @@ module mkSchedulerTopSim#(SchedulerTopSimIndication indication2)(SchedulerTopSim
         let v = mac[1].tx(2);
         wire_fifo_1_2.enq(v);
     endrule
+
+//    rule tx_rule_1_3;
+//        let v = mac[1].tx(3);
+//        wire_fifo_1_3.enq(v);
+//    endrule
+//
+//    rule tx_rule_1_4;
+//        let v = mac[1].tx(4);
+//        wire_fifo_1_4.enq(v);
+//    endrule
+//
+//    rule tx_rule_1_5;
+//        let v = mac[1].tx(5);
+//        wire_fifo_1_5.enq(v);
+//    endrule
+//
+//    rule tx_rule_1_6;
+//        let v = mac[1].tx(6);
+//        wire_fifo_1_6.enq(v);
+//    endrule
 
     rule tx_rule_2_0;
         let v = mac[2].tx(0);
@@ -373,6 +461,26 @@ module mkSchedulerTopSim#(SchedulerTopSimIndication indication2)(SchedulerTopSim
         wire_fifo_2_2.enq(v);
     endrule
 
+//    rule tx_rule_2_3;
+//        let v = mac[2].tx(3);
+//        wire_fifo_2_3.enq(v);
+//    endrule
+//
+//    rule tx_rule_2_4;
+//        let v = mac[2].tx(4);
+//        wire_fifo_2_4.enq(v);
+//    endrule
+//
+//    rule tx_rule_2_5;
+//        let v = mac[2].tx(5);
+//        wire_fifo_2_5.enq(v);
+//    endrule
+//
+//    rule tx_rule_2_6;
+//        let v = mac[2].tx(6);
+//        wire_fifo_2_6.enq(v);
+//    endrule
+
     rule tx_rule_3_0;
         let v = mac[3].tx(0);
         wire_fifo_3_0.enq(v);
@@ -388,78 +496,445 @@ module mkSchedulerTopSim#(SchedulerTopSimIndication indication2)(SchedulerTopSim
         wire_fifo_3_2.enq(v);
     endrule
 
+//    rule tx_rule_3_3;
+//        let v = mac[3].tx(3);
+//        wire_fifo_3_3.enq(v);
+//    endrule
+//
+//    rule tx_rule_3_4;
+//        let v = mac[3].tx(4);
+//        wire_fifo_3_4.enq(v);
+//    endrule
+//
+//    rule tx_rule_3_5;
+//        let v = mac[3].tx(5);
+//        wire_fifo_3_5.enq(v);
+//    endrule
+//
+//    rule tx_rule_3_6;
+//        let v = mac[3].tx(6);
+//        wire_fifo_3_6.enq(v);
+//    endrule
+
+//    rule tx_rule_4_0;
+//        let v = mac[4].tx(0);
+//        wire_fifo_4_0.enq(v);
+//    endrule
+//
+//    rule tx_rule_4_1;
+//        let v = mac[4].tx(1);
+//        wire_fifo_4_1.enq(v);
+//    endrule
+//
+//    rule tx_rule_4_2;
+//        let v = mac[4].tx(2);
+//        wire_fifo_4_2.enq(v);
+//    endrule
+//
+//    rule tx_rule_4_3;
+//        let v = mac[4].tx(3);
+//        wire_fifo_4_3.enq(v);
+//    endrule
+//
+//    rule tx_rule_4_4;
+//        let v = mac[4].tx(4);
+//        wire_fifo_4_4.enq(v);
+//    endrule
+//
+//    rule tx_rule_4_5;
+//        let v = mac[4].tx(5);
+//        wire_fifo_4_5.enq(v);
+//    endrule
+//
+//    rule tx_rule_4_6;
+//        let v = mac[4].tx(6);
+//        wire_fifo_4_6.enq(v);
+//    endrule
+//
+//    rule tx_rule_5_0;
+//        let v = mac[5].tx(0);
+//        wire_fifo_5_0.enq(v);
+//    endrule
+//
+//    rule tx_rule_5_1;
+//        let v = mac[5].tx(1);
+//        wire_fifo_5_1.enq(v);
+//    endrule
+//
+//    rule tx_rule_5_2;
+//        let v = mac[5].tx(2);
+//        wire_fifo_5_2.enq(v);
+//    endrule
+//
+//    rule tx_rule_5_3;
+//        let v = mac[5].tx(3);
+//        wire_fifo_5_3.enq(v);
+//    endrule
+//
+//    rule tx_rule_5_4;
+//        let v = mac[5].tx(4);
+//        wire_fifo_5_4.enq(v);
+//    endrule
+//
+//    rule tx_rule_5_5;
+//        let v = mac[5].tx(5);
+//        wire_fifo_5_5.enq(v);
+//    endrule
+//
+//    rule tx_rule_5_6;
+//        let v = mac[5].tx(6);
+//        wire_fifo_5_6.enq(v);
+//    endrule
+//
+//    rule tx_rule_6_0;
+//        let v = mac[6].tx(0);
+//        wire_fifo_6_0.enq(v);
+//    endrule
+//
+//    rule tx_rule_6_1;
+//        let v = mac[6].tx(1);
+//        wire_fifo_6_1.enq(v);
+//    endrule
+//
+//    rule tx_rule_6_2;
+//        let v = mac[6].tx(2);
+//        wire_fifo_6_2.enq(v);
+//    endrule
+//
+//    rule tx_rule_6_3;
+//        let v = mac[6].tx(3);
+//        wire_fifo_6_3.enq(v);
+//    endrule
+//
+//    rule tx_rule_6_4;
+//        let v = mac[6].tx(4);
+//        wire_fifo_6_4.enq(v);
+//    endrule
+//
+//    rule tx_rule_6_5;
+//        let v = mac[6].tx(5);
+//        wire_fifo_6_5.enq(v);
+//    endrule
+//
+//    rule tx_rule_6_6;
+//        let v = mac[6].tx(6);
+//        wire_fifo_6_6.enq(v);
+//    endrule
+//
+//    rule tx_rule_7_0;
+//        let v = mac[7].tx(0);
+//        wire_fifo_7_0.enq(v);
+//    endrule
+//
+//    rule tx_rule_7_1;
+//        let v = mac[7].tx(1);
+//        wire_fifo_7_1.enq(v);
+//    endrule
+//
+//    rule tx_rule_7_2;
+//        let v = mac[7].tx(2);
+//        wire_fifo_7_2.enq(v);
+//    endrule
+//
+//    rule tx_rule_7_3;
+//        let v = mac[7].tx(3);
+//        wire_fifo_7_3.enq(v);
+//    endrule
+//
+//    rule tx_rule_7_4;
+//        let v = mac[7].tx(4);
+//        wire_fifo_7_4.enq(v);
+//    endrule
+//
+//    rule tx_rule_7_5;
+//        let v = mac[7].tx(5);
+//        wire_fifo_7_5.enq(v);
+//    endrule
+//
+//    rule tx_rule_7_6;
+//        let v = mac[7].tx(6);
+//        wire_fifo_7_6.enq(v);
+//    endrule
+
     rule rx_rule_0_0;
         let v <- toGet(wire_fifo_1_0).get;
         mac[0].rx(0, v);
-        //$display("Getting from (1, 0) to (0, 0)");
     endrule
 
     rule rx_rule_0_1;
         let v <- toGet(wire_fifo_2_0).get;
         mac[0].rx(1, v);
-        //$display("Getting from (2, 0) to (0, 1)");
     endrule
 
     rule rx_rule_0_2;
         let v <- toGet(wire_fifo_3_0).get;
         mac[0].rx(2, v);
-        //$display("Getting from (3, 0) to (0, 2)");
     endrule
+
+//    rule rx_rule_0_3;
+//        let v <- toGet(wire_fifo_4_0).get;
+//        mac[0].rx(3, v);
+//    endrule
+//
+//    rule rx_rule_0_4;
+//        let v <- toGet(wire_fifo_5_0).get;
+//        mac[0].rx(4, v);
+//    endrule
+//
+//    rule rx_rule_0_5;
+//        let v <- toGet(wire_fifo_6_0).get;
+//        mac[0].rx(5, v);
+//    endrule
+//
+//    rule rx_rule_0_6;
+//        let v <- toGet(wire_fifo_7_0).get;
+//        mac[0].rx(6, v);
+//    endrule
 
     rule rx_rule_1_0;
         let v <- toGet(wire_fifo_0_0).get;
         mac[1].rx(0, v);
-        //$display("Getting from (0, 0) to (1, 0)");
     endrule
 
     rule rx_rule_1_1;
         let v <- toGet(wire_fifo_2_1).get;
         mac[1].rx(1, v);
-        //$display("Getting from (2, 1) to (1, 1)");
     endrule
 
     rule rx_rule_1_2;
         let v <- toGet(wire_fifo_3_1).get;
         mac[1].rx(2, v);
-        //$display("Getting from (3, 1) to (1, 2)");
     endrule
+
+//    rule rx_rule_1_3;
+//        let v <- toGet(wire_fifo_4_1).get;
+//        mac[1].rx(3, v);
+//    endrule
+//
+//    rule rx_rule_1_4;
+//        let v <- toGet(wire_fifo_5_1).get;
+//        mac[1].rx(4, v);
+//    endrule
+//
+//    rule rx_rule_1_5;
+//        let v <- toGet(wire_fifo_6_1).get;
+//        mac[1].rx(5, v);
+//    endrule
+//
+//    rule rx_rule_1_6;
+//        let v <- toGet(wire_fifo_7_1).get;
+//        mac[1].rx(6, v);
+//    endrule
 
     rule rx_rule_2_0;
         let v <- toGet(wire_fifo_0_1).get;
         mac[2].rx(0, v);
-        //$display("Getting from (0, 1) to (2, 0)");
     endrule
 
     rule rx_rule_2_1;
         let v <- toGet(wire_fifo_1_1).get;
         mac[2].rx(1, v);
-        //$display("Getting from (1, 1) to (2, 1)");
     endrule
 
     rule rx_rule_2_2;
         let v <- toGet(wire_fifo_3_2).get;
         mac[2].rx(2, v);
-        //$display("Getting from (3, 2) to (2, 2)");
     endrule
+
+//    rule rx_rule_2_3;
+//        let v <- toGet(wire_fifo_4_2).get;
+//        mac[2].rx(3, v);
+//    endrule
+//
+//    rule rx_rule_2_4;
+//        let v <- toGet(wire_fifo_5_2).get;
+//        mac[2].rx(4, v);
+//    endrule
+//
+//    rule rx_rule_2_5;
+//        let v <- toGet(wire_fifo_6_2).get;
+//        mac[2].rx(5, v);
+//    endrule
+//
+//    rule rx_rule_2_6;
+//        let v <- toGet(wire_fifo_7_2).get;
+//        mac[2].rx(6, v);
+//    endrule
 
     rule rx_rule_3_0;
         let v <- toGet(wire_fifo_0_2).get;
         mac[3].rx(0, v);
-        //$display("Getting from (0, 2) to (3, 0)");
     endrule
 
     rule rx_rule_3_1;
         let v <- toGet(wire_fifo_1_2).get;
         mac[3].rx(1, v);
-        //$display("Getting from (1, 2) to (3, 1)");
     endrule
 
     rule rx_rule_3_2;
         let v <- toGet(wire_fifo_2_2).get;
         mac[3].rx(2, v);
-        //$display("Getting from (2, 2) to (3, 2)");
     endrule
 
+//    rule rx_rule_3_3;
+//        let v <- toGet(wire_fifo_4_3).get;
+//        mac[3].rx(3, v);
+//    endrule
+//
+//    rule rx_rule_3_4;
+//        let v <- toGet(wire_fifo_5_3).get;
+//        mac[3].rx(4, v);
+//    endrule
+//
+//    rule rx_rule_3_5;
+//        let v <- toGet(wire_fifo_6_3).get;
+//        mac[3].rx(5, v);
+//    endrule
+//
+//    rule rx_rule_3_6;
+//        let v <- toGet(wire_fifo_7_3).get;
+//        mac[3].rx(6, v);
+//    endrule
+//
+//    rule rx_rule_4_0;
+//        let v <- toGet(wire_fifo_0_3).get;
+//        mac[4].rx(0, v);
+//    endrule
+//
+//    rule rx_rule_4_1;
+//        let v <- toGet(wire_fifo_1_3).get;
+//        mac[4].rx(1, v);
+//    endrule
+//
+//    rule rx_rule_4_2;
+//        let v <- toGet(wire_fifo_2_3).get;
+//        mac[4].rx(2, v);
+//    endrule
+//
+//    rule rx_rule_4_3;
+//        let v <- toGet(wire_fifo_3_3).get;
+//        mac[4].rx(3, v);
+//    endrule
+//
+//    rule rx_rule_4_4;
+//        let v <- toGet(wire_fifo_5_4).get;
+//        mac[4].rx(4, v);
+//    endrule
+//
+//    rule rx_rule_4_5;
+//        let v <- toGet(wire_fifo_6_4).get;
+//        mac[4].rx(5, v);
+//    endrule
+//
+//    rule rx_rule_4_6;
+//        let v <- toGet(wire_fifo_7_4).get;
+//        mac[4].rx(6, v);
+//    endrule
+
+//    rule rx_rule_5_0;
+//        let v <- toGet(wire_fifo_0_4).get;
+//        mac[5].rx(0, v);
+//    endrule
+//
+//    rule rx_rule_5_1;
+//        let v <- toGet(wire_fifo_1_4).get;
+//        mac[5].rx(1, v);
+//    endrule
+//
+//    rule rx_rule_5_2;
+//        let v <- toGet(wire_fifo_2_4).get;
+//        mac[5].rx(2, v);
+//    endrule
+//
+//    rule rx_rule_5_3;
+//        let v <- toGet(wire_fifo_3_4).get;
+//        mac[5].rx(3, v);
+//    endrule
+//
+//    rule rx_rule_5_4;
+//        let v <- toGet(wire_fifo_4_4).get;
+//        mac[5].rx(4, v);
+//    endrule
+//
+//    rule rx_rule_5_5;
+//        let v <- toGet(wire_fifo_6_5).get;
+//        mac[5].rx(5, v);
+//    endrule
+//
+//    rule rx_rule_5_6;
+//        let v <- toGet(wire_fifo_7_5).get;
+//        mac[5].rx(6, v);
+//    endrule
+//
+//    rule rx_rule_6_0;
+//        let v <- toGet(wire_fifo_0_5).get;
+//        mac[6].rx(0, v);
+//    endrule
+//
+//    rule rx_rule_6_1;
+//        let v <- toGet(wire_fifo_1_5).get;
+//        mac[6].rx(1, v);
+//    endrule
+//
+//    rule rx_rule_6_2;
+//        let v <- toGet(wire_fifo_2_5).get;
+//        mac[6].rx(2, v);
+//    endrule
+//
+//    rule rx_rule_6_3;
+//        let v <- toGet(wire_fifo_3_5).get;
+//        mac[6].rx(3, v);
+//    endrule
+//
+//    rule rx_rule_6_4;
+//        let v <- toGet(wire_fifo_4_5).get;
+//        mac[6].rx(4, v);
+//    endrule
+//
+//    rule rx_rule_6_5;
+//        let v <- toGet(wire_fifo_5_5).get;
+//        mac[6].rx(5, v);
+//    endrule
+//
+//    rule rx_rule_6_6;
+//        let v <- toGet(wire_fifo_7_6).get;
+//        mac[6].rx(6, v);
+//    endrule
+//
+//    rule rx_rule_7_0;
+//        let v <- toGet(wire_fifo_0_6).get;
+//        mac[7].rx(0, v);
+//    endrule
+//
+//    rule rx_rule_7_1;
+//        let v <- toGet(wire_fifo_1_6).get;
+//        mac[7].rx(1, v);
+//    endrule
+//
+//    rule rx_rule_7_2;
+//        let v <- toGet(wire_fifo_2_6).get;
+//        mac[7].rx(2, v);
+//    endrule
+//
+//    rule rx_rule_7_3;
+//        let v <- toGet(wire_fifo_3_6).get;
+//        mac[7].rx(3, v);
+//    endrule
+//
+//    rule rx_rule_7_4;
+//        let v <- toGet(wire_fifo_4_6).get;
+//        mac[7].rx(4, v);
+//    endrule
+//
+//    rule rx_rule_7_5;
+//        let v <- toGet(wire_fifo_5_6).get;
+//        mac[7].rx(5, v);
+//    endrule
+//
+//    rule rx_rule_7_6;
+//        let v <- toGet(wire_fifo_6_6).get;
+//        mac[7].rx(6, v);
+//    endrule
 /* ------------------------------------------------------------------------------
 *                               INDICATION RULES
 * ------------------------------------------------------------------------------*/

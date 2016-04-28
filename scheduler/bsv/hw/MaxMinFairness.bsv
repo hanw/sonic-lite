@@ -1,5 +1,6 @@
 import Vector::*;
 import FIFO::*;
+import FIFOF::*;
 import SpecialFIFOs::*;
 import DefaultValue::*;
 import ClientServer::*;
@@ -61,8 +62,8 @@ module mkMaxMinFairness (MaxMinFairness);
 
     Reg#(Bit#(1)) stop_adding_removing_flag <- mkReg(0);
 
-    FIFO#(BottleneckCountParams) bottleneck_count_req_fifo <- mkSizedFIFO(2);
-    FIFO#(ServerIndex) bottleneck_count_res_fifo <- mkSizedFIFO(2);
+    FIFOF#(BottleneckCountParams) bottleneck_count_req_fifo <- mkSizedFIFOF(2);
+    FIFOF#(ServerIndex) bottleneck_count_res_fifo <- mkSizedFIFOF(2);
 
     rule handle_bottleneck_count_req;
         let req <- toGet(bottleneck_count_req_fifo).get;
@@ -95,9 +96,7 @@ module mkMaxMinFairness (MaxMinFairness);
 
     method Action addFlow(ServerIndex src, ServerIndex dst, Bit#(16) flow_id,
                           Bit#(16) seq_num);
-        if (flow_matrix[src][dst].active == 0
-            && (flow_matrix[src][dst].flow_id != flow_id
-               || flow_matrix[src][dst].seq_num <= seq_num))
+        if (flow_matrix[src][dst].active == 0)
         begin
             FlowElement f = FlowElement {
                                 active : 1,
@@ -129,9 +128,7 @@ module mkMaxMinFairness (MaxMinFairness);
 
     method Action addToFlowCountMatrix(ServerIndex src, ServerIndex dst,
                                        Bit#(16) flow_id, Bit#(16) seq_num);
-        if (flow_matrix[src][dst].active == 0
-            && (flow_matrix[src][dst].flow_id != flow_id
-               || flow_matrix[src][dst].seq_num <= seq_num))
+        if (flow_matrix[src][dst].active == 0)
         begin
             s <= src;
             d <= dst;
