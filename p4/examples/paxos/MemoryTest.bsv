@@ -139,6 +139,7 @@ module mkMemoryTest#(
    Clock txClock = phys.tx_clkout;
    Reset txReset <- mkSyncReset(2, defaultReset, txClock);
    Clock rxClock = txClock;
+   Reset rxReset = txReset;
    Vector#(4, EthMacIfc) mac <- replicateM(mkEthMac(mgmtClock, txClock, txReset, clocked_by txClock, reset_by txReset));
    function Get#(XGMIIData) getTx(EthMacIfc _mac); return _mac.tx; endfunction
    function Put#(XGMIIData) getRx(EthMacIfc _mac); return _mac.rx; endfunction
@@ -173,7 +174,7 @@ module mkMemoryTest#(
    mkConnection(txchan.macTx, mac[1].packet_tx);
    //mkConnection(mac[0].packet_rx, rxchan.macRx);
    // bypass p1 -> p0
-   mkConnectionWithClocks(mac[1].packet_rx, mac[0].packet_tx, rxClock, txClock);
+   mkConnectionWithClocks(mac[1].packet_rx, mac[0].packet_tx, rxClock, rxReset, txClock, txReset);
 `endif
 
    // Control Interface
