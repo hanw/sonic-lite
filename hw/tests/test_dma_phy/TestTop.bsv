@@ -94,7 +94,7 @@ module mkTestTop#(
    // DE5 MAC+PHY
    //-------------
 `ifdef BOARD_de5
-   De5Clocks clocks <- mkDe5Clocks(clk_50_wire, clk_644_wire);
+   De5Clocks clocks <- mkDe5Clocks();
    De5SfpCtrl#(4) sfpctrl <- mkDe5SfpCtrl();
    Clock txClock = clocks.clock_156_25;
    Clock phyClock = clocks.clock_644_53;
