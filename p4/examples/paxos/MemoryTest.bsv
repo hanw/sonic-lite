@@ -71,6 +71,7 @@ import Sims::*;
 
 import HostChannel::*;
 import TxChannel::*;
+import RxChannel::*;
 import Ingress::*;
 import Sims::*;
 import PaxosTypes::*;
