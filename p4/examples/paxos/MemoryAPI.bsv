@@ -33,6 +33,7 @@ import Ingress::*;
 import PacketBuffer::*;
 import PaxosTypes::*;
 import TxChannel::*;
+import RxChannel::*;
 import Vector::*;
 
 interface MemoryTestIndication;
@@ -66,7 +67,7 @@ interface MemoryAPI;
    interface MemoryTestRequest request;
 endinterface
 
-module mkMemoryAPI#(MemoryTestIndication indication, HostChannel hostchan, TxChannel txchan, Ingress ingress)(MemoryAPI);
+module mkMemoryAPI#(MemoryTestIndication indication, HostChannel hostchan, TxChannel txchan, RxChannel rxchan, Ingress ingress)(MemoryAPI);
 
    interface MemoryTestRequest request;
       method Action read_version();

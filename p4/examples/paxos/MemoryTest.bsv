@@ -179,7 +179,7 @@ module mkMemoryTest#(
 `endif
 
    // Control Interface
-   MemoryAPI api <- mkMemoryAPI(indication, hostchan, txchan, ingress);
+   MemoryAPI api <- mkMemoryAPI(indication, hostchan, txchan, rxchan, ingress);
    interface request = api.request;
 
 `ifdef BOARD_de5
