@@ -151,13 +151,14 @@ module mkMemoryTest#(
 
    // One P4 Channel
    HostChannel hostchan <- mkHostChannel();
-   Ingress ingress <- mkIngress(vec(hostchan.next));
    TxChannel txchan <- mkTxChannel(txClock, txReset);
+   RxChannel rxchan <- mkRxChannel(rxClock, rxReset);
+   Ingress ingress <- mkIngress(vec(hostchan.next, rxchan.next));
 
    SharedBuffer#(12, 128, 1) mem <- mkSharedBuffer(vec(txchan.readClient)
                                                   ,vec(txchan.freeClient)
-                                                  ,vec(hostchan.writeClient)
-                                                  ,vec(hostchan.mallocClient)
+                                                  ,vec(hostchan.writeClient, rxchan.writeClient)
+                                                  ,vec(hostchan.mallocClient, rxchan.mallocClient)
                                                   ,memServerInd
                                                   );
 
@@ -172,7 +173,7 @@ module mkMemoryTest#(
 `else
    // process p0 -> p1
    mkConnection(txchan.macTx, mac[1].packet_tx);
-   //mkConnection(mac[0].packet_rx, rxchan.macRx);
+   mkConnection(mac[0].packet_rx, rxchan.macRx);
    // bypass p1 -> p0
    mkConnectionWithClocks(mac[1].packet_rx, mac[0].packet_tx, rxClock, rxReset, txClock, txReset);
 `endif

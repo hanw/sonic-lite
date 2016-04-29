@@ -40,6 +40,7 @@ interface MemoryTestIndication;
    method Action read_ingress_debug_info_resp(IngressDbgRec rec);
    method Action read_hostchan_debug_info_resp(HostChannelDbgRec rec);
    method Action read_txchan_debug_info_resp(TxChannelDbgRec rec);
+   method Action read_rxchan_debug_info_resp(HostChannelDbgRec rec);
 endinterface
 
 interface MemoryTestRequest;
@@ -58,6 +59,7 @@ interface MemoryTestRequest;
    method Action read_ingress_debug_info();
    method Action read_hostchan_debug_info();
    method Action read_txchan_debug_info();
+   method Action read_rxchan_debug_info();
 endinterface
 
 interface MemoryAPI;
@@ -99,6 +101,10 @@ module mkMemoryAPI#(MemoryTestIndication indication, HostChannel hostchan, TxCha
       method Action read_txchan_debug_info();
          let v = txchan.read_debug_info;
          indication.read_txchan_debug_info_resp(v);
+      endmethod
+      method Action read_rxchan_debug_info();
+         let v = rxchan.read_debug_info;
+         indication.read_rxchan_debug_info_resp(v);
       endmethod
    endinterface
 endmodule

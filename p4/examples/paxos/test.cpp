@@ -56,6 +56,10 @@ public:
         fprintf(stderr, "egressCount %ld, sop %ld/%ld, eop %ld/%ld\n",
             a.egressCount, a.pktBuff.sopEnq, a.pktBuff.sopDeq, a.pktBuff.eopEnq, a.pktBuff.eopDeq);
     }
+    virtual void read_rxchan_debug_info_resp(HostChannelDbgRec a) {
+        fprintf(stderr, "paxosCount %ld, sop %ld/%ld, eop %ld/%ld\n",
+            a.paxosCount, a.pktBuff.sopEnq, a.pktBuff.sopDeq, a.pktBuff.eopEnq, a.pktBuff.eopDeq);
+    }
     MemoryTestIndication(unsigned int id) : MemoryTestIndicationWrapper(id) {}
 };
 
@@ -179,6 +183,7 @@ int main(int argc, char **argv)
     device->read_ingress_debug_info();
     device->read_hostchan_debug_info();
     device->read_txchan_debug_info();
+    device->read_rxchan_debug_info();
     sleep(3);
     return 0;
 }

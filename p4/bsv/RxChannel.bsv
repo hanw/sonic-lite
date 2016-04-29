@@ -43,8 +43,7 @@ interface RxChannel;
    interface MemWriteClient#(`DataBusWidth) writeClient;
    interface MemAllocClient mallocClient;
    interface Client#(MetadataRequest, MetadataResponse) next;
-   method PktBuffDbgRec dbg;
-   method HostChannelDbgRec hostdbg;
+   method HostChannelDbgRec read_debug_info;
 endinterface
 
 module mkRxChannel#(Clock rxClock, Reset rxReset)(RxChannel);
@@ -56,6 +55,5 @@ module mkRxChannel#(Clock rxClock, Reset rxReset)(RxChannel);
    interface writeClient = host.writeClient;
    interface next = host.next;
    interface mallocClient = host.mallocClient;
-   method dbg = host.dbg;
-   method hostdbg = host.hostdbg;
+   method read_debug_info = host.read_debug_info;
 endmodule
