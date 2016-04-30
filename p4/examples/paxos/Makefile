@@ -98,4 +98,9 @@ run-small:
 run-paxos:
 	(cd bluesim; ./bin/ubuntu.exe -p ../tests/multipaxos.pcap)
 
+FIRMWARE_VERSION=$(shell printf "%x" 0x`git rev-parse --short=8 HEAD`)
+release:
+	GITHUB_TOKEN=$(GITHUB_TOKEN) github-release release --user hanw --repo p4paxos-firmware --tag $(FIRMWARE_VERSION) --name $(FIRMWARE_VERSION) --description $(FIRMWARE_VERSION) ; \
+	GITHUB_TOKEN=$(GITHUB_TOKEN) github-release upload --user hanw --repo p4paxos-firmware --tag $(FIRMWARE_VERSION) --name "ubuntu.exe" --file ./nfsume/bin/ubuntu.exe
+
 include $(CONNECTALDIR)/Makefile.connectal
