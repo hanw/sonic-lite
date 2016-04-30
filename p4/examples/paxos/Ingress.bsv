@@ -143,14 +143,14 @@ module mkIngress#(Vector#(numClients, MetadataClient) mdc)(Ingress);
    // Control Flow
    rule start_control_state if (inReqFifo.first matches tagged DefaultRequest {pkt: .pkt, meta: .meta});
       inReqFifo.deq;
-      if (isValid(meta.valid_ipv4)) begin
-         MetadataRequest req = tagged DstMacLookupRequest {pkt: pkt, meta: meta};
-         dmacReqFifo.enq(req);
-      end
-   endrule
+   //   if (isValid(meta.valid_ipv4)) begin
+   //      MetadataRequest req = tagged DstMacLookupRequest {pkt: pkt, meta: meta};
+   //      dmacReqFifo.enq(req);
+   //   end
+   //endrule
 
-   rule dmac_tbl_next_control_state if (dmacRespFifo.first matches tagged DstMacResponse {pkt: .pkt, meta: .meta});
-      dmacRespFifo.deq;
+   //rule dmac_tbl_next_control_state if (dmacRespFifo.first matches tagged DstMacResponse {pkt: .pkt, meta: .meta});
+   //   dmacRespFifo.deq;
       if (isValid(meta.valid_paxos)) begin
          MetadataRequest req = tagged RoleLookupRequest {pkt: pkt, meta: meta};
          roleReqFifo.enq(req);
