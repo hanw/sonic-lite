@@ -35,6 +35,7 @@ CONNECTALFLAGS += -m $(P4FPGADIR)/bsv/AsymmetricBRAM/mem_model.c
 CONNECTALFLAGS += -m $(P4FPGADIR)/bsv/matchtable_model.cpp
 CONNECTALFLAGS += --nocache
 
+
 BURST_LEN_SIZE=12
 
 #######################################################
@@ -92,6 +93,9 @@ endif
 run:
 	(cd bluesim; ./bin/ubuntu.exe -p ../paxos.pcap)
 
+run-coo:
+	(cd bluesim; ./bin/ubuntu.exe -p ../paxosv02.pcap -C)
+
 run-small:
 	(cd bluesim; ./bin/ubuntu.exe -p ../tests/udp-small.pcap)
 
@@ -100,7 +104,8 @@ run-paxos:
 
 FIRMWARE_VERSION=$(shell printf "%x" 0x`git rev-parse --short=8 HEAD`)
 release:
-	GITHUB_TOKEN=$(GITHUB_TOKEN) github-release release --user hanw --repo p4paxos-firmware --tag $(FIRMWARE_VERSION) --name $(FIRMWARE_VERSION) --description $(FIRMWARE_VERSION) ; \
-	GITHUB_TOKEN=$(GITHUB_TOKEN) github-release upload --user hanw --repo p4paxos-firmware --tag $(FIRMWARE_VERSION) --name "ubuntu.exe" --file ./nfsume/bin/ubuntu.exe
+	GITHUB_TOKEN=$(GITHUB_TOKEN) github-release release --user hanw --repo p4paxos-firmware --tag $(FIRMWARE_VERSION) --name $(FIRMWARE_VERSION) --description $(FIRMWARE_VERSION) ;
+	GITHUB_TOKEN=$(GITHUB_TOKEN) github-release upload --user hanw --repo p4paxos-firmware --tag $(FIRMWARE_VERSION) --name "ubuntu.exe" --file ./nfsume/bin/ubuntu.exe;
+	GITHUB_TOKEN=$(GITHUB_TOKEN) github-release upload --user hanw --repo p4paxos-firmware --tag $(FIRMWARE_VERSION) --name "mkTop.bit" --file ./nfsume/Impl/TopDown/mkTop.bit;
 
 include $(CONNECTALDIR)/Makefile.connectal

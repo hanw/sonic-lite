@@ -121,6 +121,7 @@ typedef union tagged {
    } BBForwardResponse;
    struct {
       PacketInstance pkt;
+      Bit#(InstanceSize) inst;
    } BBIncreaseInstanceResponse;
    struct {
       PacketInstance pkt;

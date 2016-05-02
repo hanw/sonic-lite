@@ -97,9 +97,11 @@ module mkMemoryTest#(
    Clock txClock = clocks.clock_156_25;
    Clock phyClock = clocks.clock_644_53;
    Clock mgmtClock = clocks.clock_50;
+   Clock rxClock = txClock;
    Reset txReset <- mkSyncReset(2, defaultReset, txClock);
    Reset phyReset <- mkSyncReset(2, defaultReset, phyClock);
    Reset mgmtReset <- mkSyncReset(2, defaultReset, mgmtClock);
+   Reset rxReset = txReset;
 `endif
 
    //-------------

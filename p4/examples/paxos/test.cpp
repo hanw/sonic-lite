@@ -45,8 +45,8 @@ public:
         fprintf(stderr, "version %x\n", a);
     }
     virtual void read_ingress_debug_info_resp(IngressDbgRec a) {
-        fprintf(stderr, "fwdCount %ld, acc_in %ld, acc_out %ld, dmac_in %ld, dmac_out %ld\n",
-            a.fwdCount, a.accTbl.pktIn, a.accTbl.pktOut, a.dmacTbl.pktIn, a.dmacTbl.pktOut);
+        fprintf(stderr, "fwdCount %ld, acc_in %ld, acc_out %ld, seq_in %ld, seq_out %ld, dmac_in %ld, dmac_out %ld\n",
+            a.fwdCount, a.accTbl.pktIn, a.accTbl.pktOut, a.seqTbl.pktIn, a.seqTbl.pktOut, a.dmacTbl.pktIn, a.dmacTbl.pktOut);
     }
     virtual void read_hostchan_debug_info_resp(HostChannelDbgRec a) {
         fprintf(stderr, "paxosCount %ld, sop %ld/%ld, eop %ld/%ld\n",
@@ -165,8 +165,9 @@ int main(int argc, char **argv)
     //device->dmacTable_add_entry(0x80a810270008, FORWARD, 1);
     device->dmacTable_add_entry(0x80a810270008, 1);
     device->dmacTable_add_entry(0x491d035e0001, 1);
+    device->dmacTable_add_entry(0x471d035e0001, 1);
 
-    device->sequenceTable_add_entry(1, IncreaseInstance);
+    device->sequenceTable_add_entry(3, IncreaseInstance);
     AcceptorTblActionT action_ = Handle2A;
     device->acceptorTable_add_entry(0x4, action_);
     device->acceptorTable_add_entry(0x3, action_);

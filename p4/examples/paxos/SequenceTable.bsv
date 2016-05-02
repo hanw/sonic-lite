@@ -38,7 +38,7 @@ interface BasicBlockIncreaseInstance;
 endinterface
 
 module mkBasicBlockIncreaseInstance(BasicBlockIncreaseInstance);
-   let verbose = False;
+   let verbose = True;
    FIFO#(BBRequest) bbIncrInstRequest <- mkFIFO;
    FIFO#(BBResponse) bbIncrInstResponse <- mkFIFO;
    FIFO#(PacketInstance) curr_packet_fifo <- mkFIFO;
@@ -56,10 +56,11 @@ module mkBasicBlockIncreaseInstance(BasicBlockIncreaseInstance);
    rule reg_resp;
       let pkt <- toGet(curr_packet_fifo).get;
       let inst <- toGet(instanceRespFifo).get;
-      if (verbose) $display("(%0d) inst = %h", inst.data);
+      if (verbose) $display("(%0d) inst = %h", $time, inst.data);
       let next_inst = inst.data + 1;
       instanceReqFifo.enq(InstanceRegRequest {addr: 0, data: next_inst, write:True});
-      BBResponse resp = tagged BBIncreaseInstanceResponse {pkt: pkt};
+      if (verbose) $display("(%0d) resp = %h", $time, next_inst);
+      BBResponse resp = tagged BBIncreaseInstanceResponse {pkt: pkt, inst: next_inst};
       bbIncrInstResponse.enq(resp);
    endrule
 
@@ -90,6 +91,7 @@ module mkSequenceTable#(MetadataClient md)(SequenceTable);
    FIFO#(BBResponse) inRespFifo <- mkFIFO;
    FIFO#(PacketInstance) currPacketFifo <- mkFIFO;
    FIFO#(MetadataT) currMetadataFifo <- mkFIFO;
+   FIFO#(MetadataT) bbMetadataFifo <- mkFIFO;
 
    Array #(Reg #(LUInt)) pktIn <- mkCReg(2, 0);
    Array #(Reg #(LUInt)) pktOut <- mkCReg(2, 0);
@@ -114,6 +116,7 @@ module mkSequenceTable#(MetadataClient md)(SequenceTable);
       let v <- matchTable.lookupPort.response.get;
       let pkt <- toGet(currPacketFifo).get;
       let meta <- toGet(currMetadataFifo).get;
+      if (verbose) $display("(%0d) sequence table lookup ", $time, fshow(v));
       if (v matches tagged Valid .data) begin
          SequenceTblRespT resp = unpack(data);
          case (resp.act) matches
@@ -127,17 +130,24 @@ module mkSequenceTable#(MetadataClient md)(SequenceTable);
                if (verbose) $display("(%0d) nop", $time);
             end
          endcase
+         bbMetadataFifo.enq(meta);
       end
-      MetadataResponse meta_resp = tagged SequenceTblResponse {pkt: pkt, meta: meta};
-      md.response.put(meta_resp);
-      pktOut[0] <= pktOut[0] + 1;
+      else begin
+         if(verbose) $display("(%0d) invalid lookup sequence table", $time);
+      end
    endrule
 
    rule bb_increase_instance_resp;
       let v <- toGet(inRespFifo).get;
+      let meta <- toGet(bbMetadataFifo).get;
       case (v) matches
-         tagged BBIncreaseInstanceResponse {pkt: .pkt}: begin
-            if (verbose) $display("(%0d) TODO: increase instance: ", $time);
+         tagged BBIncreaseInstanceResponse {pkt: .pkt, inst: .inst}: begin
+            if (verbose) $display("(%0d) increase instance: %h", $time, inst);
+            meta.paxos$inst = tagged Valid inst;
+            MetadataResponse meta_resp = tagged SequenceTblResponse {pkt: pkt, meta: meta};
+            $display("(%0d) seq metadata", $time, fshow(meta));
+            md.response.put(meta_resp);
+            pktOut[0] <= pktOut[0] + 1;
          end
       endcase
    endrule

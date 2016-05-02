@@ -36,7 +36,7 @@ interface RegisterIfc#(numeric type asz, numeric type dsz);
 endinterface
 
 module mkP4Register#(Vector#(numClients, Client#(RegRequest#(asz, dsz), RegResponse#(dsz))) clients)(RegisterIfc#(asz, dsz));
-   let verbose = False;
+   let verbose = True;
    BRAM_Configure bramConfig = defaultValue;
    bramConfig.latency = 2;
    BRAM2Port#(Bit#(asz), Bit#(dsz)) regFile <- ConnectalBram::mkBRAM2Server(bramConfig);

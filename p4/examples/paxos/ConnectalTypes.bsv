@@ -77,8 +77,8 @@ typedef enum {
 } DmacTblActionT deriving (Bits, Eq, FShow);
 
 typedef enum {
-    IncreaseInstance,
-    Nop
+    Nop,
+    IncreaseInstance
 } SequenceTblActionT deriving (Bits, Eq, FShow);
 
 typedef enum {

@@ -83,6 +83,16 @@ endfunction
 function Tuple2#(PaxosT, PaxosT) toPaxos(MetadataT meta);
    PaxosT paxos = defaultValue;
    PaxosT mask = defaultMask;
+   paxos.inst = fromMaybe(?, meta.paxos$inst);
+   mask.inst = 0;
+   paxos.rnd = fromMaybe(?, meta.paxos$rnd);
+   mask.rnd = 0;
+   paxos.vrnd = fromMaybe(?, meta.paxos$vrnd);
+   mask.vrnd = 0;
+   paxos.acptid = fromMaybe(?, meta.paxos$acptid);
+   mask.acptid = 0;
+   paxos.paxosval = fromMaybe(?, meta.paxos$paxosval);
+   mask.paxosval = 0;
    return tuple2(paxos, mask);
 endfunction
 
