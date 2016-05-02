@@ -96,6 +96,9 @@ run:
 run-coo:
 	(cd bluesim; ./bin/ubuntu.exe -p ../paxosv02.pcap -C)
 
+run-acc:
+	(cd bluesim; ./bin/ubuntu.exe -p ../paxosv02.pcap -A)
+
 run-small:
 	(cd bluesim; ./bin/ubuntu.exe -p ../tests/udp-small.pcap)
 
@@ -103,8 +106,9 @@ run-paxos:
 	(cd bluesim; ./bin/ubuntu.exe -p ../tests/multipaxos.pcap)
 
 FIRMWARE_VERSION=$(shell printf "%x" 0x`git rev-parse --short=8 HEAD`)
+SYSTEM_TIME=$(shell date +'%Y.%m.%d-%H:%M:%S')
 release:
-	GITHUB_TOKEN=$(GITHUB_TOKEN) github-release release --user hanw --repo p4paxos-firmware --tag $(FIRMWARE_VERSION) --name $(FIRMWARE_VERSION) --description $(FIRMWARE_VERSION) ;
+	GITHUB_TOKEN=$(GITHUB_TOKEN) github-release release --user hanw --repo p4paxos-firmware --tag $(FIRMWARE_VERSION) --name $(SYSTEM_TIME) --description $(FIRMWARE_VERSION) ;
 	GITHUB_TOKEN=$(GITHUB_TOKEN) github-release upload --user hanw --repo p4paxos-firmware --tag $(FIRMWARE_VERSION) --name "ubuntu.exe" --file ./nfsume/bin/ubuntu.exe;
 	GITHUB_TOKEN=$(GITHUB_TOKEN) github-release upload --user hanw --repo p4paxos-firmware --tag $(FIRMWARE_VERSION) --name "mkTop.bit" --file ./nfsume/Impl/TopDown/mkTop.bit;
 

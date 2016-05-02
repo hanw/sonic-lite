@@ -167,7 +167,11 @@ int main(int argc, char **argv)
     device->dmacTable_add_entry(0x491d035e0001, 1);
     device->dmacTable_add_entry(0x471d035e0001, 1);
 
-    device->sequenceTable_add_entry(3, IncreaseInstance);
+    device->sequenceTable_add_entry(0x4, IncreaseInstance);
+    device->sequenceTable_add_entry(0x3, IncreaseInstance);
+    device->sequenceTable_add_entry(0x2, IncreaseInstance);
+    device->sequenceTable_add_entry(0x1, IncreaseInstance);
+    device->sequenceTable_add_entry(0x0, IncreaseInstance);
     AcceptorTblActionT action_ = Handle2A;
     device->acceptorTable_add_entry(0x4, action_);
     device->acceptorTable_add_entry(0x3, action_);
