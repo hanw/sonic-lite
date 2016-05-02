@@ -276,6 +276,7 @@ module mkMemMgmt
       if (verbose) $display("MemMgmt:: %d free_error: memMgmt error", cycle);
    endrule
 
+   (* descending_urgency="initialization, del_id_metadata, del_page_metadata, read_next_page_metadata" *)
    rule del_id_metadata if (free_started);
       Maybe#(Bit#(PageIdx)) segment <- portsel(idmap, 1).response.get;
       case (segment) matches

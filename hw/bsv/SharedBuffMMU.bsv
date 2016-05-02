@@ -129,12 +129,22 @@ module mkSharedBuffMMU#(Integer iid, MMUIndication mmuIndication)(MMU#(addrWidth
    Vector#(2,FIFOF#(Offset))           offs1 <- replicateM(mkSizedFIFOF(3));
 
    // stage 4 (latnecy == 1)
-   Vector#(2,FIFOF#(Bit#(addrWidth))) pageResponseFifos <- replicateM(mkFIFOF);
+   Vector#(2,FIFOF#(AddrTransResponse#(addrWidth))) pageResponseFifos <- replicateM(mkFIFOF);
       
    FIFO#(DmaError) dmaErrorFifo <- mkFIFO();
    Vector#(2,FIFO#(DmaError)) dmaErrorFifos <- replicateM(mkFIFO());
-   for (Integer i = 0; i < 2; i = i + 1)
-      mkConnection(toGet(dmaErrorFifos[i]), toPut(dmaErrorFifo));
+   Rules rs = emptyRules;
+   for (Integer i = 0; i < 2; i = i + 1) begin
+      Rules r =
+         rules
+            rule connectDmaError;
+               let v <- toGet(dmaErrorFifos[i]).get;
+               dmaErrorFifo.enq(v);
+            endrule
+         endrules;
+      rs = rJoinDescendingUrgency(rs, r);
+   end
+
    rule dmaError;
       let error <- toGet(dmaErrorFifo).get();
       mmuIndication.error(extend(pack(error.errorType)), error.pref, extend(error.off), fromInteger(iid));
@@ -253,7 +263,7 @@ module mkSharedBuffMMU#(Integer iid, MMUIndication mmuIndication)(MMU#(addrWidth
 	    3: rv = {b8,truncate(offset.value)};
 	    4: rv = {b12,truncate(offset.value)};
 	 endcase
-	 pageResponseFifos[i].enq(truncate(rv));
+	 pageResponseFifos[i].enq(AddrTransResponse { error: DmaErrorNone, physAddr: truncate(rv) });
       endrule
    end
 
@@ -272,7 +282,7 @@ module mkSharedBuffMMU#(Integer iid, MMUIndication mmuIndication)(MMU#(addrWidth
       $display("idReturn %d", sglId);
    endrule
    
-   function Server#(AddrTransRequest,Bit#(addrWidth)) addrServer(Integer i);
+   function Server#(AddrTransRequest,AddrTransResponse#(addrWidth)) addrServer(Integer i);
    return
       (interface Server#(AddrTransRequest,Bit#(addrWidth));
 	  interface Put request;
@@ -282,10 +292,10 @@ module mkSharedBuffMMU#(Integer iid, MMUIndication mmuIndication)(MMU#(addrWidth
 	     endmethod
 	  endinterface
 	  interface Get response;
-	     method ActionValue#(Bit#(addrWidth)) get();
+	     method ActionValue#(AddrTransResponse#(addrWidth)) get();
 		let rv <- toGet(pageResponseFifos[i]).get();
 `ifdef SIMULATION
-		rv = rv | (fromInteger(iid)<<valueOf(addrWidth)-3);
+		rv.physAddr = rv.physAddr | (fromInteger(iid)<<valueOf(addrWidth)-3);
 `endif
                 $display("SharedBuffMMU:: %d: pageResponse ", cycle, fshow(rv));
 		return rv;
@@ -334,10 +344,10 @@ module mkSharedBuffMMU#(Integer iid, MMUIndication mmuIndication)(MMU#(addrWidth
 endmodule
 
 interface ArbitratedMMU#(numeric type addrWidth, numeric type numServers);
-   interface Vector#(numServers,Server#(AddrTransRequest,Bit#(addrWidth))) servers;
+   interface Vector#(numServers,Server#(AddrTransRequest,AddrTransResponse#(addrWidth))) servers;
 endinterface
 
-module mkArbitratedMMU#(Server#(AddrTransRequest,Bit#(addrWidth)) server) (ArbitratedMMU#(addrWidth,numServers));
+module mkArbitratedMMU#(Server#(AddrTransRequest,AddrTransResponse#(addrWidth)) server) (ArbitratedMMU#(addrWidth,numServers));
    
    FIFOF#(Bit#(TAdd#(1,TLog#(numServers)))) tokFifo <- mkSizedFIFOF(9);
    Reg#(Bit#(TLog#(numServers))) arb <- mkReg(0);
@@ -347,9 +357,9 @@ module mkArbitratedMMU#(Server#(AddrTransRequest,Bit#(addrWidth)) server) (Arbit
       arb <= arb+1;
    endrule
    
-   function Server#(AddrTransRequest,Bit#(addrWidth)) arbitratedServer(Integer i);
+   function Server#(AddrTransRequest,AddrTransResponse#(addrWidth)) arbitratedServer(Integer i);
    return
-      (interface Server#(AddrTransRequest,Bit#(addrWidth));
+      (interface Server#(AddrTransRequest,AddrTransResponse#(addrWidth));
 	  interface Put request;
 	     method Action put(AddrTransRequest req) if (arb == fromInteger(i));
 		tokFifo.enq(fromInteger(i));
@@ -357,7 +367,7 @@ module mkArbitratedMMU#(Server#(AddrTransRequest,Bit#(addrWidth)) server) (Arbit
 	     endmethod
 	  endinterface
 	  interface Get response;
-	     method ActionValue#(Bit#(addrWidth)) get() if (tokFifo.first == fromInteger(i));
+	     method ActionValue#(AddrTransResponse#(addrWidth)) get() if (tokFifo.first == fromInteger(i));
 		tokFifo.deq;
 		let rv <- server.response.get;
 		return rv;
