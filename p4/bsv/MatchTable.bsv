@@ -93,11 +93,11 @@ module mkMatchTable(MatchTable#(depth, keySz, actionSz))
             Add#(TAdd#(TLog#(c__), 4), i__, TLog#(depth)));
 
    MatchTable#(depth, keySz, actionSz) ret_ifc;
-`ifdef SIMULATION
-   ret_ifc <- mkMatchTableBluesim();
-`else
+//`ifdef SIMULATION
+//   ret_ifc <- mkMatchTableBluesim();
+//`else
    ret_ifc <- mkMatchTableSynth();
-`endif
+//`endif
    return ret_ifc;
 endmodule
 
@@ -133,7 +133,7 @@ module mkMatchTableSynth(MatchTable#(depth, keySz, actionSz))
 
    rule handle_bcam_response;
       let v <- bcam.readServer.response.get;
-      //if (verbose) $display("matchTable %d: recv bcam response ", cycle, fshow(v));
+      if (verbose) $display("(%0d) matchTable recv bcam response ", $time, fshow(v));
       if (isValid(v)) begin // if match
          let address = fromMaybe(?, v);
          ram.portA.request.put(BRAMRequest{write:False, responseOnWrite: False, address: address, datain:?});
@@ -171,10 +171,10 @@ module mkMatchTableSynth(MatchTable#(depth, keySz, actionSz))
    interface Put add_entry;
       method Action put (Tuple2#(Bit#(keySz), Bit#(actionSz)) v);
          BcamWriteReq#(Bit#(depthSz), Bit#(keySz)) req_bcam = BcamWriteReq{addr: addrIdx, data: pack(tpl_1(v))};
-         BRAMRequest#(Bit#(depthSz), Bit#(actionSz)) req_ram = BRAMRequest{write: True, responseOnWrite: False, address: addrIdx, datain: 0};
+         BRAMRequest#(Bit#(depthSz), Bit#(actionSz)) req_ram = BRAMRequest{write: True, responseOnWrite: False, address: addrIdx, datain: pack(tpl_2(v))};
          bcam.writeServer.put(req_bcam);
          ram.portA.request.put(req_ram);
-         $display("(%0d) match_table: add flow %x", $time, addrIdx);
+         $display("(%0d) match_table: add flow %x %x %x", $time, addrIdx, tpl_1(v), tpl_2(v));
          addrIdx <= addrIdx + 1; //FIXME: currently no reuse of address.
       endmethod
    endinterface
