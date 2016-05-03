@@ -93,11 +93,11 @@ module mkMatchTable(MatchTable#(depth, keySz, actionSz))
             Add#(TAdd#(TLog#(c__), 4), i__, TLog#(depth)));
 
    MatchTable#(depth, keySz, actionSz) ret_ifc;
-//`ifdef SIMULATION
-//   ret_ifc <- mkMatchTableBluesim();
-//`else
+`ifdef SIMULATION
+   ret_ifc <- mkMatchTableBluesim();
+`else
    ret_ifc <- mkMatchTableSynth();
-//`endif
+`endif
    return ret_ifc;
 endmodule
 
