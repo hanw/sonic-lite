@@ -128,7 +128,7 @@ module mkStateDeparseEthernet#(Reg#(DeparserState) state,
                                FIFOF#(EthernetT) ethernet_meta,
                                FIFOF#(EthernetT) ethernet_mask)
                                (DeparseEthernet);
-   let verbose = True;
+   let verbose = False;
    Wire#(EtherData) packet_in_wire <- mkDWire(defaultValue);
    FIFO#(EtherData) parse_arp_fifo <- mkFIFO;
    FIFO#(EtherData) parse_ipv4_fifo <- mkFIFO;
@@ -322,7 +322,7 @@ module mkStateDeparseUdp#(Reg#(DeparserState) state,
                           FIFOF#(UdpT) udp_mask)
                           (DeparseUdp);
 
-   let verbose = True;
+   let verbose = False;
    Wire#(EtherData) packet_in_wire <- mkDWire(defaultValue);
    FIFOF#(EtherData) deparse_ipv4_fifo <- mkBypassFIFOF;
    FIFO#(EtherData) deparse_paxos_fifo <- mkFIFO;
@@ -566,7 +566,7 @@ endinterface
 typedef 4 PortMax;
 (* synthesize *)
 module mkDeparser(Deparser);
-   let verbose = True;
+   let verbose = False;
    FIFOF#(EtherData) data_in_fifo <- mkSizedFIFOF(4);
    FIFOF#(EtherData) data_out_fifo <- mkFIFOF;
    FIFOF#(MetadataT) metadata_in_fifo <- mkFIFOF;
