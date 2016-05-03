@@ -63,6 +63,11 @@ public:
     virtual void read_role_resp(Role role) {
         fprintf(stderr, "role %d\n", role);
     }
+    virtual void read_perf_info_resp(PerfDbgRec a) {
+        fprintf(stderr, "perf: ingress %d, %d, acceptor %d, %d, sequence %d, %d", 
+            a.ingress_start_time, a.ingress_end_time, a.acceptor_start_time, a.acceptor_end_time,
+            a.sequence_start_time, a.sequence_end_time);
+    }
     MemoryTestIndication(unsigned int id) : MemoryTestIndicationWrapper(id) {}
 };
 
@@ -197,6 +202,7 @@ int main(int argc, char **argv)
     device->read_hostchan_debug_info();
     device->read_txchan_debug_info();
     device->read_rxchan_debug_info();
+    device->read_perf_info();
     sleep(3);
     return 0;
 }

@@ -62,4 +62,15 @@ instance DefaultValue#(TxChannelDbgRec);
    defaultValue = unpack(0);
 endinstance
 
+typedef struct {
+   Bit#(32) ingress_start_time;
+   Bit#(32) ingress_end_time;
+   Bit#(32) acceptor_start_time;
+   Bit#(32) acceptor_end_time;
+   Bit#(32) sequence_start_time;
+   Bit#(32) sequence_end_time;
+} PerfDbgRec deriving (Bits, Eq, FShow);
+instance DefaultValue#(PerfDbgRec);
+   defaultValue = unpack(0);
+endinstance
 

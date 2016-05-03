@@ -91,6 +91,17 @@ module mkIngress#(Vector#(numClients, MetadataClient) mdc)(Ingress);
    FIFO#(MetadataResponse) acceptorRespFifo <- mkFIFO;
    // FIFO#(MetadataResponse) dropResponseFifo <- mkFIFO;
 
+   Reg#(Bit#(32)) clk_cnt <- mkReg(0);
+   Reg#(Bit#(32)) ingress_start_time <- mkReg(0);
+   Reg#(Bit#(32)) ingress_end_time <- mkReg(0);
+   Reg#(Bit#(32)) acceptor_start_time <- mkReg(0);
+   Reg#(Bit#(32)) acceptor_end_time <- mkReg(0);
+   Reg#(Bit#(32)) sequence_start_time <- mkReg(0);
+   Reg#(Bit#(32)) sequence_end_time <- mkReg(0);
+   rule clockrule;
+      clk_cnt <= clk_cnt + 1;
+   endrule
+
    // Tables
    DstMacTable dstMacTable <- mkDstMacTable(toGPClient(dmacReqFifo, dmacRespFifo));
    RoleTable roleTable <- mkRoleTable(toGPClient(roleReqFifo, roleRespFifo));
@@ -151,6 +162,7 @@ module mkIngress#(Vector#(numClients, MetadataClient) mdc)(Ingress);
    // Control Flow
    rule start_control_state if (inReqFifo.first matches tagged DefaultRequest {pkt: .pkt, meta: .meta});
       inReqFifo.deq;
+      ingress_start_time <= clk_cnt;
    //   if (isValid(meta.valid_ipv4)) begin
    //      MetadataRequest req = tagged DstMacLookupRequest {pkt: pkt, meta: meta};
    //      dmacReqFifo.enq(req);
@@ -174,11 +186,13 @@ module mkIngress#(Vector#(numClients, MetadataClient) mdc)(Ingress);
                $display("(%0d) Role: Acceptor %h", $time, pkt.id);
                MetadataRequest req = tagged RoundTblRequest {pkt: pkt, meta: meta};
                roundReqFifo.enq(req);
+               acceptor_start_time <= clk_cnt;
             end
             COORDINATOR: begin
                $display("(%0d) Role: Coordinator %h", $time, pkt.id);
                MetadataRequest req = tagged SequenceTblRequest {pkt: pkt, meta: meta};
                sequenceReqFifo.enq(req);
+               sequence_start_time <= clk_cnt;
             end
          endcase
       end
@@ -186,6 +200,7 @@ module mkIngress#(Vector#(numClients, MetadataClient) mdc)(Ingress);
 
    rule sequence_tbl_next_control_state if (sequenceRespFifo.first matches tagged SequenceTblResponse {pkt: .pkt, meta: .meta});
       sequenceRespFifo.deq;
+      sequence_end_time <= clk_cnt;
       $display("(%0d) Sequence: fwd %h", $time, pkt.id);
       //FIXME: check action
       MetadataRequest req = tagged ForwardQueueRequest {pkt: pkt, meta: meta};
@@ -206,6 +221,7 @@ module mkIngress#(Vector#(numClients, MetadataClient) mdc)(Ingress);
 
    rule acceptor_tbl_next_control_state if (acceptorRespFifo.first matches tagged AcceptorTblResponse {pkt: .pkt, meta: .meta});
       acceptorRespFifo.deq;
+      acceptor_end_time <= clk_cnt;
       $display("(%0d) Acceptor: fwd ", $time, fshow(meta));
       MetadataRequest req = tagged ForwardQueueRequest {pkt: pkt, meta: meta};
       currPacketFifo.enq(req);
@@ -219,6 +235,16 @@ module mkIngress#(Vector#(numClients, MetadataClient) mdc)(Ingress);
          accTbl: acceptorTable.read_debug_info,
          seqTbl: sequenceTable.read_debug_info,
          dmacTbl: dstMacTable.read_debug_info
+      };
+   endmethod
+   method PerfDbgRec read_perf_info();
+      return PerfDbgRec {
+         ingress_start_time: ingress_start_time,
+         ingress_end_time: ingress_end_time,
+         acceptor_start_time: acceptor_start_time,
+         acceptor_end_time: acceptor_end_time,
+         sequence_start_time: sequence_start_time,
+         sequence_end_time: sequence_end_time
       };
    endmethod
    method Action round_reg_write(Bit#(TLog#(InstanceCount)) inst, Bit#(RoundSize) round);
