@@ -48,7 +48,7 @@ interface MemoryTestRequest;
    method Action read_version();
    method Action writePacketData(Vector#(2, Bit#(64)) data, Vector#(2, Bit#(8)) mask, Bit#(1) sop, Bit#(1) eop);
    method Action role_reg_write(Role r);
-   method Action datapath_id_reg_write(Bit#(64) datapath);
+   method Action datapath_id_reg_write(Bit#(DatapathSize) datapath);
    method Action instance_reg_write(Bit#(InstanceSize) instance_);
    method Action value_reg_write(Bit#(16) inst, Vector#(8, Bit#(32)) value);
    method Action round_reg_write(Bit#(16) inst, Bit#(RoundSize) round);

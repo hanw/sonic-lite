@@ -125,13 +125,13 @@ typedef union tagged {
    } BBIncreaseInstanceResponse;
    struct {
       PacketInstance pkt;
-      Bit#(64) datapath;
+      Bit#(DatapathSize) datapath;
       Bit#(RoundSize) vround;
       Bit#(ValueSize) value;
    } BBHandle1aResponse;
    struct {
       PacketInstance pkt;
-      Bit#(64) datapath;
+      Bit#(DatapathSize) datapath;
    } BBHandle2aResponse;
    struct {
       PacketInstance pkt;

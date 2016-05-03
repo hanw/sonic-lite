@@ -91,9 +91,9 @@ void usage (const char *program_name) {
 }
 
 struct arg_info {
-    double rate;
-    int tracelen;
     Role role;
+    uint16_t acptid;
+    uint32_t inst;
 };
 
 static void 
@@ -102,9 +102,11 @@ parse_options(int argc, char *argv[], char **pcap_file, struct arg_info* info) {
 
     static struct option long_options [] = {
         {"help",                no_argument, 0, 'h'},
-        {"parser-test",         required_argument, 0, 'p'},
+        {"pcap",                required_argument, 0, 'p'},
         {"acceptor",            no_argument, 0, 'A'},
         {"coordinator",         no_argument, 0, 'C'},
+        {"acptid",              required_argument, 0, 'a'},
+        {"inst",                required_argument, 0, 'i'},
         {0, 0, 0, 0}
     };
 
@@ -130,6 +132,12 @@ parse_options(int argc, char *argv[], char **pcap_file, struct arg_info* info) {
             case 'C':
                 info->role = COORDINATOR;
                 break;
+            case 'a':
+                info->acptid = atoi(optarg);
+                break;
+            case 'i':
+                info->inst = atoi(optarg);
+                break;
             default:
                 break;
         }
@@ -139,7 +147,7 @@ parse_options(int argc, char *argv[], char **pcap_file, struct arg_info* info) {
 int main(int argc, char **argv)
 {
     char *pcap_file=NULL;
-    struct arg_info arguments = {0, 0, ACCEPTOR};
+    struct arg_info arguments = {ACCEPTOR, 0, 0};
     struct pcap_trace_info pcap_info = {0, 0};
 
     MemoryTestIndication echoIndication(IfcNames_MemoryTestIndicationH2S);
@@ -149,9 +157,9 @@ int main(int argc, char **argv)
 
     device->read_version();
 
-    device->datapath_id_reg_write(1);
+    device->datapath_id_reg_write(arguments.acptid);
     device->role_reg_write(arguments.role);
-    device->instance_reg_write(0x1234);
+    device->instance_reg_write(arguments.inst);
     bsvvector_Luint32_t_L8 vect;
     for (int i = 0; i < 8; i++)
         vect[i] = 0;

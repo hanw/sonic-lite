@@ -2,9 +2,17 @@ import ClientServer::*;
 
 typedef 16 RoundSize;
 typedef 16 MsgTypeSize;
+typedef 16 DatapathSize;
 typedef 32 InstanceSize;
 typedef 256 ValueSize;
 typedef 65535 InstanceCount;
+
+typedef enum {
+   PAXOS_1A = 1,
+   PAXOS_1B = 2,
+   PAXOS_2A = 3,
+   PAXOS_2B = 4
+} MsgType deriving (Bits, Eq);
 
 typedef struct {
    Bit#(addrSz) addr;
@@ -18,8 +26,8 @@ typedef struct {
 
 typedef RegRequest#(16, RoundSize) RoundRegRequest;
 typedef RegResponse#(RoundSize) RoundRegResponse;
-typedef RegRequest#(1, 64) DatapathIdRegRequest;
-typedef RegResponse#(64) DatapathIdRegResponse;
+typedef RegRequest#(1, DatapathSize) DatapathIdRegRequest;
+typedef RegResponse#(DatapathSize) DatapathIdRegResponse;
 typedef RegRequest#(1, InstanceSize) InstanceRegRequest;
 typedef RegResponse#(InstanceSize) InstanceRegResponse;
 typedef RegRequest#(16, RoundSize) VRoundRegRequest;

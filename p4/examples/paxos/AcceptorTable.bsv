@@ -131,7 +131,6 @@ module mkBasicBlockHandle2A(BasicBlockHandle2A);
       case (v) matches
          tagged BBHandle2aRequest {pkt: .pkt, inst: .inst, rnd: .rnd, paxosval: .paxosval}: begin
             if (verbose) $display("(%0d) handle_2a bb_request %h %h %h", $time, inst, rnd, paxosval);
-            //FIXME: inst
             roundReqFifo.enq(RoundRegRequest {addr: truncate(inst), data: rnd, write: True});
             vroundReqFifo.enq(VRoundRegRequest {addr: truncate(inst), data: rnd, write: True});
             valueReqFifo.enq(ValueRegRequest {addr: truncate(inst), data: paxosval, write: True});
@@ -282,14 +281,20 @@ module mkAcceptorTable#(MetadataClient md)(AcceptorTable);
       let v <- toGet(bbRespFifo[readyChannel]).get;
       let meta <- toGet(bbMetadataFifo).get;
       case (v) matches
-         tagged BBHandle1aResponse {pkt: .pkt}: begin
+         tagged BBHandle1aResponse {pkt: .pkt, datapath: .dp, vround: .vrnd, value: .value}: begin
             if (verbose) $display("(%0d) handle_1a: read/write register", $time);
+            meta.paxos$msgtype = tagged Valid zeroExtend(pack(PAXOS_1B));
+            meta.paxos$vrnd = tagged Valid vrnd;
+            meta.paxos$paxosval = tagged Valid value;
+            meta.paxos$acptid = tagged Valid dp;
             MetadataResponse meta_resp = tagged AcceptorTblResponse {pkt: pkt, meta: meta};
             md.response.put(meta_resp);
             pktOut[0] <= pktOut[0] + 1;
          end
-         tagged BBHandle2aResponse {pkt: .pkt}: begin
+         tagged BBHandle2aResponse {pkt: .pkt, datapath: .dp}: begin
             if (verbose) $display("(%0d) handle_2a: read/write register", $time);
+            meta.paxos$msgtype = tagged Valid zeroExtend(pack(PAXOS_2B));
+            meta.paxos$acptid = tagged Valid dp;
             MetadataResponse meta_resp = tagged AcceptorTblResponse {pkt: pkt, meta: meta};
             md.response.put(meta_resp);
             pktOut[0] <= pktOut[0] + 1;

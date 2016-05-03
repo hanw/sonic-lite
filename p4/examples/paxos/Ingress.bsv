@@ -46,7 +46,7 @@ import Vector::*;
 interface Ingress;
    interface MemWriteClient#(`DataBusWidth) writeClient;
    interface PipeOut#(MetadataRequest) eventPktSend;
-   method Action datapath_id_reg_write(Bit#(64) datapath);
+   method Action datapath_id_reg_write(Bit#(DatapathSize) datapath);
    method Action instance_reg_write(Bit#(InstanceSize) instance_);
    method Action role_reg_write(Role r);
    method Action vround_reg_write(Bit#(TLog#(InstanceCount)) inst, Bit#(RoundSize) vround);
@@ -122,7 +122,7 @@ module mkIngress#(Vector#(numClients, MetadataClient) mdc)(Ingress);
    FIFO#(ValueRegResponse) valueRegRespFifo <- mkFIFO;
 
    RegisterIfc#(1, SizeOf#(Role)) roleReg <- mkP4Register(vec(bb_read_role.regClient, toGPClient(roleRegReqFifo, roleRegRespFifo)));
-   RegisterIfc#(1, 64) datapathIdReg <- mkP4Register(vec(bb_handle_2a.regClient_datapath_id, bb_handle_1a.regClient_datapath_id, toGPClient(datapathIdRegReqFifo, datapathIdRegRespFifo)));
+   RegisterIfc#(1, DatapathSize) datapathIdReg <- mkP4Register(vec(bb_handle_2a.regClient_datapath_id, bb_handle_1a.regClient_datapath_id, toGPClient(datapathIdRegReqFifo, datapathIdRegRespFifo)));
    RegisterIfc#(1, InstanceSize) instanceReg <- mkP4Register(vec(bb_increase_instance.regClient, toGPClient(instanceRegReqFifo, instanceRegRespFifo)));
    RegisterIfc#(TLog#(InstanceCount), RoundSize) roundReg <- mkP4Register(vec(bb_read_round.regClient, bb_handle_2a.regClient_round, bb_handle_1a.regClient_round, toGPClient(roundRegReqFifo, roundRegRespFifo)));
    RegisterIfc#(TLog#(InstanceCount), RoundSize) vroundReg <- mkP4Register(vec(bb_handle_1a.regClient_vround, bb_handle_2a.regClient_vround, toGPClient(vroundRegReqFifo, vroundRegRespFifo)));
@@ -225,7 +225,7 @@ module mkIngress#(Vector#(numClients, MetadataClient) mdc)(Ingress);
       RoleRegRequest req = RoleRegRequest {addr: 0, data: pack(role), write: True};
       roleRegReqFifo.enq(req);
    endmethod
-   method Action datapath_id_reg_write(Bit#(64) datapath);
+   method Action datapath_id_reg_write(Bit#(DatapathSize) datapath);
       DatapathIdRegRequest req = DatapathIdRegRequest {addr: 0, data: datapath, write: True};
       datapathIdRegReqFifo.enq(req);
    endmethod
