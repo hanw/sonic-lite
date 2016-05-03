@@ -42,12 +42,14 @@ interface MemoryTestIndication;
    method Action read_hostchan_debug_info_resp(HostChannelDbgRec rec);
    method Action read_txchan_debug_info_resp(TxChannelDbgRec rec);
    method Action read_rxchan_debug_info_resp(HostChannelDbgRec rec);
+   method Action read_role_resp(Role role);
 endinterface
 
 interface MemoryTestRequest;
    method Action read_version();
    method Action writePacketData(Vector#(2, Bit#(64)) data, Vector#(2, Bit#(8)) mask, Bit#(1) sop, Bit#(1) eop);
    method Action role_reg_write(Role r);
+   method Action role_reg_read();
    method Action datapath_id_reg_write(Bit#(DatapathSize) datapath);
    method Action instance_reg_write(Bit#(InstanceSize) instance_);
    method Action value_reg_write(Bit#(16) inst, Vector#(8, Bit#(32)) value);
@@ -69,6 +71,11 @@ endinterface
 
 module mkMemoryAPI#(MemoryTestIndication indication, HostChannel hostchan, TxChannel txchan, RxChannel rxchan, Ingress ingress)(MemoryAPI);
 
+   rule read_role;
+      let v <- toGet(ingress.role_reg_read_resp).get;
+      indication.read_role_resp(v);
+   endrule
+
    interface MemoryTestRequest request;
       method Action read_version();
          let v= `NicVersion;
@@ -85,6 +92,7 @@ module mkMemoryAPI#(MemoryTestIndication indication, HostChannel hostchan, TxCha
       method value_reg_write = ingress.value_reg_write;
       method round_reg_write = ingress.round_reg_write;
       method role_reg_write = ingress.role_reg_write;
+      method role_reg_read = ingress.role_reg_read;
       method datapath_id_reg_write = ingress.datapath_id_reg_write;
       method instance_reg_write = ingress.instance_reg_write;
       method vround_reg_write = ingress.vround_reg_write;

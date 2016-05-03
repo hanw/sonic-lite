@@ -46,9 +46,11 @@ import Vector::*;
 interface Ingress;
    interface MemWriteClient#(`DataBusWidth) writeClient;
    interface PipeOut#(MetadataRequest) eventPktSend;
+   interface Get#(Role) role_reg_read_resp;
    method Action datapath_id_reg_write(Bit#(DatapathSize) datapath);
    method Action instance_reg_write(Bit#(InstanceSize) instance_);
    method Action role_reg_write(Role r);
+   method Action role_reg_read();
    method Action vround_reg_write(Bit#(TLog#(InstanceCount)) inst, Bit#(RoundSize) vround);
    method Action round_reg_write(Bit#(TLog#(InstanceCount)) inst, Bit#(RoundSize) round);
    method Action value_reg_write(Bit#(TLog#(InstanceCount)) inst, Vector#(8, Bit#(32)) value);
@@ -120,6 +122,12 @@ module mkIngress#(Vector#(numClients, MetadataClient) mdc)(Ingress);
    FIFO#(InstanceRegResponse) instanceRegRespFifo <- mkFIFO;
    FIFO#(VRoundRegResponse) vroundRegRespFifo <- mkFIFO;
    FIFO#(ValueRegResponse) valueRegRespFifo <- mkFIFO;
+
+   FIFO#(Role) roleRegReadFifo <- mkFIFO;
+   rule readRole;
+      let v <- toGet(roleRegRespFifo).get;
+      roleRegReadFifo.enq(unpack(v.data));
+   endrule
 
    RegisterIfc#(1, SizeOf#(Role)) roleReg <- mkP4Register(vec(bb_read_role.regClient, toGPClient(roleRegReqFifo, roleRegRespFifo)));
    RegisterIfc#(1, DatapathSize) datapathIdReg <- mkP4Register(vec(bb_handle_2a.regClient_datapath_id, bb_handle_1a.regClient_datapath_id, toGPClient(datapathIdRegReqFifo, datapathIdRegRespFifo)));
@@ -237,6 +245,11 @@ module mkIngress#(Vector#(numClients, MetadataClient) mdc)(Ingress);
       ValueRegRequest req = ValueRegRequest {addr: inst, data: pack(value), write: True};
       valueRegReqFifo.enq(req);
    endmethod
+   method Action role_reg_read();
+      RoleRegRequest req = RoleRegRequest {addr: 0, data: ?, write: False};
+      roleRegReqFifo.enq(req);
+   endmethod
+   interface role_reg_read_resp = toGet(roleRegReadFifo);
    method sequenceTable_add_entry = sequenceTable.add_entry;
    method acceptorTable_add_entry = acceptorTable.add_entry;
    method dmacTable_add_entry = dstMacTable.add_entry;

@@ -60,6 +60,9 @@ public:
         fprintf(stderr, "paxosCount %ld, sop %ld/%ld, eop %ld/%ld\n",
             a.paxosCount, a.pktBuff.sopEnq, a.pktBuff.sopDeq, a.pktBuff.eopEnq, a.pktBuff.eopDeq);
     }
+    virtual void read_role_resp(Role role) {
+        fprintf(stderr, "role %d\n", role);
+    }
     MemoryTestIndication(unsigned int id) : MemoryTestIndicationWrapper(id) {}
 };
 
@@ -169,6 +172,7 @@ int main(int argc, char **argv)
         device->round_reg_write(index, 0);
         device->value_reg_write(index, vect);
     }
+    device->role_reg_read();
 
     //device->dmacTable_add_entry(0x80a810270008, FORWARD, 1);
     device->dmacTable_add_entry(0x80a810270008, 1);
@@ -180,12 +184,8 @@ int main(int argc, char **argv)
     device->sequenceTable_add_entry(0x2, IncreaseInstance);
     device->sequenceTable_add_entry(0x1, IncreaseInstance);
     device->sequenceTable_add_entry(0x0, IncreaseInstance);
-    AcceptorTblActionT action_ = Handle2A;
-    device->acceptorTable_add_entry(0x4, action_);
-    device->acceptorTable_add_entry(0x3, action_);
-    device->acceptorTable_add_entry(0x2, action_);
-    device->acceptorTable_add_entry(0x1, action_);
-    device->acceptorTable_add_entry(0x0, action_);
+    device->acceptorTable_add_entry(0x3, Handle2A);
+    device->acceptorTable_add_entry(0x1, Handle1A);
 
     if (pcap_file) {
         fprintf(stderr, "Attempts to read pcap file %s\n", pcap_file);
