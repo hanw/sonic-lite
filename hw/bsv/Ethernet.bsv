@@ -26,6 +26,7 @@ package Ethernet;
 import Vector ::*;
 import DefaultValue          ::*;
 import Connectable           ::*;
+import GetPut                ::*;
 import Pipe                  ::*;
 
 `ifdef NUMBER_OF_10G_PORTS
@@ -62,19 +63,20 @@ instance DefaultValue#(PacketData#(n));
       };
 endinstance
 
-interface SerialIfc;
-   (* prefix = "" , result = "tx_data" *)
-   method Bit#(1) tx;
-   (* prefix = "" *)
-   method Action  rx ( (* port="rx_data" *) Bit#(1) v);
+interface EthPhyIfc;
+   (*always_ready, always_enabled*)
+   interface Vector#(NumPorts, Put#(Bit#(72)))  tx;
+   (*always_ready, always_enabled*)
+   interface Vector#(NumPorts, Get#(Bit#(72))) rx;
+   (*always_ready, always_enabled*)
+   method Vector#(NumPorts, Bit#(1)) serial_tx;
+   (*always_ready, always_enabled*)
+   method Action serial_rx(Vector#(NumPorts, Bit#(1)) v);
+   interface Vector#(NumPorts, Clock) rx_clkout;
 endinterface
 
 interface LoopbackIfc;
    method Action lpbk_en(Bool en);
-endinterface
-
-interface SwitchIfc;
-   method Action ena(Bool en);
 endinterface
 
 typedef struct {

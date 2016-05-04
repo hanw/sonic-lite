@@ -31,6 +31,7 @@ import SpecialFIFOs::*;
 import Connectable::*;
 import GetPut::*;
 import Pipe::*;
+import Ethernet::*;
 `ifdef NUMBER_OF_ALTERA_PORTS
 import Altera10GPhy3::*;
 `else
@@ -42,18 +43,6 @@ typedef `NUMBER_OF_ALTERA_PORTS NumPorts;
 `else
 typedef 4 NumPorts;
 `endif
-
-interface EthPhyIfc;
-   (*always_ready, always_enabled*)
-   interface Vector#(NumPorts, Put#(Bit#(72)))  tx;
-   (*always_ready, always_enabled*)
-   interface Vector#(NumPorts, Get#(Bit#(72))) rx;
-   (*always_ready, always_enabled*)
-   method Vector#(NumPorts, Bit#(1)) serial_tx;
-   (*always_ready, always_enabled*)
-   method Action serial_rx(Vector#(NumPorts, Bit#(1)) v);
-   interface Clock rx_clkout;
-endinterface
 
 (* synthesize *)
 module mkAlteraEthPhy#(Clock clk_50, Clock clk_644, Clock clk_xgmii, Reset rst_50)(EthPhyIfc);
@@ -132,7 +121,7 @@ module mkAlteraEthPhy#(Clock clk_50, Clock clk_644, Clock clk_xgmii, Reset rst_5
    interface rx = map(toGet, rxFifo);
    method serial_tx = readVReg(tx_serial);
    method serial_rx = writeVReg(rx_serial_wire);
-   interface rx_clkout = phy.xgmii_rx_clk;
+   interface rx_clkout = replicate(phy.xgmii_rx_clk);
 endmodule
 
 endpackage

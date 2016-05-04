@@ -4,10 +4,10 @@ import Vector::*;
 import ConnectalClocks::*;
 import LedController::*;
 import PushButtonController::*;
+import Ethernet::*;
 
 import AlteraExtra::*;
 import ALTERA_SI570_WRAPPER::*;
-import AlteraEthPhy::*;
 import AlteraMacWrap::*;
 
 (* always_ready, always_enabled *)
