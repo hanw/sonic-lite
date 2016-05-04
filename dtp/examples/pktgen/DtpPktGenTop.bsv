@@ -76,7 +76,7 @@ module mkDtpPktGenTop#(DtpIndication indication1, DtpPktGenIndication indication
    Wire#(Bit#(1)) clk_50_wire <- mkDWire(0);
 
 `ifdef SYNTHESIS
-   De5Clocks clocks <- mkDe5Clocks(clk_50_wire, clk_644_wire);
+   De5Clocks clocks <- mkDe5Clocks();
    De5SfpCtrl#(4) sfpctrl <- mkDe5SfpCtrl();
 `else
    SimClocks clocks <- mkSimClocks();
@@ -88,13 +88,16 @@ module mkDtpPktGenTop#(DtpIndication indication1, DtpPktGenIndication indication
    MakeResetIfc dummyReset <- mkResetSync(0, False, defaultClock);
    Reset txReset <- mkAsyncReset(2, defaultReset, txClock);
    Reset dummyTxReset <- mkAsyncReset(2, dummyReset.new_rst, txClock);
+   Reset mgmtReset <- mkAsyncReset(2, defaultReset, mgmtClock);
 
-   DtpController dtp <- mkDtpController(indication1, txClock, txReset, clocked_by defaultClock);
-   Reset rst_api <- mkAsyncReset(2, dtp.ifc.rst, txClock);
+   DtpController dtpCtrl <- mkDtpController(indication1, txClock, txReset, clocked_by defaultClock);
+   Reset rst_api <- mkAsyncReset(2, dtpCtrl.ifc.rst, txClock);
    Reset dtp_rst <- mkResetEither(dummyTxReset, rst_api, clocked_by txClock);
 
-//   NetTopIfc net <- mkNetTop(mgmtClock, txClock, phyClock, clocked_by txClock, reset_by dtp_rst);
-   DtpPhyIfc#(4) phys <- mkEthPhy(mgmtClock, txClock, phyClock, clocked_by txClock, reset_by dtp_rst);
+   De5Leds leds <- mkDe5Leds(defaultClock, txClock, mgmtClock, phyClock);
+   De5Buttons#(4) buttons <- mkDe5Buttons(clocked_by mgmtClock, reset_by mgmtReset);
+
+   DtpPhyIfc dtpPhy <- mkEthPhy(mgmtClock, txClock, phyClock, clocked_by txClock, reset_by dtp_rst);
 
    Vector#(NumPorts, EthMacIfc) mac ;
 
@@ -102,40 +105,17 @@ module mkDtpPktGenTop#(DtpIndication indication1, DtpPktGenIndication indication
    FIFOF#(Bit#(128)) tsFifo <- mkFIFOF(clocked_by txClock, reset_by dtp_rst);
 
    for (Integer i = 0 ; i < valueOf(NumPorts) ; i=i+1) begin
-      mac[i] <- mkEthMac(mgmtClock, txClock, phys.rx_clkout[i], dtp_rst, clocked_by txClock, reset_by dtp_rst);
+      mac[i] <- mkEthMac(mgmtClock, txClock, dtpPhy.phys.rx_clkout[i], dtp_rst, clocked_by txClock, reset_by dtp_rst);
 
-      mkConnection(mac[i].tx, toPut(phys.tx[i]));
-      mkConnection(toGet(phys.rx[i]), mac[i].rx);
+      mkConnection(mac[i].tx, toPut(dtpPhy.phys.tx[i]));
+      mkConnection(toGet(dtpPhy.phys.rx[i]), mac[i].rx);
 
       rule drain_mac_rx;
          let v <- toGet(mac[i].packet_rx).get;
       endrule
    end
 
-   rule cyc;
-      cycle <= cycle + 1;
-   endrule
-
-   rule send_dtp_timestamp; 
-      tsFifo.enq(cycle);
-   endrule
-
-   // Connecting DTP request/indication and DTP-PHY looks ugly
-   mkConnection(toPipeOut(tsFifo), dtp.ifc.timestamp);
-   mkConnection(phys.globalOut, dtp.ifc.globalOut);
-   mkConnection(dtp.ifc.switchMode, phys.switchMode);
-   for (Integer i=0; i<4; i=i+1) begin
-      mkConnection(dtp.ifc.fromHost[i], phys.api[i].fromHost);
-      mkConnection(phys.api[i].toHost, dtp.ifc.toHost[i]);
-      mkConnection(phys.api[i].delayOut, dtp.ifc.delay[i]);
-      mkConnection(phys.api[i].stateOut, dtp.ifc.state[i]);
-      mkConnection(phys.api[i].jumpCount, dtp.ifc.jumpCount[i]);
-      mkConnection(phys.api[i].cLocalOut, dtp.ifc.cLocal[i]);
-      mkConnection(dtp.ifc.interval[i], phys.api[i].interval);
-      mkConnection(phys.api[i].dtpErrCnt, dtp.ifc.dtpErrCnt[i]);
-      mkConnection(phys.tx_dbg[i], dtp.ifc.txPcsDbg[i]);
-      mkConnection(phys.rx_dbg[i], dtp.ifc.rxPcsDbg[i]);
-   end
+   mkConnection(dtpPhy.api, dtpCtrl.ifc);
 
    // Packet Generator
    PktGen pktgen <- mkPktGen(clocked_by txClock, reset_by dtp_rst);
@@ -170,26 +150,10 @@ module mkDtpPktGenTop#(DtpIndication indication1, DtpPktGenIndication indication
       pktgen.writeServer.writeData.put(v);
    endrule
 
-   interface request1 = dtp.request;
+   interface request1 = dtpCtrl.request;
    interface request2 = api.request;
 
 `ifdef SYNTHESIS
-   interface `PinType pins;
-      // Clocks
-      method Action osc_50(Bit#(1) b3d, Bit#(1) b4a, Bit#(1) b4d, Bit#(1) b7a, Bit#(1) b7d, Bit#(1) b8a, Bit#(1) b8d);
-         clk_50_wire <= b4a;
-      endmethod
-      method Action sfp(Bit#(1) refclk);
-         clk_644_wire <= refclk;
-      endmethod
-      method serial_tx_data = phys.serial_tx;
-      method serial_rx = phys.serial_rx;
-      interface i2c = clocks.i2c;
-      interface sfpctrl = sfpctrl;
-      interface deleteme_unused_clock = defaultClock;
-      interface deleteme_unused_clock2 = mgmtClock;
-      interface deleteme_unused_clock3 = defaultClock;
-      interface deleteme_unused_reset = defaultReset;
-   endinterface
-`endif
+   interface pins = mkDE5Pins(defaultClock, defaultReset, clocks, dtpPhy.phys, leds, sfpctrl, buttons);
+   `endif
 endmodule
