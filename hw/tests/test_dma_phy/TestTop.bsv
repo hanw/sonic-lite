@@ -99,13 +99,11 @@ module mkTestTop#(
    Clock txClock = clocks.clock_156_25;
    Clock phyClock = clocks.clock_644_53;
    Clock mgmtClock = clocks.clock_50;
-
-   MakeResetIfc dummyReset <- mkResetSync(0, False, defaultClock);
    Reset txReset <- mkAsyncReset(2, defaultReset, txClock);
-   Reset dummyTxReset <- mkAsyncReset(2, dummyReset.new_rst, txClock);
+   Reset mgmtReset <- mkAsyncReset(2, defaultReset, mgmtClock);
 
    EthPhyIfc phys <- mkAlteraEthPhy(mgmtClock, phyClock, txClock, defaultReset);
-   Clock rxClock = phys.rx_clkout;
+   Clock rxClock = phys.rx_clkout[0];
    Reset rxReset <- mkAsyncReset(2, defaultReset, rxClock);
    Vector#(4, EthMacIfc) mac <- replicateM(mkEthMac(mgmtClock, txClock, rxClock, txReset, clocked_by txClock, reset_by txReset));
 
@@ -114,6 +112,8 @@ module mkTestTop#(
    function Put#(Bit#(72)) getRx(EthMacIfc _mac); return _mac.rx; endfunction
    mapM(uncurry(mkConnection), zip(map(getTx, mac), phys.tx));
    mapM(uncurry(mkConnection), zip(phys.rx, map(getRx, mac)));
+   De5Leds leds <- mkDe5Leds(defaultClock, txClock, mgmtClock, phyClock);
+   De5Buttons#(4) buttons <- mkDe5Buttons(clocked_by mgmtClock, reset_by mgmtReset);
 `endif
 
    //----------------
