@@ -14,6 +14,7 @@ import Pipe::*;
 import MemTypes::*;
 import Ethernet::*;
 import PacketBuffer::*;
+import StoreAndForward::*;
 import AlteraMacWrap::*;
 import EthMac::*;
 import AlteraEthPhy::*;
@@ -37,9 +38,7 @@ module mkTest#(TestIndication indication) (Test);
    Clock defaultClock <- exposeCurrentClock();
    Reset defaultReset <- exposeCurrentReset();
 
-   Wire#(Bit#(1)) clk_644_wire <- mkDWire(0);
-   Wire#(Bit#(1)) clk_50_wire <- mkDWire(0);
-   De5Clocks clocks <- mkDe5Clocks(clk_50_wire, clk_644_wire);
+   De5Clocks clocks <- mkDe5Clocks();
 
    Clock txClock = clocks.clock_156_25;
    Clock phyClock = clocks.clock_644_53;
@@ -57,7 +56,7 @@ module mkTest#(TestIndication indication) (Test);
    De5Buttons#(4) buttons <- mkDe5Buttons(clocked_by mgmtClock, reset_by mgmtReset);
 
    EthPhyIfc phys <- mkAlteraEthPhy(mgmtClock, phyClock, txClock, defaultReset);
-   Clock rxClock = phys.rx_clkout;
+   Clock rxClock = phys.rx_clkout[0];
    Reset rxReset <- mkSyncReset(2, defaultReset, rxClock);
    Vector#(4, EthMacIfc) mac <- replicateM(mkEthMac(mgmtClock, txClock, rxClock, txReset, clocked_by txClock, reset_by txReset));
 
@@ -88,25 +87,7 @@ module mkTest#(TestIndication indication) (Test);
       endmethod
    endinterface
 `ifdef SYNTHESIS
-   interface `PinType pins;
-      method Action osc_50(Bit#(1) b3d, Bit#(1) b4a, Bit#(1) b4d, Bit#(1) b7a, Bit#(1) b7d, Bit#(1) b8a, Bit#(1) b8d);
-         clk_50_wire <= b4a;
-      endmethod
-      method serial_tx_data = phys.serial_tx;
-      method serial_rx = phys.serial_rx;
-      method Action sfp(Bit#(1) refclk);
-         clk_644_wire <= refclk;
-      endmethod
-      interface i2c = clocks.i2c;
-      interface led = leds.led_out;
-      interface led_bracket = leds.led_out;
-      interface sfpctrl = sfpctrl;
-      interface buttons = buttons.pins;
-      interface deleteme_unused_clock = defaultClock;
-      interface deleteme_unused_clock2 = clocks.clock_50;
-      interface deleteme_unused_clock3 = defaultClock;
-      interface deleteme_unused_reset = defaultReset;
-   endinterface
+   interface pins = mkDE5Pins(defaultClock, defaultReset, clocks, phys, leds, sfpctrl, buttons);
 `endif
 endmodule
 
