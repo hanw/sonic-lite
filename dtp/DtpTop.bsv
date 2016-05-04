@@ -78,28 +78,12 @@ module mkDtpTop#(DtpIndication indication)(DtpTop);
    Reset rst_api <- mkAsyncReset(2, dtpCtrl.ifc.rst, txClock);
    Reset dtp_rst <- mkResetEither(dummyTxReset, rst_api, clocked_by txClock);
 
-//   NetTopIfc net <- mkNetTop(mgmtClock, txClock, phyClock, clocked_by txClock, reset_by dtp_rst);
    DtpPhyIfc dtpPhy <- mkEthPhy(mgmtClock, txClock, phyClock, clocked_by txClock, reset_by dtp_rst);
 
    De5Leds leds <- mkDe5Leds(defaultClock, txClock, mgmtClock, phyClock);
    De5Buttons#(4) buttons <- mkDe5Buttons(clocked_by mgmtClock, reset_by mgmtReset);
 
-   // Connecting DTP request/indication and DTP-PHY looks ugly
-   mkConnection(dtpPhy.api.timestamp, dtpCtrl.ifc.timestamp);
-   mkConnection(dtpPhy.api.globalOut, dtpCtrl.ifc.globalOut);
-   mkConnection(dtpCtrl.ifc.switchMode, dtpPhy.api.switchMode);
-   for (Integer i=0; i<4; i=i+1) begin
-      mkConnection(dtpCtrl.ifc.fromHost[i], dtpPhy.api.phys[i].fromHost);
-      mkConnection(dtpPhy.api.phys[i].toHost, dtpCtrl.ifc.toHost[i]);
-      mkConnection(dtpPhy.api.phys[i].delayOut, dtpCtrl.ifc.delay[i]);
-      mkConnection(dtpPhy.api.phys[i].stateOut, dtpCtrl.ifc.state[i]);
-      mkConnection(dtpPhy.api.phys[i].jumpCount, dtpCtrl.ifc.jumpCount[i]);
-      mkConnection(dtpPhy.api.phys[i].cLocalOut, dtpCtrl.ifc.cLocal[i]);
-      mkConnection(dtpCtrl.ifc.interval[i], dtpPhy.api.phys[i].interval);
-      mkConnection(dtpPhy.api.phys[i].dtpErrCnt, dtpCtrl.ifc.dtpErrCnt[i]);
-      mkConnection(dtpPhy.api.tx_dbg[i], dtpCtrl.ifc.txPcsDbg[i]);
-      mkConnection(dtpPhy.api.rx_dbg[i], dtpCtrl.ifc.rxPcsDbg[i]);
-   end
+   mkConnection(dtpPhy.api, dtpCtrl.ifc);
 
    interface request = dtpCtrl.request;
    interface pins = mkDE5Pins(defaultClock, defaultReset, clocks, dtpPhy.phys, leds, sfpctrl, buttons);

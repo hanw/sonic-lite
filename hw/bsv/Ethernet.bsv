@@ -96,7 +96,7 @@ interface DtpToPhyIfc;
    interface PipeOut#(Bit#(32)) dtpErrCnt;
 endinterface
 
-interface DtpControlIfc;
+interface DtpPhyApiIfc;
    interface PipeOut#(Bit#(128)) timestamp;
    interface PipeOut#(Bit#(53)) globalOut;
    interface PipeIn#(Bit#(1)) switchMode;

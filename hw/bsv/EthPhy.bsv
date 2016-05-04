@@ -53,7 +53,7 @@ typedef 4 NumPorts;
 
 interface DtpPhyIfc;
    interface EthPhyIfc phys;
-   interface DtpControlIfc api;
+   interface DtpPhyApiIfc api;
 endinterface
 
 function Bit#(n) reverseBits(Bit#(n) x);
@@ -366,7 +366,7 @@ module mkEthPhy#(Clock mgmt_clk, Clock clk_156_25, Clock clk_644)(DtpPhyIfc);
       interface rx = vRxPipeOut;
       interface tx = vTxPipeIn;
    endinterface);
-   interface api = (interface DtpControlIfc;
+   interface api = (interface DtpPhyApiIfc;
       interface timestamp = toPipeOut(tsFifo);
       interface phys = vapi;
       interface switchMode = toPipeIn(switchModeFifo);

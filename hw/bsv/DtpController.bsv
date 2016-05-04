@@ -28,8 +28,15 @@ import SpecialFIFOs::*;
 import Vector::*;
 import Pipe::*;
 import GetPut::*;
+import GetPutWithClocks::*;
 import Ethernet::*;
 import Connectable::*;
+
+`ifdef NUMBER_OF_10G_PORTS
+typedef `NUMBER_OF_10G_PORTS NumPorts;
+`else
+typedef 4 NumPorts;
+`endif
 
 typedef struct {
    Bit#(8) port_no;
@@ -57,10 +64,6 @@ interface DtpRequest;
    method Action dtp_get_mode();
    method Action dtp_debug_tx_pcs(Bit#(8) port_no);
    method Action dtp_debug_rx_pcs(Bit#(8) port_no);
-/* NOT IMPLEMENTED YET.
-   method Action dtp_ctrl_disable();
-   method Action dtp_ctrl_enable();
-*/
 endinterface
 
 interface DtpIndication;
@@ -83,25 +86,45 @@ endinterface
 
 interface DtpIfc;
    interface PipeIn#(Bit#(128)) timestamp; // streaming time counter from NetTop.
-   interface Vector#(4, PipeOut#(Bit#(53))) fromHost;
-   interface Vector#(4, PipeIn#(Bit#(53)))  toHost;
-   interface Vector#(4, PipeIn#(Bit#(32)))  delay;
-   interface Vector#(4, PipeIn#(Bit#(32)))  state;
-   interface Vector#(4, PipeIn#(Bit#(64)))  jumpCount;
-   interface Vector#(4, PipeIn#(Bit#(53)))  cLocal;
+   interface Vector#(NumPorts, PipeOut#(Bit#(53))) fromHost;
+   interface Vector#(NumPorts, PipeIn#(Bit#(53)))  toHost;
+   interface Vector#(NumPorts, PipeIn#(Bit#(32)))  delay;
+   interface Vector#(NumPorts, PipeIn#(Bit#(32)))  state;
+   interface Vector#(NumPorts, PipeIn#(Bit#(64)))  jumpCount;
+   interface Vector#(NumPorts, PipeIn#(Bit#(53)))  cLocal;
    interface PipeIn#(Bit#(53)) globalOut;
-   interface Vector#(4, PipeOut#(Bit#(32))) interval;
-   interface Vector#(4, PipeIn#(Bit#(32))) dtpErrCnt;
+   interface Vector#(NumPorts, PipeOut#(Bit#(32))) interval;
+   interface Vector#(NumPorts, PipeIn#(Bit#(32))) dtpErrCnt;
    interface Reset rst;
    interface PipeOut#(Bit#(1)) switchMode;
-   interface Vector#(4, PipeIn#(PcsDbgRec)) txPcsDbg;
-   interface Vector#(4, PipeIn#(PcsDbgRec)) rxPcsDbg;
+   interface Vector#(NumPorts, PipeIn#(PcsDbgRec)) txPcsDbg;
+   interface Vector#(NumPorts, PipeIn#(PcsDbgRec)) rxPcsDbg;
 endinterface
 
 interface DtpController;
    interface DtpRequest request;
    interface DtpIfc     ifc;
 endinterface
+
+instance Connectable#(DtpPhyApiIfc, DtpIfc);
+   module mkConnection#(DtpPhyApiIfc api, DtpIfc ctrl)(Empty);
+      mkConnection(api.timestamp, ctrl.timestamp);
+      mkConnection(api.globalOut, ctrl.globalOut);
+      mkConnection(ctrl.switchMode, api.switchMode);
+      for (Integer i = 0 ; i < valueOf(NumPorts) ; i = i +1) begin
+         mkConnection(ctrl.fromHost[i], api.phys[i].fromHost);
+         mkConnection(api.phys[i].toHost, ctrl.toHost[i]);
+         mkConnection(api.phys[i].delayOut, ctrl.delay[i]);
+         mkConnection(api.phys[i].stateOut, ctrl.state[i]);
+         mkConnection(api.phys[i].jumpCount, ctrl.jumpCount[i]);
+         mkConnection(api.phys[i].cLocalOut, ctrl.cLocal[i]);
+         mkConnection(ctrl.interval[i], api.phys[i].interval);
+         mkConnection(api.phys[i].dtpErrCnt, ctrl.dtpErrCnt[i]);
+         mkConnection(api.tx_dbg[i], ctrl.txPcsDbg[i]);
+         mkConnection(api.rx_dbg[i], ctrl.rxPcsDbg[i]);
+      end
+   endmodule
+endinstance
 
 module mkDtpController#(DtpIndication indication, Clock clk_156_25, Reset rst_156_n)(DtpController);
    let verbose = False;
@@ -111,22 +134,22 @@ module mkDtpController#(DtpIndication indication, Clock clk_156_25, Reset rst_15
    Reg#(Bit#(64))  cycle_count <- mkReg(0);
    Reg#(Bit#(128))   cycle_reg <- mkReg(0);
    Reg#(Bit#(1))     switch_mode_reg <- mkReg(0);
-   Vector#(4, Reg#(Bit#(32))) beacon_interval <- replicateM(mkReg(1000)); //default beacon interval is 1000.
+   Vector#(NumPorts, Reg#(Bit#(32))) beacon_interval <- replicateM(mkReg(1000)); //default beacon interval is 1000.
 
    Reg#(Bit#(8))  lwrite_port <- mkReg(0);
    FIFOF#(BufData) lwrite_data_cycle1 <- mkSizedBypassFIFOF(3);
    FIFOF#(BufData) lwrite_data_cycle2 <- mkSizedBypassFIFOF(3);
    FIFOF#(void) log_write_cf <- mkFIFOF;
-   Vector#(4, Reg#(Bit#(32))) lwrite_cnt_enq <- replicateM(mkReg(0));
-   Vector#(4, Reg#(Bit#(32))) lwrite_cnt_deq1 <- replicateM(mkReg(0));
-   Vector#(4, Reg#(Bit#(32))) lwrite_cnt_deq2 <- replicateM(mkReg(0));
+   Vector#(NumPorts, Reg#(Bit#(32))) lwrite_cnt_enq <- replicateM(mkReg(0));
+   Vector#(NumPorts, Reg#(Bit#(32))) lwrite_cnt_deq1 <- replicateM(mkReg(0));
+   Vector#(NumPorts, Reg#(Bit#(32))) lwrite_cnt_deq2 <- replicateM(mkReg(0));
 
-   Vector#(4, FIFOF#(BufData)) lread_data_cycle1 <- replicateM(mkSizedBypassFIFOF(4));
-   Vector#(4, FIFOF#(BufData)) lread_data_cycle2 <- replicateM(mkSizedBypassFIFOF(4));
-   Vector#(4, FIFOF#(Bit#(53))) lread_data_timestamp <- replicateM(mkSizedBypassFIFOF(4));
-   Vector#(4, Reg#(Bit#(32)))  lread_cnt_enq1 <- replicateM(mkReg(0));
-   Vector#(4, Reg#(Bit#(32)))  lread_cnt_enq2 <- replicateM(mkReg(0));
-   Vector#(4, Reg#(Bit#(32)))  lread_cnt_deq <- replicateM(mkReg(0));
+   Vector#(NumPorts, FIFOF#(BufData)) lread_data_cycle1 <- replicateM(mkSizedBypassFIFOF(4));
+   Vector#(NumPorts, FIFOF#(BufData)) lread_data_cycle2 <- replicateM(mkSizedBypassFIFOF(4));
+   Vector#(NumPorts, FIFOF#(Bit#(53))) lread_data_timestamp <- replicateM(mkSizedBypassFIFOF(4));
+   Vector#(NumPorts, Reg#(Bit#(32)))  lread_cnt_enq1 <- replicateM(mkReg(0));
+   Vector#(NumPorts, Reg#(Bit#(32)))  lread_cnt_enq2 <- replicateM(mkReg(0));
+   Vector#(NumPorts, Reg#(Bit#(32)))  lread_cnt_deq <- replicateM(mkReg(0));
 
    Reg#(Bit#(28)) dtp_rst_cntr <- mkReg(0);
    MakeResetIfc dtpResetOut <- mkResetSync(0, False, defaultClock);
@@ -137,7 +160,7 @@ module mkDtpController#(DtpIndication indication, Clock clk_156_25, Reset rst_15
 
    // clear all fifo on reset
    rule clearOnReset(dtpResetOut.isAsserted);
-      for (Integer i=0; i<4; i=i+1) begin
+      for (Integer i=0; i<valueOf(NumPorts); i=i+1) begin
          lread_data_cycle1[i].clear();
          lread_data_cycle2[i].clear();
          lread_data_timestamp[i].clear();
@@ -149,28 +172,28 @@ module mkDtpController#(DtpIndication indication, Clock clk_156_25, Reset rst_15
 
    SyncFIFOIfc#(Bit#(128)) cntFifo <- mkSyncFIFO(8, clk_156_25, rst_156_n, defaultClock);
    // send log data from host to network
-   Vector#(4, SyncFIFOIfc#(Bit#(53))) fromHostFifo <- replicateM(mkSyncFIFO(8, defaultClock, defaultReset, clk_156_25));
+   Vector#(NumPorts, SyncFIFOIfc#(Bit#(53))) fromHostFifo <- replicateM(mkSyncFIFO(8, defaultClock, defaultReset, clk_156_25));
    // send log data from network to host
-   Vector#(4, SyncFIFOIfc#(Bit#(53))) toHostFifo <- replicateM(mkSyncFIFO(8, clk_156_25, rst_156_n, defaultClock));
+   Vector#(NumPorts, SyncFIFOIfc#(Bit#(53))) toHostFifo <- replicateM(mkSyncFIFO(8, clk_156_25, rst_156_n, defaultClock));
    // send delay measurement to host
-   Vector#(4, SyncFIFOIfc#(Bit#(32))) delayFifo <- replicateM(mkSyncFIFO(8, clk_156_25, rst_156_n, defaultClock));
+   Vector#(NumPorts, SyncFIFOIfc#(Bit#(32))) delayFifo <- replicateM(mkSyncFIFO(8, clk_156_25, rst_156_n, defaultClock));
    // send dtp state to host
-   Vector#(4, SyncFIFOIfc#(Bit#(32))) stateFifo <- replicateM(mkSyncFIFO(8, clk_156_25, rst_156_n, defaultClock));
+   Vector#(NumPorts, SyncFIFOIfc#(Bit#(32))) stateFifo <- replicateM(mkSyncFIFO(8, clk_156_25, rst_156_n, defaultClock));
    // send dtp error count to host
-   Vector#(4, SyncFIFOIfc#(Bit#(64))) jumpCountFifo <- replicateM(mkSyncFIFO(8, clk_156_25, rst_156_n, defaultClock));
+   Vector#(NumPorts, SyncFIFOIfc#(Bit#(64))) jumpCountFifo <- replicateM(mkSyncFIFO(8, clk_156_25, rst_156_n, defaultClock));
    // send dtp clocal to host
-   Vector#(4, SyncFIFOIfc#(Bit#(53))) cLocalFifo <- replicateM(mkSyncFIFO(8, clk_156_25, rst_156_n, defaultClock));
+   Vector#(NumPorts, SyncFIFOIfc#(Bit#(53))) cLocalFifo <- replicateM(mkSyncFIFO(8, clk_156_25, rst_156_n, defaultClock));
    // send dtp cglobal to host
    SyncFIFOIfc#(Bit#(53)) cGlobalFifo <- mkSyncFIFO(8, clk_156_25, rst_156_n, defaultClock);
    // set interval
-   Vector#(4, SyncFIFOIfc#(Bit#(32))) intervalFifo <- replicateM(mkSyncFIFO(8, defaultClock, defaultReset, clk_156_25));
+   Vector#(NumPorts, SyncFIFOIfc#(Bit#(32))) intervalFifo <- replicateM(mkSyncFIFO(8, defaultClock, defaultReset, clk_156_25));
    // send dtp rcvd err count
-   Vector#(4, SyncFIFOIfc#(Bit#(32))) dtpErrCntFifo <- replicateM(mkSyncFIFO(8, clk_156_25, rst_156_n, defaultClock));
+   Vector#(NumPorts, SyncFIFOIfc#(Bit#(32))) dtpErrCntFifo <- replicateM(mkSyncFIFO(8, clk_156_25, rst_156_n, defaultClock));
    // send switch mode
    SyncFIFOIfc#(Bit#(1)) switchModeFifo <- mkSyncFIFO(8, defaultClock, defaultReset, clk_156_25);
    // debugging stat
-   Vector#(4, SyncFIFOIfc#(PcsDbgRec)) txDbgFifo <- replicateM(mkSyncFIFO(8, clk_156_25, rst_156_n, defaultClock));
-   Vector#(4, SyncFIFOIfc#(PcsDbgRec)) rxDbgFifo <- replicateM(mkSyncFIFO(8, clk_156_25, rst_156_n, defaultClock));
+   Vector#(NumPorts, SyncFIFOIfc#(PcsDbgRec)) txDbgFifo <- replicateM(mkSyncFIFO(8, clk_156_25, rst_156_n, defaultClock));
+   Vector#(NumPorts, SyncFIFOIfc#(PcsDbgRec)) rxDbgFifo <- replicateM(mkSyncFIFO(8, clk_156_25, rst_156_n, defaultClock));
 
    // dtp_read_cnt
    rule snapshot_dtp_timestamp;
@@ -179,38 +202,38 @@ module mkDtpController#(DtpIndication indication, Clock clk_156_25, Reset rst_15
    endrule
 
    // dtp_read_delay
-   Vector#(4, Reg#(Bit#(32))) delay_reg <- replicateM(mkReg(0));
-   for (Integer i=0; i<4; i=i+1) begin
+   Vector#(NumPorts, Reg#(Bit#(32))) delay_reg <- replicateM(mkReg(0));
+   // dtp_read_state
+   Vector#(NumPorts, Reg#(Bit#(32))) state_reg <- replicateM(mkReg(0));
+   // dtp_read_error
+   Vector#(NumPorts, Reg#(Bit#(64))) jumpc_reg <- replicateM(mkReg(0));
+   // dtp_read_local_cnt
+   Vector#(NumPorts, Reg#(Bit#(53))) clocal_reg <- replicateM(mkReg(0));
+   Vector#(NumPorts, Reg#(Bit#(32))) dtp_err_cnt <- replicateM(mkReg(0));
+   for (Integer i=0; i<valueOf(NumPorts); i=i+1) begin
       rule snapshot_delay;
          let v <- toGet(delayFifo[i]).get;
          delay_reg[i] <= v;
       endrule
-   end
-
-   // dtp_read_state
-   Vector#(4, Reg#(Bit#(32))) state_reg <- replicateM(mkReg(0));
-   for (Integer i=0; i<4; i=i+1) begin
       rule snapshot_state;
          let v <- toGet(stateFifo[i]).get;
          state_reg[i] <= v;
       endrule
-   end
-
-   // dtp_read_error
-   Vector#(4, Reg#(Bit#(64))) jumpc_reg <- replicateM(mkReg(0));
-   for (Integer i=0; i<4; i=i+1) begin
       rule snapshot_jumpc;
          let v <- toGet(jumpCountFifo[i]).get;
          jumpc_reg[i] <= v;
       endrule
-   end
-
-   // dtp_read_local_cnt
-   Vector#(4, Reg#(Bit#(53))) clocal_reg <- replicateM(mkReg(0));
-   for (Integer i=0; i<4; i=i+1) begin
       rule snapshot_clocal;
          let v <- toGet(cLocalFifo[i]).get;
          clocal_reg[i] <= v;
+      endrule
+      rule set_interval;
+         let v = beacon_interval[i];
+         intervalFifo[i].enq(v);
+      endrule
+      rule snapshot_dtp_err_cnt;
+         let v <- toGet(dtpErrCntFifo[i]).get;
+         dtp_err_cnt[i] <= v;
       endrule
    end
 
@@ -220,22 +243,6 @@ module mkDtpController#(DtpIndication indication, Clock clk_156_25, Reset rst_15
       let v <- toGet(cGlobalFifo).get;
       cglobal_reg <= v;
    endrule
-
-   // dtp_set_interval
-   for (Integer i=0; i<4; i=i+1) begin
-      rule set_interval;
-         let v = beacon_interval[i];
-         intervalFifo[i].enq(v);
-      endrule
-   end
-
-   Vector#(4, Reg#(Bit#(32))) dtp_err_cnt <- replicateM(mkReg(0));
-   for (Integer i=0; i<4; i=i+1) begin
-      rule snapshot_dtp_err_cnt;
-         let v <- toGet(dtpErrCntFifo[i]).get;
-         dtp_err_cnt[i] <= v;
-      endrule
-   end
 
    Integer chunk_a = 0;
    Integer chunk_b = 1;
@@ -266,13 +273,13 @@ module mkDtpController#(DtpIndication indication, Clock clk_156_25, Reset rst_15
       end
    endrule
    rule reset_from_host (dtpResetOut.isAsserted);
-      for (Integer i=0; i<4; i=i+1) begin
+      for (Integer i=0; i<valueOf(NumPorts); i=i+1) begin
          lwrite_cnt_deq1[i]<= 0;
          lwrite_cnt_deq2[i]<= 0;
       end
    endrule
 
-   for (Integer i=0; i<4; i=i+1) begin
+   for (Integer i=0; i<valueOf(NumPorts); i=i+1) begin
       rule save_host_data (!dtpResetOut.isAsserted);
          let v <- toGet(toHostFifo[i]).get;
 
@@ -310,35 +317,16 @@ module mkDtpController#(DtpIndication indication, Clock clk_156_25, Reset rst_15
       switchModeFifo.enq(switch_mode_reg);
    endrule
 
-   Vector#(4, Reg#(Bit#(64))) tx_debug_bytes <- replicateM(mkReg(0));
-   Vector#(4, Reg#(Bit#(64))) tx_debug_starts <- replicateM(mkReg(0));
-   Vector#(4, Reg#(Bit#(64))) tx_debug_ends <- replicateM(mkReg(0));
-   Vector#(4, Reg#(Bit#(64))) tx_debug_errorframes <- replicateM(mkReg(0));
-   Vector#(4, Reg#(Bit#(64))) tx_debug_frames <- replicateM(mkReg(0));
-   for (Integer i=0; i<4; i = i+1) begin
+   Vector#(NumPorts, Reg#(PcsDbgRec)) tx_debug <- replicateM(mkRegU);
+   Vector#(NumPorts, Reg#(PcsDbgRec)) rx_debug <- replicateM(mkRegU);
+   for (Integer i=0; i<valueOf(NumPorts); i = i+1) begin
       rule snapshot_tx_debug;
          let v <- toGet(txDbgFifo[i]).get;
-         tx_debug_bytes[i] <= v.bytes;
-         tx_debug_starts[i] <= v.starts;
-         tx_debug_ends[i] <= v.ends;
-         tx_debug_errorframes[i] <= v.errorframes;
-         tx_debug_frames[i] <= v.frames;
+         tx_debug[i] <= v;
       endrule
-   end
-
-   Vector#(4, Reg#(Bit#(64))) rx_debug_bytes <- replicateM(mkReg(0));
-   Vector#(4, Reg#(Bit#(64))) rx_debug_starts <- replicateM(mkReg(0));
-   Vector#(4, Reg#(Bit#(64))) rx_debug_ends <- replicateM(mkReg(0));
-   Vector#(4, Reg#(Bit#(64))) rx_debug_errorframes <- replicateM(mkReg(0));
-   Vector#(4, Reg#(Bit#(64))) rx_debug_frames <- replicateM(mkReg(0));
-   for (Integer i=0; i<4; i = i+1) begin
       rule snapshot_rx_debug;
          let v <- toGet(rxDbgFifo[i]).get;
-         rx_debug_bytes[i] <= v.bytes;
-         rx_debug_starts[i] <= v.starts;
-         rx_debug_ends[i] <= v.ends;
-         rx_debug_errorframes[i] <= v.errorframes;
-         rx_debug_frames[i] <= v.frames;
+         rx_debug[i] <= v;
       endrule
    end
 
@@ -466,12 +454,12 @@ module mkDtpController#(DtpIndication indication, Clock clk_156_25, Reset rst_15
    endmethod
    method Action dtp_debug_tx_pcs(Bit#(8) port_no);
       if (port_no <4) begin
-         indication.dtp_debug_tx_pcs_resp(port_no, tx_debug_bytes[port_no], tx_debug_starts[port_no], tx_debug_ends[port_no], tx_debug_errorframes[port_no], tx_debug_frames[port_no]);
+         indication.dtp_debug_tx_pcs_resp(port_no, tx_debug[port_no].bytes, tx_debug[port_no].starts, tx_debug[port_no].ends, tx_debug[port_no].errorframes, tx_debug[port_no].frames);
       end
    endmethod
    method Action dtp_debug_rx_pcs(Bit#(8) port_no);
       if (port_no <4) begin
-         indication.dtp_debug_rx_pcs_resp(port_no, rx_debug_bytes[port_no], rx_debug_starts[port_no], rx_debug_ends[port_no], rx_debug_errorframes[port_no], rx_debug_frames[port_no]);
+         indication.dtp_debug_rx_pcs_resp(port_no, rx_debug[port_no].bytes, rx_debug[port_no].starts, rx_debug[port_no].ends, rx_debug[port_no].errorframes, rx_debug[port_no].frames);
       end
    endmethod
    endinterface
