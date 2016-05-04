@@ -51,24 +51,9 @@ typedef `NUMBER_OF_10G_PORTS NumPorts;
 typedef 4 NumPorts;
 `endif
 
-interface DtpPhyIfc#(numeric type numPorts);
-   interface Vector#(numPorts, PipeIn#(Bit#(72)))  tx;
-   interface Vector#(numPorts, PipeOut#(Bit#(72))) rx;
-   (*always_ready, always_enabled*)
-   method Vector#(numPorts,Bit#(1)) serial_tx;
-   (*always_ready, always_enabled*)
-   method Action serial_rx(Vector#(numPorts,Bit#(1)) data);
-   interface Vector#(numPorts, Clock) tx_clkout;
-   interface Vector#(numPorts, Clock) rx_clkout;
-   (* always_ready, always_enabled *)
-   interface LoopbackIfc loopback;
-
-   interface Vector#(numPorts, Bool) led_rx_ready;
-   interface Vector#(numPorts, DtpToPhyIfc) api;
-   interface PipeIn#(Bit#(1)) switchMode;
-   interface PipeOut#(Bit#(53)) globalOut;
-   interface Vector#(numPorts, PipeOut#(PcsDbgRec)) tx_dbg;
-   interface Vector#(numPorts, PipeOut#(PcsDbgRec)) rx_dbg;
+interface DtpPhyIfc;
+   interface EthPhyIfc phys;
+   interface DtpControlIfc api;
 endinterface
 
 function Bit#(n) reverseBits(Bit#(n) x);
@@ -79,34 +64,35 @@ function Bit#(n) reverseBits(Bit#(n) x);
 endfunction
 
 //(* synthesize *)
-module mkEthPhy#(Clock mgmt_clk, Clock clk_156_25, Clock clk_644)(DtpPhyIfc#(numPorts));
+module mkEthPhy#(Clock mgmt_clk, Clock clk_156_25, Clock clk_644)(DtpPhyIfc);
    let verbose = False;
 
-   Reg#(Bit#(32)) cycle <- mkReg(0);
+   Reg#(Bit#(128)) cycle <- mkReg(0);
    Reset defaultReset <- exposeCurrentReset;
    Reset rst_50_n <- mkAsyncReset(2, defaultReset, mgmt_clk);
    //Reset rst_156_25_n <- mkAsyncReset(2, defaultReset, clk_156_25);
    let rst_156_25_n = defaultReset;
 
+   FIFOF#(Bit#(128)) tsFifo <- mkFIFOF();
    Reg#(Bool) loopback_en <- mkReg(False);
    Reg#(Bool) switch_en <- mkReg(False);
 
    let bypass_dtp = False;
 
-   Vector#(numPorts, EthPcsRx) pcs_rx = newVector;
-   Vector#(numPorts, EthPcsTx) pcs_tx = newVector;
-   Vector#(numPorts, DtpRx)    dtp_rx = newVector;
-   Vector#(numPorts, DtpTx)    dtp_tx = newVector;
+   Vector#(NumPorts, EthPcsRx) pcs_rx = newVector;
+   Vector#(NumPorts, EthPcsTx) pcs_tx = newVector;
+   Vector#(NumPorts, DtpRx)    dtp_rx = newVector;
+   Vector#(NumPorts, DtpTx)    dtp_tx = newVector;
 
 
 `ifdef SYNTHESIS
-   EthSonicPma#(numPorts)      pma4 <- mkEthSonicPma(mgmt_clk, clk_644, clk_156_25, rst_50_n, clocked_by mgmt_clk, reset_by rst_50_n);
-   Vector#(numPorts, ReadOnly#(Bool)) rx_ready_tx;
-   Vector#(numPorts, ReadOnly#(Bool)) tx_ready_tx;
-   Vector#(numPorts, ReadOnly#(Bool)) rx_ready_rx;
-   Vector#(numPorts, ReadOnly#(Bool)) tx_ready_rx;
-   Vector#(numPorts, CrossingReg#(Bool)) lock_tx;
-   for (Integer i=0; i<valueOf(numPorts); i=i+1) begin
+   EthSonicPma#(NumPorts)      pma4 <- mkEthSonicPma(mgmt_clk, clk_644, clk_156_25, rst_50_n, clocked_by mgmt_clk, reset_by rst_50_n);
+   Vector#(NumPorts, ReadOnly#(Bool)) rx_ready_tx;
+   Vector#(NumPorts, ReadOnly#(Bool)) tx_ready_tx;
+   Vector#(NumPorts, ReadOnly#(Bool)) rx_ready_rx;
+   Vector#(NumPorts, ReadOnly#(Bool)) tx_ready_rx;
+   Vector#(NumPorts, CrossingReg#(Bool)) lock_tx;
+   for (Integer i=0; i<valueOf(NumPorts); i=i+1) begin
       rx_ready_tx[i] <- mkNullCrossingWire(clk_156_25, pma4.rx_ready[i]);
       tx_ready_tx[i] <- mkNullCrossingWire(clk_156_25, pma4.tx_ready[i]);
       rx_ready_rx[i] <- mkNullCrossingWire(pma4.rx_clkout[i], pma4.rx_ready[i]);
@@ -114,12 +100,12 @@ module mkEthPhy#(Clock mgmt_clk, Clock clk_156_25, Clock clk_644)(DtpPhyIfc#(num
       lock_tx[i] <- mkNullCrossingReg(clk_156_25, False, clocked_by pma4.rx_clkout[i], reset_by pma4.rx_reset[i]);
    end
 `else
-   Vector#(numPorts, Reg#(Bool)) rx_ready_tx;
-   Vector#(numPorts, Reg#(Bool)) tx_ready_tx;
-   Vector#(numPorts, Reg#(Bool)) rx_ready_rx;
-   Vector#(numPorts, Reg#(Bool)) tx_ready_rx;
-   Vector#(numPorts, Reg#(Bool)) lock_tx;
-   for (Integer i=0; i<valueOf(numPorts); i=i+1) begin
+   Vector#(NumPorts, Reg#(Bool)) rx_ready_tx;
+   Vector#(NumPorts, Reg#(Bool)) tx_ready_tx;
+   Vector#(NumPorts, Reg#(Bool)) rx_ready_rx;
+   Vector#(NumPorts, Reg#(Bool)) tx_ready_rx;
+   Vector#(NumPorts, Reg#(Bool)) lock_tx;
+   for (Integer i=0; i<valueOf(NumPorts); i=i+1) begin
       rx_ready_tx[i] <- mkReg(True);
       tx_ready_tx[i] <- mkReg(True);
       rx_ready_rx[i] <- mkReg(True);
@@ -128,36 +114,36 @@ module mkEthPhy#(Clock mgmt_clk, Clock clk_156_25, Clock clk_644)(DtpPhyIfc#(num
    end
 `endif
 
-   Vector#(numPorts, FIFOF#(Bit#(72)))   txFifo     = newVector;
-   Vector#(numPorts, FIFOF#(Bit#(72)))   rxFifo     = newVector;
-   Vector#(numPorts, PipeIn#(Bit#(72)))  vRxPipeIn  = newVector;
-   Vector#(numPorts, PipeOut#(Bit#(72))) vRxPipeOut = newVector;
-   Vector#(numPorts, PipeIn#(Bit#(72)))  vTxPipeIn  = newVector;
-   Vector#(numPorts, PipeOut#(Bit#(72))) vTxPipeOut = newVector;
+   Vector#(NumPorts, FIFOF#(Bit#(72)))   txFifo     = newVector;
+   Vector#(NumPorts, FIFOF#(Bit#(72)))   rxFifo     = newVector;
+   Vector#(NumPorts, PipeIn#(Bit#(72)))  vRxPipeIn  = newVector;
+   Vector#(NumPorts, Get#(Bit#(72))) vRxPipeOut = newVector;
+   Vector#(NumPorts, Put#(Bit#(72)))  vTxPipeIn  = newVector;
+   Vector#(NumPorts, PipeOut#(Bit#(72))) vTxPipeOut = newVector;
 
    // Loopback FIFO
-   Vector#(numPorts, SyncFIFOIfc#(Bit#(66))) lpbkSyncFifo = newVector;
-   Vector#(numPorts, PipeOut#(Bit#(66))) lpbkSyncPipeOut = newVector;
-   Vector#(numPorts, PipeIn#(Bit#(66))) lpbkSyncPipeIn = newVector;
+   Vector#(NumPorts, SyncFIFOIfc#(Bit#(66))) lpbkSyncFifo = newVector;
+   Vector#(NumPorts, PipeOut#(Bit#(66))) lpbkSyncPipeOut = newVector;
+   Vector#(NumPorts, PipeIn#(Bit#(66))) lpbkSyncPipeIn = newVector;
 
    // DtpRx to DtpTx Fifo
-   Vector#(numPorts, SyncFIFOIfc#(DtpEvent)) dtpEventFifo = newVector;
-   Vector#(numPorts, PipeOut#(DtpEvent)) dtpEventOut = newVector;
-   Vector#(numPorts, PipeIn#(DtpEvent)) dtpEventIn = newVector;
-   Vector#(numPorts, SyncFIFOIfc#(Bit#(32))) dtpErrCntFifo = newVector;
-   Vector#(numPorts, PipeOut#(Bit#(32))) dtpErrCntOut = newVector;
-   Vector#(numPorts, PipeIn#(Bit#(32))) dtpErrCntIn = newVector;
+   Vector#(NumPorts, SyncFIFOIfc#(DtpEvent)) dtpEventFifo = newVector;
+   Vector#(NumPorts, PipeOut#(DtpEvent)) dtpEventOut = newVector;
+   Vector#(NumPorts, PipeIn#(DtpEvent)) dtpEventIn = newVector;
+   Vector#(NumPorts, SyncFIFOIfc#(Bit#(32))) dtpErrCntFifo = newVector;
+   Vector#(NumPorts, PipeOut#(Bit#(32))) dtpErrCntOut = newVector;
+   Vector#(NumPorts, PipeIn#(Bit#(32))) dtpErrCntIn = newVector;
 
    // Debugging
-   Vector#(numPorts, SyncFIFOIfc#(PcsDbgRec)) phyRxDebug = newVector;
-   Vector#(numPorts, FIFOF#(PcsDbgRec)) phyTxDebug <- replicateM(mkFIFOF(clocked_by clk_156_25, reset_by rst_156_25_n));
+   Vector#(NumPorts, SyncFIFOIfc#(PcsDbgRec)) phyRxDebug = newVector;
+   Vector#(NumPorts, FIFOF#(PcsDbgRec)) phyTxDebug <- replicateM(mkFIFOF(clocked_by clk_156_25, reset_by rst_156_25_n));
 
    // 156.25MHz to pma4.tx
-   Vector#(numPorts, SyncFIFOIfc#(Bit#(66))) txSyncFifo = newVector;
+   Vector#(NumPorts, SyncFIFOIfc#(Bit#(66))) txSyncFifo = newVector;
 
    FIFOF#(Bit#(1)) switchModeFifo <- mkFIFOF();
 
-   for (Integer i=0; i<valueOf(numPorts); i=i+1) begin
+   for (Integer i=0; i<valueOf(NumPorts); i=i+1) begin
 `ifdef SYNTHESIS
       Clock rxClock = pma4.rx_clkout[i];
       Reset rxReset = pma4.rx_reset[i];
@@ -169,8 +155,8 @@ module mkEthPhy#(Clock mgmt_clk, Clock clk_156_25, Clock clk_644)(DtpPhyIfc#(num
       rxFifo[i] <- mkFIFOF(clocked_by rxClock, reset_by rxReset);
       txFifo[i] <- mkFIFOF(clocked_by clk_156_25, reset_by rst_156_25_n);
       vRxPipeIn[i] = toPipeIn(rxFifo[i]);
-      vRxPipeOut[i] = toPipeOut(rxFifo[i]);
-      vTxPipeIn[i] = toPipeIn(txFifo[i]);
+      vRxPipeOut[i] = toGet(rxFifo[i]);
+      vTxPipeIn[i] = toPut(txFifo[i]);
       vTxPipeOut[i] = toPipeOut(txFifo[i]);
 
       // Gearbox Level Loopback FIFO
@@ -264,7 +250,7 @@ module mkEthPhy#(Clock mgmt_clk, Clock clk_156_25, Clock clk_644)(DtpPhyIfc#(num
       // END Normal Operation
 
       // Loopback Operation: Pcs -> lpbk Fifo -> Pcs
-      ReadOnly#(Bit#(32)) cycle_cross <- mkNullCrossingWire(clk_156_25, cycle);
+      ReadOnly#(Bit#(32)) cycle_cross <- mkNullCrossingWire(clk_156_25, truncate(cycle));
       rule tx_loopback(tx_lpbk_en);
          let v <- toGet(pcs_tx[i].scramblerOut).get;
          lpbkSyncPipeIn[i].enq(v);
@@ -298,16 +284,20 @@ module mkEthPhy#(Clock mgmt_clk, Clock clk_156_25, Clock clk_644)(DtpPhyIfc#(num
       cycle <= cycle + 1;
    endrule
 
+   rule send_dtp_cycle;
+      tsFifo.enq(cycle);
+   endrule
+
    ReadOnly#(Bool) switch_en_tx;
    switch_en_tx <- mkNullCrossingWire(clk_156_25, switch_en);
 
    DtpSwitch#(4) dtpswitch <- mkDtpSwitch(clocked_by clk_156_25, reset_by rst_156_25_n);
-   for (Integer i=0; i<valueOf(numPorts); i=i+1) begin
+   for (Integer i=0; i<valueOf(NumPorts); i=i+1) begin
       mkConnection(dtp_tx[i].dtpLocalOut, dtpswitch.dtpLocalIn[i]);
       mkConnection(dtpswitch.dtpGlobalOut[i], dtp_tx[i].dtpGlobalIn);
    end
 
-   for (Integer i=0; i<valueOf(numPorts); i=i+1) begin
+   for (Integer i=0; i<valueOf(NumPorts); i=i+1) begin
       rule pcs_tx_every1;
          pcs_tx[i].tx_ready(tx_ready_tx[i]);
       endrule
@@ -340,7 +330,7 @@ module mkEthPhy#(Clock mgmt_clk, Clock clk_156_25, Clock clk_644)(DtpPhyIfc#(num
       dtpswitch.switch_mode(switch_en_tx);
    endrule
 
-   for (Integer i=0; i<valueOf(numPorts); i=i+1) begin
+   for (Integer i=0; i<valueOf(NumPorts); i=i+1) begin
       rule receive;
          let v <- toGet(pcs_rx[i].decoderOut).get;
          if (verbose) $display("EthPhy %d: decoderOut=%h", i, v);
@@ -348,8 +338,8 @@ module mkEthPhy#(Clock mgmt_clk, Clock clk_156_25, Clock clk_644)(DtpPhyIfc#(num
       endrule
    end
 
-   Vector#(numPorts, DtpToPhyIfc) vapi;
-   for (Integer i=0; i<valueOf(numPorts); i=i+1) begin
+   Vector#(NumPorts, DtpToPhyIfc) vapi;
+   for (Integer i=0; i<valueOf(NumPorts); i=i+1) begin
       vapi[i] = dtp_tx[i].api;
    end
    function PcsDbgRec getPcsTxDbgRec (EthPcsTx tx);
@@ -359,33 +349,31 @@ module mkEthPhy#(Clock mgmt_clk, Clock clk_156_25, Clock clk_644)(DtpPhyIfc#(num
     return rx.dbg;
    endfunction
 
-   interface loopback = (interface LoopbackIfc;
+/*   interface loopback = (interface LoopbackIfc;
       method Action lpbk_en (Bool en);
          loopback_en <= en;
       endmethod
-   endinterface);
+   endinterface);*/
 
+   interface phys = (interface EthPhyIfc;
 `ifdef SYNTHESIS
-   interface rx_clkout = pma4.rx_clkout;
-   interface tx_clkout = pma4.tx_clkout;
-   method serial_tx = pma4.serial_tx;
-   method serial_rx = pma4.serial_rx;
-   interface led_rx_ready = pma4.rx_ready;
+      interface rx_clkout = pma4.rx_clkout;
+      method serial_tx = pma4.serial_tx;
+      method serial_rx = pma4.serial_rx;
 `else  
-    interface rx_clkout = replicate(clk_156_25);
-    interface tx_clkout = replicate(clk_156_25);
+      interface rx_clkout = replicate(clk_156_25);
 `endif
-   interface rx = vRxPipeOut;
-   interface tx = vTxPipeIn;
+      interface rx = vRxPipeOut;
+      interface tx = vTxPipeIn;
+   endinterface);
+   interface api = (interface DtpControlIfc;
+      interface timestamp = toPipeOut(tsFifo);
+      interface phys = vapi;
+      interface switchMode = toPipeIn(switchModeFifo);
+      interface globalOut = dtpswitch.globalOut;
 
-   interface api = vapi;
-   interface switchMode = toPipeIn(switchModeFifo);
-   interface globalOut = dtpswitch.globalOut;
-
-   interface tx_dbg = map(toPipeOut, phyTxDebug);
-   interface rx_dbg = map(toPipeOut, phyRxDebug);
-
-   //method Vector#(numPorts, PcsDbgRec) tx_dbg = map(getPcsTxDbgRec, pcs_tx);//cons(pcs_tx[0].dbg, cons(pcs_tx[1].dbg, cons(pcs_tx[2].dbg, cons(pcs_tx[3].dbg, nil))));//vec(map(getPcsTxDbgRec, pcs_tx));
-   //method Vector#(numPorts, PcsDbgRec) rx_dbg = map(getPcsRxDbgRec, pcs_rx);
+      interface tx_dbg = map(toPipeOut, phyTxDebug);
+      interface rx_dbg = map(toPipeOut, phyRxDebug);
+   endinterface);
 endmodule: mkEthPhy
 endpackage: EthPhy

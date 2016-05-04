@@ -36,8 +36,7 @@ import SpecialFIFOs ::*;
 import Vector ::*;
 import ConnectalConfig::*;
 
-import NetTop::*;
-import EthPorts::*;
+import EthPhy::*;
 import Ethernet::*;
 import DtpController::*;
 import MemTypes::*;
@@ -68,38 +67,40 @@ module mkDtpTop#(DtpIndication indication)(DtpTop);
    De5SfpCtrl#(4) sfpctrl <- mkDe5SfpCtrl();
    Clock txClock = clocks.clock_156_25;
    Clock phyClock = clocks.clock_644_53;
-   Clock clock_50 = clocks.clock_50;
+   Clock mgmtClock = clocks.clock_50;
 
    MakeResetIfc dummyReset <- mkResetSync(0, False, defaultClock);
    Reset txReset <- mkAsyncReset(2, defaultReset, txClock);
    Reset dummyTxReset <- mkAsyncReset(2, dummyReset.new_rst, txClock);
+   Reset mgmtReset <- mkAsyncReset(2, defaultReset, mgmtClock);
 
-   DtpController dtp <- mkDtpController(indication, txClock, dummyTxReset);
-   Reset rst_api <- mkAsyncReset(2, dtp.ifc.rst, txClock);
+   DtpController dtpCtrl <- mkDtpController(indication, txClock, dummyTxReset);
+   Reset rst_api <- mkAsyncReset(2, dtpCtrl.ifc.rst, txClock);
    Reset dtp_rst <- mkResetEither(dummyTxReset, rst_api, clocked_by txClock);
 
-   NetTopIfc net <- mkNetTop(clock_50, txClock, phyClock, clocked_by txClock, reset_by dtp_rst);
+//   NetTopIfc net <- mkNetTop(mgmtClock, txClock, phyClock, clocked_by txClock, reset_by dtp_rst);
+   DtpPhyIfc dtpPhy <- mkEthPhy(mgmtClock, txClock, phyClock, clocked_by txClock, reset_by dtp_rst);
 
    De5Leds leds <- mkDe5Leds(defaultClock, txClock, mgmtClock, phyClock);
    De5Buttons#(4) buttons <- mkDe5Buttons(clocked_by mgmtClock, reset_by mgmtReset);
 
    // Connecting DTP request/indication and DTP-PHY looks ugly
-   mkConnection(net.api.timestamp, dtp.ifc.timestamp);
-   mkConnection(net.api.globalOut, dtp.ifc.globalOut);
-   mkConnection(dtp.ifc.switchMode, net.api.switchMode);
+   mkConnection(dtpPhy.api.timestamp, dtpCtrl.ifc.timestamp);
+   mkConnection(dtpPhy.api.globalOut, dtpCtrl.ifc.globalOut);
+   mkConnection(dtpCtrl.ifc.switchMode, dtpPhy.api.switchMode);
    for (Integer i=0; i<4; i=i+1) begin
-      mkConnection(dtp.ifc.fromHost[i], net.api.phys[i].fromHost);
-      mkConnection(net.api.phys[i].toHost, dtp.ifc.toHost[i]);
-      mkConnection(net.api.phys[i].delayOut, dtp.ifc.delay[i]);
-      mkConnection(net.api.phys[i].stateOut, dtp.ifc.state[i]);
-      mkConnection(net.api.phys[i].jumpCount, dtp.ifc.jumpCount[i]);
-      mkConnection(net.api.phys[i].cLocalOut, dtp.ifc.cLocal[i]);
-      mkConnection(dtp.ifc.interval[i], net.api.phys[i].interval);
-      mkConnection(net.api.phys[i].dtpErrCnt, dtp.ifc.dtpErrCnt[i]);
-      mkConnection(net.api.tx_dbg[i], dtp.ifc.txPcsDbg[i]);
-      mkConnection(net.api.rx_dbg[i], dtp.ifc.rxPcsDbg[i]);
+      mkConnection(dtpCtrl.ifc.fromHost[i], dtpPhy.api.phys[i].fromHost);
+      mkConnection(dtpPhy.api.phys[i].toHost, dtpCtrl.ifc.toHost[i]);
+      mkConnection(dtpPhy.api.phys[i].delayOut, dtpCtrl.ifc.delay[i]);
+      mkConnection(dtpPhy.api.phys[i].stateOut, dtpCtrl.ifc.state[i]);
+      mkConnection(dtpPhy.api.phys[i].jumpCount, dtpCtrl.ifc.jumpCount[i]);
+      mkConnection(dtpPhy.api.phys[i].cLocalOut, dtpCtrl.ifc.cLocal[i]);
+      mkConnection(dtpCtrl.ifc.interval[i], dtpPhy.api.phys[i].interval);
+      mkConnection(dtpPhy.api.phys[i].dtpErrCnt, dtpCtrl.ifc.dtpErrCnt[i]);
+      mkConnection(dtpPhy.api.tx_dbg[i], dtpCtrl.ifc.txPcsDbg[i]);
+      mkConnection(dtpPhy.api.rx_dbg[i], dtpCtrl.ifc.rxPcsDbg[i]);
    end
 
-   interface request = dtp.request;
-   interface pins = mkDE5Pins(defaultClock, defaultReset, clocks, phys, leds, sfpctrl, buttons);
+   interface request = dtpCtrl.request;
+   interface pins = mkDE5Pins(defaultClock, defaultReset, clocks, dtpPhy.phys, leds, sfpctrl, buttons);
 endmodule
