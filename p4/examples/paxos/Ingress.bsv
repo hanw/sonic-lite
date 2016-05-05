@@ -59,7 +59,7 @@ interface Ingress;
    method Action dmacTable_add_entry(Bit#(48) mac, Bit#(9) port);
    // Debug
    method IngressDbgRec read_debug_info;
-   method PerfDbgRec read_perf_info;
+   method IngressPerfRec read_perf_info;
 endinterface
 
 module mkIngress#(Vector#(numClients, MetadataClient) mdc)(Ingress);
@@ -238,8 +238,8 @@ module mkIngress#(Vector#(numClients, MetadataClient) mdc)(Ingress);
          dmacTbl: dstMacTable.read_debug_info
       };
    endmethod
-   method PerfDbgRec read_perf_info();
-      return PerfDbgRec {
+   method IngressPerfRec read_perf_info();
+      return IngressPerfRec {
          ingress_start_time: ingress_start_time,
          ingress_end_time: ingress_end_time,
          acceptor_start_time: acceptor_start_time,

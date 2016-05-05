@@ -22,6 +22,7 @@
 
 import ClientServer::*;
 import ConnectalTypes::*;
+import ConfigCounter::*;
 import DbgTypes::*;
 import DbgDefs::*;
 import Ethernet::*;
@@ -74,8 +75,8 @@ module mkDstMacTable#(MetadataClient md)(DstMacTable);
    FIFO#(PacketInstance) currPacketFifo <- mkFIFO;
    FIFO#(MetadataT) currMetadataFifo <- mkFIFO;
 
-   Array #(Reg #(LUInt)) pktIn <- mkCReg(2, 0);
-   Array #(Reg #(LUInt)) pktOut <- mkCReg(2, 0);
+   ConfigCounter#(64) pktIn <- mkConfigCounter(0);
+   ConfigCounter#(64) pktOut <- mkConfigCounter(0);
 
    // memory client
    FIFO#(MemRequest) writeReqFifo <- mkSizedFIFO(1);
@@ -95,7 +96,7 @@ module mkDstMacTable#(MetadataClient md)(DstMacTable);
             matchTable.lookupPort.request.put(pack(req));
             currPacketFifo.enq(pkt);
             currMetadataFifo.enq(meta);
-            pktIn[0] <= pktIn[0] + 1;
+            pktIn.increment(1);
          end
          default: begin
             if (verbose) $display("(%0d) DstMacTable: unknown request type");
@@ -111,7 +112,7 @@ module mkDstMacTable#(MetadataClient md)(DstMacTable);
          $display("(%0d) DstMacTable: pkt %h to port %h", $time, pkt.id, resp.param.port);
          BBRequest req = tagged BBForwardRequest { pkt: pkt, port: resp.param.port};
          outReqFifo.enq(req);
-         pktOut[0] <= pktOut[0] + 1;
+         pktOut.increment(1);
       end
       else begin
          if (verbose) $display("(%0d) DstMacTable: Invalid table response");
@@ -148,7 +149,7 @@ module mkDstMacTable#(MetadataClient md)(DstMacTable);
       matchTable.add_entry.put(tuple2(pack(req), pack(resp)));
    endmethod
    method TableDbgRec read_debug_info;
-      return TableDbgRec { pktIn: pktIn[1], pktOut: pktOut[1] };
+      return TableDbgRec { pktIn: pktIn.read(), pktOut: pktOut.read() };
    endmethod
 endmodule
 

@@ -104,17 +104,6 @@ parse_options(int argc, char *argv[], char **pcap_file, struct arg_info* info) {
     }
 }
 
-/* compute idle character in bytes (round to closest 16) */
-int
-compute_idle (const struct pcap_trace_info *info, double rate, double link_speed) {
-
-    double idle_count = (link_speed - rate) * info->byte_count / rate;
-    int idle = idle_count / info->packet_count;
-    int average_packet_len = info->byte_count / info->packet_count;
-    fprintf(stderr, "idle = %d, link_speed=%f, rate=%f, average packet len = %d\n", idle, link_speed, rate, average_packet_len);
-    return idle;
-}
-
 int main(int argc, char **argv)
 {
     char *pcap_file=NULL;

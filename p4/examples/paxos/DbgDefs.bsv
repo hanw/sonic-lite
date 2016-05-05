@@ -69,8 +69,15 @@ typedef struct {
    Bit#(32) acceptor_end_time;
    Bit#(32) sequence_start_time;
    Bit#(32) sequence_end_time;
-} PerfDbgRec deriving (Bits, Eq, FShow);
-instance DefaultValue#(PerfDbgRec);
+} IngressPerfRec deriving (Bits, Eq, FShow);
+instance DefaultValue#(IngressPerfRec);
    defaultValue = unpack(0);
 endinstance
 
+typedef struct {
+   Bit#(32) parser_start_time;
+   Bit#(32) parser_end_time;
+} ParserPerfRec deriving (Bits, Eq, FShow);
+instance DefaultValue#(ParserPerfRec);
+   defaultValue = unpack(0);
+endinstance

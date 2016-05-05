@@ -22,6 +22,7 @@
 
 import ClientServer::*;
 import ConnectalTypes::*;
+import ConfigCounter::*;
 import DbgTypes::*;
 import DbgDefs::*;
 import Ethernet::*;
@@ -218,8 +219,8 @@ module mkAcceptorTable#(MetadataClient md)(AcceptorTable);
    FIFO#(MetadataT) currMetadataFifo <- mkFIFO;
    FIFO#(MetadataT) bbMetadataFifo <- mkFIFO;
 
-   Array#(Reg#(LUInt)) pktIn <- mkCReg(2, 0);
-   Array#(Reg#(LUInt)) pktOut <- mkCReg(2, 0);
+   ConfigCounter#(64) pktIn <- mkConfigCounter(0);
+   ConfigCounter#(64) pktOut <- mkConfigCounter(0);
 
    rule lookup_request;
       let v <- md.request.get;
@@ -230,7 +231,7 @@ module mkAcceptorTable#(MetadataClient md)(AcceptorTable);
             if (verbose) $display("(%0d) Acceptor: %h ", $time, pkt.id, fshow(meta.paxos$msgtype));
             currPacketFifo.enq(pkt);
             currMetadataFifo.enq(meta);
-            pktIn[0] <= pktIn[0] + 1;
+            pktIn.increment(1);
          end
       endcase
    endrule
@@ -289,7 +290,7 @@ module mkAcceptorTable#(MetadataClient md)(AcceptorTable);
             meta.paxos$acptid = tagged Valid dp;
             MetadataResponse meta_resp = tagged AcceptorTblResponse {pkt: pkt, meta: meta};
             md.response.put(meta_resp);
-            pktOut[0] <= pktOut[0] + 1;
+            pktOut.increment(1);
          end
          tagged BBHandle2aResponse {pkt: .pkt, datapath: .dp}: begin
             if (verbose) $display("(%0d) handle_2a: read/write register", $time);
@@ -297,13 +298,13 @@ module mkAcceptorTable#(MetadataClient md)(AcceptorTable);
             meta.paxos$acptid = tagged Valid dp;
             MetadataResponse meta_resp = tagged AcceptorTblResponse {pkt: pkt, meta: meta};
             md.response.put(meta_resp);
-            pktOut[0] <= pktOut[0] + 1;
+            pktOut.increment(1);
          end
          tagged BBDropResponse {pkt: .pkt}: begin
             if (verbose) $display("(%0d) drop", $time);
             MetadataResponse meta_resp = tagged AcceptorTblResponse {pkt: pkt, meta: meta};
             md.response.put(meta_resp);
-            pktOut[0] <= pktOut[0] + 1;
+            pktOut.increment(1);
          end
          default: begin
             $display("(%0d) Unexpected response type on channel %h ", $time, readyChannel, fshow(v));
@@ -331,8 +332,8 @@ module mkAcceptorTable#(MetadataClient md)(AcceptorTable);
    endmethod
    method TableDbgRec read_debug_info();
       return TableDbgRec {
-         pktIn: pktIn[1],
-         pktOut: pktOut[1]
+         pktIn: pktIn.read(),
+         pktOut: pktOut.read()
       };
    endmethod
 endmodule

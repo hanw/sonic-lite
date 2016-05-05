@@ -34,6 +34,7 @@ import PacketBuffer::*;
 import PaxosTypes::*;
 import TxChannel::*;
 import RxChannel::*;
+import PktGenChannel::*;
 import Vector::*;
 
 interface MemoryTestIndication;
@@ -43,19 +44,23 @@ interface MemoryTestIndication;
    method Action read_txchan_debug_info_resp(TxChannelDbgRec rec);
    method Action read_rxchan_debug_info_resp(HostChannelDbgRec rec);
    method Action read_role_resp(Role role);
-   method Action read_perf_info_resp(PerfDbgRec rec);
+   method Action read_ingress_perf_info_resp(IngressPerfRec rec);
+   method Action read_parser_perf_info_resp(ParserPerfRec rec);
 endinterface
 
 interface MemoryTestRequest;
    method Action read_version();
    method Action writePacketData(Vector#(2, Bit#(64)) data, Vector#(2, Bit#(8)) mask, Bit#(1) sop, Bit#(1) eop);
+   method Action writePktGenData(Vector#(2, Bit#(64)) data, Vector#(2, Bit#(8)) mask, Bit#(1) sop, Bit#(1) eop);
+   method Action pktgen_start(Bit#(32) iteration, Bit#(32) ipg);
+   method Action pktgen_stop();
    method Action role_reg_write(Role r);
    method Action role_reg_read();
    method Action datapath_id_reg_write(Bit#(DatapathSize) datapath);
    method Action instance_reg_write(Bit#(InstanceSize) instance_);
-   method Action value_reg_write(Bit#(16) inst, Vector#(8, Bit#(32)) value);
-   method Action round_reg_write(Bit#(16) inst, Bit#(RoundSize) round);
-   method Action vround_reg_write(Bit#(16) inst, Bit#(RoundSize) round);
+   method Action value_reg_write(Bit#(10) inst, Vector#(8, Bit#(32)) value);
+   method Action round_reg_write(Bit#(10) inst, Bit#(RoundSize) round);
+   method Action vround_reg_write(Bit#(10) inst, Bit#(RoundSize) round);
    method Action sequenceTable_add_entry(Bit#(16) msgtype, SequenceTblActionT action_);
    method Action acceptorTable_add_entry(Bit#(16) msgtype, AcceptorTblActionT action_);
    //method Action dmacTable_add_entry(Bit#(48) mac, DmacTblActionT action_, Bit#(9) port_);
@@ -64,14 +69,15 @@ interface MemoryTestRequest;
    method Action read_hostchan_debug_info();
    method Action read_txchan_debug_info();
    method Action read_rxchan_debug_info();
-   method Action read_perf_info();
+   method Action read_ingress_perf_info();
+   method Action read_parser_perf_info();
 endinterface
 
 interface MemoryAPI;
    interface MemoryTestRequest request;
 endinterface
 
-module mkMemoryAPI#(MemoryTestIndication indication, HostChannel hostchan, TxChannel txchan, RxChannel rxchan, Ingress ingress)(MemoryAPI);
+module mkMemoryAPI#(MemoryTestIndication indication, HostChannel hostchan, TxChannel txchan, RxChannel rxchan, Ingress ingress, PktGenChannel pktgen)(MemoryAPI);
 
    rule read_role;
       let v <- toGet(ingress.role_reg_read_resp).get;
@@ -91,6 +97,16 @@ module mkMemoryAPI#(MemoryTestIndication indication, HostChannel hostchan, TxCha
          beat.eop = unpack(eop);
          hostchan.writeServer.writeData.put(beat);
       endmethod
+      method Action writePktGenData(Vector#(2, Bit#(64)) data, Vector#(2, Bit#(8)) mask, Bit#(1) sop, Bit#(1) eop);
+         EtherData beat = defaultValue;
+         beat.data = pack(reverse(data));
+         beat.mask = pack(reverse(mask));
+         beat.sop = unpack(sop);
+         beat.eop = unpack(eop);
+         pktgen.writeData.put(beat);
+      endmethod
+      method pktgen_start = pktgen.start;
+      method pktgen_stop = pktgen.stop;
       method value_reg_write = ingress.value_reg_write;
       method round_reg_write = ingress.round_reg_write;
       method role_reg_write = ingress.role_reg_write;
@@ -117,9 +133,13 @@ module mkMemoryAPI#(MemoryTestIndication indication, HostChannel hostchan, TxCha
          let v = rxchan.read_debug_info;
          indication.read_rxchan_debug_info_resp(v);
       endmethod
-      method Action read_perf_info();
+      method Action read_ingress_perf_info();
          let v = ingress.read_perf_info;
-         indication.read_perf_info_resp(v);
+         indication.read_ingress_perf_info_resp(v);
+      endmethod
+      method Action read_parser_perf_info();
+         let v = rxchan.read_parser_perf_info;
+         indication.read_parser_perf_info_resp(v);
       endmethod
    endinterface
 endmodule

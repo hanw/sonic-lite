@@ -29,13 +29,20 @@
 using namespace std;
 
 #define DATA_WIDTH 128
+#define LINK_SPEED 10
 #define InstanceSize 32
 
 static MemoryTestRequestProxy *device = 0;
 uint16_t flowid;
 
+bool hwpktgen = false;
+
 void device_writePacketData(uint64_t* data, uint8_t* mask, int sop, int eop) {
-    device->writePacketData(data, mask, sop, eop);
+    if (hwpktgen) {
+        device->writePktGenData(data, mask, sop, eop);
+    } else {
+        device->writePacketData(data, mask, sop, eop);
+    }
 }
 
 class MemoryTestIndication : public MemoryTestIndicationWrapper
@@ -63,10 +70,13 @@ public:
     virtual void read_role_resp(Role role) {
         fprintf(stderr, "role %d\n", role);
     }
-    virtual void read_perf_info_resp(PerfDbgRec a) {
-        fprintf(stderr, "perf: ingress %d, %d, acceptor %d, %d, sequence %d, %d", 
+    virtual void read_ingress_perf_info_resp(IngressPerfRec a) {
+        fprintf(stderr, "perf: ingress %x, %x, acceptor %x, %x, sequence %x, %x\n", 
             a.ingress_start_time, a.ingress_end_time, a.acceptor_start_time, a.acceptor_end_time,
             a.sequence_start_time, a.sequence_end_time);
+    }
+    virtual void read_parser_perf_info_resp(ParserPerfRec a) {
+        fprintf(stderr, "perf: parser %x %x\n", a.parser_start_time, a.parser_end_time);
     }
     MemoryTestIndication(unsigned int id) : MemoryTestIndicationWrapper(id) {}
 };
@@ -102,6 +112,8 @@ struct arg_info {
     Role role;
     uint16_t acptid;
     uint32_t inst;
+    double rate;
+    uint64_t tracelen;
 };
 
 static void 
@@ -115,6 +127,8 @@ parse_options(int argc, char *argv[], char **pcap_file, struct arg_info* info) {
         {"coordinator",         no_argument, 0, 'C'},
         {"acptid",              required_argument, 0, 'a'},
         {"inst",                required_argument, 0, 'i'},
+        {"pktgen-rate",         required_argument, 0, 'r'},
+        {"pktgen-count",        required_argument, 0, 'n'},
         {0, 0, 0, 0}
     };
 
@@ -146,6 +160,12 @@ parse_options(int argc, char *argv[], char **pcap_file, struct arg_info* info) {
             case 'i':
                 info->inst = atoi(optarg);
                 break;
+            case 'r':
+                info->rate = strtod(optarg, NULL);
+                break;
+            case 'n':
+                info->tracelen = strtol(optarg, NULL, 0);
+                break;
             default:
                 break;
         }
@@ -155,7 +175,7 @@ parse_options(int argc, char *argv[], char **pcap_file, struct arg_info* info) {
 int main(int argc, char **argv)
 {
     char *pcap_file=NULL;
-    struct arg_info arguments = {ACCEPTOR, 0, 0};
+    struct arg_info arguments = {ACCEPTOR, 0, 0, 0.0, 0};
     struct pcap_trace_info pcap_info = {0, 0};
 
     MemoryTestIndication echoIndication(IfcNames_MemoryTestIndicationH2S);
@@ -192,9 +212,18 @@ int main(int argc, char **argv)
     device->acceptorTable_add_entry(0x3, Handle2A);
     device->acceptorTable_add_entry(0x1, Handle1A);
 
+    if (arguments.rate && arguments.tracelen) {
+        hwpktgen = true;
+    }
+
     if (pcap_file) {
         fprintf(stderr, "Attempts to read pcap file %s\n", pcap_file);
         load_pcap_file(pcap_file, &pcap_info);
+    }
+
+    if (arguments.rate && arguments.tracelen) {
+        int idle = compute_idle(&pcap_info, arguments.rate, LINK_SPEED);
+        device->pktgen_start(arguments.tracelen, idle);
     }
 
     sleep(3);
@@ -202,7 +231,8 @@ int main(int argc, char **argv)
     device->read_hostchan_debug_info();
     device->read_txchan_debug_info();
     device->read_rxchan_debug_info();
-    device->read_perf_info();
+    device->read_ingress_perf_info();
+    device->read_parser_perf_info();
     sleep(3);
     return 0;
 }

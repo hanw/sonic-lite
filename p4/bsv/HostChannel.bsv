@@ -44,6 +44,7 @@ interface HostChannel;
    interface MemAllocClient mallocClient;
    interface Client#(MetadataRequest, MetadataResponse) next;
    method HostChannelDbgRec read_debug_info;
+   method ParserPerfRec read_parser_perf_info;
 endinterface
 
 module mkHostChannel(HostChannel);
@@ -86,5 +87,6 @@ module mkHostChannel(HostChannel);
          pktBuff: pktBuff.dbg
       };
    endmethod
+   method read_parser_perf_info = parser.read_perf_info;
 endmodule
 

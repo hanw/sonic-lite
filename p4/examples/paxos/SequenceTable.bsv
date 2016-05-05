@@ -22,6 +22,7 @@
 
 import ClientServer::*;
 import ConnectalTypes::*;
+import ConfigCounter::*;
 import DbgTypes::*;
 import DbgDefs::*;
 import Ethernet::*;
@@ -76,8 +77,6 @@ endmodule
 
 interface SequenceTable;
    interface BBClient next_control_state_0;
-   // MetadataClient PipeIn
-   //interface PipeIn#(Metadata) md;
    method Action add_entry(Bit#(16) msgtype, SequenceTblActionT action_);
    // Debug
    method TableDbgRec read_debug_info();
@@ -93,8 +92,8 @@ module mkSequenceTable#(MetadataClient md)(SequenceTable);
    FIFO#(MetadataT) currMetadataFifo <- mkFIFO;
    FIFO#(MetadataT) bbMetadataFifo <- mkFIFO;
 
-   Array #(Reg #(LUInt)) pktIn <- mkCReg(2, 0);
-   Array #(Reg #(LUInt)) pktOut <- mkCReg(2, 0);
+   ConfigCounter#(64) pktIn <- mkConfigCounter(0);
+   ConfigCounter#(64) pktOut <- mkConfigCounter(0);
 
    MatchTable#(256, SizeOf#(SequenceTblReqT), SizeOf#(SequenceTblRespT)) matchTable <- mkMatchTable_256_sequenceTable();
 
@@ -107,7 +106,7 @@ module mkSequenceTable#(MetadataClient md)(SequenceTable);
             if (verbose) $display("(%0d) Sequence: %h", $time, pkt.id, fshow(meta.paxos$msgtype));
             currPacketFifo.enq(pkt);
             currMetadataFifo.enq(meta);
-            pktIn[0] <= pktIn[0] + 1;
+            pktIn.increment(1);
          end
       endcase
    endrule
@@ -147,7 +146,7 @@ module mkSequenceTable#(MetadataClient md)(SequenceTable);
             MetadataResponse meta_resp = tagged SequenceTblResponse {pkt: pkt, meta: meta};
             $display("(%0d) seq metadata", $time, fshow(meta));
             md.response.put(meta_resp);
-            pktOut[0] <= pktOut[0] + 1;
+            pktOut.increment(1);
          end
       endcase
    endrule
@@ -162,6 +161,6 @@ module mkSequenceTable#(MetadataClient md)(SequenceTable);
       matchTable.add_entry.put(tuple2(pack(req), pack(resp)));
    endmethod
    method TableDbgRec read_debug_info;
-      return TableDbgRec { pktIn: pktIn[1], pktOut: pktOut[1] };
+      return TableDbgRec { pktIn: pktIn.read(), pktOut: pktOut.read() };
    endmethod
 endmodule

@@ -1,6 +1,7 @@
 import ClientServer::*;
 import Connectable::*;
 import DefaultValue::*;
+import DbgDefs::*;
 import FIFO::*;
 import FIFOF::*;
 import FShow::*;
@@ -524,6 +525,7 @@ interface Parser;
     //interface Get#(Bit#(16)) parsedOut_paxos_msgtype;
     //interface PipeOut#(ParserState) parserState;
     interface Get#(MetadataT) meta;
+    method ParserPerfRec read_perf_info;
 endinterface
 
 typedef 4 PortMax;
@@ -538,6 +540,13 @@ module mkParser(Parser);
     Vector#(PortMax, FIFOF#(ParserState)) parse_state_in_fifo <- replicateM(mkGFIFOF(False, True)); // unguarded deq
     FIFOF#(ParserState) parse_state_out_fifo <- mkFIFOF;
     FIFOF#(MetadataT) metadata_out_fifo <- mkFIFOF;
+
+    Reg#(Bit#(32)) clk_cnt <- mkReg(0);
+    Reg#(Bit#(32)) parser_start_time <- mkReg(0);
+    Reg#(Bit#(32)) parser_end_time <- mkReg(0);
+    rule clockrule;
+       clk_cnt <= clk_cnt + 1;
+    endrule
 
     (* fire_when_enabled *)
     rule arbitrate_parse_state;
@@ -573,6 +582,7 @@ module mkParser(Parser);
             parse_udp.start;
             parse_paxos.start;
             started <= True;
+            parser_start_time <= clk_cnt;
         end
     endrule
     rule clear if (!start_fsm && curr_state == StateStart);
@@ -584,6 +594,7 @@ module mkParser(Parser);
             parse_udp.clear;
             parse_paxos.clear;
             started <= False;
+            parser_end_time <= clk_cnt;
         end
     endrule
    // new packet, issue metadata processing request to ingress pipeline
@@ -641,5 +652,11 @@ module mkParser(Parser);
 
     interface frameIn = toPut(data_in_fifo);
     interface meta = toGet(metadata_out_fifo);
+    method ParserPerfRec read_perf_info;
+      return ParserPerfRec {
+         parser_start_time: parser_start_time,
+         parser_end_time: parser_end_time
+      };
+    endmethod
 endmodule
 

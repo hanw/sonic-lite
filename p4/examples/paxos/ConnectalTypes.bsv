@@ -5,7 +5,7 @@ typedef 16 MsgTypeSize;
 typedef 16 DatapathSize;
 typedef 32 InstanceSize;
 typedef 256 ValueSize;
-typedef 65535 InstanceCount;
+typedef 1024 InstanceCount;
 
 typedef enum {
    PAXOS_1A = 1,
@@ -24,15 +24,15 @@ typedef struct {
    Bit#(dataSz) data;
 } RegResponse#(numeric type dataSz) deriving (Bits, Eq);
 
-typedef RegRequest#(16, RoundSize) RoundRegRequest;
+typedef RegRequest#(TLog#(InstanceCount), RoundSize) RoundRegRequest;
 typedef RegResponse#(RoundSize) RoundRegResponse;
 typedef RegRequest#(1, DatapathSize) DatapathIdRegRequest;
 typedef RegResponse#(DatapathSize) DatapathIdRegResponse;
 typedef RegRequest#(1, InstanceSize) InstanceRegRequest;
 typedef RegResponse#(InstanceSize) InstanceRegResponse;
-typedef RegRequest#(16, RoundSize) VRoundRegRequest;
+typedef RegRequest#(TLog#(InstanceCount), RoundSize) VRoundRegRequest;
 typedef RegResponse#(RoundSize) VRoundRegResponse;
-typedef RegRequest#(16, ValueSize) ValueRegRequest;
+typedef RegRequest#(TLog#(InstanceCount), ValueSize) ValueRegRequest;
 typedef RegResponse#(ValueSize) ValueRegResponse;
 
 typedef enum {

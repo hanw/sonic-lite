@@ -45,6 +45,7 @@ interface RxChannel;
    interface MemAllocClient mallocClient;
    interface Client#(MetadataRequest, MetadataResponse) next;
    method HostChannelDbgRec read_debug_info;
+   method ParserPerfRec read_parser_perf_info;
 endinterface
 
 module mkRxChannel#(Clock rxClock, Reset rxReset)(RxChannel);
@@ -57,4 +58,5 @@ module mkRxChannel#(Clock rxClock, Reset rxReset)(RxChannel);
    interface next = host.next;
    interface mallocClient = host.mallocClient;
    method read_debug_info = host.read_debug_info;
+   method read_parser_perf_info = host.read_parser_perf_info;
 endmodule
