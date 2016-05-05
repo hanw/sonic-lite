@@ -34,7 +34,7 @@ CONNECTALFLAGS += --bscflags="-show-range-conflict +RTS -K46777216 -RTS -demote-
 CONNECTALFLAGS += -m $(P4FPGADIR)/bsv/AsymmetricBRAM/mem_model.c
 CONNECTALFLAGS += -m $(P4FPGADIR)/bsv/matchtable_model.cpp
 CONNECTALFLAGS += --nocache
-
+CONNECTALFLAGS += --cxxflags=-std=c++11
 
 BURST_LEN_SIZE=12
 
