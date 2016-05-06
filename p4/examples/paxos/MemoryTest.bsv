@@ -124,7 +124,7 @@ module mkMemoryTest#(
 
    // Altera MAC + PHY module
    EthPhyIfc phys <- mkAlteraEthPhy(mgmtClock, phyClock, txClock, defaultReset);
-   Clock rxClock = phys.rx_clkout;
+   Clock rxClock = phys.rx_clkout[0];
    Reset rxReset <- mkSyncReset(2, defaultReset, rxClock);
    Vector#(4, EthMacIfc) mac <- replicateM(mkEthMac(mgmtClock, txClock, rxClock, txReset));
 
