@@ -23,6 +23,7 @@ import Arith::*;
 import BRAM::*;
 import BRAMCore::*;
 import Connectable::*;
+import ConnectalBram::*;
 import FIFO::*;
 import FIFOF::*;
 import SpecialFIFOs::*;
@@ -81,7 +82,7 @@ module mkRam9bx256(Ram9bx256);
    BRAM_Configure bramCfg = defaultValue;
    bramCfg.memorySize = 16;
    bramCfg.latency=2;
-   Vector#(16, BRAM2Port#(Bit#(4), Bit#(16))) dpmlab <- replicateM(mkBRAM2Server(bramCfg));
+   Vector#(16, BRAM2Port#(Bit#(4), Bit#(16))) dpmlab <- replicateM(ConnectalBram::mkBRAM2Server(bramCfg));
 
    rule vldram_output;
       let v <- vldram.readServer.response.get;
