@@ -45,7 +45,7 @@ interface PktGen;
 endinterface
 
 module mkPktGen(PktGen)
-   provisos (Div#(`DataBusWidth, 8, bytesPerBeat)
+   provisos (Div#(64, 8, bytesPerBeat)
             ,Log#(bytesPerBeat, beatShift));
 
    let verbose = False;
