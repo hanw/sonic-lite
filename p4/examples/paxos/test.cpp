@@ -79,7 +79,7 @@ public:
         fprintf(stderr, "perf: parser %x %x\n", a.parser_start_time, a.parser_end_time);
     }
     virtual void read_pktcap_perf_info_resp(PktCapRec a) {
-        fprintf(stderr, "perf: pktcap %ld %ld %ld\n", a.data_bytes, a.idle_cycles, a.total_cycles);
+        fprintf(stderr, "perf: pktcap data_bytes=%ld idle_cycle=%ld total_cycle=%ld\n", a.data_bytes, a.idle_cycles, a.total_cycles);
     }
     MemoryTestIndication(unsigned int id) : MemoryTestIndicationWrapper(id) {}
 };
