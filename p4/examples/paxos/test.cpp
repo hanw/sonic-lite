@@ -78,6 +78,9 @@ public:
     virtual void read_parser_perf_info_resp(ParserPerfRec a) {
         fprintf(stderr, "perf: parser %x %x\n", a.parser_start_time, a.parser_end_time);
     }
+    virtual void read_pktcap_perf_info_resp(PktCapRec a) {
+        fprintf(stderr, "perf: pktcap %ld %ld %ld\n", a.data_bytes, a.idle_cycles, a.total_cycles);
+    }
     MemoryTestIndication(unsigned int id) : MemoryTestIndicationWrapper(id) {}
 };
 
@@ -223,6 +226,8 @@ int main(int argc, char **argv)
 
     if (arguments.rate && arguments.tracelen) {
         int idle = compute_idle(&pcap_info, arguments.rate, LINK_SPEED);
+        fprintf(stderr, "IDLE=%d\n", idle);
+        device->pktcap_start(arguments.tracelen);
         device->pktgen_start(arguments.tracelen, idle);
     }
 
@@ -233,6 +238,7 @@ int main(int argc, char **argv)
     device->read_rxchan_debug_info();
     device->read_ingress_perf_info();
     device->read_parser_perf_info();
+    device->read_pktcap_perf_info();
     sleep(3);
     return 0;
 }

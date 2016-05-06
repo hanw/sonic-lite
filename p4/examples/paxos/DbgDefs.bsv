@@ -81,3 +81,13 @@ typedef struct {
 instance DefaultValue#(ParserPerfRec);
    defaultValue = unpack(0);
 endinstance
+
+typedef struct {
+   Bit#(64) data_bytes;
+   Bit#(64) idle_cycles;
+   Bit#(64) total_cycles;
+} PktCapRec deriving (Bits, Eq, FShow);
+instance DefaultValue#(PktCapRec);
+   defaultValue = unpack(0);
+endinstance
+

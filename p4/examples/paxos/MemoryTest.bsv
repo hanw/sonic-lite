@@ -73,6 +73,7 @@ import HostChannel::*;
 import TxChannel::*;
 import RxChannel::*;
 import PktGenChannel::*;
+import PktCapChannel::*;
 import Ingress::*;
 import Sims::*;
 import PaxosTypes::*;
@@ -170,6 +171,7 @@ module mkMemoryTest#(
    mkConnection(ingress.eventPktSend, txchan.eventPktSend);
 
    PktGenChannel pktgen <- mkPktGenChannel(txClock, txReset);
+   PktCapChannel pktcap <- mkPktCapChannel(rxClock, rxReset);
 
 `ifdef SIMULATION
    rule drain_mac;
@@ -178,7 +180,8 @@ module mkMemoryTest#(
    endrule
    rule drain_pktgen;
       let v <- toGet(pktgen.macTx).get;
-      if (verbose) $display("(%0d) pktgen data ", $time, fshow(v));
+      if (verbose) $display("(%0d) pktgen data", $time, fshow(v));
+      pktcap.macRx.put(v);
    endrule
 `else
    // process p0 -> p1
@@ -188,10 +191,12 @@ module mkMemoryTest#(
    mkConnectionWithClocks(mac[1].packet_rx, mac[0].packet_tx, rxClock, rxReset, txClock, txReset);
    // pktgen p2
    mkConnection(pktgen.macTx, mac[2].packet_tx);
+   // pktcap p3
+   mkConnection(mac[3].packet_rx, pktcap.macRx);
 `endif
 
    // Control Interface
-   MemoryAPI api <- mkMemoryAPI(indication, hostchan, txchan, rxchan, ingress, pktgen);
+   MemoryAPI api <- mkMemoryAPI(indication, hostchan, txchan, rxchan, ingress, pktgen, pktcap);
    interface request = api.request;
 
 `ifdef BOARD_de5
