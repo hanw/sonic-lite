@@ -160,6 +160,9 @@ parse_options(int argc, char *argv[], char **pcap_file, struct arg_info* info) {
             case 'C':
                 info->role = COORDINATOR;
                 break;
+            case 'F':
+                info->role = FORWARDER;
+                break;
             case 'a':
                 info->acptid = atoi(optarg);
                 break;
@@ -242,6 +245,7 @@ int main(int argc, char **argv)
     device->read_ingress_perf_info();
     device->read_parser_perf_info();
     device->read_pktcap_perf_info();
+    device->read_deparser_perf_info();
     sleep(3);
     return 0;
 }

@@ -36,14 +36,16 @@ typedef RegRequest#(TLog#(InstanceCount), ValueSize) ValueRegRequest;
 typedef RegResponse#(ValueSize) ValueRegResponse;
 
 typedef enum {
-   ACCEPTOR = 1,
-   COORDINATOR = 2
+   ACCEPTOR,
+   COORDINATOR,
+   FORWARDER
 } Role deriving (Bits, Eq);
 instance FShow#(Role);
    function Fmt fshow(Role role);
       case(role)
          ACCEPTOR: return fshow("ACCEPTOR");
          COORDINATOR: return fshow("COORDINATOR");
+         FORWARDER: return fshow("FORWARDER");
       endcase
    endfunction
 endinstance

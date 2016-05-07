@@ -101,7 +101,7 @@ run-acc:
 	(cd bluesim; ./bin/ubuntu.exe -p ../paxosv02.pcap -A)
 
 run-pktgen:
-	(cd bluesim; ./bin/ubuntu.exe -p ../paxosv02.pcap -r 1 -n 100)
+	(cd bluesim; ./bin/ubuntu.exe -p ../paxosv02.pcap -r 2 -n 100)
 
 run-small:
 	(cd bluesim; ./bin/ubuntu.exe -p ../tests/udp-small.pcap)

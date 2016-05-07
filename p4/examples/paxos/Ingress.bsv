@@ -195,6 +195,11 @@ module mkIngress#(Vector#(numClients, MetadataClient) mdc)(Ingress);
                sequenceReqFifo.enq(req);
                sequence_start_time <= clk_cnt;
             end
+            FORWARDER: begin
+               $display("(%0d) Role: Forwarder %h", $time, pkt.id);
+               MetadataRequest req = tagged ForwardQueueRequest {pkt: pkt, meta: meta};
+               currPacketFifo.enq(req);
+            end
          endcase
       end
    endrule
