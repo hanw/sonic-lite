@@ -20,12 +20,11 @@ import DbgTypes::*;
 typedef 12 PktSize; // maximum 4096b
 typedef 256 DepthSz;
 typedef 36  KeySz;
-typedef Bit#(16) ActionArg;
+typedef Bit#(10) ActionArg;
 typedef TDiv#(`DataBusWidth, 32) WordsPerBeat;
 
 typedef struct {
-   Bit#(32) dstip;
-   Bit#(4) padding;
+   Bit#(54) dstip;
 } MatchField deriving(Bits, Eq, FShow);
 
 interface MatchTestIndication;
@@ -51,7 +50,7 @@ module mkMatchTest#(MatchTestIndication indication)(MatchTest);
 
    let verbose = True;
 
-   MatchTable#(DepthSz, MatchField, ActionArg) match_table <- mkMatchTable();
+   MatchTable#(DepthSz, SizeOf#(MatchField), SizeOf#(ActionArg)) match_table <- mkMatchTable();
 
    //rule read_flow_id;
    //   let v <- toGet(match_table.entry_added).get;
@@ -75,7 +74,7 @@ module mkMatchTest#(MatchTestIndication indication)(MatchTest);
          ActionArg args = 0;
          //TableEntry entry = TableEntry {field: fields, argument: args};
          $display("add entry ", fshow(fields));
-         match_table.add_entry.put(tuple2(fields, args));
+         match_table.add_entry.put(tuple2(pack(fields), pack(args)));
       endmethod
       method Action delete_entry(Bit#(32) name, Bit#(8) id);
          $display("delete entry flow id ", fshow(id));
@@ -83,10 +82,10 @@ module mkMatchTest#(MatchTestIndication indication)(MatchTest);
       endmethod
       method Action modify_entry(Bit#(32) name, Bit#(8) id, ActionArg args);
          $display("modify entry flow id ", fshow(id), " action ", fshow(args));
-         match_table.modify_entry.put(tuple2(id, args));
+         match_table.modify_entry.put(tuple2(id, pack(args)));
       endmethod
       method Action lookup_entry(MatchField field);
-         match_table.lookupPort.request.put(field);
+         match_table.lookupPort.request.put(pack(field));
       endmethod
       //method Action readMatchTableCntrs();
       //   let v = match_table.dbg();
