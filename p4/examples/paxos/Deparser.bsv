@@ -562,6 +562,7 @@ interface Deparser;
    interface PipeIn#(MetadataT) metadata;
    interface PktWriteServer writeServer;
    interface PktWriteClient writeClient;
+   method DeparserPerfRec read_perf_info;
 endinterface
 
 typedef 4 PortMax;
