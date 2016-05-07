@@ -53,7 +53,7 @@ ifeq ($(BOARD), nfsume)
 PIN_BINDINGS ?= LED:LED SFP:SFP SFPA:SFPA SFPB:SFPB SFPC:SFPC SFPD:SFPD
 PINOUT_FILE = $(SONICDIR)/boards/nfsume.json
 CONNECTALFLAGS += -D XILINX_SYS_CLK
-CONNECTALFLAGS += --constraint=timing_constraints.xdc --implconstraint=timing_constraints.xdc
+#CONNECTALFLAGS += --constraint=timing_constraints.xdc --implconstraint=timing_constraints.xdc
 endif
 
 run:
