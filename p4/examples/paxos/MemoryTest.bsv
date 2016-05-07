@@ -177,11 +177,12 @@ module mkMemoryTest#(
    rule drain_mac;
       let v <- toGet(txchan.macTx).get;
       if (verbose) $display("(%0d) tx data ", $time, fshow(v));
+      pktcap.macRx.put(v);
    endrule
    rule drain_pktgen;
       let v <- toGet(pktgen.macTx).get;
       if (verbose) $display("(%0d) pktgen data", $time, fshow(v));
-      pktcap.macRx.put(v);
+      rxchan.macRx.put(v);
    endrule
 `else
    // process p0 -> p1

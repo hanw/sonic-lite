@@ -78,6 +78,9 @@ public:
     virtual void read_parser_perf_info_resp(ParserPerfRec a) {
         fprintf(stderr, "perf: parser %x %x\n", a.parser_start_time, a.parser_end_time);
     }
+    virtual void read_deparser_perf_info_resp(DeparserPerfRec a) {
+        fprintf(stderr, "perf: deparser %x %x\n", a.deparser_start_time, a.deparser_end_time);
+    }
     virtual void read_pktcap_perf_info_resp(PktCapRec a) {
         fprintf(stderr, "perf: pktcap data_bytes=%ld idle_cycle=%ld total_cycle=%ld\n", a.data_bytes, a.idle_cycles, a.total_cycles);
     }

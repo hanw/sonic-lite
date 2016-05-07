@@ -41,6 +41,7 @@ interface TxChannel;
    interface PipeIn#(MetadataRequest) eventPktSend;
    interface Get#(PacketDataT#(64)) macTx;
    method TxChannelDbgRec read_debug_info;
+   method DeparserPerfRec read_deparser_perf_info;
 endinterface
 
 module mkTxChannel#(Clock txClock, Reset txReset)(TxChannel);
@@ -76,5 +77,6 @@ module mkTxChannel#(Clock txClock, Reset txReset)(TxChannel);
          pktBuff: pktBuff.dbg
          };
    endmethod
+   method read_deparser_perf_info = deparser.read_perf_info;
 endmodule
 

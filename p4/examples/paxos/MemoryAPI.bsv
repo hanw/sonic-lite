@@ -26,6 +26,7 @@ import Connectable::*;
 import ConnectalTypes::*;
 import DbgDefs::*;
 import DefaultValue::*;
+import Deparser::*;
 import Ethernet::*;
 import GetPut::*;
 import HostChannel::*;
@@ -48,6 +49,7 @@ interface MemoryTestIndication;
    method Action read_ingress_perf_info_resp(IngressPerfRec rec);
    method Action read_parser_perf_info_resp(ParserPerfRec rec);
    method Action read_pktcap_perf_info_resp(PktCapRec rec);
+   method Action read_deparser_perf_info_resp(DeparserPerfRec rec);
 endinterface
 
 interface MemoryTestRequest;
@@ -76,6 +78,7 @@ interface MemoryTestRequest;
    method Action read_ingress_perf_info();
    method Action read_parser_perf_info();
    method Action read_pktcap_perf_info();
+   method Action read_deparser_perf_info();
 endinterface
 
 interface MemoryAPI;
@@ -151,6 +154,10 @@ module mkMemoryAPI#(MemoryTestIndication indication, HostChannel hostchan, TxCha
       method Action read_pktcap_perf_info();
          let v = pktcap.read_perf_info;
          indication.read_pktcap_perf_info_resp(v);
+      endmethod
+      method Action read_deparser_perf_info();
+         let v = txchan.read_deparser_perf_info;
+         indication.read_deparser_perf_info_resp(v);
       endmethod
    endinterface
 endmodule

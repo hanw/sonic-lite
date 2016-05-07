@@ -22,6 +22,7 @@
 import ClientServer::*;
 import Connectable::*;
 import DefaultValue::*;
+import DbgDefs::*;
 import FIFO::*;
 import FIFOF::*;
 import FShow::*;
@@ -590,6 +591,13 @@ module mkDeparser(Deparser);
    FIFOF#(PaxosT) paxos_mask_fifo <- mkFIFOF;
    FIFOF#(Ipv6T) ipv6_mask_fifo <- mkFIFOF;
 
+   Reg#(Bit#(32)) clk_cnt <- mkReg(0);
+   Reg#(Bit#(32)) deparser_start_time <- mkReg(0);
+   Reg#(Bit#(32)) deparser_end_time <- mkReg(0);
+   rule clockrule;
+      clk_cnt <= clk_cnt + 1;
+   endrule
+
    (* fire_when_enabled *)
    rule arbitrate_deparse_state;
       Bool sentOne = False;
@@ -656,6 +664,7 @@ module mkDeparser(Deparser);
          deparse_udp.start;
          deparse_paxos.start;
          started <= True;
+         deparser_start_time <= clk_cnt;
       end
    endrule
 
@@ -668,6 +677,7 @@ module mkDeparser(Deparser);
          deparse_udp.clear;
          deparse_paxos.clear;
          started <= False;
+         deparser_end_time <= clk_cnt;
       end
    endrule
 
@@ -678,4 +688,10 @@ module mkDeparser(Deparser);
       interface writeData = toGet(data_out_fifo);
    endinterface
    interface metadata = toPipeIn(metadata_in_fifo);
+   method DeparserPerfRec read_perf_info;
+      return DeparserPerfRec {
+         deparser_start_time: deparser_start_time,
+         deparser_end_time: deparser_end_time
+      };
+   endmethod
 endmodule

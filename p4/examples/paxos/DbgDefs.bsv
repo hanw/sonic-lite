@@ -91,3 +91,11 @@ instance DefaultValue#(PktCapRec);
    defaultValue = unpack(0);
 endinstance
 
+typedef struct {
+   Bit#(32) deparser_start_time;
+   Bit#(32) deparser_end_time;
+} DeparserPerfRec deriving (Bits, Eq, FShow);
+instance DefaultValue#(DeparserPerfRec);
+   defaultValue = unpack(0);
+endinstance
+
