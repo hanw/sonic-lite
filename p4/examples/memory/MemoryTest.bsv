@@ -94,7 +94,7 @@ module mkMemoryTest#(MemoryTestIndication indication
    De5Buttons#(4) buttons <- mkDe5Buttons(clocked_by mgmtClock, reset_by mgmtReset);
 
    EthPhyIfc phys <- mkAlteraEthPhy(mgmtClock, phyClock, txClock, defaultReset);
-   Clock rxClock = phys.rx_clkout;
+   Clock rxClock = phys.rx_clkout[0];
    Reset rxReset <- mkSyncReset(2, defaultReset, rxClock);
    Vector#(4, EthMacIfc) mac <- replicateM(mkEthMac(mgmtClock, txClock, rxClock, txReset));
 

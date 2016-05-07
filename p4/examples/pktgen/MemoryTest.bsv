@@ -84,7 +84,7 @@ module mkMemoryTest#(MemoryTestIndication indication, ConnectalMemory::MemServer
    De5Buttons#(4) buttons <- mkDe5Buttons(clocked_by mgmtClock, reset_by mgmtReset);
 
    EthPhyIfc phys <- mkAlteraEthPhy(defaultClock, phyClock, txClock, defaultReset);
-   Clock rxClock = phys.rx_clkout;
+   Clock rxClock = phys.rx_clkout[0];
    Reset rxReset <- mkSyncReset(2, defaultReset, rxClock);
    Vector#(4, EthMacIfc) mac <- replicateM(mkEthMac(defaultClock, txClock, rxClock, txReset));
 

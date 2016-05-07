@@ -69,7 +69,7 @@ module mkNullTest#(NullTestIndication indication)(NullTest);
    // Mac + Phy
    EthPhyIfc phys <- mkAlteraEthPhy(defaultClock, phyClock, txClock, defaultReset);
 
-   Clock rxClock = phys.rx_clkout;
+   Clock rxClock = phys.rx_clkout[0];
    Reset rxReset <- mkSyncReset(2, defaultReset, rxClock);
    Vector#(4, EthMacIfc) mac <- replicateM(mkEthMac(defaultClock, txClock, rxClock, txReset));
 
