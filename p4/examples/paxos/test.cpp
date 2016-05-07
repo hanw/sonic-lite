@@ -131,6 +131,7 @@ parse_options(int argc, char *argv[], char **pcap_file, struct arg_info* info) {
         {"pcap",                required_argument, 0, 'p'},
         {"acceptor",            no_argument, 0, 'A'},
         {"coordinator",         no_argument, 0, 'C'},
+        {"forwarder",           no_argument, 0, 'F'},
         {"acptid",              required_argument, 0, 'a'},
         {"inst",                required_argument, 0, 'i'},
         {"pktgen-rate",         required_argument, 0, 'r'},
