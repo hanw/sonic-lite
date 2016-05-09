@@ -26,6 +26,7 @@ import BRAMFIFO::*;
 import FIFO::*;
 import FIFOF::*;
 import DefaultValue::*;
+import DbgDefs::*;
 import Vector::*;
 import BuildVector::*;
 import GetPut::*;
