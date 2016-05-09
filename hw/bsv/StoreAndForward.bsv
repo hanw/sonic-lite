@@ -178,20 +178,21 @@ module mkStoreAndFwdFromMemToRing(StoreAndFwdFromMemToRing)
    interface Put readData = toPut(readDataFifo);
    endinterface);
 
-   FIFOF#(PacketInstance) eventPktSendFifo <- mkSizedFIFOF(4);
+   FIFOF#(PacketInstance) eventPktSendFifo <- mkSizedFIFOF(16);
+   FIFOF#(Bit#(EtherLen)) readBurstLenFifo <- mkSizedFIFOF(16);
+   FIFOF#(PktId) currPacketIdFifo <- mkSizedFIFOF(16);
    FIFO#(PktId) freeReqFifo <- mkSizedFIFO(4);
 
    Reg#(Bool)                 outPacket <- mkReg(False);
-   Reg#(PktId)            currPacketId <- mkReg(0);
-   Reg#(Bit#(EtherLen))   readBurstCount <- mkReg(0);
-   Reg#(Bit#(EtherLen))   readBurstLen <- mkReg(0);
+   Reg#(Bit#(EtherLen))   readBurstCount <- mkReg(maxBound);
+   Reg#(Bool)                 started <- mkReg(False);
 
    Reg#(Bit#(32)) cycle <- mkReg(0);
    rule every1 if (verbose);
       cycle <= cycle + 1;
    endrule
 
-   rule packetReadStart (!outPacket);
+   rule packetReadStart;
       let pkt <- toGet(eventPktSendFifo).get;
       let bytesPerBeatMinusOne = fromInteger(valueOf(bytesPerBeat))-1;
       // roundup to 16 byte boundary
@@ -205,18 +206,35 @@ module mkStoreAndFwdFromMemToRing(StoreAndFwdFromMemToRing)
 `endif
                                 });
       if (verbose) $display("StoreAndForward::packetReadStart %d: send a new packet with size %h %h", cycle, burstLen, pack(mask));
-      outPacket <= True;
-      currPacketId <= pkt.id;
-      readBurstLen <= pkt.size;
-      readBurstCount <= pkt.size;
+      currPacketIdFifo.enq(pkt.id);
+      readBurstLenFifo.enq(pkt.size);
    endrule
 
-   rule packetReadInProgress (outPacket);
+   rule packetReadInProgress if (readBurstLenFifo.notEmpty);
       let d <- toGet(readDataFifo).get;
       let _bytesPerBeat= fromInteger(valueOf(bytesPerBeat));
 
-      let sop = (readBurstLen == readBurstCount) ? True : False;
-      let eop = (readBurstCount <= _bytesPerBeat) ? True : False;
+      let readBurstLen = readBurstLenFifo.first;
+      let currPacketId = currPacketIdFifo.first;
+
+      let sop = False;
+      let eop = False;
+      if (!started) begin
+         readBurstCount <= readBurstLen - _bytesPerBeat;
+         started <= True;
+         sop = True;
+      end
+      else if (readBurstCount <= _bytesPerBeat && started) begin
+         readBurstLenFifo.deq;
+         currPacketIdFifo.deq;
+         readBurstCount <= maxBound;
+         started <= False;
+         eop = True;
+         freeReqFifo.enq(currPacketId);
+      end
+      else if (readBurstCount > _bytesPerBeat && started) begin
+         readBurstCount <= readBurstCount - _bytesPerBeat;
+      end
 
       Bit#(bytesPerBeat) mask;
       if (readBurstCount <= _bytesPerBeat)
@@ -227,14 +245,6 @@ module mkStoreAndFwdFromMemToRing(StoreAndFwdFromMemToRing)
       writeDataFifo.enq(EtherData{data: d.data, mask: mask, sop: sop, eop: eop});
 
       if (verbose) $display("StoreAndForward::readdata %d: %h %h %h %h %h", cycle, readBurstCount, d.data, pack(mask), sop, eop);
-
-      if (readBurstCount > _bytesPerBeat)
-         readBurstCount <= readBurstCount - _bytesPerBeat;
-
-      if (eop) begin
-         outPacket <= False;
-         freeReqFifo.enq(currPacketId);
-      end
    endrule
 
    interface PktWriteClient writeClient;
