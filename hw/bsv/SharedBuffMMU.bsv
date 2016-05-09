@@ -272,23 +272,14 @@ module mkSharedBuffMMU#(Integer iid, MMUIndication mmuIndication)(MMU#(addrWidth
       let ptr <- toGet(configRespFifo).get();
       mmuIndication.configResp(extend(ptr));
    endrule
-   
-   // given that the BRAM is faster than the connection from software, I see no need for a SizedBRAMFIFOF here. -Jamey
-   FIFOF#(Bit#(32)) idReturnFifo <- mkFIFOF();
-   rule idReturnRule;
-      let sglId <- toGet(idReturnFifo).get;
-      sglId_gen.returnTag(truncate(sglId));
-      portsel(regall, 1).request.put(BRAMRequest{write:True, responseOnWrite:False, address: truncate(sglId), datain: tagged Invalid });
-      $display("idReturn %d", sglId);
-   endrule
-   
+
    function Server#(AddrTransRequest,AddrTransResponse#(addrWidth)) addrServer(Integer i);
    return
       (interface Server#(AddrTransRequest,Bit#(addrWidth));
 	  interface Put request;
 	     method Action put(AddrTransRequest req);
 		incomingReqs[i].enq(req);
-                $display("SharedBuffMMU:: %d: incomingReq ", cycle, fshow(req));
+                if (verbose) $display("SharedBuffMMU:: %d: incomingReq ", cycle, fshow(req));
 	     endmethod
 	  endinterface
 	  interface Get response;
@@ -297,7 +288,7 @@ module mkSharedBuffMMU#(Integer iid, MMUIndication mmuIndication)(MMU#(addrWidth
 `ifdef SIMULATION
 		rv.physAddr = rv.physAddr | (fromInteger(iid)<<valueOf(addrWidth)-3);
 `endif
-                $display("SharedBuffMMU:: %d: pageResponse ", cycle, fshow(rv));
+                if (verbose) $display("SharedBuffMMU:: %d: pageResponse ", cycle, fshow(rv));
 		return rv;
 	     endmethod
 	  endinterface
@@ -312,7 +303,9 @@ module mkSharedBuffMMU#(Integer iid, MMUIndication mmuIndication)(MMU#(addrWidth
       mmuIndication.idResponse(resp);
    endmethod
    method Action idReturn(Bit#(32) sglId);
-      idReturnFifo.enq(sglId);
+      sglId_gen.returnTag(truncate(sglId));
+      portsel(regall, 1).request.put(BRAMRequest{write:True, responseOnWrite:False, address: truncate(sglId), datain: tagged Invalid });
+      if (verbose) $display("idReturn %d", sglId);
    endmethod
    method Action region(Bit#(32) pointer, Bit#(64) barr12, Bit#(32) index12, Bit#(64) barr8, Bit#(32) index8, Bit#(64) barr4, Bit#(32) index4, Bit#(64) barr0, Bit#(32) index0);
       portsel(regall, 1).request.put(BRAMRequest{write:True, responseOnWrite:False,
