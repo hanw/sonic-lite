@@ -57,7 +57,6 @@ module mkTxChannel#(Clock txClock, Reset txReset)(TxChannel);
    interface macTx = ringToMac.macTx;
    interface readClient = egress.readClient;
    interface freeClient = egress.free;
-   //FIXME
    interface PipeIn eventPktSend;
       method Action enq (MetadataRequest req);
          case (req) matches
@@ -67,9 +66,7 @@ module mkTxChannel#(Clock txClock, Reset txReset)(TxChannel);
             end
          endcase
       endmethod
-      method Bool notFull;
-         return True;
-      endmethod
+      method notFull = egress.eventPktSend.notFull;
    endinterface
    method TxChannelDbgRec read_debug_info;
       return TxChannelDbgRec {
