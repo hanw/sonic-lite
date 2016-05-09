@@ -34,9 +34,9 @@ module mkSimClocks(SimClocks);
    Clock defaultClock <- exposeCurrentClock();
    Reset defaultReset <- exposeCurrentReset();
 
-   Clock clock50mhz <- mkAbsoluteClock(0, 20);
-   Clock clock644mhz <- mkAbsoluteClock(0, 2);
-   Clock clock156mhz <- mkAbsoluteClock(0, 6);
+   Clock clock50mhz <- mkAbsoluteClock(0, 50);
+   Clock clock644mhz <- mkAbsoluteClock(0, 4);
+   Clock clock156mhz <- mkAbsoluteClock(0, 16);
 
    Reset reset50n <- mkSyncReset(2, defaultReset, clock50mhz);
    Reset reset156n <- mkSyncReset(2, defaultReset, clock156mhz);
