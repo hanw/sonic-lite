@@ -49,6 +49,7 @@ CONNECTALFLAGS += --implconstraint=constraint.sdc
 CONNECTALFLAGS += -m $(P4FPGADIR)/bsv/AsymmetricBRAM/mem_model.c
 CONNECTALFLAGS += -m $(P4FPGADIR)/bsv/matchtable_model.cpp
 CONNECTALFLAGS += --nocache
+CONNECTALFLAGS += --cxxflags=-std=c++11
 #CONNECTALFLAGS += --chipscope=$(P4FPGADIR)/examples/tdm/bcam.stp
 
 CONNECTALFLAGS += -D BYTE_ENABLES
