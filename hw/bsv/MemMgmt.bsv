@@ -197,7 +197,7 @@ module mkMemMgmt
       freePageList.enq(pack(freePageCount.read));
       if (freePageCount.read == fromInteger(freeQueueDepth-1)) begin
          inited <= True;
-         $display("Init: freePageCount %h", freePageCount.read);
+         if (verbose) $display("(%0d) Init: freePageCount %h", $time, freePageCount.read);
       end
       else begin
          // NOTE: maximum freeQueueDepth-1
@@ -209,11 +209,11 @@ module mkMemMgmt
    rule handle_alloc_req;
       let v <- toGet(mallcRequestFifo).get;
       let id <- proxy.idResponse.get;
-      $display("MemMgmt:: %d Allocating pages for packet id %d packet size %d", cycle, id, v.req);
+      if (verbose) $display("(%0d) MemMgmt:: %d Allocating pages for packet id %d packet size %d", $time, cycle, id, v.req);
       // Corner case when v is close to 4kb.
       let mask = (1 << valueOf(PageAddrLen)) - 1;
       Bit#(PageIdx) nPages = truncate(((v.req + mask) & (~mask)) >> valueOf(PageAddrLen));
-      $display("MemMgmt:: %d handle_malloc allocate nPage=%d", cycle, nPages);
+      if (verbose) $display("(%0d) MemMgmt:: %d handle_malloc allocate nPage=%d", $time, cycle, nPages);
       let hasSpace <- freePageCount.maybeDecrement(unpack(nPages));
       if (hasSpace) begin
          stage2Params.enq(Stage2Params{
@@ -256,7 +256,7 @@ module mkMemMgmt
          indication.memory_allocated(extend(packetId));
 `endif
       end
-      $display("MemMgmt:: %d id=%d, segmentIdx=%x %h", cycle, packetId, segment, lastSegment);
+      if (verbose) $display("(%0d) MemMgmt:: %d id=%d, segmentIdx=%x %h", $time, cycle, packetId, segment, lastSegment);
    endrule
 
    rule handle_free_req if (!free_started);
@@ -264,7 +264,7 @@ module mkMemMgmt
       free_started <= True;
       portsel(idmap, 1).request.put(BRAMRequest{write:False, responseOnWrite:False, address:sglId, datain:?});
       idToFree <= sglId;
-      if (verbose) $display("MemMgmt:: %d start_free_sglist %h", cycle, sglId);
+      if (verbose) $display("(%0d) MemMgmt:: %d start_free_sglist %h", $time, cycle, sglId);
       lastIdFreed <= extend(sglId);
    endrule
 
@@ -273,7 +273,7 @@ module mkMemMgmt
 `ifdef DEBUG
       indication.error(extend(pack(v.errorType)), v.id);
 `endif
-      if (verbose) $display("MemMgmt:: %d free_error: memMgmt error", cycle);
+      if (verbose) $display("(%0d) MemMgmt:: %d free_error: memMgmt error", $time, cycle);
    endrule
 
    (* descending_urgency="initialization, del_id_metadata, del_page_metadata, read_next_page_metadata" *)
@@ -283,7 +283,7 @@ module mkMemMgmt
          tagged Valid .page: begin
             portsel(idmap, 1).request.put(BRAMRequest{write:True, responseOnWrite:False, address: idToFree, datain: tagged Invalid});
             portsel(pagemap, 1).request.put(BRAMRequest{write:False, responseOnWrite:False, address: page, datain:?});
-            $display("MemMgmt:: %d free_idmap ", cycle, fshow(page));
+            if (verbose) $display("(%0d) MemMgmt:: %d free_idmap ", $time, cycle, fshow(page));
             currSegment <= page;
          end
          tagged Invalid: begin
@@ -313,13 +313,13 @@ module mkMemMgmt
       portsel(pagemap, 1).request.put(BRAMRequest{write:True, responseOnWrite:False, address: currSegment, datain: tagged Invalid});
       freePageList.enq(currSegment);
       freePageCount.increment(1);
-      if (verbose) $display("MemMgmt:: %d segment ", cycle, fshow(segment));
+      if (verbose) $display("(%0d) MemMgmt:: %d segment ", $time, cycle, fshow(segment));
    endrule
 
    rule read_next_page_metadata if (free_started);
       let page <- toGet(pagePointerFifo).get;
       portsel(pagemap, 1).request.put(BRAMRequest{write:False, responseOnWrite:False, address:page, datain:?});
-      if (verbose) $display("MemMgmt:: %d read next page ", cycle, fshow(page));
+      if (verbose) $display("(%0d) MemMgmt:: %d read next page ", $time, cycle, fshow(page));
    endrule
 
    method Action init_mem();
@@ -329,7 +329,6 @@ module mkMemMgmt
    endmethod
    interface Put mallocReq;
       method Action put(MemMgmtAllocReq#(numAllocClients) req);
-         $display("MemMgmt:: %d req page=%d", cycle, freePageCount.read);
          mallcRequestFifo.enq(req);
          iommu.request.idRequest(0); //FIXME
          allocCnt <= allocCnt + 1;
@@ -338,7 +337,6 @@ module mkMemMgmt
    interface Get mallocDone = toGet(mallocDoneFifo);
    interface Put freeReq;
       method Action put(MemMgmtFreeReq#(numReadClients) req);
-         $display("MemMgmt:: %d free request %h", cycle, req.id);
          iommu.request.idReturn(extend(req.id));
          freeRequestFifo.enq(req.id);
          freeCnt <= freeCnt + 1;
