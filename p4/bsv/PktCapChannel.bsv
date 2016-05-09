@@ -80,7 +80,7 @@ module mkPktCapChannel#(Clock rxClock, Reset rxReset)(PktCapChannel);
       pkt_sop <= v.sop;
       if (v.sop) begin
          pktCnt <= pktCnt + 1;
-         if (verbose) $display("$(%0d) packet count %h/%h", $time, pktCnt, totalCnt);
+         if (verbose) $display("(%0d) packet count %h/%h", $time, pktCnt, totalCnt);
       end
    endrule
 
