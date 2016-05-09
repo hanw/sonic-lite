@@ -1,0 +1,20 @@
+###
+Implementation of IID_TCAM in Bluespec
+###
+
+# WRITE
+1. Issue wEn_setram
+2. Read setIndc, generate pattIndc
+3. indc_Bcam.read(setIndc) -> match_setIndc, mAddr_setIndc
+4. indc_Bcam.write(setIndc@cIdx);
+   generate pulse to write indc_bcam
+   increment cIdx
+5. write to iitram:
+   write cPatt to iitram9b to wAddr_indx @ wAddr
+   write wIndx = mAddr_setIndc / cIdx
+   write wAddr_indc to mAddr_setIndc or cIdx
+   write wIndc = setIndc
+
+# READ
+1. iitram.read(mPatt) -> mIndc
+
