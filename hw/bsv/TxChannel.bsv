@@ -31,8 +31,8 @@ import Pipe::*;
 import PacketBuffer::*;
 import StoreAndForward::*;
 import SharedBuff::*;
-import Deparser::*;
-import PaxosTypes::*;
+
+import `PARSER::*;
 
 // Encapsulate Egress Pipeline, Tx Ring
 interface TxChannel;
