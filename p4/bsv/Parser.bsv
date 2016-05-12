@@ -33,11 +33,11 @@ import List::*;
 import Pipe::*;
 import StmtFSM::*;
 import SpecialFIFOs::*;
+import Utils::*;
 import Vector::*;
 
 import Ethernet::*;
 import P4Types::*;
-import P4Utils::*;
 
 interface Parser;
    // derive parseReset from start of packet

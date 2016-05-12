@@ -23,6 +23,9 @@
 
 package Utils;
 
+import FIFOF::*;
+import Vector::*;
+
 typedef 8'h07 Idle;
 typedef 8'h55 Preamble;
 typedef 8'hfb Start;
@@ -69,6 +72,18 @@ function Bit#(8) reverse_8b(Bit#(8) data);
       reversed[i] = data[7 - i];
    end
    return reversed;
+endfunction
+
+function alpha byteSwap(alpha w)
+   provisos (Bits#(alpha, asz),
+             Div#(asz, 8, avec),
+             Bits#(Vector::Vector#(avec, Bit#(8)), asz));
+   Vector#(avec, Bit#(8)) bytes = unpack(pack(w));
+   return unpack(pack(reverse(bytes)));
+endfunction
+
+function Bool fifoNotEmpty(FIFOF#(a) fifo);
+   return fifo.notEmpty();
 endfunction
 
 endpackage

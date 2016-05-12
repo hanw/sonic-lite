@@ -33,7 +33,7 @@ import MatchTable::*;
 import RegFile::*;
 import Register::*;
 import PaxosTypes::*;
-import P4Utils::*;
+import Utils::*;
 import Vector::*;
 
 interface BasicBlockHandle1A;
