@@ -50,30 +50,6 @@ typedef struct {
    Bit#(8) ctrl;
 } XgmiiTup deriving (Eq, Bits);
 
-function Bit#(64) reverse_64b (Bit#(64) data);
-   Bit#(64) reversed;
-   for (Integer i = 0; i < 64; i = i + 1) begin
-      reversed[i] = data[63 - i];
-   end
-   return reversed;
-endfunction
-
-function Bit#(32) reverse_32b (Bit#(32) data);
-   Bit#(32) reversed;
-   for (Integer i = 0; i < 32; i = i + 1) begin
-      reversed[i] = data[31 - i];
-   end
-   return reversed;
-endfunction
-
-function Bit#(8) reverse_8b(Bit#(8) data);
-   Bit#(8) reversed;
-   for (Integer i = 0; i < 8; i = i + 1) begin
-      reversed[i] = data[7 - i];
-   end
-   return reversed;
-endfunction
-
 function alpha byteSwap(alpha w)
    provisos (Bits#(alpha, asz),
              Div#(asz, 8, avec),
