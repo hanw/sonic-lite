@@ -62,4 +62,8 @@ function Bool fifoNotEmpty(FIFOF#(a) fifo);
    return fifo.notEmpty();
 endfunction
 
+typeclass DefaultMask#(type t);
+   t defaultMask;
+endtypeclass
+
 endpackage
