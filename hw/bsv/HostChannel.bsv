@@ -35,8 +35,7 @@ import StoreAndForward::*;
 import SharedBuff::*;
 import Tap::*;
 
-import PaxosTypes::*;
-import Paxos::*;
+import `PARSER::*;
 
 interface HostChannel;
    interface PktWriteServer writeServer;
