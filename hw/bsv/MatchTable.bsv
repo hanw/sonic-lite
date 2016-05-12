@@ -33,8 +33,6 @@ import Pipe::*;
 import Bcam::*;
 import BcamTypes::*;
 
-import `MATCHTABLE::*;
-
 interface MatchTable#(numeric type depth, numeric type keySz, numeric type actionSz);
    interface Server#(Bit#(keySz), Maybe#(Bit#(actionSz))) lookupPort;
    interface Put#(Tuple2#(Bit#(keySz), Bit#(actionSz))) add_entry;
