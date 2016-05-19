@@ -15,7 +15,7 @@ S2H_INTERFACES=MemoryTestRequest:MemoryTest.request
 H2S_INTERFACES=MemoryTest:MemoryTestIndication,MemServerIndication:host
 CPPFILES=test.cpp
 CPPFILES += $(SONICDIR)/sw/lpcap.c
-BSVFILES=MemoryTest.bsv MemoryAPI.bsv ConnectalTypes.bsv ../../../hw/bsv/DbgTypes.bsv DbgDefs.bsv 
+BSVFILES=MemoryTest.bsv MemoryAPI.bsv ConnectalTypes.bsv ../../../hw/bsv/DbgTypes.bsv ../../../hw/bsv/DbgDefs.bsv 
 FPGAMAKE_CONNECTALFLAGS += -P mkPcieHostTop
 
 CONNECTALFLAGS += -I $(SONICDIR)/sw/
