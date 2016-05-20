@@ -117,7 +117,7 @@ module mkParseEthernet(ParseEthernet);
    action // parse_ethernet
       let data = packet_in_wire;
       Vector#(128, Bit#(1)) dataVec = unpack(data);
-      let ethernet = extrace_ethernet(pack(takeAt(0, dataVec)));
+      let ethernet = extract_ethernet(pack(takeAt(0, dataVec)));
       Vector#(16, Bit#(1)) unparsed = takeAt(112, dataVec);
       if (verbose) $display(fshow(cycle)
                             +fshow(" ether.dstAddr=")+fshow(ethernet.dstAddr)

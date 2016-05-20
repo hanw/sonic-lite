@@ -10,10 +10,7 @@ import RegFile::*;
 import Vector::*;
 import DefaultValue::*;
 import ConnectalTypes::*;
-
-typeclass DefaultMask#(type t);
-   t defaultMask;
-endtypeclass
+import Utils::*;
 
 typedef union tagged {
    struct {

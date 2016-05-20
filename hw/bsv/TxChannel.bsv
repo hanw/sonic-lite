@@ -32,7 +32,8 @@ import PacketBuffer::*;
 import StoreAndForward::*;
 import SharedBuff::*;
 
-import `PARSER::*;
+import `DEPARSER::*;
+import `TYPEDEF::*;
 
 // Encapsulate Egress Pipeline, Tx Ring
 interface TxChannel;

@@ -37,6 +37,11 @@ CONNECTALFLAGS += -m $(P4FPGADIR)/bsv/matchtable_model.cpp
 CONNECTALFLAGS += --nocache
 CONNECTALFLAGS += --cxxflags=-std=c++11
 
+CONNECTALFLAGS += -D PARSER=Paxos
+CONNECTALFLAGS += -D DEPARSER=Deparser
+CONNECTALFLAGS += -D TYPEDEF=PaxosTypes
+CONNECTALFLAGS += -D MATCHTABLE=MatchTableSim
+
 BURST_LEN_SIZE=12
 
 #######################################################

@@ -36,6 +36,7 @@ import SharedBuff::*;
 import Tap::*;
 
 import `PARSER::*;
+import `TYPEDEF::*;
 
 interface HostChannel;
    interface PktWriteServer writeServer;
@@ -66,7 +67,7 @@ module mkHostChannel(HostChannel);
 
    rule dispatch_packet;
       let v <- toGet(ingress.eventPktCommitted).get;
-      let meta <- toGet(parser.meta).get;
+      let meta <- parser.meta.get;
       MetadataRequest nextReq = tagged DefaultRequest { pkt: v, meta: meta};
       outReqFifo.enq(nextReq);
    endrule
