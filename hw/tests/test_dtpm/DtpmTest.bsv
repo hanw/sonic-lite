@@ -5,10 +5,12 @@ import BuildVector::*;
 import GetPut::*;
 import ClientServer::*;
 import Connectable::*;
+import ConnectalConfig::*;
+import DefaultValue::*;
 
 import Pipe::*;
 import MemTypes::*;
-import MemreadEngine::*;
+import MemReadEngine::*;
 import HostInterface::*;
 
 import Dtpm::*;
@@ -49,7 +51,7 @@ module mkDtpmTest#(DtpmTestIndication indication) (DtpmTest);
    PipeOut#(Bit#(66)) pipe_encoder_out1 = toPipeOut(write_encoder_data1);
    PipeOut#(Bit#(66)) pipe_encoder_out2 = toPipeOut(write_encoder_data2);
 
-   MemreadEngine#(128, 2, 1) re <- mkMemreadEngine;
+   MemReadEngine#(128, 128, 2, 1) re <- mkMemReadEngine;
 
    Vector#(Delay, FIFOF#(Bit#(66))) fifo_sc1_to_sc2 <- replicateM(mkFIFOF);
    Vector#(Delay, FIFOF#(Bit#(66))) fifo_sc2_to_sc1 <- replicateM(mkFIFOF);
@@ -140,7 +142,7 @@ module mkDtpmTest#(DtpmTestIndication indication) (DtpmTest);
    endrule
 
    rule finish(toFinish > 0);
-      let rv <- re.readServers[0].response.get;
+      let rv <- toGet(re.readServers[0].data).get;
       if (toFinish == 1) begin
          cf.deq;
          indication.dtpTestDone(0);
