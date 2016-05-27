@@ -226,11 +226,11 @@ function UdpT extract_udp(Bit#(64) data);
 endfunction
 
 typedef struct {
+    Bit#(16) msgtype;
     Bit#(32) inst;
     Bit#(16) rnd;
     Bit#(16) vrnd;
     Bit#(16) acptid;
-    Bit#(16) msgtype;
     Bit#(256) paxosval;
 } PaxosT deriving (Bits, Eq);
 
@@ -243,24 +243,24 @@ endinstance
 
 instance FShow#(PaxosT);
     function Fmt fshow(PaxosT p);
-        return $format("PaxosT: inst=%h, rnd=%h, vrnd=%h, acptid=%h, msgtype=%h, paxosval=%h" , p.inst, p.rnd, p.vrnd, p.acptid, p.msgtype, p.paxosval);
+        return $format("PaxosT: msgtype=%h, inst=%h, rnd=%h, vrnd=%h, acptid=%h, paxosval=%h" , p.msgtype, p.inst, p.rnd, p.vrnd, p.acptid, p.paxosval);
     endfunction
 endinstance
 
 function PaxosT extract_paxos(Bit#(352) data);
     Vector#(352, Bit#(1)) dataVec=unpack(data);
-    Vector#(32, Bit#(1)) inst = takeAt(0, dataVec);
-    Vector#(16, Bit#(1)) rnd = takeAt(32, dataVec);
-    Vector#(16, Bit#(1)) vrnd = takeAt(48, dataVec);
-    Vector#(16, Bit#(1)) acptid = takeAt(64, dataVec);
-    Vector#(16, Bit#(1)) msgtype = takeAt(80, dataVec);
+    Vector#(16, Bit#(1)) msgtype = takeAt(0, dataVec);
+    Vector#(32, Bit#(1)) inst = takeAt(16, dataVec);
+    Vector#(16, Bit#(1)) rnd = takeAt(48, dataVec);
+    Vector#(16, Bit#(1)) vrnd = takeAt(64, dataVec);
+    Vector#(16, Bit#(1)) acptid = takeAt(80, dataVec);
     Vector#(256, Bit#(1)) paxosval = takeAt(96, dataVec);
     PaxosT paxos_t = defaultValue;
+    paxos_t.msgtype = pack(msgtype);
     paxos_t.inst = pack(inst);
     paxos_t.rnd = pack(rnd);
     paxos_t.vrnd = pack(vrnd);
     paxos_t.acptid = pack(acptid);
-    paxos_t.msgtype = pack(msgtype);
     paxos_t.paxosval = pack(paxosval);
     return paxos_t;
 endfunction
