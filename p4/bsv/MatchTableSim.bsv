@@ -32,6 +32,7 @@ import FShow::*;
 import Pipe::*;
 import Bcam::*;
 import BcamTypes::*;
+import MatchTable::*;
 
 import "BDPI" function ActionValue#(Bit#(10)) matchtable_read_dmac(Bit#(54) dstAddr);
 import "BDPI" function Action matchtable_write_dmac(Bit#(54) dstAddr, Bit#(10) data);

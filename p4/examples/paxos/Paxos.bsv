@@ -616,7 +616,7 @@ module mkParser(Parser);
       meta.paxos$inst = tagged Valid byteSwap(paxos.inst);
       meta.paxos$rnd = tagged Valid byteSwap(paxos.rnd);
       meta.paxos$vrnd = tagged Valid byteSwap(paxos.vrnd);
-      meta.paxos$paxosval = tagged Valid paxos.paxosval;
+      meta.paxos$paxosval = tagged Valid byteSwap(paxos.paxosval);
       meta.paxos$acptid = tagged Valid byteSwap(paxos.acptid);
       meta.paxos$msgtype = tagged Valid byteSwap(paxos.msgtype);
       meta.valid_paxos = tagged Valid True;

@@ -12,6 +12,8 @@ import DefaultValue::*;
 import ConnectalTypes::*;
 import Utils::*;
 
+import `MATCHTABLE::*;
+
 typedef union tagged {
    struct {
       PacketInstance pkt;
