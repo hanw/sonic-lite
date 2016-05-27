@@ -71,6 +71,8 @@ function Tuple2#(UdpT, UdpT) toUdp(MetadataT meta);
    UdpT mask = defaultMask;
    udp.dstPort = fromMaybe(?, meta.dstPort);
    mask.dstPort = 0;
+   udp.checksum = 0;
+   mask.checksum = 0;
    return tuple2(udp, mask);
 endfunction
 
