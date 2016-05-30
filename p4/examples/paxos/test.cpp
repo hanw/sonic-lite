@@ -219,8 +219,8 @@ int main(int argc, char **argv)
     device->sequenceTable_add_entry(0x2, IncreaseInstance);
     device->sequenceTable_add_entry(0x1, IncreaseInstance);
     device->sequenceTable_add_entry(0x0, IncreaseInstance);
-    device->acceptorTable_add_entry(0x3, Handle2A);
-    device->acceptorTable_add_entry(0x1, Handle1A);
+    device->acceptorTable_add_entry(0x2, Handle2A);
+    device->acceptorTable_add_entry(0x0, Handle1A);
 
     if (arguments.rate && arguments.tracelen) {
         hwpktgen = true;
