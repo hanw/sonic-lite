@@ -350,13 +350,18 @@ module mkStateDeparseUdp#(Reg#(DeparserState) state,
    seq
    action
       let data_this_cycle <- toGet(deparse_ipv4_fifo).get;
-      Vector#(80, Bit#(1)) unsent = takeAt(0, unpack(data_this_cycle.data));
+      Vector#(16, Bit#(1)) prev_data = takeAt(0, unpack(data_this_cycle.data));
+      Vector#(64, Bit#(1)) udp_data = takeAt(16, unpack(data_this_cycle.data));
       Vector#(48, Bit#(1)) unchanged = takeAt(80, unpack(data_this_cycle.data));
+      Vector#(64, Bit#(1)) curr_meta = takeAt(0, unpack(byteSwap(pack(udp_meta.first))));
+      Vector#(64, Bit#(1)) curr_mask = takeAt(0, unpack(byteSwap(pack(udp_mask.first))));
+      let masked_data = pack(udp_data) & pack(curr_mask);
+      let curr_data = masked_data | pack(curr_meta);
       let nextState = compute_next_state(udp_meta.first.dstPort);
       if (verbose) $display("(%0d) udp_meta.dstport=", $time, fshow(udp_meta.first.dstPort));
       if (verbose) $display("(%0d) Goto ", $time, fshow(nextState));
       if (nextState == StateDeparsePaxos) begin
-         data_this_cycle.data = {pack(unchanged), pack(unsent)};
+         data_this_cycle.data = {pack(unchanged), pack(curr_data), pack(prev_data)};
          deparse_paxos_fifo.enq(data_this_cycle);
       end
       udp_meta.deq;
