@@ -8,10 +8,10 @@ typedef 256 ValueSize;
 typedef 1024 InstanceCount;
 
 typedef enum {
-   PAXOS_1A = 1,
-   PAXOS_1B = 2,
-   PAXOS_2A = 3,
-   PAXOS_2B = 4
+   PAXOS_1A = 0,
+   PAXOS_1B = 1,
+   PAXOS_2A = 2,
+   PAXOS_2B = 3
 } MsgType deriving (Bits, Eq);
 
 typedef struct {
