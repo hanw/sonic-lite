@@ -80,6 +80,15 @@ module mkDtpTop#(DtpIndication indication)(DtpTop);
 
    DtpPhyIfc dtpPhy <- mkEthPhy(mgmtClock, txClock, phyClock, clocked_by txClock, reset_by dtp_rst);
 
+   for (Integer i = 0 ; i < 4 ; i = i+1) begin
+      rule source;
+         dtpPhy.phys.tx[i].put(72'h83c1e0f0783c1e0f07);
+      endrule
+      rule drain;
+         let v <- dtpPhy.phys.rx[i].get;
+      endrule
+   end
+
    De5Leds leds <- mkDe5Leds(defaultClock, txClock, mgmtClock, phyClock);
    De5Buttons#(4) buttons <- mkDe5Buttons(clocked_by mgmtClock, reset_by mgmtReset);
 
