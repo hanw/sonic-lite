@@ -32,7 +32,6 @@ import MemMgmt::*;
 import MemTypes::*;
 import PacketBuffer::*;
 import PaxosTypes::*;
-import Paxos::*;
 import Pipe::*;
 import StoreAndForward::*;
 import SharedBuff::*;
