@@ -23,8 +23,10 @@
 
 package Utils;
 
+import GetPut::*;
 import FIFOF::*;
 import Vector::*;
+import ClientServer::*;
 
 typedef 8'h07 Idle;
 typedef 8'h55 Preamble;
@@ -58,6 +60,12 @@ function alpha byteSwap(alpha w)
    return unpack(pack(reverse(bytes)));
 endfunction
 
+function alpha apply_changes (alpha data, alpha metadata, alpha mask)
+   provisos (Bits#(alpha, asz),
+             Bitwise#(alpha));
+   return (data & mask) | metadata;
+endfunction
+
 function Bool fifoNotEmpty(FIFOF#(a) fifo);
    return fifo.notEmpty();
 endfunction
@@ -65,5 +73,33 @@ endfunction
 typeclass DefaultMask#(type t);
    t defaultMask;
 endtypeclass
+
+typeclass ToClient #(type req_t, type rsp_t, type ifc1_t, type ifc2_t);
+   function Client #(req_t, rsp_t) toClient (ifc1_t ifc1, ifc2_t ifc2);
+endtypeclass
+
+typeclass ToServer #(type req_t, type rsp_t, type ifc1_t, type ifc2_t);
+   function Server #(req_t, rsp_t) toServer (ifc1_t  ifc1, ifc2_t  ifc2);
+endtypeclass
+
+instance ToClient #(req_t, rsp_t, ifc1_t, ifc2_t)
+   provisos (ToGet #(ifc1_t, req_t), ToPut #(ifc2_t, rsp_t));
+   function Client #(req_t, rsp_t) toClient (ifc1_t ifc1, ifc2_t ifc2);
+      return interface Client;
+                interface Get request  = toGet (ifc1);
+                interface Put response = toPut (ifc2);
+             endinterface;
+   endfunction
+endinstance
+
+instance ToServer #(req_t, rsp_t, ifc1_t, ifc2_t)
+   provisos (ToPut #(ifc1_t, req_t), ToGet #(ifc2_t, rsp_t));
+   function Server #(req_t, rsp_t) toServer (ifc1_t ifc1, ifc2_t ifc2);
+      return interface Server;
+                interface Put request  = toPut (ifc1);
+                interface Get response = toGet (ifc2);
+             endinterface;
+   endfunction
+endinstance
 
 endpackage
