@@ -127,7 +127,7 @@ module mkMemMgmt
                 #(MemMgmtIndication indication, MMUIndication mmuInd)
 `endif
                 (MemMgmt#(addrWidth, numAllocClients, numReadClients))
-   provisos(Add#(a__, addrWidth, 44));
+   provisos(Add#(a__, addrWidth, 40));
    let verbose = False;
 
    Reg#(Bit#(32)) cycle <- mkReg(0);

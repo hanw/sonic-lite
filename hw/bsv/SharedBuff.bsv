@@ -38,7 +38,7 @@ import MemServerInternal::*;
 import MMU::*;
 import SharedBuffMMU::*;
 import MemMgmt::*;
-import PhysMemToBram::*;
+import PhysMemSlaveFromBram::*;
 import Ethernet::*;
 import DbgTypes::*;
 
@@ -119,10 +119,10 @@ module mkSharedBuffer#(Vector#(numReadClients, MemReadClient#(busWidth)) readCli
    bramConfig.latency = 2;
 `ifdef BYTE_ENABLES
    BRAM1PortBE#(Bit#(addrWidth), Bit#(busWidth), ByteEnableSize) memBuff <- mkBRAM1ServerBE(bramConfig);
-   Vector#(nMasters, PhysMemSlave#(addrWidth, busWidth)) memSlaves <- replicateM(mkPhysMemToBramBE(memBuff.portA));
+   Vector#(nMasters, PhysMemSlave#(addrWidth, busWidth)) memSlaves <- replicateM(mkPhysMemSlaveFromBramBE(memBuff.portA));
 `else
    BRAM1Port#(Bit#(addrWidth), Bit#(busWidth)) memBuff <- ConnectalBram::mkBRAM1Server(bramConfig);
-   Vector#(nMasters, PhysMemSlave#(addrWidth, busWidth)) memSlaves <- replicateM(mkPhysMemToBram(memBuff.portA));
+   Vector#(nMasters, PhysMemSlave#(addrWidth, busWidth)) memSlaves <- replicateM(mkPhysMemSlaveFromBram(memBuff.portA));
 `endif
 
    mkConnection(dma.masters, memSlaves);
