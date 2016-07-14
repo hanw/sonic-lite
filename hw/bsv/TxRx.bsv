@@ -20,6 +20,8 @@
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+import GetPut::*;
+import ClientServer::*;
 import Connectable::*;
 import FIFOF::*;
 import SpecialFIFOs::*;
@@ -49,11 +51,22 @@ module mkRX (RX #(t))
    interface PipeIn e = toPipeIn(_ifc);
 endmodule
 
-module mkChan #(module #(FIFOF #(t)) mkFIFOF,
-                PipeOut #(t) txe,
-                PipeIn #(t) rxe)(Empty);
-   let fifof <- mkFIFOF;
-   let txe_to_fifof <- mkConnection(txe, toPipeIn(fifof));
-   let fifof_to_rxe <- mkConnection(toPipeOut(fifof), rxe);
-endmodule
+//module mkChan #(module #(FIFOF #(t)) mkFIFOF,
+//                PipeOut #(t) txe,
+//                PipeIn #(t) rxe)(Empty);
+//   let fifof <- mkFIFOF;
+//   let txe_to_fifof <- mkConnection(txe, toPipeIn(fifof));
+//   let fifof_to_rxe <- mkConnection(toPipeOut(fifof), rxe);
+//endmodule
 
+module mkChan #(module #(FIFOF #(req)) mkFIFOF_req,
+                module #(FIFOF #(rsp)) mkFIFOF_rsp,
+               Client #(req, rsp) txe,
+               Server #(req, rsp) rxe)(Empty);
+   let fifof_req <- mkFIFOF_req;
+   let fifof_rsp <- mkFIFOF_rsp;
+   let txe_to_fifof <- mkConnection(txe.request, toPut(fifof_req));
+   let fifof_to_rxe <- mkConnection(toGet(fifof_req), rxe.request);
+   let rxe_to_fifof <- mkConnection(rxe.response, toPut(fifof_rsp));
+   let fifof_to_txe <- mkConnection(toGet(fifof_rsp), txe.response);
+endmodule
