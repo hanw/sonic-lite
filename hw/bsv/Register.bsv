@@ -29,8 +29,17 @@ import Pipe::*;
 import RegFile::*;
 import Vector::*;
 import DefaultValue::*;
-import ConnectalTypes::*;
 import ConnectalBram::*;
+
+typedef struct {
+   Bit#(addrSz) addr;
+   Bit#(dataSz) data;
+   Bool write;
+} RegRequest#(numeric type addrSz, numeric type dataSz) deriving (Bits, Eq);
+
+typedef struct {
+   Bit#(dataSz) data;
+} RegResponse#(numeric type dataSz) deriving (Bits, Eq);
 
 interface RegisterIfc#(numeric type asz, numeric type dsz);
 endinterface
