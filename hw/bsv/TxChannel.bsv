@@ -20,6 +20,7 @@
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+import ClientServer::*;
 import Connectable::*;
 import DbgDefs::*;
 import Ethernet::*;
@@ -39,7 +40,7 @@ import `TYPEDEF::*;
 interface TxChannel;
    interface MemReadClient#(`DataBusWidth) readClient;
    interface MemFreeClient freeClient;
-   interface PipeIn#(MetadataRequest) eventPktSend;
+   interface Server#(MetadataRequest, MetadataResponse) prev;
    interface Get#(PacketDataT#(64)) macTx;
    method TxChannelDbgRec read_debug_info;
    method DeparserPerfRec read_deparser_perf_info;
@@ -50,6 +51,7 @@ module mkTxChannel#(Clock txClock, Reset txReset)(TxChannel);
    Deparser deparser <- mkDeparser();
    StoreAndFwdFromMemToRing egress <- mkStoreAndFwdFromMemToRing();
    StoreAndFwdFromRingToMac ringToMac <- mkStoreAndFwdFromRingToMac(txClock, txReset);
+   //MemWriteConverter
 
    mkConnection(egress.writeClient, deparser.writeServer);
    mkConnection(deparser.writeClient, pktBuff.writeServer);
@@ -58,17 +60,17 @@ module mkTxChannel#(Clock txClock, Reset txReset)(TxChannel);
    interface macTx = ringToMac.macTx;
    interface readClient = egress.readClient;
    interface freeClient = egress.free;
-   interface PipeIn eventPktSend;
-      method Action enq (MetadataRequest req);
-         case (req) matches
-            tagged ForwardQueueRequest {pkt: .pkt, meta: .meta}: begin
-               egress.eventPktSend.enq(pkt);
-               deparser.metadata.enq(meta);
-            end
-         endcase
-      endmethod
-      method notFull = egress.eventPktSend.notFull;
-   endinterface
+   interface prev = (interface Server#(MetadataRequest, MetadataResponse);
+      interface request = (interface Put;
+         method Action put (MetadataRequest req);
+            let meta = req.meta;
+            let pkt = req.pkt;
+            $display("Event %h", req);
+            egress.eventPktSend.enq(pkt);
+            deparser.metadata.enq(meta);
+         endmethod
+      endinterface);
+   endinterface);
    method TxChannelDbgRec read_debug_info;
       return TxChannelDbgRec {
          egressCount : 0,
