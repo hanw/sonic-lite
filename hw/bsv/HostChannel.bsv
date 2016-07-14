@@ -45,6 +45,7 @@ interface HostChannel;
    interface Client#(MetadataRequest, MetadataResponse) next;
    method HostChannelDbgRec read_debug_info;
    method ParserPerfRec read_parser_perf_info;
+   method Action set_verbosity (int verbosity);
 endinterface
 
 module mkHostChannel(HostChannel);
@@ -68,7 +69,7 @@ module mkHostChannel(HostChannel);
    rule dispatch_packet;
       let v <- toGet(ingress.eventPktCommitted).get;
       let meta <- parser.meta.get;
-      MetadataRequest nextReq = tagged DefaultRequest { pkt: v, meta: meta};
+      MetadataRequest nextReq = MetadataRequest {pkt: v, meta: meta};
       outReqFifo.enq(nextReq);
    endrule
 
@@ -88,5 +89,8 @@ module mkHostChannel(HostChannel);
       };
    endmethod
    method read_parser_perf_info = parser.read_perf_info;
+   method Action set_verbosity (int verbosity);
+      parser.verbosity.put(verbosity);
+   endmethod
 endmodule
 
