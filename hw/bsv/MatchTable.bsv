@@ -30,6 +30,8 @@ import DefaultValue::*;
 import BRAM::*;
 import FShow::*;
 import Pipe::*;
+import StringUtils::*;
+import List::*;
 import Bcam::*;
 import BcamTypes::*;
 
@@ -45,7 +47,7 @@ typeclass MatchTableSim#(numeric type id, numeric type ksz, numeric type vsz);
    function Action matchtable_write(Bit#(id) v, Bit#(ksz) key, Bit#(vsz) data);
 endtypeclass
 
-module mkMatchTable(MatchTable#(id, depth, keySz, actionSz))
+module mkMatchTable#(String name)(MatchTable#(id, depth, keySz, actionSz))
    provisos(Mul#(c__, 256, d__),
             Add#(c__, 7, TLog#(depth)),
             Log#(d__, TLog#(depth)),
@@ -63,7 +65,7 @@ module mkMatchTable(MatchTable#(id, depth, keySz, actionSz))
 
    MatchTable#(id, depth, keySz, actionSz) ret_ifc;
 `ifdef SIMULATION
-   ret_ifc <- mkMatchTableBluesim();
+   ret_ifc <- mkMatchTableBluesim(name);
 `else
    ret_ifc <- mkMatchTableSynth();
 `endif
@@ -165,16 +167,38 @@ module mkMatchTableSynth(MatchTable#(id, depth, keySz, actionSz))
    endinterface
 endmodule
 
-module mkMatchTableBluesim(MatchTable#(id, depth, keySz, actionSz))
+module mkMatchTableBluesim#(String name)(MatchTable#(id, depth, keySz, actionSz))
    provisos (MatchTable::MatchTableSim#(id, keySz, actionSz),
              Log#(depth, depthSz));
    let verbose = True;
 
+   Integer idv = valueOf(id);
+   Integer dpv = valueOf(depth);
    FIFO#(Tuple2#(Bit#(keySz), Bit#(actionSz))) writeReqFifo <- mkFIFO;
    FIFO#(Bit#(keySz)) readReqFifo <- mkFIFO;
    FIFO#(Maybe#(Bit#(actionSz))) readDataFifo <- mkFIFO;
 
    Reg#(Bool)      isInitialized   <- mkReg(False);
+
+   Handle fp <- openFile(name, ReadMode);
+   List#(Tuple2#(Bit#(keySz), Bit#(actionSz))) entryList = tagged Nil;
+   let readable <- hIsReadable(fp);
+   if (readable) begin
+      Bool isEOF <- hIsEOF(fp);
+      while (!isEOF) begin
+         let line <- hGetLine(fp);
+         List#(String) parsedEntries = parseCSV(line);
+         while (parsedEntries != tagged Nil) begin
+            Bit#(keySz) key = fromInteger(hexStringToInteger(parsedEntries[0]));
+            Bit#(actionSz) v = fromInteger(hexStringToInteger(parsedEntries[1]));
+            Bit#(id) tid = 0;
+            parsedEntries = List::drop(2, parsedEntries);
+            entryList = List::cons(tuple2(key, v), entryList);
+         end
+         isEOF <- hIsEOF(fp);
+      end
+   end
+   hClose(fp);
 
    rule do_read (isInitialized);
       let v <- toGet(readReqFifo).get;
@@ -188,14 +212,20 @@ module mkMatchTableBluesim(MatchTable#(id, depth, keySz, actionSz))
          readDataFifo.enq(tagged Invalid);
    endrule
 
-   rule do_init (!isInitialized);
-      isInitialized <= True;
-      //FIXME: generate initial value for each table
-      Bit#(keySz) key = 'h0;
-      Bit#(actionSz) v = 'h0;
+   Reg#(Bit#(8)) fsmIndex <- mkReg(0);
+
+   rule do_init (fsmIndex < fromInteger(List::length(entryList)));
+      $display("insert entry ", fromInteger(List::length(entryList)));
+      Bit#(keySz) key = tpl_1(entryList[fsmIndex]);
+      Bit#(actionSz) v = tpl_2(entryList[fsmIndex]);
       Bit#(id) tid = 0;
       matchtable_write(tid, key, v);
-      matchtable_write(tid, key, v);
+      fsmIndex <= fsmIndex + 1;
+      $display("finished insert entry ", fromInteger(List::length(entryList)));
+   endrule
+
+   rule finish_init(fsmIndex == fromInteger(List::length(entryList)));
+      isInitialized <= True;
    endrule
 
    interface Server lookupPort;
