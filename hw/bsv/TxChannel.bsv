@@ -53,6 +53,8 @@ endinterface
 typedef TDiv#(PktDataWidth, 8) MaskWidth;
 typedef TLog#(PktDataWidth) DataSize;
 typedef TLog#(TDiv#(PktDataWidth, 8)) MaskSize;
+typedef TAdd#(DataSize, 1) NumBits;
+typedef TAdd#(MaskSize, 1) NumBytes;
 
 module mkHeaderSerializer(HeaderSerializer);
    Reg#(int) cf_verbosity <- mkConfigRegU;
@@ -65,134 +67,91 @@ module mkHeaderSerializer(HeaderSerializer);
    endfunction
    FIFOF#(EtherData) data_in_ff <- printTimedTraceM("serializer in", mkFIFOF);
    FIFOF#(EtherData) data_out_ff <- printTimedTraceM("serializer out", mkFIFOF);
-   Reg#(Bool) sop_buff <- mkReg(False);
-   Reg#(Bool) eop_buff <- mkReg(False);
-   Reg#(UInt#(TAdd#(MaskSize, 1))) prev_bytes <- mkReg(0);
-   Reg#(UInt#(TAdd#(DataSize, 1))) prev_bits <- mkReg(0);
 
-   let sop_this_cycle = data_in_ff.first.sop;
-   let eop_this_cycle = data_in_ff.first.eop;
-   let data_this_cycle = data_in_ff.first.data;
-   let mask_this_cycle = data_in_ff.first.mask;
+   Array#(Reg#(Bool)) sop_buff <- mkCReg(3, False);
+   Array#(Reg#(Bool)) eop_buff <- mkCReg(3, False);
+   Array#(Reg#(Bit#(PktDataWidth))) data_buff <- mkCReg(3, 0);
+   Array#(Reg#(Bit#(MaskWidth))) mask_buff <- mkCReg(3, 0);
 
-   Array#(Reg#(Bool)) inPacket <- mkCReg(2, False);
-   Array#(Reg#(Bool)) startOfPacket <- mkCReg(2, False);
-   Array#(Reg#(Bool)) endOfPacket <- mkCReg(2, False);
-   Array#(Reg#(Bit#(PktDataWidth))) data_buff <- mkCReg(2, 0);
-   Array#(Reg#(Bit#(MaskWidth))) mask_buff <- mkCReg(2, 0);
-   Reg#(Bit#(PktDataWidth)) prev_data <- mkReg(0);
-   Reg#(Bit#(MaskWidth)) prev_mask <- mkReg(0);
-   Array#(Reg#(Bool)) new_data <- mkCReg(2, False);
+   Reg#(Bit#(PktDataWidth)) data_buffered <- mkReg(0);
+   Reg#(Bit#(MaskWidth)) mask_buffered <- mkReg(0);
+   Reg#(UInt#(TAdd#(MaskSize, 1))) n_bytes_buffered <- mkReg(0);
+   Reg#(UInt#(TAdd#(DataSize, 1))) n_bits_buffered <- mkReg(0);
 
-   function Bit#(max) create_mask (LUInt#(max) count);
-      Bit#(max) v = (1 << count) - 1;
-      return v;
-   endfunction
+   PulseWire w_send_full_frame <- mkPulseWire();
+   PulseWire w_buffer_partial_frame <- mkPulseWire();
 
-   rule rl_enqueue_stage1;
+   rule rl_serialize_stage1;
       data_in_ff.deq;
-      if (sop_this_cycle) begin
-         inPacket[0] <= True;
-         startOfPacket[0] <= True;
+      data_buff[0] <= data_in_ff.first.data;
+      mask_buff[0] <= data_in_ff.first.mask;
+      UInt#(NumBytes) n_bytes = countOnes(data_in_ff.first.mask);
+      UInt#(NumBits) n_bits = cExtend(n_bytes) << 3;
+      if (data_in_ff.first.sop) begin
+         sop_buff[0] <= True;
       end
-      if (eop_this_cycle) begin
-         endOfPacket[0] <= True;
+      if (data_in_ff.first.eop) begin
+         eop_buff[0] <= True;
       end
-      data_buff[0] <= data_this_cycle;
-      mask_buff[0] <= mask_this_cycle;
-      new_data[0] <= True;
-      dbg3($format("*** stage1 %h %h %h %h", data_this_cycle, mask_this_cycle, sop_this_cycle, eop_this_cycle));
+      else begin
+         if (n_bytes + n_bytes_buffered > fromInteger(valueOf(MaskWidth))) begin
+            w_send_full_frame.send();
+         end
+         else begin
+            w_buffer_partial_frame.send();
+         end
+      end
+      dbg3($format("nbytes %d, nbits %d", n_bytes, n_bits));
    endrule
 
-   /*
-   function Bit#(l) read_data (UInt#(8) lhs, UInt#(8) rhs)
-      provisos (Add#(a__, l, 128));
-      Bit#(l) ldata = truncate(data_buff[1]) << fromInteger(valueOf(l) - lhs);
-      Bit#(l) rdata = truncate(prev_data >> fromInteger(valueOf(l) - rhs));
-      Bit#(l) cdata = ldata | rdata;
-      return cdata;
+   function Action enqueue_output(UInt#(NumBytes) n_bytes);
+      action
+         UInt#(NumBits) n_bits = cExtend(n_bytes) << 3;
+         let data = data_buff[1] << n_bits_buffered | data_buffered; 
+         let n_bytes_used = fromInteger(valueOf(MaskWidth)) - n_bytes_buffered;
+         UInt#(NumBits) n_bits_used = cExtend(n_bytes_used) << 3;
+         data_buffered <= data_buff[1] >> n_bits_used;
+         mask_buffered <= mask_buff[1] >> n_bytes_used;
+         n_bytes_buffered <= n_bytes - n_bytes_used;
+         n_bits_buffered <= n_bits - n_bits_used;
+         let eth = EtherData {sop: sop_buff[1], eop: False, mask: 'hffff, data: data};
+         data_out_ff.enq(eth);
+         sop_buff[1] <= False;
+      endaction
    endfunction
-   */
 
-   // function for computing bits received;
-
-   // function for computing
-
-   rule rl_enqueue_in_packet if (inPacket[1] && !endOfPacket[1] && new_data[1]);
-      dbg3($format("mask size %d", countOnes(mask_buff[1])));
-      let curr_bytes = countOnes(mask_buff[1]);
-      UInt#(TAdd#(DataSize, 1)) curr_bits = cExtend(curr_bytes) << 3;
-      let total_bytes = curr_bytes + cExtend(prev_bytes);
-      if (total_bytes > 16) begin
-         let data = data_buff[1] << prev_bits | prev_data; 
-         let shift_in_bytes = 16 - prev_bytes;
-         UInt#(TAdd#(DataSize, 1)) shift_in_bits = cExtend((16 - prev_bytes)) << 3;
-         dbg3($format("prev_data %h prev_bytes %d additional data %h", prev_data, prev_bytes, data_buff[1] << prev_bits));
-         let next_data = data_buff[1] >> shift_in_bits;
-         let next_mask = mask_buff[1] >> shift_in_bytes;
-         prev_data <= next_data;
-         prev_mask <= next_mask;
-         prev_bytes <= curr_bytes - shift_in_bytes;
-         prev_bits <= curr_bits - shift_in_bits;
-         startOfPacket[1] <= False;
-         EtherData eth = defaultValue;
-         eth.sop = startOfPacket[1];
-         eth.eop = False;
-         eth.mask = 'hffff;
-         eth.data = data;
-         data_out_ff.enq(eth);
+   (* mutually_exclusive = "rl_end_of_packet, rl_send_full_frame, rl_buffer_partial_frame" *)
+   rule rl_end_of_packet if (eop_buff[1]);
+      UInt#(NumBytes) n_bytes = countOnes(mask_buff[1]);
+      if (n_bytes + n_bytes_buffered > fromInteger(valueOf(MaskWidth))) begin
+         dbg3($format("send eop more %d %d", n_bytes, n_bytes_buffered));
+         enqueue_output(n_bytes);
+         mask_buff[1] <= mask_buff[1] >> 16;
       end
       else begin
-         let data = (data_buff[1] << prev_bits) | prev_data;
-         let mask = (mask_buff[1] << prev_bytes) | prev_mask;
-         let offset_in_bytes = curr_bytes + prev_bytes;
-         UInt#(TAdd#(DataSize, 1)) offset_in_bits = cExtend(offset_in_bytes) << 3;
-         prev_data <= data;
-         prev_mask <= mask;
-         prev_bytes <= offset_in_bytes;
-         prev_bits <= offset_in_bits;
-         new_data[1] <= False;
-         dbg3($format("2.GGoffset %d curr_bytes %d next_data %h next_mask %h", offset_in_bytes, curr_bytes, data, mask));
-         dbg3($format("GG 2 out %h %h", data, mask));
+         dbg3($format("send eop"));
+         let eth = EtherData {sop: sop_buff[1], eop: eop_buff[1], mask: mask_buffered, data: data_buffered};
+         data_out_ff.enq(eth);
+         eop_buff[1] <= False;
       end
    endrule
 
-   rule rl_enqueue_last_beat if (inPacket[1] && endOfPacket[1] && new_data[1]);
-      let curr_bytes = countOnes(mask_buff[1]);
-      UInt#(TAdd#(DataSize, 1)) curr_bits = cExtend(curr_bytes) << 3;
-      let total_bytes = curr_bytes + cExtend(prev_bytes);
-      dbg3($format("prev_bytes %d curr_bytes %d", prev_bytes, curr_bytes));
-      if (total_bytes > 16) begin
-         let data = data_buff[1] << prev_bits | prev_data; 
-         let shift_in_bytes = 16 - prev_bytes;
-         UInt#(TAdd#(DataSize, 1)) shift_in_bits = cExtend((16 - prev_bytes)) << 3;
-         let next_data = data_buff[1] >> shift_in_bits;
-         let next_mask = mask_buff[1] >> shift_in_bytes;
-         prev_data <= next_data;
-         prev_mask <= next_mask;
-         prev_bytes <= curr_bytes - shift_in_bytes;
-         prev_bits <= curr_bits - shift_in_bits;
-         dbg3($format("GGlast beat, shift and save %h next bytes %d", data_buff[1], curr_bytes - shift_in_bytes));
-         EtherData eth = defaultValue;
-         eth.sop = False;
-         eth.eop = False;
-         eth.mask = 'hffff;
-         eth.data = data;
-         dbg3($format("GG out %h", data));
-         data_out_ff.enq(eth);
-      end
-      else begin
-         dbg3($format("GGlast beat, done %h", data_buff[1]));
-         inPacket[1] <= False;
-         new_data[1] <= False;
-         EtherData eth = defaultValue;
-         eth.sop = False;
-         eth.eop = True;
-         eth.mask = prev_mask;
-         eth.data = prev_data;
-         dbg3($format("GG out %h %h", prev_data, prev_mask));
-         data_out_ff.enq(eth);
-      end
+   rule rl_send_full_frame if (w_send_full_frame);
+      UInt#(NumBytes) n_bytes = countOnes(mask_buff[1]);
+      enqueue_output(n_bytes);
+   endrule
+
+   rule rl_buffer_partial_frame (w_buffer_partial_frame);
+      UInt#(NumBytes) n_bytes = countOnes(mask_buff[2]);
+      let data = (data_buff[2] << n_bits_buffered) | data_buffered;
+      let mask = (mask_buff[2] << n_bytes_buffered) | mask_buffered;
+      let n_bytes_used = n_bytes + n_bytes_buffered;
+      UInt#(NumBits) n_bits_used = cExtend(n_bytes_used) << 3;
+      data_buffered <= data;
+      mask_buffered <= mask;
+      n_bytes_buffered <= n_bytes_used;
+      n_bits_buffered <= n_bits_used;
+      dbg3($format("store: bytes: %d, bits: %d", n_bytes_used, n_bits_used));
    endrule
 
    interface PktWriteServer writeServer;
