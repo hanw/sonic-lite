@@ -127,11 +127,11 @@ endinstance
 
 // internal typeclass
 typeclass HasFPrintTraceHelper#(type t);
-    function t fprintTraceHelper(File file, Fmt callName, Maybe#(Fmt) args, t x);
+    function t fprintTraceHelper(File file, Bool printTimestamp, Fmt callName, Maybe#(Fmt) args, t x);
 endtypeclass
 // Base case: ActionValue#(t) (This covers Action since Action = ActionValue#(void))
 instance HasFPrintTraceHelper#(ActionValue#(t)) provisos (FShow#(t));
-    function ActionValue#(t) fprintTraceHelper(File file, Fmt callName, Maybe#(Fmt) args, ActionValue#(t) av);
+    function ActionValue#(t) fprintTraceHelper(File file, Bool printTimestamp, Fmt callName, Maybe#(Fmt) args, ActionValue#(t) av);
         return (actionvalue
                 t x <- av;
                 Fmt printFmt = callName;
@@ -143,7 +143,12 @@ instance HasFPrintTraceHelper#(ActionValue#(t)) provisos (FShow#(t));
                 if (typeOf(x) != typeOf(v)) begin
                     printFmt = printFmt + $format(" = ", fshow(x));
                 end
-                $fdisplay(file, printFmt);
+                if (printTimestamp) begin 
+                   $fdisplay(file, "(%0d) ", $time, printFmt);
+                end
+                else begin
+                   $fdisplay(file, printFmt);
+                end
                 $fflush(file);
                 return x;
             endactionvalue);
@@ -151,98 +156,98 @@ instance HasFPrintTraceHelper#(ActionValue#(t)) provisos (FShow#(t));
 endinstance
 // Adding an argument
 instance HasFPrintTraceHelper#(function outT f(inT x)) provisos (HasFPrintTraceHelper#(outT), FShow#(inT));
-    function (function outT f(inT x)) fprintTraceHelper(File file, Fmt callName, Maybe#(Fmt) args, function outT func(inT x));
+    function (function outT f(inT x)) fprintTraceHelper(File file, Bool printTimestamp, Fmt callName, Maybe#(Fmt) args, function outT func(inT x));
         function outT retFunc(inT x);
             Fmt newArgs = args matches tagged Valid .validArgs ? validArgs + $format(", ") + fshow(x) : fshow(x);
-            return fprintTraceHelper(file, callName, tagged Valid newArgs, func(x));
+            return fprintTraceHelper(file, printTimestamp, callName, tagged Valid newArgs, func(x));
         endfunction
         return retFunc;
     endfunction
 endinstance
 // Some interfaces
 instance HasFPrintTraceHelper#(Reg#(t)) provisos (FShow#(t));
-    function Reg#(t) fprintTraceHelper(File file, Fmt callName, Maybe#(Fmt) args, Reg#(t) ifc);
+    function Reg#(t) fprintTraceHelper(File file, Bool printTimestamp, Fmt callName, Maybe#(Fmt) args, Reg#(t) ifc);
         // if there were arguments, add it to the callName
         Fmt newCallName = args matches tagged Valid .validArgs ? $format(callName, "(", validArgs, ")") : callName;
         Maybe#(Fmt) newArgs = tagged Invalid;
         return (interface Reg;
-                    method Action _write(t x) = fprintTraceHelper(file, $format(newCallName, "._write"), newArgs, ifc._write, x);
+                    method Action _write(t x) = fprintTraceHelper(file, printTimestamp, $format(newCallName, "._write"), newArgs, ifc._write, x);
                     method t _read = ifc._read;
                 endinterface);
     endfunction
 endinstance
 instance HasFPrintTraceHelper#(Get#(t)) provisos (FShow#(t));
-    function Get#(t) fprintTraceHelper(File file, Fmt callName, Maybe#(Fmt) args, Get#(t) ifc);
+    function Get#(t) fprintTraceHelper(File file, Bool printTimestamp, Fmt callName, Maybe#(Fmt) args, Get#(t) ifc);
         // if there were arguments, add it to the callName
         Fmt newCallName = args matches tagged Valid .validArgs ? $format(callName, "(", validArgs, ")") : callName;
         Maybe#(Fmt) newArgs = tagged Invalid;
-        return toGet(fprintTraceHelper(file, $format(newCallName, ".get"), newArgs, ifc.get));
+        return toGet(fprintTraceHelper(file, printTimestamp, $format(newCallName, ".get"), newArgs, ifc.get));
     endfunction
 endinstance
 instance HasFPrintTraceHelper#(Put#(t)) provisos (FShow#(t));
-    function Put#(t) fprintTraceHelper(File file, Fmt callName, Maybe#(Fmt) args, Put#(t) ifc);
+    function Put#(t) fprintTraceHelper(File file, Bool printTimestamp, Fmt callName, Maybe#(Fmt) args, Put#(t) ifc);
         // if there were arguments, add it to the callName
         Fmt newCallName = args matches tagged Valid .validArgs ? $format(callName, "(", validArgs, ")") : callName;
         Maybe#(Fmt) newArgs = tagged Invalid;
-        return toPut(fprintTraceHelper(file, $format(newCallName, ".put"), newArgs, ifc.put));
+        return toPut(fprintTraceHelper(file, printTimestamp, $format(newCallName, ".put"), newArgs, ifc.put));
     endfunction
 endinstance
 instance HasFPrintTraceHelper#(Client#(t1,t2)) provisos (FShow#(t1), FShow#(t2));
-    function Client#(t1,t2) fprintTraceHelper(File file, Fmt callName, Maybe#(Fmt) args, Client#(t1,t2) ifc);
+    function Client#(t1,t2) fprintTraceHelper(File file, Bool printTimestamp, Fmt callName, Maybe#(Fmt) args, Client#(t1,t2) ifc);
         // if there were arguments, add it to the callName
         Fmt newCallName = args matches tagged Valid .validArgs ? $format(callName, "(", validArgs, ")") : callName;
         Maybe#(Fmt) newArgs = tagged Invalid;
-        return toGPClient(fprintTraceHelper(file, $format(newCallName, ".request"), newArgs, ifc.request),
-                          fprintTraceHelper(file, $format(newCallName, ".response"), newArgs, ifc.response));
+        return toGPClient(fprintTraceHelper(file, printTimestamp, $format(newCallName, ".request"), newArgs, ifc.request),
+                          fprintTraceHelper(file, printTimestamp, $format(newCallName, ".response"), newArgs, ifc.response));
     endfunction
 endinstance
 instance HasFPrintTraceHelper#(Server#(t1,t2)) provisos (FShow#(t1), FShow#(t2));
-    function Server#(t1,t2) fprintTraceHelper(File file, Fmt callName, Maybe#(Fmt) args, Server#(t1,t2) ifc);
+    function Server#(t1,t2) fprintTraceHelper(File file, Bool printTimestamp, Fmt callName, Maybe#(Fmt) args, Server#(t1,t2) ifc);
         // if there were arguments, add it to the callName
         Fmt newCallName = args matches tagged Valid .validArgs ? $format(callName, "(", validArgs, ")") : callName;
         Maybe#(Fmt) newArgs = tagged Invalid;
-        return toGPServer(fprintTraceHelper(file, $format(newCallName, ".request"), newArgs, ifc.request),
-                          fprintTraceHelper(file, $format(newCallName, ".response"), newArgs, ifc.response));
+        return toGPServer(fprintTraceHelper(file, printTimestamp, $format(newCallName, ".request"), newArgs, ifc.request),
+                          fprintTraceHelper(file, printTimestamp, $format(newCallName, ".response"), newArgs, ifc.response));
     endfunction
 endinstance
 instance HasFPrintTraceHelper#(FIFO#(t)) provisos (FShow#(t));
-    function FIFO#(t) fprintTraceHelper(File file, Fmt callName, Maybe#(Fmt) args, FIFO#(t) ifc);
+    function FIFO#(t) fprintTraceHelper(File file, Bool printTimestamp, Fmt callName, Maybe#(Fmt) args, FIFO#(t) ifc);
         // if there were arguments, add it to the callName
         Fmt newCallName = args matches tagged Valid .validArgs ? $format(callName, "(", validArgs, ")") : callName;
         Maybe#(Fmt) newArgs = tagged Invalid;
         return (interface FIFO;
-                    method Action enq(t x); fprintTraceHelper(file, $format(newCallName, ".enq"), newArgs, ifc.enq, x); endmethod
+                    method Action enq(t x); fprintTraceHelper(file, printTimestamp, $format(newCallName, ".enq"), newArgs, ifc.enq, x); endmethod
                     // when printing, make deq look like an action value so you can see the value of first
-                    method Action deq = fprintTraceHelper(file, $format(newCallName, ".deq = ", fshow(ifc.first)), newArgs, ifc.deq);
+                    method Action deq = fprintTraceHelper(file, printTimestamp, $format(newCallName, ".deq = ", fshow(ifc.first)), newArgs, ifc.deq);
                     method t first = ifc.first;
-                    method Action clear = fprintTraceHelper(file, $format(newCallName, ".clear"), newArgs, ifc.clear);
+                    method Action clear = fprintTraceHelper(file, printTimestamp, $format(newCallName, ".clear"), newArgs, ifc.clear);
                 endinterface);
     endfunction
 endinstance
 instance HasFPrintTraceHelper#(FIFOF#(t)) provisos (FShow#(t));
-    function FIFOF#(t) fprintTraceHelper(File file, Fmt callName, Maybe#(Fmt) args, FIFOF#(t) ifc);
+    function FIFOF#(t) fprintTraceHelper(File file, Bool printTimestamp, Fmt callName, Maybe#(Fmt) args, FIFOF#(t) ifc);
         // if there were arguments, add it to the callName
         Fmt newCallName = args matches tagged Valid .validArgs ? $format(callName, "(", validArgs, ")") : callName;
         Maybe#(Fmt) newArgs = tagged Invalid;
         return (interface FIFOF;
-                    method Action enq(t x) = fprintTraceHelper(file, $format(newCallName, ".enq"), newArgs, ifc.enq, x);
+                    method Action enq(t x) = fprintTraceHelper(file, printTimestamp, $format(newCallName, ".enq"), newArgs, ifc.enq, x);
                     // when printing, make deq look like an action value so you can see the value of first
-                    method Action deq = fprintTraceHelper(file, $format(newCallName, ".deq = ", fshow(ifc.first)), newArgs, ifc.deq);
+                    method Action deq = fprintTraceHelper(file, printTimestamp, $format(newCallName, ".deq = ", fshow(ifc.first)), newArgs, ifc.deq);
                     method t first = ifc.first;
                     method Bool notFull = ifc.notFull;
                     method Bool notEmpty = ifc.notEmpty;
-                    method Action clear = fprintTraceHelper(file, $format(newCallName, ".clear"), newArgs, ifc.clear);
+                    method Action clear = fprintTraceHelper(file, printTimestamp, $format(newCallName, ".clear"), newArgs, ifc.clear);
                 endinterface);
     endfunction
 endinstance
 instance HasFPrintTraceHelper#(Vector#(n,t)) provisos (HasFPrintTraceHelper#(t));
-    function Vector#(n,t) fprintTraceHelper(File file, Fmt callName, Maybe#(Fmt) args, Vector#(n,t) ifc);
+    function Vector#(n,t) fprintTraceHelper(File file, Bool printTimestamp, Fmt callName, Maybe#(Fmt) args, Vector#(n,t) ifc);
         // if there were arguments, add it to the callName
         Fmt newCallName = args matches tagged Valid .validArgs ? $format(callName, "(", validArgs, ")") : callName;
         Maybe#(Fmt) newArgs = tagged Invalid;
 
         function t genFunc(Integer i);
-            return fprintTraceHelper(file, $format(callName, "[%d]", i), tagged Invalid, ifc[i]);
+            return fprintTraceHelper(file, printTimestamp, $format(callName, "[%d]", i), tagged Invalid, ifc[i]);
         endfunction
         return genWith(genFunc);
     endfunction
@@ -251,26 +256,33 @@ endinstance
 // external functions
 function t fprintTrace(File file, String msg, t x)
         provisos (HasFPrintTraceHelper#(t));
-    return fprintTraceHelper(file, $format(msg), tagged Invalid, x);
+    return fprintTraceHelper(file, False, $format(msg), tagged Invalid, x);
 endfunction
 
 function t printTrace(String msg, t x)
         provisos (HasFPrintTraceHelper#(t));
-    return fprintTraceHelper(stdout, $format(msg), tagged Invalid, x);
+    return fprintTraceHelper(stdout, False, $format(msg), tagged Invalid, x);
 endfunction
 
 module [m] fprintTraceM#(File file, String msg, m#(t) mkM)(t)
         provisos (IsModule#(m, a__), HasFPrintTraceHelper#(t));
     (* hide *)
     t _m <- mkM();
-    return fprintTraceHelper(file, $format(msg), tagged Invalid, _m);
+    return fprintTraceHelper(file, False, $format(msg), tagged Invalid, _m);
 endmodule
 
 module [m] printTraceM#(String msg, m#(t) mkM)(t)
         provisos (IsModule#(m, a__), HasFPrintTraceHelper#(t));
     (* hide *)
     t _m <- mkM;
-    return fprintTraceHelper(stdout, $format(msg), tagged Invalid, _m);
+    return fprintTraceHelper(stdout, False, $format(msg), tagged Invalid, _m);
+endmodule
+
+module [m] printTimedTraceM#(String msg, m#(t) mkM)(t)
+        provisos (IsModule#(m, a__), HasFPrintTraceHelper#(t));
+    (* hide *)
+    t _m <- mkM;
+    return fprintTraceHelper(stdout, True, $format(msg), tagged Invalid, _m);
 endmodule
 
 endpackage
