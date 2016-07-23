@@ -102,4 +102,15 @@ instance ToServer #(req_t, rsp_t, ifc1_t, ifc2_t)
    endfunction
 endinstance
 
+function Action prettyPrint (String callName, Bit#(asz) data)
+   provisos (Div#(asz, 128, avec),
+             Add#(a__, 128, asz));
+   Fmt fmt = $format(callName);
+   for (Integer i = valueOf(avec) - 1; i >= 0; i = i-1) begin
+      Bit#(128) d = truncate(data >> (fromInteger(i) * 128));
+      fmt = fmt + $format("%016h ", d);
+   end
+   $display("(%0d)", $time, fmt);
+endfunction
+
 endpackage
