@@ -90,7 +90,7 @@ module mkHostChannel(HostChannel);
    endmethod
    method read_parser_perf_info = parser.read_perf_info;
    method Action set_verbosity (int verbosity);
-      parser.verbosity.put(verbosity);
+      parser.set_verbosity(verbosity);
    endmethod
 endmodule
 

@@ -211,7 +211,7 @@ module mkTxChannel#(Clock txClock, Reset txReset)(TxChannel);
    endmethod
    method read_deparser_perf_info = deparser.read_perf_info;
    method Action set_verbosity (int verbosity);
-      //deparser.set_verbosity(verbosity);
+      deparser.set_verbosity(verbosity);
       serializer.set_verbosity(verbosity);
    endmethod
 endmodule
