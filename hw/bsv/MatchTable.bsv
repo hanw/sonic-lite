@@ -202,10 +202,10 @@ module mkMatchTableBluesim#(String name)(MatchTable#(id, depth, keySz, actionSz)
 
    rule do_read (isInitialized);
       let v <- toGet(readReqFifo).get;
-      $display("(%0d) MatchTable: do_read %h", $time, v);
+      $display("(%0d) MatchTable %s: do_read %h", $time, name, v);
       Bit#(id) tid = 0;
       let ret <- matchtable_read(tid, pack(v));
-      $display("(%0d) MatchTable: read %h", $time, ret);
+      $display("(%0d) MatchTable %s: read %h", $time, name, ret);
       if (ret != 0)
          readDataFifo.enq(tagged Valid ret);
       else
