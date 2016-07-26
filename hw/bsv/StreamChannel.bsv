@@ -56,7 +56,8 @@ endinterface
 
 // Streaming version of TxChannel
 module mkStreamOutChannel#(Clock txClock, Reset txReset)(StreamOutChannel);
-   FIFO#(PacketInstance) pkt_ff <- mkFIFO;
+   FIFO#(PacketInstance) pkt_ff <- printTimedTraceM("pkt_ff", mkFIFO);
+   Reg#(int) cf_verbosity <- mkConfigRegU;
 
    // RingBuffer Read Client
    FIFO#(EtherData) readDataFifo <- mkFIFO;
@@ -81,10 +82,20 @@ module mkStreamOutChannel#(Clock txClock, Reset txReset)(StreamOutChannel);
       interface writeData = toGet(writeDataFifo);
    endinterface);
 
+   function Action dbprint(Integer level, Fmt msg);
+      action
+      if (cf_verbosity > fromInteger(level)) begin
+         $display("(%0d) ", $time, msg);
+      end
+      endaction
+   endfunction
+
    rule packetReadStart if (!readStarted);
-      let pktId = toGet(pkt_ff).get;
+      pkt_ff.deq;
       let pktLen <- toGet(readLenFifo).get;
       readStarted <= True;
+      readReqFifo.enq(EtherReq{len: truncate(pktLen)});
+      dbprint(3, $format("stream out read packet start len=%d ", pktLen));
    endrule
 
    rule packetReadInProgress if (readStarted);
@@ -110,10 +121,12 @@ module mkStreamOutChannel#(Clock txClock, Reset txReset)(StreamOutChannel);
             let pkt = req.pkt;
             pkt_ff.enq(pkt);
             deparser.metadata.enq(meta);
+            dbprint(3, $format("stream out metadata %d", pkt, fshow(meta)));
          endmethod
       endinterface);
    endinterface);
    method Action set_verbosity (int verbosity);
+      cf_verbosity <= verbosity;
       deparser.set_verbosity(verbosity);
       serializer.set_verbosity(verbosity);
    endmethod
@@ -122,6 +135,7 @@ endmodule
 // Streaming version of HostChannel
 interface StreamInChannel;
    interface PktWriteServer writeServer;
+   interface PktWriteClient writeClient;
    interface Client#(MetadataRequest, MetadataResponse) next;
    method Action set_verbosity (int verbosity);
 endinterface
@@ -148,17 +162,22 @@ module mkStreamInChannel(StreamInChannel);
       interface readReq = toGet(readReqFifo);
    endinterface);
 
-   PktWriteClient writeClient = (interface PktWriteClient;
-      interface writeData = toGet(writeDataFifo);
-   endinterface);
-
    mkConnection(readClient, pktBuff.readServer);
-   mkConnection(toGet(writeDataFifo), toPut(parser.frameIn));
+
+   function Action dbprint(Integer level, Fmt msg);
+      action
+      if (cf_verbosity > fromInteger(level)) begin
+         $display("(%0d) ", $time, msg);
+      end
+      endaction
+   endfunction
 
    rule packetReadStart if (!readStarted);
       let pktLen <- toGet(readLenFifo).get;
       pktLenFifo.enq(pktLen);
+      readReqFifo.enq(EtherReq{len: truncate(pktLen)});
       readStarted <= True;
+      dbprint(3, $format("read packet start %d", pktLen));
    endrule
 
    rule packetReadInProgress if (readStarted);
@@ -167,6 +186,8 @@ module mkStreamInChannel(StreamInChannel);
          readStarted <= False;
       end
       writeDataFifo.enq(v);
+      parser.frameIn.put(v);
+      dbprint(3, $format("read packet start ", fshow(v)));
    endrule
 
    rule dispatch_packet;
@@ -175,9 +196,13 @@ module mkStreamInChannel(StreamInChannel);
       let pktInst = PacketInstance {id: 0, size: pktLen};
       MetadataRequest nextReq = MetadataRequest {pkt: pktInst, meta: meta};
       outReqFifo.enq(nextReq);
+      dbprint(3, $format("send packet ", fshow(meta)));
    endrule
 
    interface writeServer = pktBuff.writeServer;
+   interface writeClient = (interface PktWriteClient;
+      interface writeData = toGet(writeDataFifo);
+   endinterface);
    interface next = (interface Client#(MetadataRequest, MetadataResponse);
       interface request = toGet(outReqFifo);
       interface response = toPut(inRespFifo);
