@@ -2,82 +2,20 @@
 
 void device_writePacketData(uint64_t* data, uint8_t* mask, int sop, int eop);
 
-/**
- * Send packet on quick_tx device
- * @param qtx       pointer to a quick_tx structure
- * @param buffer   full packet data starting at the ETH frame
- * @param length  length of packet (must be over 0)
- * @return           length of packet if it was successfully queued, QTX_E_EXIT if a critical error occurred
- *                  and close needs to be called
- */
-int quick_tx_send_packet(const void* buffer, int length) {
-    assert(buffer);
-    assert(length > 0);
-
-#ifdef EXTRA_DEBUG
-    printf("[quick_tx] Copying data from %p buffer, length = %d\n",
-                (buffer, length);
-#endif
-    mem_copy(buffer, length);
-
-    return length;
-}
-
-int read_pcap_file(const char* filename, void** buffer, long *length) {
-    FILE *infile;
-    long length_read;
-
-    infile = fopen(filename, "r");
-    if(infile == NULL) {
-        printf("File does not exist!\n");
-        exit(-1);
-    }
-
-    fseek(infile, 0L, SEEK_END);
-    *length = ftell(infile);
-    fseek(infile, 0L, SEEK_SET);
-    *buffer = (char*)calloc(*length, sizeof(char));
-
-    /* memory error */
-    if(*buffer == NULL) {
-        printf("Could not allocate %ld bytes of memory!\n", *length);
-        exit(-1);
-    }
-
-    length_read = fread(*buffer, sizeof(char), *length, infile);
-    *length = length_read;
-    fclose(infile);
-
-    return 0;
-}
-
-int parse_pcap_file(void *buffer, long length, struct pcap_trace_info *info) {
-    struct pcap_pkthdr* pcap_hdr;
-    unsigned long packet_count = 0;
-    unsigned long long byte_count = 0;
-    void* offset = static_cast<char *>(buffer) + sizeof(struct pcap_file_header);
-    while(offset < static_cast<char *>(buffer) + length) {
-        pcap_hdr = (struct pcap_pkthdr*) offset;
-        offset = static_cast<char *>(offset) + sizeof(struct pcap_pkthdr);
-        if ((quick_tx_send_packet((const void*)offset, pcap_hdr->caplen)) < 0) {
-            printf("An error occurred while trying to send a packet\n");
-            exit(-1);
-        }
-        offset = static_cast<char *>(offset) + pcap_hdr->caplen;
-        packet_count ++;
-        byte_count += pcap_hdr->caplen;
-    }
-
-    info->packet_count = packet_count;
-    info->byte_count = byte_count;
-    return 0;
-}
-
 void load_pcap_file(const char *filename, struct pcap_trace_info *info) {
-    long length=0;
-    void *buffer=NULL;
-    read_pcap_file(filename, &buffer, &length);
-    parse_pcap_file(buffer, length, info);
+    char errbuf[PCAP_ERRBUF_SIZE];
+    const unsigned char *packet;
+    pcap_t *pcap = NULL;
+    struct pcap_pkthdr header;
+    pcap = pcap_open_offline(filename, errbuf);
+    if (pcap == NULL) {
+        fprintf(stderr, "error reading pcap file: %s\n", errbuf);
+        exit(1);
+    }
+    while ((packet = pcap_next(pcap, &header)) != NULL) {
+        fprintf(stderr, "packet %p len %d\n", packet, header.caplen);
+        mem_copy(packet, header.caplen);
+    }
 }
 
 const char* get_exe_name(const char* argv0) {
