@@ -141,7 +141,7 @@ interface StreamInChannel;
 endinterface
 
 module mkStreamInChannel(StreamInChannel);
-   let verbose = True;
+   Reg#(int) cf_verbosity <- mkConfigRegU;
    FIFO#(MetadataRequest) outReqFifo <- mkFIFO;
    FIFO#(MetadataResponse) inRespFifo <- mkFIFO;
 
@@ -209,5 +209,6 @@ module mkStreamInChannel(StreamInChannel);
    endinterface);
    method Action set_verbosity (int verbosity);
       parser.set_verbosity(verbosity);
+      cf_verbosity <= verbosity;
    endmethod
 endmodule
