@@ -24,28 +24,41 @@
 // No MMU
 // No Cache
 
-import FIFOF::*;
 import BRAM::*;
+import ConfigReg::*;
+import FIFOF::*;
+
 import CPU_Common::*;
 import StringUtils::*;
 
 interface IMem;
-   interface Server#(IMemRequest, IMemResponse) serverA;
+   interface Server#(IMemRequest, IMemResponse) cpu_server;
+   method Action set_verbosity (int verbosity);
 endinterface
 
 module mkIMem#(String name)(IMem);
+   Reg#(int) cf_verbosity <- mkConfigRegU;
+   function Action dbprint(Integer level, Fmt msg);
+      action
+      if (cf_verbosity > fromInteger(level)) begin
+         $display("(%0d) ", $time, msg);
+      end
+      endaction
+   endfunction
+
    BRAM1Port#(IMemAddr, IMemData) memory <- mkBRAM1Server(defaultValue);
    Array#(Reg#(Maybe#(IMemRequest))) crg_reqA <- mkCReg(2, tagged Invalid);
 
    Reg#(Bool) isInitialized <- mkReg(False);
 
-   rule do_A if (crg_reqA[1] matches tagged Valid .a);
+   rule do_A if (crg_reqA[1] matches tagged Valid .a &&& isInitialized);
       let req = BRAMRequest {
          write : False,
          responseOnWrite: False,
          address : a.addr,
          datain : a.data};
       memory.portA.request.put (req);
+      crg_reqA[1] <= tagged Invalid;
    endrule
 
 `ifdef SIMULATION
@@ -70,12 +83,18 @@ module mkIMem#(String name)(IMem);
 
    Reg#(Bit#(10)) fsmIndex <- mkReg(0);
 
-   rule do_init (fsmIndex < fromInteger(List::length(entryList)));
-      $display("insert entry ", fromInteger(List::length(entryList)));
+   rule do_init (fsmIndex < fromInteger(List::length(entryList)) &&& !isInitialized);
+      $display("imem loading:  ", fromInteger(List::length(entryList)));
       IMemAddr addr = tpl_1(entryList[fsmIndex]);
       IMemData data = tpl_2(entryList[fsmIndex]);
+      let req = BRAMRequest {
+         write: True,
+         responseOnWrite: False,
+         address: addr,
+         datain: data };
+      dbprint(3, $format("init: addr=0x%h data=0x%h", addr, data));
+      memory.portA.request.put(req);
       fsmIndex <= fsmIndex + 1;
-      $display("finished insert entry ", fromInteger(List::length(entryList)));
    endrule
 
    rule finish_init(fsmIndex == fromInteger(List::length(entryList)));
@@ -83,10 +102,11 @@ module mkIMem#(String name)(IMem);
    endrule
 `endif
 
-   interface Server serverA;
+   interface Server cpu_server;
       interface Put request;
          method Action put (request);
             crg_reqA[0] <= tagged Valid request;
+            dbprint(3, $format("instr request"));
          endmethod
       endinterface
       interface Get response;
@@ -94,8 +114,12 @@ module mkIMem#(String name)(IMem);
             let val <- memory.portA.response.get;
             IMemResponse response = ?;
             response.data = val;
+            dbprint(3, $format("instr response", fshow(val)));
             return response;
          endmethod
       endinterface
    endinterface
+   method Action set_verbosity(int verbosity);
+      cf_verbosity <= verbosity;
+   endmethod
 endmodule

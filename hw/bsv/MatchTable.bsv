@@ -65,10 +65,14 @@ module mkMatchTable#(String name)(MatchTable#(id, depth, keySz, actionSz))
 
    MatchTable#(id, depth, keySz, actionSz) ret_ifc;
 `ifdef SIMULATION
+`ifndef SVDPI
    ret_ifc <- mkMatchTableBluesim(name);
-`else
+`else  // SVDPI
+   // ref_ifc <- mkMatchTableAxonnerve();
+`endif // !SVDPI
+`else  // !SIMULATION
    ret_ifc <- mkMatchTableSynth();
-`endif
+`endif // SIMULATION
    return ret_ifc;
 endmodule
 
@@ -215,7 +219,7 @@ module mkMatchTableBluesim#(String name)(MatchTable#(id, depth, keySz, actionSz)
    Reg#(Bit#(8)) fsmIndex <- mkReg(0);
 
    rule do_init (fsmIndex < fromInteger(List::length(entryList)));
-      $display("insert entry ", fromInteger(List::length(entryList)));
+      $display("%s insert entry ", name, fromInteger(List::length(entryList)));
       Bit#(keySz) key = tpl_1(entryList[fsmIndex]);
       Bit#(actionSz) v = tpl_2(entryList[fsmIndex]);
       Bit#(id) tid = 0;

@@ -25,15 +25,19 @@ typedef Bit#(7) Opcode;
 typedef Bit#(5) RegIdx;
 
 Opcode op_OP_IMM = 7'b00_100_11;
-
 Bit#(3) f3_ADDI = 3'b000;
 Bit#(3) f3_SLLI = 3'b001;
 Bit#(3) f3_SLTI = 3'b010;
 Bit#(3) f3_XORI = 3'b100;
 Bit#(3) f3_ANDI = 3'b111;
 
-
 Opcode op_OP = 7'b01_100_11;
+
+Opcode op_STORE = 7'b01_000_11;
+Bit#(3) f3_SB = 3'b000;
+Bit#(3) f3_SH = 3'b001;
+Bit#(3) f3_SW = 3'b010;
+Bit#(3) f3_SD = 3'b011;
 
 function Opcode   instr_opcode (Instr x); return x [6:0]; endfunction
 function Bit#(3)  instr_funct3 (Instr x); return x [14:12]; endfunction
@@ -46,5 +50,4 @@ function Bit#(5)  instr_rs2    (Instr x); return x [24:20]; endfunction
 function Bit#(5)  instr_rs3    (Instr x); return x [31:27]; endfunction
 
 function Bit#(12) instr_imm12_I (Instr x); return x [31:20]; endfunction
-
 

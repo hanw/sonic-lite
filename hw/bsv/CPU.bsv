@@ -25,37 +25,59 @@
 // No memory load/store
 // No floating point
 
+import BUtils::*;
 import ClientServer::*;
+import ConfigReg::*;
+import DefaultValue::*;
+import Ethernet::*;
 import FIFOF::*;
+import GetPut::*;
+import Pipe::*;
+import TxRx::*;
+
+import Utils::*;
 import ISA_Defs::*;
 import CPU_Common::*;
+import UnionGenerated::*;
 
 interface CPU;
-   // interface to table
-   // Rxe
-
-   interface Client#(IMemRequest, IMemResponse) imem;
+   interface Server#(BBRequest, BBResponse) prev_control_state;
+   interface Client#(IMemRequest, IMemResponse) imem_client;
    // interface to metadata memory
-   // Rxe
-   // Txe
+   method Action set_verbosity (int verbosity);
 endinterface
 
-(* synthesize *)
-module mkCPU(CPU);
+//(* synthesize *)
+module mkCPU#(List#(Reg#(Bit#(n))) ll)(CPU)
+   provisos(Add#(a__, n, 64));
+
+   Reg#(int) cf_verbosity <- mkConfigRegU;
+   function Action dbprint(Integer level, Fmt msg);
+      action
+      if (cf_verbosity > fromInteger(level)) begin
+         $display("(%0d) ", $time, msg);
+      end
+      endaction
+   endfunction
 
    Reg#(CPU_State) rg_cpu_state <- mkReg(CPU_STOPPED);
-   Reg#(IMemAddr)     rg_pc        <- mkReg(0);
+   Reg#(IMemAddr)  rg_pc        <- mkReg(0);
 
-   // Generated registers
    // Reg#() reg_file <- mkBasicBlockRegFile(); // option 2: generate RegFile for each BasicBlock;
+   // Save result to ll
 
-   // Commit to metadata memory; // to save resource consumed by metadata
+   // Table interface
+   RX #(BBRequest) rx_prev_control_state <- mkRX;
+   TX #(BBResponse) tx_prev_control_state <- mkTX;
+   let rx_info_prev_control_state = rx_prev_control_state.u;
+   let tx_info_prev_control_state = tx_prev_control_state.u;
+   // Instruction Memory interface
+   TX #(IMemRequest)  tx_imem_req <- mkTX;
+   RX #(IMemResponse) rx_imem_rsp <- mkRX;
+   let tx_info_imem_req = tx_imem_req.u;
+   let rx_info_imem_rsp = rx_imem_rsp.u;
 
-   // Memory interface
-   FIFOF#(IMemRequest)  imem_req_ff <- mkFIFOF;
-   FIFOF#(IMemResponse) imem_rsp_ff <- mkFIFOF;
-
-   Instr instr = imem_rsp_ff.first.data;
+   Instr instr = rx_info_imem_rsp.first.data;
    Opcode opcode = instr_opcode (instr);
    let f3  = instr_funct3 (instr);
    let f7  = instr_funct7 (instr);
@@ -67,13 +89,14 @@ module mkCPU(CPU);
 
    function Action succeed_and_next ();
       action
-      // rg_pc = rg_pc + 4;
+         rx_info_imem_rsp.deq;
+         rg_pc <= rg_pc + 4;
       endaction
    endfunction
 
    function Action error_and_trap ();
       action
-      // rg_pc = 0;
+         rg_pc <= 0;
       endaction
    endfunction
 
@@ -95,12 +118,21 @@ module mkCPU(CPU);
       endaction
    endfunction
 
+   rule rl_start (rg_cpu_state == CPU_STOPPED);
+      dbprint(3, $format("run CPU"));
+      let v = rx_info_prev_control_state.first;
+      rx_info_prev_control_state.deq;
+      // save v to a list of stuff;
+      rg_cpu_state <= CPU_FETCH;
+   endrule
+
    rule rl_fetch (rg_cpu_state == CPU_FETCH);
+      dbprint(3, $format("Fetch"));
       let req = IMemRequest {
          command : READ,
          addr    : extend(rg_pc),
          data    : ? };
-      imem_req_ff.enq(req);
+      tx_info_imem_req.enq(req);
       rg_cpu_state <= CPU_EXEC;
    endrule
 
@@ -120,14 +152,29 @@ module mkCPU(CPU);
       if (! illegal) begin
          fn_write_reg_file (rd, vo);
       end
+      ll[v2] <= truncate(vo);
+      dbprint(3, $format("OP_IMM ", fshow(f3), fshow(vo)));
+      succeed_and_next();
    endrule
 
    // Integer Register-Register
    rule rl_exec_op_OP ((rg_cpu_state == CPU_EXEC) && (opcode == op_OP));
       Reg_Data v1 = fn_read_reg_file (rs1);
-      // operate on it
-      // vo = compute;
-      // write data back
-      // fn_write_reg_file (idx, vo);
+      dbprint(3, $format("OP ", fshow(f3)));
+      succeed_and_next();
    endrule
+
+   rule rl_exec_op_STORE ((rg_cpu_state == CPU_EXEC) && (opcode == op_STORE));
+      Reg_Data v1 = fn_read_reg_file (rs1);
+      Reg_Data iv2 = extend(unpack(imm12_I));
+      Reg_Data v2 = unpack(pack(iv2));
+      dbprint(3, $format("STORE ", fshow(f3)));
+      succeed_and_next();
+   endrule
+
+   interface prev_control_state = toServer(rx_prev_control_state.e, tx_prev_control_state.e);
+   interface imem_client = toClient(tx_imem_req.e, rx_imem_rsp.e);
+   method Action set_verbosity(int verbosity);
+      cf_verbosity <= verbosity;
+   endmethod
 endmodule
