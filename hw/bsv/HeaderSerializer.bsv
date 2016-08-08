@@ -98,8 +98,11 @@ module mkHeaderSerializer(HeaderSerializer);
       n_bits[0] <= n_bits_used;
       data_buff[0] <= data_in_ff.first.data;
       mask_buff[0] <= data_in_ff.first.mask;
-      sop_buff[0] <= data_in_ff.first.sop;
       eop_buff[0] <= data_in_ff.first.eop;
+
+      if (data_in_ff.first.sop) begin
+         sop_buff[0] <= True;
+      end
 
       if (!eop) begin
          if (n_bytes_used + n_bytes_buffered >= fromInteger(valueOf(MaskWidth))) begin
@@ -131,13 +134,9 @@ module mkHeaderSerializer(HeaderSerializer);
       n_bits_buffered <= n_bits[1] - n_bits_used;
       data_buffered <= data_buff[1] >> n_bits_used;
       mask_buffered <= mask_buff[1] >> n_bytes_used;
-
-      Bool sop = False;
-      if (sop_buff[1]) begin
-         sop = True;
-      end
-
-      let eth = EtherData {sop: sop, eop: False, mask: 'hffff, data: data};
+      let eth = EtherData {sop: sop_buff[1], eop: False, mask: 'hffff, data: data};
+      sop_buff[1] <= False;
+      data_out_ff.enq(eth);
       dbprint(3, $format("rl_send_full_frame n_bytes_buffered=%d", n_bytes[1] - n_bytes_used, fshow(eth)));
    endrule
 
@@ -154,10 +153,13 @@ module mkHeaderSerializer(HeaderSerializer);
    endrule
 
    rule rl_eop_full_frame if (w_send_last2);
+      let data = data_buff[1] << n_bits_buffered | data_buffered; 
       let n_bytes_used = fromInteger(valueOf(MaskWidth)) - n_bytes_buffered;
       UInt#(NumBits) n_bits_used = cExtend(n_bytes_used) << 3;
       n_bytes_buffered <= n_bytes[1] - n_bytes_used;
       n_bits_buffered <= n_bits[1] - n_bits_used;
+      let eth = EtherData {sop: False, eop: True, mask: 'hffff, data: data};
+      data_out_ff.enq(eth);
       dbprint(3, $format("rl_end_of_packet_full_frame n_bytes_buffered=%d", n_bytes[1] - n_bytes_used));
    endrule
 
@@ -170,61 +172,6 @@ module mkHeaderSerializer(HeaderSerializer);
       data_out_ff.enq(eth);
       dbprint(3, $format("rl_end_of_packet_partial_frame ", fshow(eth)));
    endrule
-
-   //rule rl_end_of_packet if (eop_buff[1]);
-   //   if (n_bytes + n_bytes_buffered > fromInteger(valueOf(MaskWidth))) begin
-   //      let data = data_buff[1] << n_bits_buffered | data_buffered; 
-   //      let n_bytes_used = fromInteger(valueOf(MaskWidth)) - n_bytes_buffered;
-   //      UInt#(NumBits) n_bits_used = cExtend(n_bytes_used) << 3;
-   //      data_buffered <= data_buff[1] >> n_bits_used;
-   //      mask_buffered <= mask_buff[1] >> n_bytes_used;
-   //      n_bytes_buffered <= n_bytes - n_bytes_used;
-   //      n_bits_buffered <= n_bits - n_bits_used;
-   //      let eth = EtherData {sop: False, eop: False, mask: 'hffff, data: data};
-   //      data_out_ff.enq(eth);
-   //      dbprint(3, $format("rl_end_of_packet f: ", fshow(eth)));
-   //      mask_buff[1] <= mask_buff[1] >> 16;
-   //   end
-   //   else begin
-   //      let eth = EtherData {sop: False, eop: True, mask: mask_buffered, data: data_buffered};
-   //      dbprint(3, $format("rl_end_of_packet p: ", fshow(eth)));
-   //      data_out_ff.enq(eth);
-   //      eop_buffered <= False;
-   //   end
-   //endrule
-
-   //rule rl_send_full_frame if (w_send_full_frame && !eop_buff[1]);
-   //   let data = data_buff[1] << n_bits_buffered | data_buffered; 
-   //   let n_bytes_used = fromInteger(valueOf(MaskWidth)) - n_bytes_buffered;
-   //   UInt#(NumBits) n_bits_used = cExtend(n_bytes_used) << 3;
-   //   data_buffered <= data_buff[1] >> n_bits_used;
-   //   mask_buffered <= mask_buff[1] >> n_bytes_used;
-   //   n_bytes_buffered <= n_bytes - n_bytes_used;
-   //   n_bits_buffered <= n_bits - n_bits_used;
-   //   Bool sop = False;
-   //   Bool eop = False;
-   //   if (sop_buffered) begin
-   //      sop = True;
-   //      sop_buffered <= False;
-   //   end
-   //   let eth = EtherData {sop: sop, eop: False, mask: 'hffff, data: data};
-   //   data_out_ff.enq(eth);
-   //   dbprint(3, $format("rl_send_full_frame: ", fshow(eth)));
-   //endrule
-
-   //rule rl_buffer_partial_frame (w_buffer_partial_frame && !eop_buff[1]);
-   //   let data = (data_buff[1] << n_bits_buffered) | data_buffered;
-   //   let mask = (mask_buff[1] << n_bytes_buffered) | mask_buffered;
-   //   let n_bytes_used = n_bytes + n_bytes_buffered;
-   //   UInt#(NumBits) n_bits_used = cExtend(n_bytes_used) << 3;
-   //   data_buffered <= data;
-   //   mask_buffered <= mask;
-   //   sop_buffered <= sop_buff[1];
-   //   eop_buffered <= eop_buff[1];
-   //   n_bytes_buffered <= n_bytes_used;
-   //   n_bits_buffered <= n_bits_used;
-   //   dbprint(3, $format("rl_buffer_partial_frame: %d, bits: %d", n_bytes_used, n_bits_used));
-   //endrule
 
    interface PktWriteServer writeServer;
       interface writeData = toPut(data_in_ff);
