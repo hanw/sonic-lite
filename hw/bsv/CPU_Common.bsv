@@ -23,12 +23,10 @@
 typedef enum {
    CPU_STOPPED,
    CPU_FETCH,
-   CPU_EXEC
+   CPU_EXEC,
+   CPU_DONE
 } CPU_State deriving (Bits, Eq);
 
-typedef 64 RVLEN;
-typedef Bit#(RVLEN) Reg_Data;   // Unsigned register data
-typedef Int#(RVLEN) Reg_Data_S; // Signed register data
 typedef enum {READ, WRITE} Command deriving (Bits, Eq, FShow);
 typedef enum {SUCCESS, FAIL} Status deriving (Bits, Eq, FShow);
 
@@ -52,4 +50,3 @@ typedef struct {
 
 typedef IMemReq#(IMemAddrSz, IMemDataSz) IMemRequest;
 typedef IMemRsp#(IMemDataSz)             IMemResponse;
-

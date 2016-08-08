@@ -35,21 +35,24 @@ import GetPut::*;
 import Pipe::*;
 import TxRx::*;
 
+import Ethernet::*;
 import Utils::*;
 import ISA_Defs::*;
 import CPU_Common::*;
 import UnionGenerated::*;
 
 interface CPU;
-   interface Server#(BBRequest, BBResponse) prev_control_state;
    interface Client#(IMemRequest, IMemResponse) imem_client;
    // interface to metadata memory
+   method Action run();
+   method Action complete();
+   method Bool not_running();
    method Action set_verbosity (int verbosity);
 endinterface
 
 //(* synthesize *)
-module mkCPU#(List#(Reg#(Bit#(n))) ll)(CPU)
-   provisos(Add#(a__, n, 64));
+module mkCPU#(String name, List#(Reg#(Bit#(n))) ll)(CPU)
+   provisos(Add#(a__, 12, n));
 
    Reg#(int) cf_verbosity <- mkConfigRegU;
    function Action dbprint(Integer level, Fmt msg);
@@ -66,11 +69,6 @@ module mkCPU#(List#(Reg#(Bit#(n))) ll)(CPU)
    // Reg#() reg_file <- mkBasicBlockRegFile(); // option 2: generate RegFile for each BasicBlock;
    // Save result to ll
 
-   // Table interface
-   RX #(BBRequest) rx_prev_control_state <- mkRX;
-   TX #(BBResponse) tx_prev_control_state <- mkTX;
-   let rx_info_prev_control_state = rx_prev_control_state.u;
-   let tx_info_prev_control_state = tx_prev_control_state.u;
    // Instruction Memory interface
    TX #(IMemRequest)  tx_imem_req <- mkTX;
    RX #(IMemResponse) rx_imem_rsp <- mkRX;
@@ -90,17 +88,19 @@ module mkCPU#(List#(Reg#(Bit#(n))) ll)(CPU)
    function Action succeed_and_next ();
       action
          rx_info_imem_rsp.deq;
-         rg_pc <= rg_pc + 4;
+         rg_pc <= rg_pc + 1;
+         rg_cpu_state <= CPU_FETCH;
       endaction
    endfunction
 
-   function Action error_and_trap ();
+   function Action finished_and_stop ();
       action
          rg_pc <= 0;
+         rg_cpu_state <= CPU_DONE;
       endaction
    endfunction
 
-   function Reg_Data fn_read_reg_file (RegIdx idx);
+   function Bit#(n) fn_read_reg_file (RegIdx idx);
       if (idx == 0) begin
          return 0;
       end
@@ -110,7 +110,7 @@ module mkCPU#(List#(Reg#(Bit#(n))) ll)(CPU)
       end
    endfunction
 
-   function Action fn_write_reg_file (RegIdx idx, Reg_Data vo);
+   function Action fn_write_reg_file (RegIdx idx, Bit#(n) vo);
       action
          if (idx != 0) begin
             // reg_file.write(idx);
@@ -118,16 +118,8 @@ module mkCPU#(List#(Reg#(Bit#(n))) ll)(CPU)
       endaction
    endfunction
 
-   rule rl_start (rg_cpu_state == CPU_STOPPED);
-      dbprint(3, $format("run CPU"));
-      let v = rx_info_prev_control_state.first;
-      rx_info_prev_control_state.deq;
-      // save v to a list of stuff;
-      rg_cpu_state <= CPU_FETCH;
-   endrule
-
    rule rl_fetch (rg_cpu_state == CPU_FETCH);
-      dbprint(3, $format("Fetch"));
+      dbprint(3, $format("%s fetch", name));
       let req = IMemRequest {
          command : READ,
          addr    : extend(rg_pc),
@@ -138,12 +130,12 @@ module mkCPU#(List#(Reg#(Bit#(n))) ll)(CPU)
 
    // Integer Register-Immediate
    rule rl_exec_op_IMM ((rg_cpu_state == CPU_EXEC) && (opcode == op_OP_IMM));
-      Reg_Data v1 = fn_read_reg_file (rs1);
-      Reg_Data iv2 = extend(unpack(imm12_I));
-      Reg_Data v2 = unpack(pack(iv2));
+      Bit#(n) v1 = fn_read_reg_file (rs1);
+      Bit#(n) iv2 = extend(unpack(imm12_I));
+      Bit#(n) v2 = unpack(pack(iv2));
 
       Bool illegal = False;
-      Reg_Data vo = ?;
+      Bit#(n) vo = ?;
 
       if      (f3 == f3_ADDI) vo = pack(v1 + v2);
       else if (f3 == f3_ANDI) vo = pack(v1 & v2);
@@ -159,20 +151,38 @@ module mkCPU#(List#(Reg#(Bit#(n))) ll)(CPU)
 
    // Integer Register-Register
    rule rl_exec_op_OP ((rg_cpu_state == CPU_EXEC) && (opcode == op_OP));
-      Reg_Data v1 = fn_read_reg_file (rs1);
+      Bit#(n) v1 = fn_read_reg_file (rs1);
       dbprint(3, $format("OP ", fshow(f3)));
       succeed_and_next();
    endrule
 
    rule rl_exec_op_STORE ((rg_cpu_state == CPU_EXEC) && (opcode == op_STORE));
-      Reg_Data v1 = fn_read_reg_file (rs1);
-      Reg_Data iv2 = extend(unpack(imm12_I));
-      Reg_Data v2 = unpack(pack(iv2));
+      Bit#(n) v1 = fn_read_reg_file (rs1);
+      Bit#(n) iv2 = extend(unpack(imm12_I));
+      Bit#(n) v2 = unpack(pack(iv2));
       dbprint(3, $format("STORE ", fshow(f3)));
       succeed_and_next();
    endrule
 
-   interface prev_control_state = toServer(rx_prev_control_state.e, tx_prev_control_state.e);
+   rule rl_exec_op_RET ((rg_cpu_state == CPU_EXEC) && (opcode == op_RET));
+      dbprint(3, $format("STOP "));
+      finished_and_stop();
+   endrule
+
+   method Action run if (rg_cpu_state == CPU_STOPPED);
+      dbprint(3, $format("run CPU"));
+      rg_cpu_state <= CPU_FETCH;
+   endmethod
+
+   method Action complete if (rg_cpu_state == CPU_DONE);
+      rg_cpu_state <= CPU_STOPPED;
+   endmethod
+
+   method Bool not_running;
+      return rg_cpu_state == CPU_STOPPED;
+   endmethod
+
+   //interface prev_control_state = toServer(rx_prev_control_state.e, tx_prev_control_state.e);
    interface imem_client = toClient(tx_imem_req.e, rx_imem_rsp.e);
    method Action set_verbosity(int verbosity);
       cf_verbosity <= verbosity;

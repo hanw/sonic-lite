@@ -39,6 +39,8 @@ Bit#(3) f3_SH = 3'b001;
 Bit#(3) f3_SW = 3'b010;
 Bit#(3) f3_SD = 3'b011;
 
+Opcode op_RET = 7'b00_000_00;
+
 function Opcode   instr_opcode (Instr x); return x [6:0]; endfunction
 function Bit#(3)  instr_funct3 (Instr x); return x [14:12]; endfunction
 function Bit#(7)  instr_funct7 (Instr x); return x [31:25]; endfunction

@@ -34,6 +34,7 @@ import StringUtils::*;
 import List::*;
 import Bcam::*;
 import BcamTypes::*;
+import PrintTrace::*;
 
 interface MatchTable#(numeric type id, numeric type depth, numeric type keySz, numeric type actionSz);
    interface Server#(Bit#(keySz), Maybe#(Bit#(actionSz))) lookupPort;
@@ -180,7 +181,7 @@ module mkMatchTableBluesim#(String name)(MatchTable#(id, depth, keySz, actionSz)
    Integer dpv = valueOf(depth);
    FIFO#(Tuple2#(Bit#(keySz), Bit#(actionSz))) writeReqFifo <- mkFIFO;
    FIFO#(Bit#(keySz)) readReqFifo <- mkFIFO;
-   FIFO#(Maybe#(Bit#(actionSz))) readDataFifo <- mkFIFO;
+   FIFO#(Maybe#(Bit#(actionSz))) readDataFifo <- printTimedTraceM(name, mkFIFO);
 
    Reg#(Bool)      isInitialized   <- mkReg(False);
 
