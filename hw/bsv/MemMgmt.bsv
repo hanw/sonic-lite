@@ -36,7 +36,6 @@ import BRAMFIFO::*;
 import BRAM::*;
 import ConnectalBram::*;
 import ConnectalMemory::*;
-import MMU::*;
 import Ethernet::*;
 import SharedBuffMMU::*;
 import DbgTypes::*;

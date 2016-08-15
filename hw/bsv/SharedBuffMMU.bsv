@@ -30,6 +30,7 @@ import GetPut::*;
 import Connectable::*;
 import BRAMFIFO::*;
 import BRAM::*;
+import Probe::*;
 
 import ConnectalBram::*;
 import MemTypes::*;
@@ -37,7 +38,6 @@ import StmtFSM::*;
 import ClientServer::*;
 import ConnectalMemory::*;
 import ConnectalCompletionBuffer::*;
-import MMU::*;
 import Ethernet::*;
 
 `include "ConnectalProjectConfig.bsv"
@@ -98,7 +98,7 @@ module mkSharedBuffMMU#(Integer iid, MMUIndication mmuIndication)(MMU#(addrWidth
 	    Add#(a__,addrWidth,MemOffsetSize));
    
 	    
-   let verbose = False;
+   let verbose = True;
    TagGen#(MaxNumPkts) sglId_gen <- mkTagGen();
    rule complete_sglId_gen;
       let __x <- sglId_gen.complete;
@@ -372,3 +372,25 @@ module mkArbitratedMMU#(Server#(AddrTransRequest,AddrTransResponse#(addrWidth)) 
    interface servers = genWith(arbitratedServer);
 
 endmodule
+
+interface MMU#(numeric type addrWidth);
+   interface MMURequest request;
+   interface Vector#(2,Server#(AddrTransRequest,AddrTransResponse#(addrWidth))) addr;
+endinterface
+
+typedef struct {
+   DmaErrorType error;
+   Bit#(3) pageSize;
+   Bit#(PktPageShift12) value;
+} Offset deriving (Eq,Bits,FShow);
+
+typedef struct {
+   RegionsIdx           id;
+   Bit#(MemOffsetSize) off;
+} AddrTransRequest deriving (Eq,Bits,FShow);
+
+typedef struct {
+   DmaErrorType    error;
+   Bit#(addrWidth) physAddr;
+} AddrTransResponse#(numeric type addrWidth) deriving (Eq,Bits,FShow);
+
