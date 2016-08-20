@@ -65,7 +65,7 @@ interface MemReadInternal#(numeric type addrWidth, numeric type busWidth, numeri
 endinterface
 
 function Bool sglid_outofrange(SGLId p);
-   return ((p[15:0]) >= fromInteger(valueOf(MaxNumPkts)));
+   return ((p[15:0]) >= fromInteger(valueOf(MaxNumSGLists)));
 endfunction
 
 import RegFile::*;
@@ -116,7 +116,7 @@ module mkMemReadInternal#(MemServerIndication ind,
       bramConfig.latency = 2;
    BRAM2Port#(Bit#(TLog#(numTags)), DRec#(numServers,addrWidth)) serverProcessing <- mkBRAM2Server(bramConfig);
    //BRAM2Port#(Bit#(TAdd#(TLog#(numTags),TSub#(BurstLenSize,beatShift))), MemData#(busWidth)) clientData <- mkBRAM2Server(bramConfig);
-   FIFOF#(MemData#(busWidth)) clientData <- mkSizedFIFOF(16);
+   FIFOF#(MemData#(busWidth)) clientData <- mkSizedFIFOF(4);
    // stage 3: read data 
    FIFO#(MemData#(busWidth)) serverData <- mkFIFO;
    
@@ -130,12 +130,7 @@ module mkMemReadInternal#(MemServerIndication ind,
    let beat_shift = fromInteger(valueOf(beatShift));
    TagGen#(numTags) tag_gen <- mkTagGen;
 
-   Reg#(Bit#(BurstLenSize))      compCountReg <- mkReg(0);
-   Reg#(Bit#(TLog#(numTags)))    compTagReg <- mkReg(0);
-   Reg#(Bit#(TLog#(TMax#(1,numServers)))) compClientReg <- mkReg(0);
-   Reg#(Bit#(2))                 compTileReg <- mkReg(0);
    FIFO#(Bit#(TAdd#(1,TLog#(TMax#(1,numServers))))) clientSelect <- mkFIFO;
-   FIFO#(Bit#(TLog#(numTags)))   serverTag <- mkFIFO;
    
    // performance analytics 
    Reg#(Bit#(64)) cycle_cnt <- mkReg(0);
@@ -184,8 +179,10 @@ module mkMemReadInternal#(MemServerIndication ind,
       let client = drq.client;
       clientSelect.enq(extend(client));
       clientData.enq(response);
+      $display("response: ", fshow(response));
       if (last) begin
 	 tag_gen.returnTag(truncate(response.tag));
+     $display("response: last! ", fshow(response));
       end
       last_readData <= cycle_cnt;
       if (verbose) $display("mkMemReadInternal::read_data cyclediff %d", cycle_cnt-last_readData);
@@ -195,8 +192,8 @@ module mkMemReadInternal#(MemServerIndication ind,
 
    rule tag_completed;
       let tag <- tag_gen.complete;
-      serverProcessing.portB.request.put(BRAMRequest{write:False, address:tag, datain: ?, responseOnWrite: ?});
-      serverTag.enq(tag);
+      //serverProcessing.portB.request.put(BRAMRequest{write:False, address:tag, datain: ?, responseOnWrite: ?});
+      //serverTag.enq(tag);
       if(verbose) $display("mkMemReadInternal::complete_burst0 %h", tag);
    endrule
    

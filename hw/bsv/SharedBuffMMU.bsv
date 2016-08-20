@@ -39,24 +39,46 @@ import ClientServer::*;
 import ConnectalMemory::*;
 import ConnectalCompletionBuffer::*;
 import Ethernet::*;
+import PrintTrace::*;
 
 `include "ConnectalProjectConfig.bsv"
 
-typedef 8 PktPageShift0;
-typedef 12 PktPageShift4;
-typedef 16 PktPageShift8;
-typedef 20 PktPageShift12;
-typedef Bit#(TLog#(MaxNumPkts)) RegionsIdx;
+typedef 8 SGListPageShift0;
+typedef 12 SGListPageShift4;
+typedef 16 SGListPageShift8;
+typedef 20 SGListPageShift12;
+typedef Bit#(TLog#(MaxNumSGLists)) RegionsIdx;
 
 typedef 8 IndexWidth;
 
-typedef Bit#(TSub#(MemOffsetSize,PktPageShift0)) Page0;
-typedef Bit#(TSub#(MemOffsetSize,PktPageShift4)) Page4;
-typedef Bit#(TSub#(MemOffsetSize,PktPageShift8)) Page8;
-typedef Bit#(TSub#(MemOffsetSize,PktPageShift12)) Page12;
+typedef struct {
+   RegionsIdx           id;
+   Bit#(MemOffsetSize) off;
+} AddrTransRequest deriving (Eq,Bits,FShow);
 
 typedef struct {
-   Bit#(TSub#(MemOffsetSize,PktPageShift0)) barrier;
+   DmaErrorType    error;
+   Bit#(addrWidth) physAddr;
+} AddrTransResponse#(numeric type addrWidth) deriving (Eq,Bits,FShow);
+
+interface MMU#(numeric type addrWidth);
+   interface MMURequest request;
+   interface Vector#(2,Server#(AddrTransRequest,AddrTransResponse#(addrWidth))) addr;
+endinterface
+
+typedef struct {
+   DmaErrorType error;
+   Bit#(3) pageSize;
+   Bit#(SGListPageShift12) value;
+} Offset deriving (Eq,Bits,FShow);
+
+typedef Bit#(TSub#(MemOffsetSize,SGListPageShift0)) Page0;
+typedef Bit#(TSub#(MemOffsetSize,SGListPageShift4)) Page4;
+typedef Bit#(TSub#(MemOffsetSize,SGListPageShift8)) Page8;
+typedef Bit#(TSub#(MemOffsetSize,SGListPageShift12)) Page12;
+
+typedef struct {
+   Bit#(TSub#(MemOffsetSize,SGListPageShift0)) barrier;
    Bit#(IndexWidth) idxOffset;
    } SingleRegion deriving (Eq,Bits,FShow);
 
@@ -93,13 +115,14 @@ typedef struct {
 
 // the address translation servers (addr[0], addr[1]) have a latency of 8 and are fully pipelined
 module mkSharedBuffMMU#(Integer iid, MMUIndication mmuIndication)(MMU#(addrWidth))
-   provisos(Log#(MaxNumPkts, listIdxSize),
-	    Add#(listIdxSize,8, entryIdxSize),
-	    Add#(a__,addrWidth,MemOffsetSize));
+   provisos(Log#(MaxNumSGLists, listIdxSize)
+	    ,Add#(listIdxSize,8, entryIdxSize)
+	    ,Add#(a__,addrWidth,MemOffsetSize)
+     );
    
 	    
    let verbose = True;
-   TagGen#(MaxNumPkts) sglId_gen <- mkTagGen();
+   TagGen#(MaxNumSGLists) sglId_gen <- mkTagGen();
    rule complete_sglId_gen;
       let __x <- sglId_gen.complete;
    endrule
@@ -150,10 +173,10 @@ module mkSharedBuffMMU#(Integer iid, MMUIndication mmuIndication)(MMU#(addrWidth
       mmuIndication.error(extend(pack(error.errorType)), error.pref, extend(error.off), fromInteger(iid));
    endrule
 
-   let page_shift0 = fromInteger(valueOf(PktPageShift0));
-   let page_shift4 = fromInteger(valueOf(PktPageShift4));
-   let page_shift8 = fromInteger(valueOf(PktPageShift8));
-   let page_shift12 = fromInteger(valueOf(PktPageShift12));
+   let page_shift0 = fromInteger(valueOf(SGListPageShift0));
+   let page_shift4 = fromInteger(valueOf(SGListPageShift4));
+   let page_shift8 = fromInteger(valueOf(SGListPageShift8));
+   let page_shift12 = fromInteger(valueOf(SGListPageShift12));
    
    function BRAMServer#(a,b) portsel(BRAM2Port#(a,b) x, Integer i);
       if(i==0) return x.portA;
@@ -175,10 +198,10 @@ module mkSharedBuffMMU#(Integer iid, MMUIndication mmuIndication)(MMU#(addrWidth
 	 
 	 case (m_regionall) matches 
 	    tagged Valid .regionall: begin
-               Page0 off0 = truncate(req.off >> valueOf(PktPageShift0));
-               Page4 off4 = truncate(req.off >> valueOf(PktPageShift4));
-               Page8 off8 = truncate(req.off >> valueOf(PktPageShift8));
-               Page12 off12 = truncate(req.off >> valueOf(PktPageShift12));
+               Page0 off0 = truncate(req.off >> valueOf(SGListPageShift0));
+               Page4 off4 = truncate(req.off >> valueOf(SGListPageShift4));
+               Page8 off8 = truncate(req.off >> valueOf(SGListPageShift8));
+               Page12 off12 = truncate(req.off >> valueOf(SGListPageShift12));
 	       let cond12 = off12 < truncate(regionall.reg12.barrier);
 	       let cond8 = off8 < truncate(regionall.reg8.barrier);
 	       let cond4 = off4 < truncate(regionall.reg4.barrier);
@@ -373,24 +396,4 @@ module mkArbitratedMMU#(Server#(AddrTransRequest,AddrTransResponse#(addrWidth)) 
 
 endmodule
 
-interface MMU#(numeric type addrWidth);
-   interface MMURequest request;
-   interface Vector#(2,Server#(AddrTransRequest,AddrTransResponse#(addrWidth))) addr;
-endinterface
-
-typedef struct {
-   DmaErrorType error;
-   Bit#(3) pageSize;
-   Bit#(PktPageShift12) value;
-} Offset deriving (Eq,Bits,FShow);
-
-typedef struct {
-   RegionsIdx           id;
-   Bit#(MemOffsetSize) off;
-} AddrTransRequest deriving (Eq,Bits,FShow);
-
-typedef struct {
-   DmaErrorType    error;
-   Bit#(addrWidth) physAddr;
-} AddrTransResponse#(numeric type addrWidth) deriving (Eq,Bits,FShow);
 
