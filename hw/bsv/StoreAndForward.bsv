@@ -29,6 +29,7 @@ import BuildVector::*;
 import Connectable::*;
 import Clocks::*;
 import Cntrs::*;
+import ConfigReg::*;
 import ClientServer::*;
 import DefaultValue::*;
 import DbgTypes::*;
@@ -49,6 +50,7 @@ import SpecialFIFOs::*;
 import Vector::*;
 import Pipe::*;
 import DbgTypes::*;
+import PrintTrace::*;
 
 interface StoreAndFwdFromRingToMem;
    interface PktReadClient readClient;
@@ -165,7 +167,14 @@ module mkStoreAndFwdFromMemToRing(StoreAndFwdFromMemToRing)
    provisos (Div#(`DataBusWidth, 8, bytesPerBeat)
             ,Log#(bytesPerBeat, beatShift));
 
-   let verbose = False;
+   Reg#(int) cf_verbosity <- mkConfigReg(4);
+   function Action dbprint(Integer level, Fmt msg);
+      action
+      if (cf_verbosity > fromInteger(level)) begin
+        $display("(%0d) ", $time, msg);
+      end
+      endaction
+   endfunction
 
    // Ring Buffer Write Client
    FIFO#(EtherData) writeDataFifo <- mkFIFO;
@@ -187,17 +196,12 @@ module mkStoreAndFwdFromMemToRing(StoreAndFwdFromMemToRing)
    Reg#(Bit#(EtherLen))   readBurstCount <- mkReg(maxBound);
    Reg#(Bool)                 started <- mkReg(False);
 
-   Reg#(Bit#(32)) cycle <- mkReg(0);
-   rule every1 if (verbose);
-      cycle <= cycle + 1;
-   endrule
-
    rule packetReadStart;
       let pkt <- toGet(eventPktSendFifo).get;
       let bytesPerBeatMinusOne = fromInteger(valueOf(bytesPerBeat))-1;
       // roundup to 16 byte boundary
       let burstLen = ((pkt.size + bytesPerBeatMinusOne) & ~(bytesPerBeatMinusOne));
-      if (verbose) $display("StoreAndForward:: packetReadStart: %h, burstLen = %h", pkt.size, burstLen);
+      dbprint(3, $format("StoreAndForward:: packetReadStart: %h, burstLen = %h", pkt.size, burstLen));
       let mask = (1<< (pkt.size % fromInteger(valueOf(bytesPerBeat))))-1;
       readReqFifo.enq(MemRequest{sglId: extend(pkt.id), offset: 0,
                                  burstLen: truncate(burstLen), tag: 0
@@ -205,7 +209,7 @@ module mkStoreAndFwdFromMemToRing(StoreAndFwdFromMemToRing)
                                  , firstbe: 'hffff, lastbe: mask
 `endif
                                 });
-      if (verbose) $display("StoreAndForward::packetReadStart %d: send a new packet with size %h %h", cycle, burstLen, pack(mask));
+      dbprint(3, $format("StoreAndForward::packetReadStart: send a new packet with size %h %h", burstLen, pack(mask)));
       currPacketIdFifo.enq(pkt.id);
       readBurstLenFifo.enq(pkt.size);
    endrule
@@ -244,7 +248,7 @@ module mkStoreAndFwdFromMemToRing(StoreAndFwdFromMemToRing)
 
       writeDataFifo.enq(EtherData{data: d.data, mask: mask, sop: sop, eop: eop});
 
-      if (verbose) $display("StoreAndForward::readdata %d: %h %h %h %h %h", cycle, readBurstCount, d.data, pack(mask), sop, eop);
+      dbprint(3, $format("StoreAndForward::readdata: %h %h %h %h %h", readBurstCount, d.data, pack(mask), sop, eop));
    endrule
 
    interface PktWriteClient writeClient;

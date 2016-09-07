@@ -264,6 +264,11 @@ function t printTrace(String msg, t x)
     return fprintTraceHelper(stdout, False, $format(msg), tagged Invalid, x);
 endfunction
 
+function t printTimedTrace(String msg, t x)
+        provisos (HasFPrintTraceHelper#(t));
+    return fprintTraceHelper(stdout, True, $format(msg), tagged Invalid, x);
+endfunction
+
 module [m] fprintTraceM#(File file, String msg, m#(t) mkM)(t)
         provisos (IsModule#(m, a__), HasFPrintTraceHelper#(t));
     (* hide *)

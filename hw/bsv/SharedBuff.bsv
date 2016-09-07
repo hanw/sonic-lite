@@ -85,7 +85,7 @@ interface SharedBuffer#(numeric type addrWidth, numeric type busWidth, numeric t
 endinterface
 
 module mkSharedBuffer#(Vector#(numReadClients, MemReadClient#(busWidth)) readClients
-                       ,Vector#(numReadClients, MemFreeClient) memFreeClients
+                       ,Vector#(numFreeClients, MemFreeClient) memFreeClients
                        ,Vector#(numWriteClients, MemWriteClient#(busWidth)) writeClients
                        ,Vector#(numAllocClients, MemAllocClient) memAllocClients
                        ,MemServerIndication memServerInd
@@ -150,8 +150,8 @@ module mkSharedBuffer#(Vector#(numReadClients, MemReadClient#(busWidth)) readCli
       endinterface);
    end
 
-   Vector#(numReadClients, MemFreeServer) memFreeServers = newVector;
-   for (Integer i=0; i<valueOf(numReadClients); i=i+1) begin
+   Vector#(numFreeClients, MemFreeServer) memFreeServers = newVector;
+   for (Integer i=0; i<valueOf(numFreeClients); i=i+1) begin
       memFreeServers[i] = (interface MemFreeServer;
          interface Put freeReq;
             method Action put(PktId id);

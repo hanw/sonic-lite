@@ -163,8 +163,8 @@ typedef struct {
 // ===========================
 // Shared Packet Memory Types
 // ===========================
-typedef 32 MaxNumPkts; // Maximum in-flight packet in pipeline
-typedef Bit#(TLog#(MaxNumPkts)) PktId;
+typedef 32 MaxNumSGLists; // Maximum in-flight packet in pipeline
+typedef Bit#(TLog#(MaxNumSGLists)) PktId;
 typedef struct {
    PktId id;
    Bit#(EtherLen) size;

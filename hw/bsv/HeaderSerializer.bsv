@@ -62,8 +62,8 @@ module mkHeaderSerializer(HeaderSerializer);
          end
       endaction
    endfunction
-   FIFOF#(EtherData) data_in_ff <- printTimedTraceM("srin", mkFIFOF);
-   FIFOF#(EtherData) data_out_ff <- printTimedTraceM("srout", mkFIFOF);
+   FIFOF#(EtherData) data_in_ff <- mkFIFOF;
+   FIFOF#(EtherData) data_out_ff <- mkFIFOF;
 
    Array#(Reg#(Bool)) sop_buff <- mkCReg(3, False);
    Array#(Reg#(Bool)) eop_buff <- mkCReg(3, False);

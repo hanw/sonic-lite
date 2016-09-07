@@ -35,6 +35,8 @@ import MemMgmt::*;
 import MemTypes::*;
 import MIMO::*;
 import Pipe::*;
+import TxRx::*;
+import Utils::*;
 import PacketBuffer::*;
 import PrintTrace::*;
 import StoreAndForward::*;
@@ -57,32 +59,35 @@ interface TxChannel;
 endinterface
 
 module mkTxChannel#(Clock txClock, Reset txReset)(TxChannel);
+   RX #(MetadataRequest)  rx_prev_req <- mkRX;
+   TX #(MetadataResponse) tx_prev_rsp <- mkTX;
+   let rx_prev_req_info = rx_prev_req.u;
+   let tx_prev_rsp_info = tx_prev_rsp.u;
    PacketBuffer pktBuff <- mkPacketBuffer();
    Deparser deparser <- mkDeparser();
    HeaderSerializer serializer <- mkHeaderSerializer();
    StoreAndFwdFromMemToRing egress <- mkStoreAndFwdFromMemToRing();
    StoreAndFwdFromRingToMac ringToMac <- mkStoreAndFwdFromRingToMac(txClock, txReset);
-   //MemWriteConverter
 
    mkConnection(egress.writeClient, deparser.writeServer);
    mkConnection(deparser.writeClient, serializer.writeServer); 
    mkConnection(serializer.writeClient, pktBuff.writeServer);
    mkConnection(ringToMac.readClient, pktBuff.readServer);
 
+   rule handle_request;
+      let req = rx_prev_req_info.first;
+      rx_prev_req_info.deq;
+      let meta = req.meta;
+      let pkt = req.pkt;
+      $display("(%0d) Event: ", $time, fshow(req));
+      egress.eventPktSend.enq(pkt);
+      deparser.metadata.enq(meta);
+   endrule
+
    interface macTx = ringToMac.macTx;
    interface readClient = egress.readClient;
    interface freeClient = egress.free;
-   interface prev = (interface Server#(MetadataRequest, MetadataResponse);
-      interface request = (interface Put;
-         method Action put (MetadataRequest req);
-            let meta = req.meta;
-            let pkt = req.pkt;
-            $display("(%0d) Event: ", $time, fshow(req));
-            egress.eventPktSend.enq(pkt);
-            deparser.metadata.enq(meta);
-         endmethod
-      endinterface);
-   endinterface);
+   interface prev = toServer(rx_prev_req.e, tx_prev_rsp.e);
    method TxChannelDbgRec read_debug_info;
       return TxChannelDbgRec {
          egressCount : 0,

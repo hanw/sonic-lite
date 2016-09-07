@@ -45,7 +45,6 @@ interface CPU;
    interface Client#(IMemRequest, IMemResponse) imem_client;
    // interface to metadata memory
    method Action run();
-   method Action complete();
    method Bool not_running();
    method Action set_verbosity (int verbosity);
 endinterface
@@ -95,8 +94,9 @@ module mkCPU#(String name, List#(Reg#(Bit#(n))) ll)(CPU)
 
    function Action finished_and_stop ();
       action
+         rx_info_imem_rsp.deq;
          rg_pc <= 0;
-         rg_cpu_state <= CPU_DONE;
+         rg_cpu_state <= CPU_STOPPED;
       endaction
    endfunction
 
@@ -119,7 +119,7 @@ module mkCPU#(String name, List#(Reg#(Bit#(n))) ll)(CPU)
    endfunction
 
    rule rl_fetch (rg_cpu_state == CPU_FETCH);
-      dbprint(3, $format("%s fetch", name));
+      dbprint(3, $format("CPU %s fetch", name));
       let req = IMemRequest {
          command : READ,
          addr    : extend(rg_pc),
@@ -145,14 +145,14 @@ module mkCPU#(String name, List#(Reg#(Bit#(n))) ll)(CPU)
          fn_write_reg_file (rd, vo);
       end
       ll[v2] <= truncate(vo);
-      dbprint(3, $format("OP_IMM ", fshow(f3), fshow(vo)));
+      dbprint(3, $format("CPU %s OP_IMM ", name, fshow(f3), fshow(vo)));
       succeed_and_next();
    endrule
 
    // Integer Register-Register
    rule rl_exec_op_OP ((rg_cpu_state == CPU_EXEC) && (opcode == op_OP));
       Bit#(n) v1 = fn_read_reg_file (rs1);
-      dbprint(3, $format("OP ", fshow(f3)));
+      dbprint(3, $format("CPU %s OP ", name, fshow(f3)));
       succeed_and_next();
    endrule
 
@@ -160,22 +160,18 @@ module mkCPU#(String name, List#(Reg#(Bit#(n))) ll)(CPU)
       Bit#(n) v1 = fn_read_reg_file (rs1);
       Bit#(n) iv2 = extend(unpack(imm12_I));
       Bit#(n) v2 = unpack(pack(iv2));
-      dbprint(3, $format("STORE ", fshow(f3)));
+      dbprint(3, $format("CPU %s STORE ", name, fshow(f3)));
       succeed_and_next();
    endrule
 
    rule rl_exec_op_RET ((rg_cpu_state == CPU_EXEC) && (opcode == op_RET));
-      dbprint(3, $format("STOP "));
+      dbprint(3, $format("CPU %s STOP ", name));
       finished_and_stop();
    endrule
 
    method Action run if (rg_cpu_state == CPU_STOPPED);
-      dbprint(3, $format("run CPU"));
+      dbprint(3, $format("CPU %s run", name));
       rg_cpu_state <= CPU_FETCH;
-   endmethod
-
-   method Action complete if (rg_cpu_state == CPU_DONE);
-      rg_cpu_state <= CPU_STOPPED;
    endmethod
 
    method Bool not_running;
