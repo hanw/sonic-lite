@@ -18,16 +18,16 @@ typedef struct {
     Bit#(4) version;
     Bit#(4) ihl;
     Bit#(8) diffserv;
-    Bit#(16) total_len;
-    Bit#(16) identification;
-    Bit#(3) flags;
-    Bit#(13) frag_offset;
-    Bit#(8) ttl;
+    Bit#(16) flow_id;
+    Bit#(16) seq_num; //will be used for communicating remote queue len
+    Bit#(16) remote_queue_len;
+    Bit#(1) flow_end_bit;
+    Bit#(7) extra;
     Bit#(8) protocol;
     Bit#(16) header_checksum;
     IP src_ip;
     IP dst_ip;
-    Bit#(112) payload;
+    Bit#(112) payload; //remaining bits in the 3rd 128-bit header block
 } Header deriving(Bits, Eq);
 
 instance DefaultValue#(Header);
@@ -36,13 +36,13 @@ instance DefaultValue#(Header);
                             src_mac         : 0,
                             ether_type      : 'h0800,
                             version         : 4,
-                            ihl             : 12,
+                            ihl             : 5,
                             diffserv        : 0,
-                            total_len       : 0,
-                            identification  : 0,
-                            flags           : 0,
-                            frag_offset     : 0,
-                            ttl             : 3,
+                            flow_id         : 0,
+                            seq_num         : 0,
+                            remote_queue_len: 0,
+                            flow_end_bit    : 0,
+                            extra           : 0,
                             protocol        : 'h06,
                             header_checksum : 'h43ab,
                             src_ip          : 0,
@@ -122,10 +122,14 @@ module mkDMASimulator#(Scheduler#(ReadReqType, ReadResType,
 
     Vector#(NUM_OF_SERVERS, Reg#(Bit#(1))) rem_notification <- replicateM(mkReg(0));
 
-    Vector#(NUM_OF_SERVERS, Reg#(Bit#(1))) add_first_dummy_block <- replicateM(mkReg(0));
-    Vector#(NUM_OF_SERVERS, Reg#(Bit#(1))) add_second_dummy_block <- replicateM(mkReg(0));
-    Vector#(NUM_OF_SERVERS, Reg#(Bit#(1))) add_third_dummy_block <- replicateM(mkReg(0));
-    Vector#(NUM_OF_SERVERS, Reg#(Bit#(1))) add_fourth_dummy_block <- replicateM(mkReg(0));
+    Vector#(NUM_OF_SERVERS, Reg#(Bit#(1)))
+        add_first_dummy_block <- replicateM(mkReg(0));
+    Vector#(NUM_OF_SERVERS, Reg#(Bit#(1)))
+        add_second_dummy_block <- replicateM(mkReg(0));
+    Vector#(NUM_OF_SERVERS, Reg#(Bit#(1)))
+        add_third_dummy_block <- replicateM(mkReg(0));
+    Vector#(NUM_OF_SERVERS, Reg#(Bit#(1)))
+        add_fourth_dummy_block <- replicateM(mkReg(0));
 
     //add dummy packet
     for (Integer i = 0; i < valueof(NUM_OF_SERVERS); i = i + 1)
@@ -171,7 +175,7 @@ module mkDMASimulator#(Scheduler#(ReadReqType, ReadResType,
     begin
         rule manage_flows (fromInteger(i) != host_index && start_flag == 1
                         && clk.currTime() == dma_start_time + (2*fromInteger(i)+5));
-            if (fromInteger(i) == (host_index + 1)%fromInteger(valueof(NUM_OF_SERVERS)))
+            if (host_index == 0 && fromInteger(i) == 1)
             begin
                 count[i] <= num_of_cycles_to_wait;
                 flow_length[i] <= 1000;
@@ -206,18 +210,6 @@ module mkDMASimulator#(Scheduler#(ReadReqType, ReadResType,
 
             flow_pkt_count[i] <= flow_pkt_count[i] + 1;
 
-            //notify scheduler that a new flow has started
-            if (flow_pkt_count[i] == 0)
-            begin
-                FlowStartEndT f = FlowStartEndT {
-                                    dst : fromInteger(i),
-                                    flow_start : 1
-                                  };
-                scheduler.flow_notification_req.put(f);
-                if (verbose)
-                    $display("[DMA %d %d] New flow notification", host_index, i);
-            end
-
             transmission_in_progress[i] <= 1;
             init_header[i] <= 1;
             block_count[i] <= 0;
@@ -248,27 +240,31 @@ module mkDMASimulator#(Scheduler#(ReadReqType, ReadResType,
                 scheduler.dma_write_request[i].put
                         (makeWriteReq(1, 0, header_data[383:256]));
                 if (verbose)
-                $display("[DMA %d %d] clk = %d %x", host_index, i, clk.currTime,
-                                                          header_data[383:256]);
+                    $display("[DMA %d %d] clk = %d %x",
+                        host_index, i, clk.currTime, header_data[383:256]);
             end
             else if (block_count[i] == 1)
             begin
                 Bit#(32) temp = {flow_id[i], seq_num[i]};
                 header_data[255:224] = temp;
+                if (flow_pkt_count[i] == flow_length[i])
+                    header_data[207] = 1;
+                else
+                    header_data[207] = 0;
                 seq_num[i] <= seq_num[i] + 1;
                 scheduler.dma_write_request[i].put
                         (makeWriteReq(0, 0, header_data[255:128]));
                 if (verbose)
-                $display("[DMA %d %d] clk = %d %x", host_index, i, clk.currTime,
-                                                          header_data[255:128]);
+                    $display("[DMA %d %d] clk = %d %x",
+                        host_index, i, clk.currTime, header_data[255:128]);
             end
             else if (block_count[i] == 2)
             begin
                 scheduler.dma_write_request[i].put
                         (makeWriteReq(0, 0, header_data[127:0]));
                 if (verbose)
-                $display("[DMA %d %d] clk = %d %x", host_index, i, clk.currTime,
-                                                          header_data[127:0]);
+                    $display("[DMA %d %d] clk = %d %x",
+                        host_index, i, clk.currTime, header_data[127:0]);
             end
             else if (block_count[i] == num_of_blocks_to_transmit[i] - 1)
             begin
@@ -281,16 +277,14 @@ module mkDMASimulator#(Scheduler#(ReadReqType, ReadResType,
                     flow_pkt_count[i] <= 0;
                     flow_id[i] <= flow_id[i] + 1;
                     seq_num[i] <= 1;
-                    rem_notification[i] <= 1;
-                    if (verbose)
-                        $display("[DMA %d %d] End of flow notification", host_index, i);
                 end
                 scheduler.dma_write_request[i].put
                         (makeWriteReq(0, 1, zeroExtend(host_index)));
                 if (verbose)
                 begin
-                Bit#(128) b = zeroExtend(host_index);
-                $display("[DMA %d %d] clk = %d %x", host_index, i, clk.currTime, b);
+                    Bit#(128) b = zeroExtend(host_index);
+                    $display("[DMA %d %d] clk = %d %x",
+                        host_index, i, clk.currTime, b);
                 end
             end
             else
@@ -299,26 +293,10 @@ module mkDMASimulator#(Scheduler#(ReadReqType, ReadResType,
                       (makeWriteReq(0, 0, 'hab4eff284ffabeff36277842baffe465));
                 if (verbose)
                 begin
-                Bit#(128) b = 'hab4eff284ffabeff36277842baffe465;
-                $display("[DMA %d %d] clk = %d %x", host_index, i, clk.currTime, b);
+                    Bit#(128) b = 'hab4eff284ffabeff36277842baffe465;
+                    $display("[DMA %d %d] clk = %d %x",
+                        host_index, i, clk.currTime, b);
                 end
-            end
-        endrule
-
-        rule get_flow_buf_length (rem_notification[i] == 1);
-            scheduler.dma_length_req[i].put(?);
-        endrule
-
-        rule check_to_put_rem_notification;
-            let x <- scheduler.dma_length_res[i].get;
-            if (x == 0)
-            begin
-                rem_notification[i] <= 0;
-                FlowStartEndT f = FlowStartEndT {
-                                    dst : fromInteger(i),
-                                    flow_start : 0
-                                  };
-                scheduler.flow_notification_req.put(f);
             end
         endrule
     end

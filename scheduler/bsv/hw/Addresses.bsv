@@ -11,13 +11,11 @@ function IP ip_address (ServerIndex index);
         5 : addr = 'hc0a80006;
         6 : addr = 'hc0a80007;
         7 : addr = 'hc0a80008;
-        8 : addr = 'hc0a80009;
-        9 : addr = 'hc0a8000a;
     endcase
     return addr;
 endfunction
 
-function ServerIndex host_id (IP ip_addr);
+function ServerIndex ip_to_host_id (IP ip_addr);
     ServerIndex idx = fromInteger(valueof(NUM_OF_SERVERS));
     case (ip_addr)
         'hc0a80001 : idx = 0;
@@ -28,8 +26,21 @@ function ServerIndex host_id (IP ip_addr);
         'hc0a80006 : idx = 5;
         'hc0a80007 : idx = 6;
         'hc0a80008 : idx = 7;
-        'hc0a80009 : idx = 8;
-        'hc0a8000a : idx = 9;
+    endcase
+    return idx;
+endfunction
+
+function ServerIndex mac_to_host_id (MAC mac_addr);
+    ServerIndex idx = fromInteger(valueof(NUM_OF_SERVERS));
+    case (mac_addr)
+        'h3417eb96df1f : idx = 0;
+        'h3417eb96df1e : idx = 1;
+        'h3417eb96df1d : idx = 2;
+        'h3417eb96df1c : idx = 3;
+        'h3417eb96df1b : idx = 4;
+        'h3417eb96df1a : idx = 5;
+        'h3417eb96df19 : idx = 6;
+        'h3417eb96df18 : idx = 7;
     endcase
     return idx;
 endfunction
@@ -45,8 +56,6 @@ function MAC mac_address (ServerIndex index);
         5 : addr = 'h3417eb96df1a;
         6 : addr = 'h3417eb96df19;
         7 : addr = 'h3417eb96df18;
-        8 : addr = 'h3417eb96df17;
-        9 : addr = 'h3417eb96df16;
     endcase
     return addr;
 endfunction
@@ -62,8 +71,6 @@ function IP mac_to_ip(MAC mac_addr);
         'h3417eb96df1a : ip_addr = 'hc0a80006;
         'h3417eb96df19 : ip_addr = 'hc0a80007;
         'h3417eb96df18 : ip_addr = 'hc0a80008;
-        'h3417eb96df17 : ip_addr = 'hc0a80009;
-        'h3417eb96df16 : ip_addr = 'hc0a8000a;
     endcase
     return ip_addr;
 endfunction

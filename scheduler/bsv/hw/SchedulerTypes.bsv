@@ -8,6 +8,8 @@ typedef 1 NUM_OF_DTP_PORTS;
 
 typedef 16 DEFAULT_FIFO_LEN;
 
+typedef 16 THROTTLE_BITS; /* bits to represent max queue len */
+
 typedef Bit#(IP_ADDR_LEN) IP;
 typedef Bit#(MAC_ADDR_LEN) MAC;
 typedef Bit#(4) ServerIndex; /* bits to represent num of servers */
@@ -29,8 +31,3 @@ instance DefaultValue#(TableData);
                      server_mac : 0
                   };
 endinstance
-
-typedef struct {
-    ServerIndex dst;
-    Bit#(1) flow_start;
-} FlowStartEndT deriving(Bits, Eq);
