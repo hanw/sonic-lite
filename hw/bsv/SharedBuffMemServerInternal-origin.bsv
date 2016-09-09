@@ -38,8 +38,8 @@ import ConnectalClocks::*;
 import SharedBuffMMU::*;
 import ConnectalCompletionBuffer::*;
 import ConnectalConfig::*;
-import Ethernet::*;
 `include "ConnectalProjectConfig.bsv"
+import Ethernet::*;
 
 typedef 32 BeatCountSize;
 
@@ -115,12 +115,11 @@ module mkMemReadInternal#(MemServerIndication ind,
    if (mainClockPeriod < 8)
       bramConfig.latency = 2;
    BRAM2Port#(Bit#(TLog#(numTags)), DRec#(numServers,addrWidth)) serverProcessing <- mkBRAM2Server(bramConfig);
-   //BRAM2Port#(Bit#(TAdd#(TLog#(numTags),TSub#(BurstLenSize,beatShift))), MemData#(busWidth)) clientData <- mkBRAM2Server(bramConfig);
-   FIFOF#(MemData#(busWidth)) clientData <- mkSizedFIFOF(4);
+   BRAM2Port#(Bit#(TAdd#(TLog#(numTags),TSub#(BurstLenSize,beatShift))), MemData#(busWidth)) clientData <- mkBRAM2Server(bramConfig);
    // stage 3: read data 
    FIFO#(MemData#(busWidth)) serverData <- mkFIFO;
    
-   let verbose = True;
+   let verbose = False;
    
    RegFile#(Bit#(TLog#(numTags)),Tuple2#(Bool,Bit#(BurstLenSize))) clientBurstLen <- mkRegFileFull();
    Reg#(Bit#(BurstLenSize)) burstReg <- mkReg(0);
@@ -130,7 +129,12 @@ module mkMemReadInternal#(MemServerIndication ind,
    let beat_shift = fromInteger(valueOf(beatShift));
    TagGen#(numTags) tag_gen <- mkTagGen;
 
+   Reg#(Bit#(BurstLenSize))      compCountReg <- mkReg(0);
+   Reg#(Bit#(TLog#(numTags)))    compTagReg <- mkReg(0);
+   Reg#(Bit#(TLog#(TMax#(1,numServers)))) compClientReg <- mkReg(0);
+   Reg#(Bit#(2))                 compTileReg <- mkReg(0);
    FIFO#(Bit#(TAdd#(1,TLog#(TMax#(1,numServers))))) clientSelect <- mkFIFO;
+   FIFO#(Bit#(TLog#(numTags)))   serverTag <- mkFIFO;
    
    // performance analytics 
    Reg#(Bit#(64)) cycle_cnt <- mkReg(0);
@@ -176,13 +180,10 @@ module mkMemReadInternal#(MemServerIndication ind,
       if (last && burstLen != 1)
 	 $display("rename_tag=%d tag=%d burstLen=%d last=%d", response.tag, tag, burstLen, last);
       Bit#(TLog#(numTags)) tt = truncate(response.tag);
-      let client = drq.client;
-      clientSelect.enq(extend(client));
-      clientData.enq(response);
-      $display("response: ", fshow(response));
+      clientData.portA.request.put(BRAMRequest{write:True, responseOnWrite:False, datain:MemData{data: response.data, tag: tag, last: last},
+					       address:{tt,truncate(burstLen)}});
       if (last) begin
 	 tag_gen.returnTag(truncate(response.tag));
-     $display("response: last! ", fshow(response));
       end
       last_readData <= cycle_cnt;
       if (verbose) $display("mkMemReadInternal::read_data cyclediff %d", cycle_cnt-last_readData);
@@ -192,9 +193,38 @@ module mkMemReadInternal#(MemServerIndication ind,
 
    rule tag_completed;
       let tag <- tag_gen.complete;
-      //serverProcessing.portB.request.put(BRAMRequest{write:False, address:tag, datain: ?, responseOnWrite: ?});
-      //serverTag.enq(tag);
+      serverProcessing.portB.request.put(BRAMRequest{write:False, address:tag, datain: ?, responseOnWrite: ?});
+      serverTag.enq(tag);
       if(verbose) $display("mkMemReadInternal::complete_burst0 %h", tag);
+   endrule
+   
+   rule complete_burst1a if (compCountReg==0);
+      let drq <- serverProcessing.portB.response.get;
+      let req_burstLen = drq.req_burstLen;
+      let client = drq.client;
+      let cnt = req_burstLen >> beat_shift;
+      let tag <- toGet(serverTag).get;
+      if(killv[drq.req_tag[5:4]] == False) begin
+	 clientSelect.enq(extend(client));
+	 clientData.portB.request.put(BRAMRequest{write:False, address:{tag,truncate(cnt)}, datain: ?, responseOnWrite: ?});
+      end
+      compCountReg <= cnt-1;
+      compTagReg <= tag;
+      compClientReg <= client;
+      compTileReg <= drq.req_tag[5:4];
+      if(verbose) $display("mkMemReadInternal::complete_burst1a %h", client);
+   endrule
+
+   rule burst_remainder if (compCountReg > 0);
+      let cnt = compCountReg;
+      let tag = compTagReg;
+      let client = compClientReg;
+      if(killv[compTileReg] == False) begin
+	 clientSelect.enq(extend(client));
+	 clientData.portB.request.put(BRAMRequest{write:False, address:{tag,truncate(cnt)}, datain: ?, responseOnWrite: ?});
+      end
+      compCountReg <= cnt-1;
+      if(verbose) $display("mkMemReadInternal::complete_burst1b count %h", compCountReg);
    endrule
    
    Vector#(numServers, MemReadServer#(busWidth)) sv = newVector;
@@ -219,8 +249,7 @@ module mkMemReadInternal#(MemServerIndication ind,
 		  interface Get readData;
 		     method ActionValue#(MemData#(busWidth)) get if (clientSelect.first == fromInteger(i));
 			clientSelect.deq;
-            let data = clientData.first;
-            clientData.deq;
+			let data <- clientData.portB.response.get;
 			if (verbose) $display("mkMemReadInternal::comp server %d data %x cycle %d", i, data.data, cycle_cnt-last_comp);
 			last_comp <= cycle_cnt;
 			return data;

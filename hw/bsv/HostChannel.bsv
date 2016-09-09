@@ -34,7 +34,7 @@ import Pipe::*;
 import StoreAndForward::*;
 import SharedBuff::*;
 import Tap::*;
-
+ `include "ConnectalProjectConfig.bsv"
 import `PARSER::*;
 import `TYPEDEF::*;
 

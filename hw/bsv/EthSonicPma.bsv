@@ -34,6 +34,7 @@ import ConnectalClocks                      ::*;
 import Ethernet                             ::*;
 import ALTERA_ETH_PMA_QSYS                 ::*;
 
+ `include "ConnectalProjectConfig.bsv"
 `ifdef NUMBER_OF_10G_PORTS
 typedef `NUMBER_OF_10G_PORTS NumPorts;
 `else

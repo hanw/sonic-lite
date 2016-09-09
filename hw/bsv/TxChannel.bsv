@@ -43,7 +43,7 @@ import StoreAndForward::*;
 import SpecialFIFOs::*;
 import SharedBuff::*;
 import HeaderSerializer::*;
-
+`include "ConnectalProjectConfig.bsv"
 import `DEPARSER::*;
 import `TYPEDEF::*;
 

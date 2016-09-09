@@ -35,6 +35,7 @@ import List::*;
 import Bcam::*;
 import BcamTypes::*;
 import PrintTrace::*;
+ `include "ConnectalProjectConfig.bsv"
 
 interface MatchTable#(numeric type id, numeric type depth, numeric type keySz, numeric type actionSz);
    interface Server#(Bit#(keySz), Maybe#(Bit#(actionSz))) lookupPort;

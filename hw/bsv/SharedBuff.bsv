@@ -40,6 +40,8 @@ import MemMgmt::*;
 import PhysMemSlaveFromBram::*;
 import Ethernet::*;
 import DbgTypes::*;
+import ConnectalConfig::*;
+ `include "ConnectalProjectConfig.bsv"
 
 // FIXME: Client#(Bit#(EtherLen), Maybe#(PktId))
 // FIXME: Server#(Bit#(EtherLen), Maybe#(PktId))
@@ -103,7 +105,7 @@ module mkSharedBuffer#(Vector#(numReadClients, MemReadClient#(busWidth)) readCli
 	    ,Add#(numAllocClients, b__, TMul#(TDiv#(numAllocClients, nMasters),nMasters))
         ,Mul#(TDiv#(busWidth, TDiv#(busWidth, 8)), TDiv#(busWidth, 8), busWidth)
         ,Mul#(TDiv#(busWidth, ByteEnableSize), ByteEnableSize, busWidth)
-        ,Add#(`DataBusWidth, 0, busWidth)
+        ,Add#(DataBusWidth, 0, busWidth)
 	    );
    MemMgmt#(addrWidth, numAllocClients, numReadClients) alloc <- mkMemMgmt(
 `ifdef DEBUG

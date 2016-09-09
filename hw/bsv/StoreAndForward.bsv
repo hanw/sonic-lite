@@ -51,16 +51,18 @@ import Vector::*;
 import Pipe::*;
 import DbgTypes::*;
 import PrintTrace::*;
+import ConnectalConfig::*;
+ `include "ConnectalProjectConfig.bsv"
 
 interface StoreAndFwdFromRingToMem;
    interface PktReadClient readClient;
    interface MemAllocClient malloc;
-   interface MemWriteClient#(`DataBusWidth) writeClient;
+   interface MemWriteClient#(DataBusWidth) writeClient;
    interface PipeOut#(PacketInstance) eventPktCommitted;
 endinterface
 
 module mkStoreAndFwdFromRingToMem(StoreAndFwdFromRingToMem)
-   provisos (Div#(`DataBusWidth, 8, bytesPerBeat)
+   provisos (Div#(DataBusWidth, 8, bytesPerBeat)
             ,Log#(bytesPerBeat, beatShift));
 
    let verbose = False;
@@ -72,9 +74,9 @@ module mkStoreAndFwdFromRingToMem(StoreAndFwdFromRingToMem)
 
    // Memory Client
    FIFO#(MemRequest) writeReqFifo <- mkSizedFIFO(4);
-   FIFO#(MemData#(`DataBusWidth)) writeDataFifo <- mkSizedFIFO(16);
+   FIFO#(MemData#(DataBusWidth)) writeDataFifo <- mkSizedFIFO(16);
    FIFO#(Bit#(MemTagSize)) writeDoneFifo <- mkSizedFIFO(4);
-   MemWriteClient#(`DataBusWidth) dmaWriteClient = (interface MemWriteClient;
+   MemWriteClient#(DataBusWidth) dmaWriteClient = (interface MemWriteClient;
    interface Get writeReq = toGet(writeReqFifo);
    interface Get writeData = toGet(writeDataFifo);
    interface Put writeDone = toPut(writeDoneFifo);
@@ -158,13 +160,13 @@ endmodule
 
 interface StoreAndFwdFromMemToRing;
    interface PktWriteClient writeClient;
-   interface MemReadClient#(`DataBusWidth) readClient;
+   interface MemReadClient#(DataBusWidth) readClient;
    interface PipeIn#(PacketInstance) eventPktSend;
    interface MemFreeClient free;
 endinterface
 
 module mkStoreAndFwdFromMemToRing(StoreAndFwdFromMemToRing)
-   provisos (Div#(`DataBusWidth, 8, bytesPerBeat)
+   provisos (Div#(DataBusWidth, 8, bytesPerBeat)
             ,Log#(bytesPerBeat, beatShift));
 
    Reg#(int) cf_verbosity <- mkConfigReg(4);
@@ -181,8 +183,8 @@ module mkStoreAndFwdFromMemToRing(StoreAndFwdFromMemToRing)
 
    // read client interface
    FIFO#(MemRequest) readReqFifo <-mkSizedFIFO(4);
-   FIFO#(MemData#(`DataBusWidth)) readDataFifo <- mkSizedFIFO(32);
-   MemReadClient#(`DataBusWidth) dmaReadClient = (interface MemReadClient;
+   FIFO#(MemData#(DataBusWidth)) readDataFifo <- mkSizedFIFO(32);
+   MemReadClient#(DataBusWidth) dmaReadClient = (interface MemReadClient;
    interface Get readReq = toGet(readReqFifo);
    interface Put readData = toPut(readDataFifo);
    endinterface);

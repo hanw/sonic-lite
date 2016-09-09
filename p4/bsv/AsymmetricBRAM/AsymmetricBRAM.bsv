@@ -37,6 +37,9 @@ import SpecialFIFOs :: *;
 import ConfigReg :: * ;
 import Vector :: * ;
 import Pipe::*;
+import ConnectalConfig::*;
+
+ `include "ConnectalProjectConfig.bsv"
 
 // Interface to the asymmetric ram
 interface AsymmetricBRAM#(  type rAddrT, type rDataT,

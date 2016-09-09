@@ -32,6 +32,9 @@ import Connectable::*;
 import GetPut::*;
 import Pipe::*;
 import Ethernet::*;
+
+ `include "ConnectalProjectConfig.bsv"
+
 `ifdef NUMBER_OF_ALTERA_PORTS
 import Altera10GPhy3::*;
 `else

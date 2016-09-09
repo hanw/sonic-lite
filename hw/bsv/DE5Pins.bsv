@@ -10,6 +10,8 @@ import AlteraExtra::*;
 import ALTERA_SI570_WRAPPER::*;
 import AlteraMacWrap::*;
 
+ `include "ConnectalProjectConfig.bsv"
+
 (* always_ready, always_enabled *)
 interface DE5Pins;
 `ifdef BOARD_de5

@@ -8,6 +8,7 @@ import ConnectalClocks::*;
 import ConnectalXilinxCells::*;
 
 import XilinxEthPhy::*;
+ `include "ConnectalProjectConfig.bsv"
 
 (* always_ready, always_enabled *)
 interface NfsumePins;

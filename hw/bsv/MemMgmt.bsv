@@ -40,6 +40,7 @@ import Ethernet::*;
 import SharedBuffMMU::*;
 import DbgTypes::*;
 
+ `include "ConnectalProjectConfig.bsv"
 typedef enum {
    MemMgmtErrorNone,
    MemMgmtErrorInvalidPacketId,

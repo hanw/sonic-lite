@@ -35,6 +35,7 @@ import MemTypes::*;
 import MemReadEngine::*;
 import MemWriteEngine::*;
 import HostInterface::*;
+
 `include "ConnectalProjectConfig.bsv"
 
 interface DmaRequest;

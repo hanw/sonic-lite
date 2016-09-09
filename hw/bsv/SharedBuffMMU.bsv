@@ -40,7 +40,6 @@ import ConnectalMemory::*;
 import ConnectalCompletionBuffer::*;
 import Ethernet::*;
 import PrintTrace::*;
-
 `include "ConnectalProjectConfig.bsv"
 
 typedef 8 SGListPageShift0;

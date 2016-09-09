@@ -34,6 +34,8 @@ import DefaultValue::*;
 import OInt::*;
 import Ethernet::*;
 
+ `include "ConnectalProjectConfig.bsv"
+
 typedef struct {
    Bit#(n) data;
    Bit#(TDiv#(n, 8)) mask;

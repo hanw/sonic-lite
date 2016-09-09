@@ -45,6 +45,7 @@ import ALTERA_EDGE_DETECTOR_WRAPPER  ::*;
 import AlteraExtra                   ::*;
 import BuildVector                  ::*;
 
+ `include "ConnectalProjectConfig.bsv"
 `ifdef NUMBER_OF_10G_PORTS
 typedef `NUMBER_OF_10G_PORTS NumPorts;
 `else

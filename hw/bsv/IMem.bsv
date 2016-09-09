@@ -30,6 +30,7 @@ import FIFOF::*;
 
 import CPU_Common::*;
 import StringUtils::*;
+ `include "ConnectalProjectConfig.bsv"
 
 interface IMem;
    interface Server#(IMemRequest, IMemResponse) cpu_server;
