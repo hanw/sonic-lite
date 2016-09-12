@@ -99,7 +99,7 @@ module mkMemReadInternal#(MemServerIndication ind,
 	    ,Add#(beatShift, a__, 8)
 	    ,Add#(b__, TLog#(numTags), MemTagSize)
 	    ,Add#(beatShift, c__, BurstLenSize)
-	    //,Add#(d__, TDiv#(busWidth, 8), ByteEnableSize)
+	    ,Add#(d__, TDiv#(busWidth, 8), ByteEnableSize)
 	    );
    
    // stopping/killing infra
@@ -287,7 +287,7 @@ module mkMemWriteInternal#(MemServerIndication ind,
 	    ,Add#(beatShift, a__, 8)
 	    ,Add#(b__, TLog#(numTags), MemTagSize)
 	    ,Add#(beatShift, c__, BurstLenSize)
-        //,Add#(d__, TDiv#(busWidth, 8), ByteEnableSize)
+            ,Add#(d__, TDiv#(busWidth, 8), ByteEnableSize)
 	    );
    
    let verbose = False;

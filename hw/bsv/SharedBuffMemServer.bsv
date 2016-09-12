@@ -75,7 +75,7 @@ module mkMemServer#(Vector#(numReadClients, MemReadClient#(busWidth)) readClient
 	    ,Add#(c__, addrWidth, 64)
 	    ,Add#(numWriteClients, d__, nws)
 	    ,Add#(numReadClients, e__, nrs)
-//	    ,Add#(f__, TDiv#(busWidth, 8), ByteEnableSize)
+	    ,Add#(f__, TDiv#(busWidth, 8), ByteEnableSize)
 	    );
    
    MemServerRead#(addrWidth,busWidth,nMasters,nrs)  reader <- mkMemServerRead(indication, mmus);
@@ -120,7 +120,7 @@ module mkMemServerRead#(MemServerIndication indication,
 	    ,Add#(a__, addrWidth, 64)
 	    ,Add#(TLog#(TDiv#(busWidth, 8)), b__, 8)
 	    ,Add#(TLog#(TDiv#(busWidth, 8)), c__, BurstLenSize)
-	    //,Add#(d__, TDiv#(busWidth, 8), ByteEnableSize)
+	    ,Add#(d__, TDiv#(busWidth, 8), ByteEnableSize)
 	    );
 
    FIFO#(Bit#(32))   addrReqFifo <- mkFIFO;
@@ -203,7 +203,7 @@ module mkMemServerWrite#(MemServerIndication indication,
 	    ,Add#(a__, addrWidth, 64)
 	    ,Add#(TLog#(TDiv#(busWidth, 8)), b__, 8)
 	    ,Add#(TLog#(TDiv#(busWidth, 8)), c__, BurstLenSize)
-	    //,Add#(d__, TDiv#(busWidth, 8), ByteEnableSize)
+	    ,Add#(d__, TDiv#(busWidth, 8), ByteEnableSize)
 	    );
    
    FIFO#(Bit#(32))   addrReqFifo <- mkFIFO;
