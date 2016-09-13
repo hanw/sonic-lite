@@ -47,6 +47,7 @@ import Ddr3Controller::*;
 import SharedBuffMemServer::*;
 import MemMgmt::*;
 import MemServerIndication::*;
+import GetPutWithClocks::*;
 
 interface Ddr3TestRequest;
    method Action startWriteDram(Bit#(32) sglId, Bit#(32) transferBytes);
@@ -66,7 +67,7 @@ endinterface
 typedef TDiv#(Ddr3DataWidth,DataBusWidth) BusRatio;
 typedef TDiv#(Ddr3DataWidth,8) Ddr3DataBytes;
 
-module mkDdr3Test#(HostInterface host, Ddr3TestIndication indication)(Ddr3Test);
+module mkDdr3Test#(HostInterface host, Ddr3TestIndication indication, MemServerIndication memind)(Ddr3Test);
 
    let clock <- exposeCurrentClock();
    let reset <- exposeCurrentReset();
@@ -77,28 +78,28 @@ module mkDdr3Test#(HostInterface host, Ddr3TestIndication indication)(Ddr3Test);
 
    let ddr3Controller <- mkDdr3(clk200);
 
-   FIFO#(MemRequest) writeReqFifo <- mkFIFO(clocked_by ddr3Controller.uiClock, reset_by ddr3Controller.uiReset);
-   FIFO#(MemData#(Ddr3DataWidth)) writeDataFifo <- mkFIFO(clocked_by ddr3Controller.uiClock, reset_by ddr3Controller.uiReset);
-   FIFO#(Bit#(MemTagSize)) writeDoneFifo <- mkFIFO(clocked_by ddr3Controller.uiClock, reset_by ddr3Controller.uiReset);
+   FIFO#(MemRequest) writeReqFifo <- mkFIFO();
+   FIFO#(MemData#(Ddr3DataWidth)) writeDataFifo <- mkFIFO();
+   FIFO#(Bit#(MemTagSize)) writeDoneFifo <- mkFIFO();
    MemWriteClient#(Ddr3DataWidth) writeClient = (interface MemWriteClient;
       interface Get writeReq = toGet(writeReqFifo);
       interface Get writeData = toGet(writeDataFifo);
       interface Put writeDone = toPut(writeDoneFifo);
       endinterface);
 
-   FIFO#(MemRequest) readReqFifo <- mkFIFO(clocked_by ddr3Controller.uiClock, reset_by ddr3Controller.uiReset);
-   FIFO#(MemData#(Ddr3DataWidth)) readDataFifo <- mkFIFO(clocked_by ddr3Controller.uiClock, reset_by ddr3Controller.uiReset);
+   FIFO#(MemRequest) readReqFifo <- mkFIFO();
+   FIFO#(MemData#(Ddr3DataWidth)) readDataFifo <- mkFIFO();
    MemReadClient#(Ddr3DataWidth) readClient = (interface MemReadClient;
       interface Get readReq = toGet(readReqFifo);
       interface Put readData = toPut(readDataFifo);
       endinterface);
 
-   MemServerIndicationProxy memProxy <- mkMemServerIndicationProxy(0, clocked_by ddr3Controller.uiClock, reset_by ddr3Controller.uiReset);
-
-   MemMgmt#(Ddr3AddrWidth, 1, 1) alloc <- mkMemMgmt(clocked_by ddr3Controller.uiClock, reset_by ddr3Controller.uiReset);
-   MemServer#(Ddr3AddrWidth, Ddr3DataWidth, 1) dma <- mkMemServer(vec(readClient), vec(writeClient), vec(alloc.mmu), memProxy.ifc, clocked_by ddr3Controller.uiClock, reset_by ddr3Controller.uiReset);
+   MemMgmt#(Ddr3AddrWidth, 1, 1) alloc <- mkMemMgmt();
+   MemServer#(Ddr3AddrWidth, Ddr3DataWidth, 1) dma <- mkMemServer(vec(readClient), vec(writeClient), vec(alloc.mmu), memind);
    Vector#(1, PhysMemSlave#(Ddr3AddrWidth, Ddr3DataWidth)) memSlaves <- replicateM(mkPhysMemSlave(ddr3Controller.axiBits, clocked_by ddr3Controller.uiClock, reset_by ddr3Controller.uiReset));
-   mkConnection(dma.masters, memSlaves);
+   for (Integer i=0; i<1; i=i+1) begin
+      mkConnectionWithClocks(dma.masters[i], memSlaves[i], clock, reset, ddr3Controller.uiClock, ddr3Controller.uiReset);
+   end
 
    Gearbox#(1,BusRatio,Bit#(DataBusWidth)) dramWriteGearbox <- mk1toNGearbox(clock, reset, clock, reset);
    FIFOF#(Vector#(BusRatio,Bit#(DataBusWidth))) dramWriteFifo <- mkDualClockBramFIFOF(clock, reset, ddr3Controller.uiClock, ddr3Controller.uiReset);
