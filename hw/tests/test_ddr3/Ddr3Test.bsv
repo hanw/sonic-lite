@@ -45,7 +45,7 @@ import HostInterface::*;
 import Probe::*;
 import Ddr3Controller::*;
 import SharedBuffMemServer::*;
-import MemMgmt::*;
+import SharedBuffMMU::*;
 import MemServerIndication::*;
 import GetPutWithClocks::*;
 
@@ -67,7 +67,7 @@ endinterface
 typedef TDiv#(Ddr3DataWidth,DataBusWidth) BusRatio;
 typedef TDiv#(Ddr3DataWidth,8) Ddr3DataBytes;
 
-module mkDdr3Test#(HostInterface host, Ddr3TestIndication indication, MemServerIndication memind)(Ddr3Test);
+module mkDdr3Test#(HostInterface host, Ddr3TestIndication indication, MemServerIndication memind, MMUIndication mmuInd)(Ddr3Test);
 
    let clock <- exposeCurrentClock();
    let reset <- exposeCurrentReset();
@@ -94,8 +94,8 @@ module mkDdr3Test#(HostInterface host, Ddr3TestIndication indication, MemServerI
       interface Put readData = toPut(readDataFifo);
       endinterface);
 
-   MemMgmt#(Ddr3AddrWidth, 1, 1) alloc <- mkMemMgmt();
-   MemServer#(Ddr3AddrWidth, Ddr3DataWidth, 1) dma <- mkMemServer(vec(readClient), vec(writeClient), vec(alloc.mmu), memind);
+   MMU#(Ddr3AddrWidth) mmu <- mkSimpleMMU(0, False, mmuInd);
+   MemServer#(Ddr3AddrWidth, Ddr3DataWidth, 1) dma <- mkMemServer(vec(readClient), vec(writeClient), vec(mmu), memind);
    Vector#(1, PhysMemSlave#(Ddr3AddrWidth, Ddr3DataWidth)) memSlaves <- replicateM(mkPhysMemSlave(ddr3Controller.axiBits, clocked_by ddr3Controller.uiClock, reset_by ddr3Controller.uiReset));
    for (Integer i=0; i<1; i=i+1) begin
       mkConnectionWithClocks(dma.masters[i], memSlaves[i], clock, reset, ddr3Controller.uiClock, ddr3Controller.uiReset);
