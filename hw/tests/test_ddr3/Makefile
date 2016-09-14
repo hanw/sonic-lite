@@ -2,7 +2,7 @@ CONNECTALDIR?=$(HOME)/dev/connectal
 SONICDIR?=$(DEV_ROOT)/sonic-lite/
 
 S2H_INTERFACES = Ddr3TestRequest:Ddr3Test.request
-H2S_INTERFACES = Ddr3Test:Ddr3TestIndication,MemServerIndication:host
+H2S_INTERFACES = Ddr3Test:Ddr3TestIndication,MemServerIndication,MMUIndication:host
 
 CONNECTALFLAGS += -D DataBusWidth=128
 CONNECTALFLAGS += -D IMPORT_HOSTIF -D XILINX_SYS_CLK -D ClockDefaultParam
