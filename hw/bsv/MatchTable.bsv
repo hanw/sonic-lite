@@ -35,7 +35,7 @@ import List::*;
 import Bcam::*;
 import BcamTypes::*;
 import PrintTrace::*;
- `include "ConnectalProjectConfig.bsv"
+`include "ConnectalProjectConfig.bsv"
 
 interface MatchTable#(numeric type id, numeric type depth, numeric type keySz, numeric type actionSz);
    interface Server#(Bit#(keySz), Maybe#(Bit#(actionSz))) lookupPort;
@@ -67,17 +67,14 @@ module mkMatchTable#(String name)(MatchTable#(id, depth, keySz, actionSz))
 
    MatchTable#(id, depth, keySz, actionSz) ret_ifc;
 `ifdef SIMULATION
-`ifndef SVDPI
    ret_ifc <- mkMatchTableBluesim(name);
-`else  // SVDPI
-   // ref_ifc <- mkMatchTableAxonnerve();
-`endif // !SVDPI
 `else  // !SIMULATION
    ret_ifc <- mkMatchTableSynth();
 `endif // SIMULATION
    return ret_ifc;
 endmodule
 
+`ifndef SIMULATION
 module mkMatchTableSynth(MatchTable#(id, depth, keySz, actionSz))
    provisos (NumAlias#(depthSz, TLog#(depth)),
              Mul#(a__, 256, b__),
@@ -172,7 +169,9 @@ module mkMatchTableSynth(MatchTable#(id, depth, keySz, actionSz))
       endmethod
    endinterface
 endmodule
+`endif
 
+`ifdef SIMULATION
 module mkMatchTableBluesim#(String name)(MatchTable#(id, depth, keySz, actionSz))
    provisos (MatchTable::MatchTableSim#(id, keySz, actionSz),
              Log#(depth, depthSz));
@@ -256,3 +255,4 @@ module mkMatchTableBluesim#(String name)(MatchTable#(id, depth, keySz, actionSz)
       endmethod
    endinterface
 endmodule
+`endif
