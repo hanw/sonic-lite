@@ -39,7 +39,6 @@ import Ethernet::*;
 import Utils::*;
 import ISA_Defs::*;
 import CPU_Common::*;
-import UnionGenerated::*;
 
 interface CPU;
    interface Client#(IMemRequest, IMemResponse) imem_client;
