@@ -121,8 +121,8 @@ module mkHeaderSerializer(HeaderSerializer);
          end
       end
 
-      dbprint(3, $format("rl_serialize_stage1 maskwidth=%d buffered %d nbytes %d nbits %d", fromInteger(valueOf(MaskWidth)), n_bytes_buffered, n_bytes_used, n_bits_used));
-      dbprint(3, $format("rl_serialize_stage1 ", fshow(data_in_ff.first)));
+      dbprint(3, $format("HeaderSerializer:rl_serialize_stage1 maskwidth=%d buffered %d nbytes %d nbits %d", fromInteger(valueOf(MaskWidth)), n_bytes_buffered, n_bytes_used, n_bits_used));
+      dbprint(3, $format("HeaderSerializer:rl_serialize_stage1 ", fshow(data_in_ff.first)));
    endrule
 
    (* mutually_exclusive = "rl_send_full_frame, rl_buffer_partial_frame, rl_eop_full_frame, rl_eop_partial_frame" *)
@@ -137,7 +137,7 @@ module mkHeaderSerializer(HeaderSerializer);
       let eth = EtherData {sop: sop_buff[1], eop: False, mask: 'hffff, data: data};
       sop_buff[1] <= False;
       data_out_ff.enq(eth);
-      dbprint(3, $format("rl_send_full_frame n_bytes_buffered=%d", n_bytes[1] - n_bytes_used, fshow(eth)));
+      dbprint(3, $format("HeaderSerializer:rl_send_full_frame n_bytes_buffered=%d", n_bytes[1] - n_bytes_used, fshow(eth)));
    endrule
 
    rule rl_buffer_partial_frame if (w_buff_frame);
@@ -149,7 +149,7 @@ module mkHeaderSerializer(HeaderSerializer);
       n_bits_buffered <= n_bits_used;
       data_buffered <= data;
       mask_buffered <= mask;
-      dbprint(3, $format("rl_buffer_partial_frame n_bytes_buffered=%d", n_bytes_used));
+      dbprint(3, $format("HeaderSerializer:rl_buffer_partial_frame n_bytes_buffered=%d", n_bytes_used));
    endrule
 
    rule rl_eop_full_frame if (w_send_last2);
@@ -160,7 +160,7 @@ module mkHeaderSerializer(HeaderSerializer);
       n_bits_buffered <= n_bits[1] - n_bits_used;
       let eth = EtherData {sop: False, eop: True, mask: 'hffff, data: data};
       data_out_ff.enq(eth);
-      dbprint(3, $format("rl_end_of_packet_full_frame n_bytes_buffered=%d", n_bytes[1] - n_bytes_used));
+      dbprint(3, $format("HeaderSerializer:rl_eop_full_frame n_bytes_buffered=%d", n_bytes[1] - n_bytes_used));
    endrule
 
    rule rl_eop_partial_frame if (w_send_last1);
@@ -170,7 +170,7 @@ module mkHeaderSerializer(HeaderSerializer);
       n_bits_buffered <= 0;
       let eth = EtherData {sop: False, eop: True, mask: mask, data: data};
       data_out_ff.enq(eth);
-      dbprint(3, $format("rl_end_of_packet_partial_frame ", fshow(eth)));
+      dbprint(3, $format("HeaderSerializer:rl_eop_partial_frame ", fshow(eth)));
    endrule
 
    interface PktWriteServer writeServer;

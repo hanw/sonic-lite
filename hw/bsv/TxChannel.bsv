@@ -79,7 +79,7 @@ module mkTxChannel#(Clock txClock, Reset txReset)(TxChannel);
       rx_prev_req_info.deq;
       let meta = req.meta;
       let pkt = req.pkt;
-      $display("(%0d) Event: ", $time, fshow(req));
+      $display("(%0d) TxChannel:handle_request ", $time, fshow(req));
       egress.eventPktSend.enq(pkt);
       deparser.metadata.enq(meta);
    endrule
