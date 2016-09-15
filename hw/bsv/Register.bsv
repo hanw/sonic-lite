@@ -30,18 +30,22 @@ import RegFile::*;
 import Vector::*;
 import DefaultValue::*;
 import ConnectalBram::*;
-import ConnectalTypes::*;
+`include "ConnectalProjectConfig.bsv"
 
-// typedef struct {
-//    Bit#(addrSz) addr;
-//    Bit#(dataSz) data;
-//    Bool write;
-// } RegRequest#(numeric type addrSz, numeric type dataSz) deriving (Bits, Eq);
-// 
-// typedef struct {
-//    Bit#(dataSz) data;
-// } RegResponse#(numeric type dataSz) deriving (Bits, Eq);
-// 
+`ifdef CONNECTAL_TYPE
+import ConnectalTypes::*;
+`else
+typedef struct {
+   Bit#(addrSz) addr;
+   Bit#(dataSz) data;
+   Bool write;
+} RegRequest#(numeric type addrSz, numeric type dataSz) deriving (Bits, Eq);
+
+typedef struct {
+   Bit#(dataSz) data;
+} RegResponse#(numeric type dataSz) deriving (Bits, Eq);
+`endif
+
 interface RegisterIfc#(numeric type asz, numeric type dsz);
 endinterface
 
