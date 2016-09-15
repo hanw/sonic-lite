@@ -452,14 +452,14 @@ typedef struct {
    Maybe#(Bit#(16)) etherType; // ethernet$etherType
    Maybe#(Bit#(8))  protocol; // ipv4$protocol
    Maybe#(Bit#(16)) dstPort; // ipv4$dstPort
-   Maybe#(Bit#(InstanceSize)) paxos$inst; // paxos$inst
-   Maybe#(Bit#(RoundSize)) paxos$rnd;
-   Maybe#(Bit#(RoundSize)) paxos$vrnd;
-   Maybe#(Bit#(ValueLenSize)) paxos$valuelen;
-   Maybe#(Bit#(ValueSize)) paxos$paxosval;
-   Maybe#(Bit#(16)) paxos$acptid;
    Maybe#(Bit#(16)) paxos$msgtype;
-   Maybe#(Bit#(RoundSize)) paxos_packet_meta$round;
+   Maybe#(Bit#(32)) paxos$inst; // paxos$inst
+   Maybe#(Bit#(16)) paxos$rnd;
+   Maybe#(Bit#(16)) paxos$vrnd;
+   Maybe#(Bit#(16)) paxos$acptid;
+   Maybe#(Bit#(32)) paxos$valuelen;
+   Maybe#(Bit#(256)) paxos$paxosval;
+   Maybe#(Bit#(16)) paxos_packet_meta$round;
    Maybe#(Role) switch_metadata$role;
    Maybe#(Bool) valid_ethernet;
    Maybe#(Bool) valid_arp;
@@ -504,12 +504,13 @@ instance FShow#(MetadataT);
              $format("dstPort=", fshow(p.dstPort), ",")+
              $format("role=", fshow(p.switch_metadata$role), ",")+
              $format("round=", fshow(p.paxos_packet_meta$round), ",")+
+             $format("paxos$msgtype=", fshow(p.paxos$msgtype))+
              $format("paxos$inst=", fshow(p.paxos$inst), ",")+
              $format("paxos$rnd=", fshow(p.paxos$rnd), ",")+
              $format("paxos$vrnd=", fshow(p.paxos$vrnd), ",")+
-             $format("paxos$val=", fshow(p.paxos$paxosval), ",")+
              $format("paxos$acpt=", fshow(p.paxos$acptid), ",")+
-             $format("paxos$msgtype=", fshow(p.paxos$msgtype));
+             $format("paxos$valuelen=", fshow(p.paxos$valuelen), ",")+
+             $format("paxos$val=", fshow(p.paxos$paxosval), ",");
    endfunction
 endinstance
 
