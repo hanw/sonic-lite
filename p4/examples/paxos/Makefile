@@ -40,8 +40,8 @@ CONNECTALFLAGS += -m $(P4FPGADIR)/bsv/matchtable_model.cpp
 CONNECTALFLAGS += --nocache
 CONNECTALFLAGS += --cxxflags=-std=c++11
 
-#CONNECTALFLAGS += -D PARSER=Paxos
-CONNECTALFLAGS += -D PARSER=Parser
+CONNECTALFLAGS += -D PARSER=Paxos
+#CONNECTALFLAGS += -D PARSER=Parser
 CONNECTALFLAGS += -D DEPARSER=Deparser
 CONNECTALFLAGS += -D TYPEDEF=PaxosTypes
 CONNECTALFLAGS += -D MATCHTABLE=MatchTableSim
@@ -104,13 +104,13 @@ run:
 	(cd bluesim; ./bin/ubuntu.exe -p ../paxos.pcap)
 
 run-coo:
-	(cd bluesim; ./bin/ubuntu.exe -p ../paxosv02.pcap -C)
+	(cd bluesim; ./bin/ubuntu.exe -p ../paxos.pcap -C)
 
 run-acc:
-	(cd bluesim; ./bin/ubuntu.exe -p ../paxosv02.pcap -A)
+	(cd bluesim; ./bin/ubuntu.exe -p ../paxos.pcap -A)
 
 run-pktgen:
-	(cd bluesim; ./bin/ubuntu.exe -p ../paxosv02.pcap -r 2 -n 100)
+	(cd bluesim; ./bin/ubuntu.exe -p ../paxos.pcap -r 2 -n 100)
 
 run-small:
 	(cd bluesim; ./bin/ubuntu.exe -p ../tests/udp-small.pcap)

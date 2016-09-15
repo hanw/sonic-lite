@@ -525,11 +525,22 @@ interface Parser;
     //interface PipeOut#(ParserState) parserState;
     interface Get#(MetadataT) meta;
     method ParserPerfRec read_perf_info;
+   method Action set_verbosity(int verbosity);
 endinterface
 
 typedef 4 PortMax;
 (* synthesize *)
 module mkParser(Parser);
+    // verbosity
+    Reg#(int) cr_verbosity[2] <- mkCRegU(2);
+    FIFOF#(int) cr_verbosity_ff <- mkFIFOF;
+
+    rule rl_verbosity;
+        let x = cr_verbosity_ff.first;
+        cr_verbosity_ff.deq;
+        cr_verbosity[1] <= x;
+    endrule
+
     let verbose = True;
     Reg#(ParserState) curr_state <- mkReg(StateStart);
     Reg#(Bool) started <- mkReg(False);
@@ -605,19 +616,22 @@ module mkParser(Parser);
       let protocol <- toGet(parse_ipv4.parsedOut_ipv4_protocol).get;
       let paxos <- toGet(parse_paxos.parsedOut_paxos_msgtype).get;
       let dstPort <- toGet(parse_udp.parsedOut_udp_dstPort).get;
-      if (verbose) $display("(%0d) HostChannel: dstAddr=%h", $time, dstAddr);
-      if (verbose) $display("(%0d) HostChannel: msgtype=%h", $time, paxos.msgtype);
+        if (cr_verbosity[0] > 0)
+            $display("(%0d) HostChannel: dstAddr=%h", $time, dstAddr);
+        if (cr_verbosity[0] > 0)
+            $display("(%0d) HostChannel: msgtype=%h", $time, paxos.msgtype);
       MetadataT meta = defaultValue;
       meta.etherType = tagged Valid etherType;
       meta.dstAddr = tagged Valid dstAddr;
       meta.dstPort = tagged Valid dstPort;
       meta.protocol = tagged Valid protocol;
-      meta.paxos$msgtype = tagged Valid byteSwap(paxos.msgtype);
-      meta.paxos$inst = tagged Valid byteSwap(paxos.inst);
-      meta.paxos$rnd = tagged Valid byteSwap(paxos.rnd);
-      meta.paxos$vrnd = tagged Valid byteSwap(paxos.vrnd);
-      meta.paxos$paxosval = tagged Valid byteSwap(paxos.paxosval);
-      meta.paxos$acptid = tagged Valid byteSwap(paxos.acptid);
+      meta.paxos$msgtype = tagged Valid (paxos.msgtype);
+      meta.paxos$inst = tagged Valid (paxos.inst);
+      meta.paxos$rnd = tagged Valid (paxos.rnd);
+      meta.paxos$vrnd = tagged Valid (paxos.vrnd);
+      meta.paxos$valuelen = tagged Valid (paxos.valuelen);
+      meta.paxos$paxosval = tagged Valid (paxos.paxosval);
+      meta.paxos$acptid = tagged Valid (paxos.acptid);
       meta.valid_paxos = tagged Valid True;
       meta.valid_ipv4 = tagged Valid True;
       meta.valid_ethernet = tagged Valid True;
@@ -630,7 +644,8 @@ module mkParser(Parser);
       parse_state_out_fifo.deq;
       let dstAddr <- toGet(parse_ethernet.parsedOut_ethernet_dstAddr).get;
       // forward to drop table
-      if (verbose) $display("(%0d) HostChannel unknown ipv6: dstAddr=%h, size=%d", $time, dstAddr);
+      if (cr_verbosity[0] > 0)
+        $display("(%0d) HostChannel unknown ipv6: dstAddr=%h, size=%d", $time, dstAddr);
       MetadataT meta = defaultValue;
       meta.dstAddr = tagged Valid dstAddr;
       meta.valid_ipv6 = tagged Valid True;
@@ -641,7 +656,8 @@ module mkParser(Parser);
    rule handle_unknown_udp_packet if (parse_state_out_fifo.first == StateParseUdp);
       parse_state_out_fifo.deq;
       let dstAddr <- toGet(parse_ethernet.parsedOut_ethernet_dstAddr).get;
-      if (verbose) $display("(%0d) HostChannel unknown udp: dstAddr=%h, size=%d", $time, dstAddr);
+      if (cr_verbosity[0] > 0)
+        $display("(%0d) HostChannel unknown udp: dstAddr=%h, size=%d", $time, dstAddr);
       MetadataT meta = defaultValue;
       meta.dstAddr = tagged Valid dstAddr;
       meta.valid_udp = tagged Valid True;
@@ -657,5 +673,9 @@ module mkParser(Parser);
          parser_end_time: parser_end_time
       };
     endmethod
+   method Action set_verbosity(int verbosity);
+      cr_verbosity_ff.enq(verbosity);
+   endmethod
+
 endmodule
 
