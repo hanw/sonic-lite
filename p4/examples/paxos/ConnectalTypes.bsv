@@ -4,6 +4,7 @@ typedef 16 RoundSize;
 typedef 16 MsgTypeSize;
 typedef 16 DatapathSize;
 typedef 32 InstanceSize;
+typedef 32 ValueLenSize;
 typedef 256 ValueSize;
 typedef 1024 InstanceCount;
 

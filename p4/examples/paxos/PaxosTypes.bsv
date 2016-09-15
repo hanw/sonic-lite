@@ -42,6 +42,7 @@ typedef union tagged {
       PacketInstance pkt;
       Bit#(InstanceSize) inst;
       Bit#(RoundSize) rnd;
+      Bit#(32) valuelen;
       Bit#(ValueSize) paxosval;
    } BBHandle2aRequest;
    struct {
@@ -454,7 +455,8 @@ typedef struct {
    Maybe#(Bit#(InstanceSize)) paxos$inst; // paxos$inst
    Maybe#(Bit#(RoundSize)) paxos$rnd;
    Maybe#(Bit#(RoundSize)) paxos$vrnd;
-   Maybe#(Bit#(256)) paxos$paxosval;
+   Maybe#(Bit#(ValueLenSize)) paxos$valuelen;
+   Maybe#(Bit#(ValueSize)) paxos$paxosval;
    Maybe#(Bit#(16)) paxos$acptid;
    Maybe#(Bit#(16)) paxos$msgtype;
    Maybe#(Bit#(RoundSize)) paxos_packet_meta$round;
@@ -479,6 +481,7 @@ MetadataT {
    paxos$rnd: tagged Invalid,
    paxos$vrnd: tagged Invalid,
    paxos$paxosval: tagged Invalid,
+   paxos$valuelen: tagged Invalid,
    paxos$acptid: tagged Invalid,
    paxos$msgtype: tagged Invalid,
    paxos_packet_meta$round: tagged Invalid,
