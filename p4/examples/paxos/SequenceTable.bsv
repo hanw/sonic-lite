@@ -95,20 +95,18 @@ module mkSequenceTable#(MetadataClient md)(SequenceTable);
    ConfigCounter#(64) pktIn <- mkConfigCounter(0);
    ConfigCounter#(64) pktOut <- mkConfigCounter(0);
 
-   MatchTable#(256, SizeOf#(SequenceTblReqT), SizeOf#(SequenceTblRespT)) matchTable <- mkMatchTable_256_sequenceTable();
+   MatchTable#(0, 256, SizeOf#(SequenceTblReqT), SizeOf#(SequenceTblRespT)) matchTable <- mkMatchTable_256_sequenceTable();
 
    rule lookup_request;
       let v <- md.request.get;
-      case (v) matches
-         tagged SequenceTblRequest { pkt: .pkt, meta: .meta } : begin
-            SequenceTblReqT req = SequenceTblReqT {msgtype: fromMaybe(?, meta.paxos$msgtype), padding:0};
-            matchTable.lookupPort.request.put(pack(req));
-            if (verbose) $display("(%0d) Sequence: %h", $time, pkt.id, fshow(meta.paxos$msgtype));
-            currPacketFifo.enq(pkt);
-            currMetadataFifo.enq(meta);
-            pktIn.increment(1);
-         end
-      endcase
+      let meta = v.meta;
+      let pkt = v.pkt;
+      SequenceTblReqT req = SequenceTblReqT {msgtype: fromMaybe(?, meta.paxos$msgtype), padding:0};
+      matchTable.lookupPort.request.put(pack(req));
+      if (verbose) $display("(%0d) Sequence: %h", $time, pkt.id, fshow(meta.paxos$msgtype));
+      currPacketFifo.enq(pkt);
+      currMetadataFifo.enq(meta);
+      pktIn.increment(1);
    endrule
 
    rule lookup_response;
@@ -143,7 +141,7 @@ module mkSequenceTable#(MetadataClient md)(SequenceTable);
          tagged BBIncreaseInstanceResponse {pkt: .pkt, inst: .inst}: begin
             if (verbose) $display("(%0d) increase instance: %h", $time, inst);
             meta.paxos$inst = tagged Valid inst;
-            MetadataResponse meta_resp = tagged SequenceTblResponse {pkt: pkt, meta: meta};
+            MetadataResponse meta_resp = MetadataResponse {pkt: pkt, meta: meta};
             $display("(%0d) seq metadata", $time, fshow(meta));
             md.response.put(meta_resp);
             pktOut.increment(1);

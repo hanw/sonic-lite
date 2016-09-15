@@ -28,9 +28,8 @@ struct pcap_trace_info {
 
 /* mem_copy must be provided by each test */
 void mem_copy(const void *buff, int length);
-int read_pcap_file(const char* filename, void** buffer, long *length);
-int parse_pcap_file(void *buffer, long length);
 void load_pcap_file(const char *filename, struct pcap_trace_info *);
+void inject_pcap_file(const void *buff);
 const char* get_exe_name(const char* argv0);
 int compute_idle (const struct pcap_trace_info *info, double rate, double link_speed);
 

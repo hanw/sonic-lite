@@ -33,6 +33,7 @@ import MatchTable::*;
 import PaxosTypes::*;
 import Register::*;
 
+`include "ConnectalProjectConfig.bsv"
 interface BasicBlockForward;
    interface BBServer prev_control_state;
 endinterface
@@ -68,7 +69,7 @@ endinterface
 module mkDstMacTable#(MetadataClient md)(DstMacTable);
    let verbose = True;
    // internal bcam match table
-   MatchTable#(256, SizeOf#(DmacTblReqT), SizeOf#(DmacTblRespT)) matchTable <- mkMatchTable_256_dmacTable();
+   MatchTable#(0, 256, SizeOf#(DmacTblReqT), SizeOf#(DmacTblRespT)) matchTable <- mkMatchTable_256_dmacTable();
 
    FIFO#(BBRequest) outReqFifo <- mkFIFO;
    FIFO#(BBResponse) inRespFifo <- mkFIFO;
@@ -90,18 +91,13 @@ module mkDstMacTable#(MetadataClient md)(DstMacTable);
 
    rule dmac_lookup;
       let v <- md.request.get;
-      case (v) matches
-         tagged DstMacLookupRequest { pkt: .pkt, meta: .meta } : begin
-            DmacTblReqT req = DmacTblReqT {dstAddr: fromMaybe(?, meta.dstAddr), padding: 0};
-            matchTable.lookupPort.request.put(pack(req));
-            currPacketFifo.enq(pkt);
-            currMetadataFifo.enq(meta);
-            pktIn.increment(1);
-         end
-         default: begin
-            if (verbose) $display("(%0d) DstMacTable: unknown request type");
-         end
-      endcase
+      let meta = v.meta;
+      let pkt = v.pkt;
+      DmacTblReqT req = DmacTblReqT {dstAddr: fromMaybe(?, meta.dstAddr), padding: 0};
+      matchTable.lookupPort.request.put(pack(req));
+      currPacketFifo.enq(pkt);
+      currMetadataFifo.enq(meta);
+      pktIn.increment(1);
    endrule
 
    rule dmac_resp;
@@ -125,7 +121,7 @@ module mkDstMacTable#(MetadataClient md)(DstMacTable);
       case (v) matches
          tagged BBForwardResponse { pkt: .pkt, egress: .egress } : begin
             $display("(%0d) DstMacTable: fwd egress %h", $time, egress);
-            MetadataResponse resp = tagged DstMacResponse {pkt: pkt, meta: meta};
+            MetadataResponse resp = MetadataResponse {pkt: pkt, meta: meta};
             md.response.put(resp);
          end
          default: begin

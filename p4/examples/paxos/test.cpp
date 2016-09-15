@@ -193,6 +193,7 @@ int main(int argc, char **argv)
 
     parse_options(argc, argv, &pcap_file, &arguments);
 
+    device->set_verbosity(2);
     device->read_version();
 
     device->datapath_id_reg_write(arguments.acptid);

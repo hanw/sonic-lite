@@ -37,6 +37,7 @@ import StoreAndForward::*;
 import SharedBuff::*;
 import Tap::*;
 import HostChannel::*;
+`include "ConnectalProjectConfig.bsv"
 
 interface RxChannel;
    interface Put#(PacketDataT#(64)) macRx;

@@ -200,7 +200,7 @@ endinterface
 module mkAcceptorTable#(MetadataClient md)(AcceptorTable);
    let verbose = True;
 
-   MatchTable#(256, SizeOf#(AcceptorTblReqT), SizeOf#(AcceptorTblRespT)) matchTable <- mkMatchTable_256_acceptorTable();
+   MatchTable#(0, 256, SizeOf#(AcceptorTblReqT), SizeOf#(AcceptorTblRespT)) matchTable <- mkMatchTable_256_acceptorTable();
 
    Vector#(3, FIFOF#(BBRequest)) bbReqFifo <- replicateM(mkFIFOF());
    Vector#(3, FIFOF#(BBResponse)) bbRespFifo <- replicateM(mkFIFOF());
@@ -224,16 +224,14 @@ module mkAcceptorTable#(MetadataClient md)(AcceptorTable);
 
    rule lookup_request;
       let v <- md.request.get;
-      case (v) matches
-         tagged AcceptorTblRequest {pkt: .pkt, meta: .meta} : begin
-            AcceptorTblReqT req = AcceptorTblReqT {msgtype: fromMaybe(?, meta.paxos$msgtype), padding:0};
-            matchTable.lookupPort.request.put(pack(req));
-            if (verbose) $display("(%0d) Acceptor: %h ", $time, pkt.id, fshow(meta.paxos$msgtype));
-            currPacketFifo.enq(pkt);
-            currMetadataFifo.enq(meta);
-            pktIn.increment(1);
-         end
-      endcase
+      let meta = v.meta;
+      let pkt = v.pkt;
+      AcceptorTblReqT req = AcceptorTblReqT {msgtype: fromMaybe(?, meta.paxos$msgtype), padding:0};
+      matchTable.lookupPort.request.put(pack(req));
+      if (verbose) $display("(%0d) Acceptor: %h ", $time, pkt.id, fshow(meta.paxos$msgtype));
+      currPacketFifo.enq(pkt);
+      currMetadataFifo.enq(meta);
+      pktIn.increment(1);
    endrule
 
    rule lookup_response;
@@ -288,7 +286,7 @@ module mkAcceptorTable#(MetadataClient md)(AcceptorTable);
             meta.paxos$vrnd = tagged Valid vrnd;
             meta.paxos$paxosval = tagged Valid value;
             meta.paxos$acptid = tagged Valid dp;
-            MetadataResponse meta_resp = tagged AcceptorTblResponse {pkt: pkt, meta: meta};
+            MetadataResponse meta_resp = MetadataResponse {pkt: pkt, meta: meta};
             md.response.put(meta_resp);
             pktOut.increment(1);
          end
@@ -296,13 +294,13 @@ module mkAcceptorTable#(MetadataClient md)(AcceptorTable);
             if (verbose) $display("(%0d) handle_2a: read/write register", $time);
             meta.paxos$msgtype = tagged Valid zeroExtend(pack(PAXOS_2B));
             meta.paxos$acptid = tagged Valid dp;
-            MetadataResponse meta_resp = tagged AcceptorTblResponse {pkt: pkt, meta: meta};
+            MetadataResponse meta_resp = MetadataResponse {pkt: pkt, meta: meta};
             md.response.put(meta_resp);
             pktOut.increment(1);
          end
          tagged BBDropResponse {pkt: .pkt}: begin
             if (verbose) $display("(%0d) drop", $time);
-            MetadataResponse meta_resp = tagged AcceptorTblResponse {pkt: pkt, meta: meta};
+            MetadataResponse meta_resp = MetadataResponse {pkt: pkt, meta: meta};
             md.response.put(meta_resp);
             pktOut.increment(1);
          end

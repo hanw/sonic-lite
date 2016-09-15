@@ -11,75 +11,18 @@ import Vector::*;
 import DefaultValue::*;
 import ConnectalTypes::*;
 import Utils::*;
+`include "ConnectalProjectConfig.bsv"
 
 import `MATCHTABLE::*;
 
-typedef union tagged {
-   struct {
-      PacketInstance pkt;
-   } PacketMemRequest;
-
-   struct {
-      PacketInstance pkt;
-      MetadataT meta;
-   } DstMacLookupRequest;
-
-   struct {
-      PacketInstance pkt;
-      MetadataT meta;
-   } RoleLookupRequest;
-
-   struct {
-      PacketInstance pkt;
-      MetadataT meta;
-   } RoundTblRequest;
-
-   struct {
-      PacketInstance pkt;
-      MetadataT meta;
-   } SequenceTblRequest;
-
-   struct {
-      PacketInstance pkt;
-      MetadataT meta;
-   } AcceptorTblRequest;
-
-   struct {
-      PacketInstance pkt;
-      MetadataT meta;
-   } ForwardQueueRequest;
-
-   struct {
-      PacketInstance pkt;
-      MetadataT meta;
-   } DefaultRequest;
+typedef struct {
+   PacketInstance pkt;
+   MetadataT meta;
 } MetadataRequest deriving (Bits, Eq, FShow);
 
-typedef union tagged {
-   struct {
-      PacketInstance pkt;
-      MetadataT meta;
-   } DstMacResponse;
-
-   struct {
-      PacketInstance pkt;
-      MetadataT meta;
-   } RoleResponse;
-
-   struct {
-      PacketInstance pkt;
-      MetadataT meta;
-   } RoundTblResponse;
-
-   struct {
-      PacketInstance pkt;
-      MetadataT meta;
-   } SequenceTblResponse;
-
-   struct {
-      PacketInstance pkt;
-      MetadataT meta;
-   } AcceptorTblResponse;
+typedef struct {
+   PacketInstance pkt;
+   MetadataT meta;
 } MetadataResponse deriving (Bits, Eq, FShow);
 
 typedef union tagged {
@@ -614,20 +557,21 @@ typedef struct {
 } AcceptorTblRespT deriving (Bits, Eq, FShow);
 
 (* synthesize *)
-module mkMatchTable_256_dmacTable(MatchTable#(256, SizeOf#(DmacTblReqT), SizeOf#(DmacTblRespT)));
-   MatchTable#(256, SizeOf#(DmacTblReqT), SizeOf#(DmacTblRespT)) ifc <- mkMatchTable();
+module mkMatchTable_256_dmacTable(MatchTable#(0, 256, SizeOf#(DmacTblReqT), SizeOf#(DmacTblRespT)));
+   (* hide *)
+   MatchTable#(0, 256, SizeOf#(DmacTblReqT), SizeOf#(DmacTblRespT)) ifc <- mkMatchTable("dmac_tbl");
    return ifc;
 endmodule
 
 (* synthesize *)
-module mkMatchTable_256_acceptorTable(MatchTable#(256, SizeOf#(AcceptorTblReqT), SizeOf#(AcceptorTblRespT)));
-   MatchTable#(256, SizeOf#(AcceptorTblReqT), SizeOf#(AcceptorTblRespT)) ifc <- mkMatchTable();
+module mkMatchTable_256_acceptorTable(MatchTable#(0, 256, SizeOf#(AcceptorTblReqT), SizeOf#(AcceptorTblRespT)));
+   MatchTable#(0, 256, SizeOf#(AcceptorTblReqT), SizeOf#(AcceptorTblRespT)) ifc <- mkMatchTable("acceptor_tbl");
    return ifc;
 endmodule
 
 (* synthesize *)
-module mkMatchTable_256_sequenceTable(MatchTable#(256, SizeOf#(SequenceTblReqT), SizeOf#(SequenceTblRespT)));
-   MatchTable#(256, SizeOf#(SequenceTblReqT), SizeOf#(SequenceTblRespT)) ifc <- mkMatchTable();
+module mkMatchTable_256_sequenceTable(MatchTable#(0, 256, SizeOf#(SequenceTblReqT), SizeOf#(SequenceTblRespT)));
+   MatchTable#(0, 256, SizeOf#(SequenceTblReqT), SizeOf#(SequenceTblRespT)) ifc <- mkMatchTable("sequence_tbl");
    return ifc;
 endmodule
 

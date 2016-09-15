@@ -80,33 +80,27 @@ endinterface
 module mkRoleTable#(MetadataClient md)(RoleTable);
    FIFO#(BBRequest) outReqFifo <- mkFIFO;
    FIFO#(BBResponse) inRespFifo <- mkFIFO;
-   FIFO#(PacketInstance) currPacketFifo <- mkFIFO;
    FIFO#(MetadataT) currMetadataFifo <- mkFIFO;
 
    rule tableLookupRequest;
       let v <- md.request.get;
-      case (v) matches
-         tagged RoleLookupRequest {pkt: .pkt, meta: .meta}: begin
-            BBRequest req;
-            req = tagged BBRoleRequest {pkt: pkt};
-            $display("(%0d) Role: table lookup request", $time);
-            outReqFifo.enq(req);
-            currPacketFifo.enq(pkt);
-            currMetadataFifo.enq(meta);
-         end
-      endcase
+      let meta = v.meta;
+      let pkt = v.pkt;
+      BBRequest req = tagged BBRoleRequest {pkt: pkt};
+      $display("(%0d) Role: table lookup request", $time);
+      outReqFifo.enq(req);
+      currMetadataFifo.enq(meta);
    endrule
 
    rule readRoleResp;
       let v <- toGet(inRespFifo).get;
       let meta <- toGet(currMetadataFifo).get;
-      let pkt <- toGet(currPacketFifo).get;
       if (v matches tagged BBRoleResponse {pkt: .pkt, role: .role}) begin
          $display("(%0d) Role: BB response role=%h", $time, role);
          meta.switch_metadata$role = tagged Valid role;
+         MetadataResponse resp = MetadataResponse { pkt: pkt, meta: meta};
+         md.response.put(resp);
       end
-      MetadataResponse resp = tagged RoleResponse { pkt: pkt, meta: meta};
-      md.response.put(resp);
    endrule
    interface next_control_state_0 = (interface BBClient;
       interface request = toGet(outReqFifo);

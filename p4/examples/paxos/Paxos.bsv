@@ -170,7 +170,6 @@ module mkStateParseArp#(Reg#(ParserState) state, FIFOF#(EtherData) datain)(Parse
             end
         end
     endrule
-    
     rule load_packet if (state == StateParseArp);
         let data_current <- toGet(datain).get;
         packet_in_wire <= data_current.data;

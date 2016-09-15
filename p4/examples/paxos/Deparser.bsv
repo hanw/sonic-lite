@@ -572,12 +572,23 @@ interface Deparser;
    interface PktWriteServer writeServer;
    interface PktWriteClient writeClient;
    method DeparserPerfRec read_perf_info;
+   method Action set_verbosity(int verbosity);
 endinterface
 
 typedef 4 PortMax;
 (* synthesize *)
 module mkDeparser(Deparser);
    let verbose = False;
+   // verbosity
+   Reg#(int) cr_verbosity[2] <- mkCRegU(2);
+   FIFOF#(int) cr_verbosity_ff <- mkFIFOF;
+
+   rule rl_verbosity;
+      let x = cr_verbosity_ff.first;
+      cr_verbosity_ff.deq;
+      cr_verbosity[1] <= x;
+   endrule
+
    FIFOF#(EtherData) data_in_fifo <- mkSizedFIFOF(4);
    FIFOF#(EtherData) data_out_fifo <- mkFIFOF;
    FIFOF#(MetadataT) metadata_in_fifo <- mkFIFOF;
@@ -703,5 +714,8 @@ module mkDeparser(Deparser);
          deparser_start_time: deparser_start_time,
          deparser_end_time: deparser_end_time
       };
+   endmethod
+   method Action set_verbosity(int verbosity);
+      cr_verbosity_ff.enq(verbosity);
    endmethod
 endmodule

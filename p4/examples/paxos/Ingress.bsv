@@ -42,10 +42,11 @@ import RoleTable::*;
 import RoundTable::*;
 import SequenceTable::*;
 import Vector::*;
+`include "ConnectalProjectConfig.bsv"
 
 interface Ingress;
    interface MemWriteClient#(`DataBusWidth) writeClient;
-   interface PipeOut#(MetadataRequest) eventPktSend;
+   interface Client#(MetadataRequest, MetadataResponse) next;
    interface Get#(Role) role_reg_read_resp;
    method Action datapath_id_reg_write(Bit#(DatapathSize) datapath);
    method Action instance_reg_write(Bit#(InstanceSize) instance_);
@@ -66,8 +67,8 @@ module mkIngress#(Vector#(numClients, MetadataClient) mdc)(Ingress);
    let verbose = True;
    Reg#(LUInt) fwdCount <- mkReg(0);
    FIFOF#(MetadataRequest) currPacketFifo <- mkFIFOF;
-   FIFO#(MetadataRequest) inReqFifo <- mkFIFO;
-   FIFO#(MetadataResponse) outRespFifo <- mkFIFO;
+   FIFOF#(MetadataRequest) inReqFifo <- mkFIFOF;
+   FIFOF#(MetadataResponse) outRespFifo <- mkFIFOF;
 
    Vector#(numClients, MetadataServer) metadataServers = newVector;
    for (Integer i=0; i<valueOf(numClients); i=i+1) begin
@@ -79,18 +80,19 @@ module mkIngress#(Vector#(numClients, MetadataClient) mdc)(Ingress);
    mkConnection(mdc, metadataServers);
 
    // Request/Response Fifos
-   FIFO#(MetadataRequest) dmacReqFifo <- mkFIFO;
-   FIFO#(MetadataRequest) roleReqFifo <- mkFIFO;
-   FIFO#(MetadataRequest) roundReqFifo <- mkFIFO;
-   FIFO#(MetadataRequest) sequenceReqFifo <- mkFIFO;
-   FIFO#(MetadataRequest) acceptorReqFifo <- mkFIFO;
-   // FIFO#(MetadataRequest) dropRequestFifo <- mkFIFO;
-   FIFO#(MetadataResponse) dmacRespFifo <- mkFIFO;
-   FIFO#(MetadataResponse) roleRespFifo <- mkFIFO;
-   FIFO#(MetadataResponse) roundRespFifo <- mkFIFO;
-   FIFO#(MetadataResponse) sequenceRespFifo <- mkFIFO;
-   FIFO#(MetadataResponse) acceptorRespFifo <- mkFIFO;
-   // FIFO#(MetadataResponse) dropResponseFifo <- mkFIFO;
+   FIFOF#(MetadataRequest) dmacReqFifo <- mkFIFOF;
+   FIFOF#(MetadataRequest) roleReqFifo <- mkFIFOF;
+   FIFOF#(MetadataRequest) roundReqFifo <- mkFIFOF;
+   FIFOF#(MetadataRequest) sequenceReqFifo <- mkFIFOF;
+   FIFOF#(MetadataRequest) acceptorReqFifo <- mkFIFOF;
+   FIFOF#(MetadataResponse) dmacRespFifo <- mkFIFOF;
+   FIFOF#(MetadataResponse) roleRespFifo <- mkFIFOF;
+   FIFOF#(MetadataResponse) roundRespFifo <- mkFIFOF;
+   FIFOF#(MetadataResponse) sequenceRespFifo <- mkFIFOF;
+   FIFOF#(MetadataResponse) acceptorRespFifo <- mkFIFOF;
+
+   FIFOF#(MetadataRequest) next_req_ff <- mkFIFOF;
+   FIFOF#(MetadataResponse) next_rsp_ff <- mkFIFOF;
 
    Reg#(Bit#(32)) clk_cnt <- mkReg(0);
    Reg#(Bit#(32)) ingress_start_time <- mkReg(0);
@@ -141,12 +143,17 @@ module mkIngress#(Vector#(numClients, MetadataClient) mdc)(Ingress);
       roleRegReadFifo.enq(unpack(v.data));
    endrule
 
-   RegisterIfc#(1, SizeOf#(Role)) roleReg <- mkP4Register(vec(bb_read_role.regClient, toGPClient(roleRegReqFifo, roleRegRespFifo)));
-   RegisterIfc#(1, DatapathSize) datapathIdReg <- mkP4Register(vec(bb_handle_2a.regClient_datapath_id, bb_handle_1a.regClient_datapath_id, toGPClient(datapathIdRegReqFifo, datapathIdRegRespFifo)));
-   RegisterIfc#(1, InstanceSize) instanceReg <- mkP4Register(vec(bb_increase_instance.regClient, toGPClient(instanceRegReqFifo, instanceRegRespFifo)));
-   RegisterIfc#(TLog#(InstanceCount), RoundSize) roundReg <- mkP4Register(vec(bb_read_round.regClient, bb_handle_2a.regClient_round, bb_handle_1a.regClient_round, toGPClient(roundRegReqFifo, roundRegRespFifo)));
-   RegisterIfc#(TLog#(InstanceCount), RoundSize) vroundReg <- mkP4Register(vec(bb_handle_1a.regClient_vround, bb_handle_2a.regClient_vround, toGPClient(vroundRegReqFifo, vroundRegRespFifo)));
-   RegisterIfc#(TLog#(InstanceCount), ValueSize) valueReg <- mkP4Register(vec(bb_handle_1a.regClient_value, bb_handle_2a.regClient_value, toGPClient(valueRegReqFifo, valueRegRespFifo)));
+   //Vector#(1, Client#(RoleRegRequest, RoleRegResponse)) role_clients = newVector();
+   //role_clients[0] = bb_read_role.regClient;
+   //role_clients[1] = toGPClient(roleRegReqFifo, roleRegRespFifo);
+   //RegisterIfc#(1, SizeOf#(Role)) roleReg <- mkP4Register(role_clients);
+   // zipWithM_(mkConnection, role_clients, roleReg.servers);
+   let roleReg <- mkP4Register(vec(bb_read_role.regClient, toGPClient(roleRegReqFifo, roleRegRespFifo)));
+   let datapathIdReg <- mkP4Register(vec(bb_handle_2a.regClient_datapath_id, bb_handle_1a.regClient_datapath_id, toGPClient(datapathIdRegReqFifo, datapathIdRegRespFifo)));
+   let instanceReg <- mkP4Register(vec(bb_increase_instance.regClient, toGPClient(instanceRegReqFifo, instanceRegRespFifo)));
+   let roundReg <- mkP4Register(vec(bb_read_round.regClient, bb_handle_2a.regClient_round, bb_handle_1a.regClient_round, toGPClient(roundRegReqFifo, roundRegRespFifo)));
+   let vroundReg <- mkP4Register(vec(bb_handle_1a.regClient_vround, bb_handle_2a.regClient_vround, toGPClient(vroundRegReqFifo, vroundRegRespFifo)));
+   let valueReg <- mkP4Register(vec(bb_handle_1a.regClient_value, bb_handle_2a.regClient_value, toGPClient(valueRegReqFifo, valueRegRespFifo)));
 
    // Connect Table with BasicBlock
    mkConnection(dstMacTable.next_control_state_0, bb_fwd.prev_control_state);
@@ -161,7 +168,10 @@ module mkIngress#(Vector#(numClients, MetadataClient) mdc)(Ingress);
    (* descending_urgency ="sequence_tbl_next_control_state, acceptor_tbl_next_control_state" *)
 
    // Control Flow
-   rule start_control_state if (inReqFifo.first matches tagged DefaultRequest {pkt: .pkt, meta: .meta});
+   rule start_control_state if (inReqFifo.notEmpty);
+      let _req = inReqFifo.first;
+      let pkt = _req.pkt;
+      let meta = _req.meta;
       inReqFifo.deq;
       ingress_start_time <= clk_cnt;
    //   if (isValid(meta.valid_ipv4)) begin
@@ -173,68 +183,83 @@ module mkIngress#(Vector#(numClients, MetadataClient) mdc)(Ingress);
    //rule dmac_tbl_next_control_state if (dmacRespFifo.first matches tagged DstMacResponse {pkt: .pkt, meta: .meta});
    //   dmacRespFifo.deq;
       if (isValid(meta.valid_paxos)) begin
-         MetadataRequest req = tagged RoleLookupRequest {pkt: pkt, meta: meta};
+         MetadataRequest req = MetadataRequest {pkt: pkt, meta: meta};
          roleReqFifo.enq(req);
       end
       $display("(%0d) Ingress: dmac_tbl next control state", $time);
    endrule
 
-   rule role_tbl_next_control_state if (roleRespFifo.first matches tagged RoleResponse {pkt: .pkt, meta: .meta});
+   rule role_tbl_next_control_state if (roleRespFifo.notEmpty);
+      let rsp = roleRespFifo.first;
+      let meta = rsp.meta;
+      let pkt = rsp.pkt;
       roleRespFifo.deq;
       if (meta.switch_metadata$role matches tagged Valid .role) begin
          case (role) matches
             ACCEPTOR: begin
                $display("(%0d) Role: Acceptor %h", $time, pkt.id);
-               MetadataRequest req = tagged RoundTblRequest {pkt: pkt, meta: meta};
+               MetadataRequest req = MetadataRequest {pkt: pkt, meta: meta};
                roundReqFifo.enq(req);
                acceptor_start_time <= clk_cnt;
             end
             COORDINATOR: begin
                $display("(%0d) Role: Coordinator %h", $time, pkt.id);
-               MetadataRequest req = tagged SequenceTblRequest {pkt: pkt, meta: meta};
+               MetadataRequest req = MetadataRequest {pkt: pkt, meta: meta};
                sequenceReqFifo.enq(req);
                sequence_start_time <= clk_cnt;
             end
             FORWARDER: begin
                $display("(%0d) Role: Forwarder %h", $time, pkt.id);
-               MetadataRequest req = tagged ForwardQueueRequest {pkt: pkt, meta: meta};
+               MetadataRequest req = MetadataRequest {pkt: pkt, meta: meta};
                currPacketFifo.enq(req);
             end
          endcase
       end
    endrule
 
-   rule sequence_tbl_next_control_state if (sequenceRespFifo.first matches tagged SequenceTblResponse {pkt: .pkt, meta: .meta});
+   rule sequence_tbl_next_control_state if (sequenceRespFifo.notEmpty);
+      let rsp = sequenceRespFifo.first;
+      let meta = rsp.meta;
+      let pkt = rsp.pkt;
       sequenceRespFifo.deq;
       sequence_end_time <= clk_cnt;
       $display("(%0d) Sequence: fwd %h", $time, pkt.id);
       //FIXME: check action
-      MetadataRequest req = tagged ForwardQueueRequest {pkt: pkt, meta: meta};
+      MetadataRequest req = MetadataRequest {pkt: pkt, meta: meta};
       currPacketFifo.enq(req);
    endrule
 
-   rule round_tbl_next_control_state if (roundRespFifo.first matches tagged RoundTblResponse {pkt: .pkt, meta: .meta});
+   rule round_tbl_next_control_state if (roundRespFifo.notEmpty);
+      let rsp = roundRespFifo.first;
+      let meta = rsp.meta;
+      let pkt = rsp.pkt;
       roundRespFifo.deq;
       $display("(%0d) round table response", $time);
       if (meta.paxos_packet_meta$round matches tagged Valid .round) begin
          if (round <= fromMaybe(?, meta.paxos$rnd)) begin
             $display("(%0d) Round: Acceptor %h, round=%h, rnd=%h", $time, pkt.id, round, fromMaybe(?, meta.paxos$rnd));
-            MetadataRequest req = tagged AcceptorTblRequest {pkt: pkt, meta: meta};
+            MetadataRequest req = MetadataRequest {pkt: pkt, meta: meta};
             acceptorReqFifo.enq(req);
          end
       end
    endrule
 
-   rule acceptor_tbl_next_control_state if (acceptorRespFifo.first matches tagged AcceptorTblResponse {pkt: .pkt, meta: .meta});
+   rule acceptor_tbl_next_control_state if (acceptorRespFifo.notEmpty);
+      let rsp = acceptorRespFifo.first;
       acceptorRespFifo.deq;
+      let meta = rsp.meta;
+      let pkt = rsp.pkt;
       acceptor_end_time <= clk_cnt;
       $display("(%0d) Acceptor: fwd ", $time, fshow(meta));
-      MetadataRequest req = tagged ForwardQueueRequest {pkt: pkt, meta: meta};
-      currPacketFifo.enq(req);
+      MetadataRequest req = MetadataRequest {pkt: pkt, meta: meta};
+      next_req_ff.enq(req);
    endrule
 
    interface writeClient = dstMacTable.writeClient;
-   interface eventPktSend = toPipeOut(currPacketFifo);
+   interface next = (interface Client#(MetadataRequest, MetadataResponse);
+      interface request = toGet(next_req_ff);
+      interface response = toPut(next_rsp_ff);
+   endinterface);
    method IngressDbgRec read_debug_info();
       return IngressDbgRec {
          fwdCount: fwdCount,

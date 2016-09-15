@@ -38,6 +38,7 @@ import RxChannel::*;
 import PktGenChannel::*;
 import PktCapChannel::*;
 import Vector::*;
+`include "ConnectalProjectConfig.bsv"
 
 interface MemoryTestIndication;
    method Action read_version_resp(Bit#(32) version);
@@ -79,6 +80,7 @@ interface MemoryTestRequest;
    method Action read_parser_perf_info();
    method Action read_pktcap_perf_info();
    method Action read_deparser_perf_info();
+   method Action set_verbosity(Bit#(32) v);
 endinterface
 
 interface MemoryAPI;
@@ -158,6 +160,9 @@ module mkMemoryAPI#(MemoryTestIndication indication, HostChannel hostchan, TxCha
       method Action read_deparser_perf_info();
          let v = txchan.read_deparser_perf_info;
          indication.read_deparser_perf_info_resp(v);
+      endmethod
+      method Action set_verbosity(Bit#(32) verbosity);
+         hostchan.set_verbosity(unpack(verbosity));
       endmethod
    endinterface
 endmodule

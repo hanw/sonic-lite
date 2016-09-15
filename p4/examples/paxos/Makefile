@@ -19,6 +19,7 @@ BSVFILES=MemoryTest.bsv MemoryAPI.bsv ConnectalTypes.bsv ../../../hw/bsv/DbgType
 FPGAMAKE_CONNECTALFLAGS += -P mkPcieHostTop
 
 CONNECTALFLAGS += -I $(SONICDIR)/sw/
+CONNECTALFLAGS += -lpcap -lpthread
 CONNECTALFLAGS += --bsvpath=$(P4FPGADIR)/bsv/
 CONNECTALFLAGS += --bsvpath=$(P4FPGADIR)/bsv/AsymmetricBRAM
 CONNECTALFLAGS += --bsvpath=$(P4FPGADIR)/bsv/Bcam
@@ -31,13 +32,15 @@ CONNECTALFLAGS += -D DataBusWidth=128
 CONNECTALFLAGS += -D IMPORT_HOSTIF
 CONNECTALFLAGS += -D BYTE_ENABLES
 CONNECTALFLAGS += -D FOO
+CONNECTALFLAGS += -D ClockDefaultParam
 CONNECTALFLAGS += --bscflags="-show-range-conflict +RTS -K46777216 -RTS -demote-errors G0066:G0045 -suppress-warnings G0046:G0020:G0023:S0015:S0080:S0039 -steps-max-intervals 20"
 CONNECTALFLAGS += -m $(P4FPGADIR)/bsv/AsymmetricBRAM/mem_model.c
 CONNECTALFLAGS += -m $(P4FPGADIR)/bsv/matchtable_model.cpp
 CONNECTALFLAGS += --nocache
 CONNECTALFLAGS += --cxxflags=-std=c++11
 
-CONNECTALFLAGS += -D PARSER=Paxos
+#CONNECTALFLAGS += -D PARSER=Paxos
+CONNECTALFLAGS += -D PARSER=Parser
 CONNECTALFLAGS += -D DEPARSER=Deparser
 CONNECTALFLAGS += -D TYPEDEF=PaxosTypes
 CONNECTALFLAGS += -D MATCHTABLE=MatchTableSim
@@ -113,6 +116,9 @@ run-small:
 
 run-paxos:
 	(cd bluesim; ./bin/ubuntu.exe -p ../tests/multipaxos.pcap)
+
+run-libpaxos:
+	(cd bluesim; ./bin/ubuntu.exe -p ../libpaxos.pcap)
 
 FIRMWARE_VERSION=$(shell printf "%x" 0x`git rev-parse --short=8 HEAD`)
 SYSTEM_TIME=$(shell date +'%Y.%m.%d-%H:%M:%S')

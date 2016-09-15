@@ -82,34 +82,27 @@ endinterface
 module mkRoundTable#(MetadataClient md)(RoundTable);
    FIFO#(BBRequest) outReqFifo <- mkFIFO;
    FIFO#(BBResponse) inRespFifo <- mkFIFO;
-   FIFO#(PacketInstance) currPacketFifo <- mkFIFO;
    FIFO#(MetadataT) currMetadataFifo <- mkFIFO;
 
    rule readRound;
       let v <- md.request.get;
-      case (v) matches
-         tagged RoundTblRequest {pkt: .pkt, meta: .meta}: begin
-            BBRequest req;
-            req = tagged BBRoundRequest {pkt: pkt, paxos$inst: fromMaybe(?, meta.paxos$inst)};
-            $display("(%0d) Round: read inst %h", $time, fromMaybe(?, meta.paxos$inst));
-            outReqFifo.enq(req);
-            currPacketFifo.enq(pkt);
-            currMetadataFifo.enq(meta);
-         end
-      endcase
+      let meta = v.meta;
+      let pkt = v.pkt;
+      BBRequest req = tagged BBRoundRequest {pkt: pkt, paxos$inst: fromMaybe(?, meta.paxos$inst)};
+      $display("(%0d) Round: read inst %h", $time, fromMaybe(?, meta.paxos$inst));
+      outReqFifo.enq(req);
+      currMetadataFifo.enq(meta);
    endrule
 
    rule readRoundResp;
       let v <- toGet(inRespFifo).get;
       let meta <- toGet(currMetadataFifo).get;
-      let pkt <- toGet(currPacketFifo).get;
       if (v matches tagged BBRoundResponse {pkt: .pkt, ingress_metadata: .ingress_meta}) begin
          $display("(%0d) Round Response: ", $time, fshow(ingress_meta));
          meta.paxos_packet_meta$round = tagged Valid ingress_meta.round;
+         MetadataResponse resp = MetadataResponse {pkt: pkt, meta: meta};
+         md.response.put(resp);
       end
-      MetadataResponse resp;
-      resp = tagged RoundTblResponse {pkt: pkt, meta: meta};
-      md.response.put(resp);
    endrule
    interface next_control_state_0 = (interface BBClient;
       interface request = toGet(outReqFifo);

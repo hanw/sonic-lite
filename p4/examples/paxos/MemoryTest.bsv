@@ -36,6 +36,7 @@ import Gearbox::*;
 import Pipe::*;
 import GetPutWithClocks::*;
 
+`include "ConnectalProjectConfig.bsv"
 import MemServerIndication::*;
 //import MemMgmt::*;
 `ifdef DEBUG
@@ -168,7 +169,7 @@ module mkMemoryTest#(
                                                   ,memServerInd
                                                   );
    // ingress to one tx channel, could be more
-   mkConnection(ingress.eventPktSend, txchan.eventPktSend);
+   mkConnection(ingress.next, txchan.prev);
 
    PktGenChannel pktgen <- mkPktGenChannel(txClock, txReset);
    PktCapChannel pktcap <- mkPktCapChannel(rxClock, rxReset);

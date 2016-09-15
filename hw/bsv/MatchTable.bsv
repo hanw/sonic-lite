@@ -183,28 +183,28 @@ module mkMatchTableBluesim#(String name)(MatchTable#(id, depth, keySz, actionSz)
    FIFO#(Bit#(keySz)) readReqFifo <- mkFIFO;
    FIFO#(Maybe#(Bit#(actionSz))) readDataFifo <- printTimedTraceM(name, mkFIFO);
 
-   Reg#(Bool)      isInitialized   <- mkReg(False);
+   Reg#(Bool)      isInitialized   <- mkReg(True);
 
-   Handle fp <- openFile(name, ReadMode);
-   List#(Tuple2#(Bit#(keySz), Bit#(actionSz))) entryList = tagged Nil;
-   let readable <- hIsReadable(fp);
-   if (readable) begin
-      Bool isEOF <- hIsEOF(fp);
-      while (!isEOF) begin
-         let line <- hGetLine(fp);
-         List#(String) parsedEntries = parseCSV(line);
-         while (parsedEntries != tagged Nil) begin
-            Bit#(keySz) key = fromInteger(hexStringToInteger(parsedEntries[0]));
-            Bit#(actionSz) v = fromInteger(hexStringToInteger(parsedEntries[1]));
-            Bit#(id) tid = 0;
-            parsedEntries = List::drop(2, parsedEntries);
-            entryList = List::cons(tuple2(key, v), entryList);
-         end
-         isEOF <- hIsEOF(fp);
-      end
-   end
-   hClose(fp);
-
+//   Handle fp <- openFile(name, ReadMode);
+//   List#(Tuple2#(Bit#(keySz), Bit#(actionSz))) entryList = tagged Nil;
+//   let readable <- hIsReadable(fp);
+//   if (readable) begin
+//      Bool isEOF <- hIsEOF(fp);
+//      while (!isEOF) begin
+//         let line <- hGetLine(fp);
+//         List#(String) parsedEntries = parseCSV(line);
+//         while (parsedEntries != tagged Nil) begin
+//            Bit#(keySz) key = fromInteger(hexStringToInteger(parsedEntries[0]));
+//            Bit#(actionSz) v = fromInteger(hexStringToInteger(parsedEntries[1]));
+//            Bit#(id) tid = 0;
+//            parsedEntries = List::drop(2, parsedEntries);
+//            entryList = List::cons(tuple2(key, v), entryList);
+//         end
+//         isEOF <- hIsEOF(fp);
+//      end
+//   end
+//   hClose(fp);
+//
    rule do_read (isInitialized);
       let v <- toGet(readReqFifo).get;
       $display("(%0d) MatchTable %s: do_read %h", $time, name, v);
@@ -217,21 +217,21 @@ module mkMatchTableBluesim#(String name)(MatchTable#(id, depth, keySz, actionSz)
          readDataFifo.enq(tagged Invalid);
    endrule
 
-   Reg#(Bit#(8)) fsmIndex <- mkReg(0);
-
-   rule do_init (fsmIndex < fromInteger(List::length(entryList)));
-      $display("%s insert entry ", name, fromInteger(List::length(entryList)));
-      Bit#(keySz) key = tpl_1(entryList[fsmIndex]);
-      Bit#(actionSz) v = tpl_2(entryList[fsmIndex]);
-      Bit#(id) tid = 0;
-      matchtable_write(tid, key, v);
-      fsmIndex <= fsmIndex + 1;
-      $display("finished insert entry ", fromInteger(List::length(entryList)));
-   endrule
-
-   rule finish_init(fsmIndex == fromInteger(List::length(entryList)));
-      isInitialized <= True;
-   endrule
+//   Reg#(Bit#(8)) fsmIndex <- mkReg(0);
+//
+//   rule do_init (fsmIndex < fromInteger(List::length(entryList)));
+//      $display("%s insert entry ", name, fromInteger(List::length(entryList)));
+//      Bit#(keySz) key = tpl_1(entryList[fsmIndex]);
+//      Bit#(actionSz) v = tpl_2(entryList[fsmIndex]);
+//      Bit#(id) tid = 0;
+//      matchtable_write(tid, key, v);
+//      fsmIndex <= fsmIndex + 1;
+//      $display("finished insert entry ", fromInteger(List::length(entryList)));
+//   endrule
+//
+//   rule finish_init(fsmIndex == fromInteger(List::length(entryList)));
+//      isInitialized <= True;
+//   endrule
 
    interface Server lookupPort;
       interface Put request = toPut(readReqFifo);
