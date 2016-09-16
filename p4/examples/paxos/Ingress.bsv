@@ -66,7 +66,6 @@ endinterface
 module mkIngress#(Vector#(numClients, MetadataClient) mdc)(Ingress);
    let verbose = True;
    Reg#(LUInt) fwdCount <- mkReg(0);
-   FIFOF#(MetadataRequest) currPacketFifo <- mkFIFOF;
    FIFOF#(MetadataRequest) inReqFifo <- mkFIFOF;
    FIFOF#(MetadataResponse) outRespFifo <- mkFIFOF;
 
@@ -211,7 +210,7 @@ module mkIngress#(Vector#(numClients, MetadataClient) mdc)(Ingress);
             FORWARDER: begin
                $display("(%0d) Role: Forwarder %h", $time, pkt.id);
                MetadataRequest req = MetadataRequest {pkt: pkt, meta: meta};
-               currPacketFifo.enq(req);
+               next_req_ff.enq(req);
             end
          endcase
       end
@@ -226,7 +225,7 @@ module mkIngress#(Vector#(numClients, MetadataClient) mdc)(Ingress);
       $display("(%0d) Sequence: fwd %h", $time, pkt.id);
       //FIXME: check action
       MetadataRequest req = MetadataRequest {pkt: pkt, meta: meta};
-      currPacketFifo.enq(req);
+      next_req_ff.enq(req);
    endrule
 
    rule round_tbl_next_control_state if (roundRespFifo.notEmpty);

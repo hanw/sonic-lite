@@ -203,7 +203,7 @@ module mkStoreAndFwdFromMemToRing(StoreAndFwdFromMemToRing)
       let bytesPerBeatMinusOne = fromInteger(valueOf(bytesPerBeat))-1;
       // roundup to 16 byte boundary
       let burstLen = ((pkt.size + bytesPerBeatMinusOne) & ~(bytesPerBeatMinusOne));
-      dbprint(3, $format("StoreAndForward:: packetReadStart: %h, burstLen = %h", pkt.size, burstLen));
+      dbprint(3, $format("StoreAndForward:packetReadStart %h, burstLen = %h", pkt.size, burstLen));
       let mask = (1<< (pkt.size % fromInteger(valueOf(bytesPerBeat))))-1;
       readReqFifo.enq(MemRequest{sglId: extend(pkt.id), offset: 0,
                                  burstLen: truncate(burstLen), tag: 0
@@ -211,7 +211,7 @@ module mkStoreAndFwdFromMemToRing(StoreAndFwdFromMemToRing)
                                  , firstbe: 'hffff, lastbe: mask
 `endif
                                 });
-      dbprint(3, $format("StoreAndForward::packetReadStart: send a new packet with size %h %h", burstLen, pack(mask)));
+      dbprint(3, $format("StoreAndForward:packetReadStart send a new packet with size %h %h", burstLen, pack(mask)));
       currPacketIdFifo.enq(pkt.id);
       readBurstLenFifo.enq(pkt.size);
    endrule
@@ -250,7 +250,7 @@ module mkStoreAndFwdFromMemToRing(StoreAndFwdFromMemToRing)
 
       writeDataFifo.enq(EtherData{data: d.data, mask: mask, sop: sop, eop: eop});
 
-      dbprint(3, $format("StoreAndForward::readdata: %h %h %h %h %h", readBurstCount, d.data, pack(mask), sop, eop));
+      dbprint(3, $format("StoreAndForward:readdata  %h %h %h %h %h", readBurstCount, d.data, pack(mask), sop, eop));
    endrule
 
    interface PktWriteClient writeClient;

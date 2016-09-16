@@ -107,7 +107,7 @@ module mkMatchTableSynth(MatchTable#(id, depth, keySz, actionSz))
 
    rule handle_bcam_response;
       let v <- bcam.readServer.response.get;
-      if (verbose) $display("(%0d) matchTable recv bcam response ", $time, fshow(v));
+      if (verbose) $display("(%0d) MatchTable:handle_bcam_response ", $time, fshow(v));
       if (isValid(v)) begin // if match
          let address = fromMaybe(?, v);
          ram.portA.request.put(BRAMRequest{write:False, responseOnWrite: False, address: address, datain:?});
@@ -132,7 +132,7 @@ module mkMatchTableSynth(MatchTable#(id, depth, keySz, actionSz))
          method ActionValue#(Maybe#(Bit#(actionSz))) get();
             let m <- toGet(bcamMatchFifo).get;
             let act <- ram.portA.response.get;
-            if (verbose) $display("(%0d) matchTable: recv ram response ", $time, fshow(act));
+            if (verbose) $display("(%0d) MatchTable:response ", $time, fshow(act));
             case (m) matches
                True: return tagged Valid act;
                False: return tagged Invalid;
@@ -148,7 +148,7 @@ module mkMatchTableSynth(MatchTable#(id, depth, keySz, actionSz))
          BRAMRequest#(Bit#(depthSz), Bit#(actionSz)) req_ram = BRAMRequest{write: True, responseOnWrite: False, address: addrIdx, datain: pack(tpl_2(v))};
          bcam.writeServer.put(req_bcam);
          ram.portA.request.put(req_ram);
-         $display("(%0d) match_table: add flow %x %x %x", $time, addrIdx, tpl_1(v), tpl_2(v));
+         $display("(%0d) Matchtable:add_entry %x %x %x", $time, addrIdx, tpl_1(v), tpl_2(v));
          addrIdx <= addrIdx + 1; //FIXME: currently no reuse of address.
       endmethod
    endinterface
@@ -158,7 +158,7 @@ module mkMatchTableSynth(MatchTable#(id, depth, keySz, actionSz))
          BRAMRequest#(Bit#(depthSz), Bit#(actionSz)) req_ram = BRAMRequest{write: True, responseOnWrite: False, address: id, datain: 0};
          bcam.writeServer.put(req_bcam);
          ram.portA.request.put(req_ram);
-         $display("(%0d) match_table: delete flow %x", $time, id);
+         $display("(%0d) Matchtable:delete_entry %x", $time, id);
       endmethod
    endinterface
    interface Put modify_entry;
@@ -207,10 +207,10 @@ module mkMatchTableBluesim#(String name)(MatchTable#(id, depth, keySz, actionSz)
 //
    rule do_read (isInitialized);
       let v <- toGet(readReqFifo).get;
-      $display("(%0d) MatchTable %s: do_read %h", $time, name, v);
+      $display("(%0d) MatchTable:do_read %s key: %h", $time, name, v);
       Bit#(id) tid = 0;
       let ret <- matchtable_read(tid, pack(v));
-      $display("(%0d) MatchTable %s: read %h", $time, name, ret);
+      $display("(%0d) MatchTable:do_read %s value: %h", $time, name, ret);
       if (ret != 0)
          readDataFifo.enq(tagged Valid ret);
       else
@@ -239,7 +239,7 @@ module mkMatchTableBluesim#(String name)(MatchTable#(id, depth, keySz, actionSz)
    endinterface
    interface Put add_entry;
       method Action put (Tuple2#(Bit#(keySz), Bit#(actionSz)) v);
-         $display("(%0d) MatchTable: insert %h %h", $time, tpl_1(v), tpl_2(v));
+         $display("(%0d) MatchTable:add_entry %h %h", $time, tpl_1(v), tpl_2(v));
          Bit#(id) tid = 0;
          matchtable_write(tid, tpl_1(v), tpl_2(v));
       endmethod
