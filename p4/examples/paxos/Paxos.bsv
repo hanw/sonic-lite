@@ -82,7 +82,7 @@ module mkStateParseEthernet#(Reg#(ParserState) state, FIFOF#(EtherData) datain)(
     endrule
     function ParserState compute_next_state(Bit#(16) etherType);
         ParserState nextState = StateStart;
-        case (byteSwap(etherType)) matches
+        case (etherType) matches
             'h806: begin
                 nextState=StateParseArp;
             end
@@ -239,7 +239,7 @@ module mkStateParseIpv4#(Reg#(ParserState) state, FIFOF#(EtherData) datain)(Pars
     endrule
     function ParserState compute_next_state(Bit#(8) protocol);
         ParserState nextState = StateStart;
-        case (byteSwap(protocol)) matches
+        case (protocol) matches
             'h11: begin
                 nextState=StateParseUdp;
             end
@@ -397,8 +397,14 @@ module mkStateParseUdp#(Reg#(ParserState) state, FIFOF#(EtherData) datain, FIFOF
     endrule
     function ParserState compute_next_state(Bit#(16) dstPort);
         ParserState nextState = StateStart;
-        case (byteSwap(dstPort)) matches
+        case (dstPort) matches
+            'h8887: begin
+                nextState=StateParsePaxos;
+            end
             'h8888: begin
+                nextState=StateParsePaxos;
+            end
+            'h8889: begin
                 nextState=StateParsePaxos;
             end
             default: begin
