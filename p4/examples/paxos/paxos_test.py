@@ -34,27 +34,33 @@ def paxos_packet(inst, rnd, vrnd, acpt, typ, value):
     pkt = eth / ip / udp / paxos / paxos_value
     return pkt
 
-
-
-if __name__=='__main__':
-    parser = argparse.ArgumentParser(description='P4Paxos demo')
-    parser.add_argument('interface', help='Network interface')
-    parser.add_argument('-i', '--inst', help='Paxos instance', type=int, default=1)
-    parser.add_argument('-t', '--type', help='Paxos instance', type=int, default=3)
-    parser.add_argument('-r', '--rnd', help='Paxos round', type=int, default=1)
-    parser.add_argument('-v', '--vrnd', help='Paxos value round', type=int, default=1)
-    parser.add_argument('-a', '--acpt', help='Paxos acceptor id', type=int, default=0)
-    parser.add_argument('-c', '--count', help='number of packets', type=int, default=1)
-    parser.add_argument('-V', '--value', help='Paxos value', type=int, default=0x48656c6c6f)
-    parser.add_argument('-o', '--output', help='output pcap file', type=str, default="paxos.pcap")
-    args = parser.parse_args()
-
-    pkt = paxos_packet(args.inst, args.rnd, args.vrnd, args.acpt, args.type, args.value)
-    pkt.show()
-    sendp(pkt, iface=args.interface, count=args.count)
+def store_pkts_in_pcap(args):
     pkts = []
     for i in range(args.count):
         pkt = paxos_packet(args.inst, i, args.vrnd, args.acpt, args.type, args.value)
         pkts.append(pkt)
     wrpcap("%s" % args.output, pkts)
 
+
+
+if __name__=='__main__':
+    parser = argparse.ArgumentParser(description='P4Paxos demo')
+    parser.add_argument('-I', '--interface', type=str, default='eth1', help='Network interface')
+    parser.add_argument('-i', '--inst', help='Paxos instance', type=int, default=1)
+    parser.add_argument('-t', '--type', help='Paxos instance', type=int, default=2)
+    parser.add_argument('-r', '--rnd', help='Paxos round', type=int, default=1)
+    parser.add_argument('-v', '--vrnd', help='Paxos value round', type=int, default=1)
+    parser.add_argument('-a', '--acpt', help='Paxos acceptor id', type=int, default=0)
+    parser.add_argument('-c', '--count', help='number of packets', type=int, default=1)
+    parser.add_argument('-s', '--store', help='store in pcap file', default=False, action='store_true')
+    parser.add_argument('-V', '--value', help='Paxos value', type=int, default=0x48656c6c6f)
+    parser.add_argument('-o', '--output', help='output pcap file', type=str, default="paxos.pcap")
+    args = parser.parse_args()
+
+    if args.store:
+        store_pkts_in_pcap(args)
+        sys.exit(0)
+
+    pkt = paxos_packet(args.inst, args.rnd, args.vrnd, args.acpt, args.type, args.value)
+    pkt.show()
+    sendp(pkt, iface=args.interface, count=args.count)

@@ -96,6 +96,8 @@ function Tuple2#(PaxosT, PaxosT) toPaxos(MetadataT meta);
    mask.vrnd = 0;
    paxos.acptid = fromMaybe(?, meta.paxos$acptid);
    mask.acptid = 0;
+   paxos.valuelen = fromMaybe(?, meta.paxos$valuelen);
+   mask.valuelen = 0;
    paxos.paxosval = fromMaybe(?, meta.paxos$paxosval);
    mask.paxosval = 0;
    return tuple2(paxos, mask);
@@ -144,7 +146,7 @@ module mkStateDeparseEthernet#(Reg#(DeparserState) state,
 
    function DeparserState compute_next_state(Bit#(16) etherType);
        DeparserState nextState = StateDeparseIdle;
-       case (byteSwap(etherType)) matches
+       case (etherType) matches
            'h806: begin
                nextState=StateDeparseArp;
            end
@@ -235,7 +237,7 @@ module mkStateDeparseIpv4#(Reg#(DeparserState) state,
 
    function DeparserState compute_next_state(Bit#(8) protocol);
        DeparserState nextState = StateDeparseIdle;
-       case (byteSwap(protocol)) matches
+       case (protocol) matches
            'h11: begin
                nextState=StateDeparseUdp;
            end
@@ -337,8 +339,14 @@ module mkStateDeparseUdp#(Reg#(DeparserState) state,
 
    function DeparserState compute_next_state(Bit#(16) dstPort);
        DeparserState nextState = StateDeparseIdle;
-       case (byteSwap(dstPort)) matches
+       case (dstPort) matches
+           'h8887: begin
+               nextState=StateDeparsePaxos;
+           end
            'h8888: begin
+               nextState=StateDeparsePaxos;
+           end
+           'h8889: begin
                nextState=StateDeparsePaxos;
            end
            default: begin

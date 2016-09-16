@@ -214,6 +214,11 @@ int main(int argc, char **argv)
     device->dmacTable_add_entry(0x80a810270008, 1);
     device->dmacTable_add_entry(0x491d035e0001, 1);
     device->dmacTable_add_entry(0x471d035e0001, 1);
+    // Test
+    device->dmacTable_add_entry(0x0cc47aa325d0, 1);
+    device->dmacTable_add_entry(0x08002710a880, 1);
+    // destination Mac Address for 224.3.28.73
+    device->dmacTable_add_entry(0x01005E1D0049, 1);
 
     device->sequenceTable_add_entry(0x4, IncreaseInstance);
     device->sequenceTable_add_entry(0x3, IncreaseInstance);

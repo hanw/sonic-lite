@@ -525,7 +525,8 @@ endinstance
 
 instance FShow#(MetadataT);
    function Fmt fshow(MetadataT p);
-      return $format("msgtype=", fshow(p.msgtype), ",")+
+      return $format("\n")+
+             $format("msgtype=", fshow(p.msgtype), ",")+
              $format("dstAddr=", fshow(p.dstAddr), ",")+
              $format("etherType=", fshow(p.etherType), ",")+
              $format("protocol=", fshow(p.protocol), ",")+
