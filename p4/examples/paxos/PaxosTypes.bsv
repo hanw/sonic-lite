@@ -167,10 +167,10 @@ function UdpT extract_udp(Bit#(64) data);
     Vector#(16, Bit#(1)) length_ = takeAt(32, dataVec);
     Vector#(16, Bit#(1)) checksum = takeAt(48, dataVec);
     UdpT udp_t = defaultValue;
-    udp_t.srcPort = pack(srcPort);
-    udp_t.dstPort = pack(dstPort);
-    udp_t.length_ = pack(length_);
-    udp_t.checksum = pack(checksum);
+    udp_t.srcPort = byteSwap(pack(srcPort));
+    udp_t.dstPort = byteSwap(pack(dstPort));
+    udp_t.length_ = byteSwap(pack(length_));
+    udp_t.checksum = byteSwap(pack(checksum));
     return udp_t;
 endfunction
 
@@ -210,13 +210,13 @@ function PaxosT extract_paxos(Bit#(384) data);
     Vector#(32, Bit#(1)) valuelen = takeAt(96, dataVec);
     Vector#(256, Bit#(1)) paxosval = takeAt(128, dataVec);
     PaxosT paxos_t = defaultValue;
-    paxos_t.msgtype = pack(msgtype);
-    paxos_t.inst = pack(inst);
-    paxos_t.rnd = pack(rnd);
-    paxos_t.vrnd = pack(vrnd);
-    paxos_t.acptid = pack(acptid);
-    paxos_t.valuelen = pack(valuelen);
-    paxos_t.paxosval = pack(paxosval);
+    paxos_t.msgtype = byteSwap(pack(msgtype));
+    paxos_t.inst = byteSwap(pack(inst));
+    paxos_t.rnd = byteSwap(pack(rnd));
+    paxos_t.vrnd = byteSwap(pack(vrnd));
+    paxos_t.acptid = byteSwap(pack(acptid));
+    paxos_t.valuelen = byteSwap(pack(valuelen));
+    paxos_t.paxosval = byteSwap(pack(paxosval));
     return paxos_t;
 endfunction
 
@@ -299,7 +299,7 @@ instance FShow#(Ipv4T);
         return $format("Ipv4T: version=%h, ihl=%h, diffserv=%h, totalLen=%h,",
                   p.version, p.ihl, p.diffserv, p.totalLen)
                 +
-                $format("identification=%h, flags=%h, fragOffset=%h, ttl=%h,"
+                $format("identification=%h, flags=%h, fragOffset=%h, ttl=%h,",
                   p.identification, p.flags, p.fragOffset, p.ttl)
                  +
                  $format("protocol=%h, hdrChecksum=%h, srcAddr=%h, dstAddr=%h",
@@ -323,17 +323,17 @@ function Ipv4T extract_ipv4(Bit#(160) data);
     Vector#(32, Bit#(1)) dstAddr = takeAt(128, dataVec);
     Ipv4T ipv4_t = defaultValue;
     ipv4_t.version = pack(version);
-    ipv4_t.ihl = pack(ihl);
-    ipv4_t.diffserv = pack(diffserv);
-    ipv4_t.totalLen = pack(totalLen);
-    ipv4_t.identification = pack(identification);
-    ipv4_t.flags = pack(flags);
-    ipv4_t.fragOffset = pack(fragOffset);
-    ipv4_t.ttl = pack(ttl);
-    ipv4_t.protocol = pack(protocol);
-    ipv4_t.hdrChecksum = pack(hdrChecksum);
-    ipv4_t.srcAddr = pack(srcAddr);
-    ipv4_t.dstAddr = pack(dstAddr);
+    ipv4_t.ihl = (pack(ihl));
+    ipv4_t.diffserv = byteSwap(pack(diffserv));
+    ipv4_t.totalLen = byteSwap(pack(totalLen));
+    ipv4_t.identification = byteSwap(pack(identification));
+    ipv4_t.flags = (pack(flags));
+    ipv4_t.fragOffset = (pack(fragOffset));
+    ipv4_t.ttl = byteSwap(pack(ttl));
+    ipv4_t.protocol = byteSwap(pack(protocol));
+    ipv4_t.hdrChecksum = byteSwap(pack(hdrChecksum));
+    ipv4_t.srcAddr = byteSwap(pack(srcAddr));
+    ipv4_t.dstAddr = byteSwap(pack(dstAddr));
     return ipv4_t;
 endfunction
 
@@ -358,7 +358,7 @@ function IngressMetadataT extract_ingress_metadata(Bit#(16) data);
     Vector#(16, Bit#(1)) dataVec=unpack(data);
     Vector#(16, Bit#(1)) round = takeAt(0, dataVec);
     IngressMetadataT ingress_metadata_t = defaultValue;
-    ingress_metadata_t.rnd = pack(round);
+    ingress_metadata_t.rnd = byteSwap(pack(round));
     return ingress_metadata_t;
 endfunction
 
@@ -388,9 +388,9 @@ function EthernetT extract_ethernet(Bit#(112) data);
     Vector#(48, Bit#(1)) srcAddr = takeAt(48, dataVec);
     Vector#(16, Bit#(1)) etherType = takeAt(96, dataVec);
     EthernetT ethernet_t = defaultValue;
-    ethernet_t.dstAddr = pack(dstAddr);
-    ethernet_t.srcAddr = pack(srcAddr);
-    ethernet_t.etherType = pack(etherType);
+    ethernet_t.dstAddr = byteSwap(pack(dstAddr));
+    ethernet_t.srcAddr = byteSwap(pack(srcAddr));
+    ethernet_t.etherType = byteSwap(pack(etherType));
     return ethernet_t;
 endfunction
 
@@ -436,14 +436,14 @@ function StandardMetadataT extract_standard_metadata(Bit#(160) data);
     Vector#(32, Bit#(1)) clone_spec = takeAt(123, dataVec);
     Vector#(5, Bit#(1)) _padding = takeAt(155, dataVec);
     StandardMetadataT standard_metadata_t = defaultValue;
-    standard_metadata_t.ingress_port = pack(ingress_port);
-    standard_metadata_t.packet_length = pack(packet_length);
-    standard_metadata_t.egress_spec = pack(egress_spec);
-    standard_metadata_t.egress_port = pack(egress_port);
-    standard_metadata_t.egress_instance = pack(egress_instance);
-    standard_metadata_t.instance_type = pack(instance_type);
-    standard_metadata_t.clone_spec = pack(clone_spec);
-    standard_metadata_t._padding = pack(_padding);
+    standard_metadata_t.ingress_port = (pack(ingress_port));
+    standard_metadata_t.packet_length = byteSwap(pack(packet_length));
+    standard_metadata_t.egress_spec = (pack(egress_spec));
+    standard_metadata_t.egress_port = (pack(egress_port));
+    standard_metadata_t.egress_instance = byteSwap(pack(egress_instance));
+    standard_metadata_t.instance_type = byteSwap(pack(instance_type));
+    standard_metadata_t.clone_spec = byteSwap(pack(clone_spec));
+    standard_metadata_t._padding = (pack(_padding));
     return standard_metadata_t;
 endfunction
 
@@ -468,7 +468,7 @@ function SwitchMetadataT extract_switch_metadata(Bit#(8) data);
     Vector#(8, Bit#(1)) dataVec=unpack(data);
     Vector#(8, Bit#(1)) role = takeAt(0, dataVec);
     SwitchMetadataT switch_metadata_t = defaultValue;
-    switch_metadata_t.role = pack(role);
+    switch_metadata_t.role = byteSwap(pack(role));
     return switch_metadata_t;
 endfunction
 
