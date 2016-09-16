@@ -59,7 +59,7 @@ module mkBasicBlockRound(BasicBlockRound);
       let v <- toGet(reg_round_response_fifo).get;
       let pkt <- toGet(curr_packet_fifo).get;
       IngressMetadataT d = defaultValue;
-      d.round = v.data;
+      d.rnd = v.data;
       //FIXME: remove pkt??
       BBResponse resp = tagged BBRoundResponse {pkt: pkt, ingress_metadata: d};
       bb_round_response_fifo.enq(resp);
@@ -99,7 +99,7 @@ module mkRoundTable#(MetadataClient md)(RoundTable);
       let meta <- toGet(currMetadataFifo).get;
       if (v matches tagged BBRoundResponse {pkt: .pkt, ingress_metadata: .ingress_meta}) begin
          $display("(%0d) Round Response: ", $time, fshow(ingress_meta));
-         meta.paxos_packet_meta$round = tagged Valid ingress_meta.round;
+         meta.paxos_packet_meta$rnd = tagged Valid ingress_meta.rnd;
          MetadataResponse resp = MetadataResponse {pkt: pkt, meta: meta};
          md.response.put(resp);
       end

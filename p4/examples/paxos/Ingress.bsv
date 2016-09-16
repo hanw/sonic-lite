@@ -235,7 +235,7 @@ module mkIngress#(Vector#(numClients, MetadataClient) mdc)(Ingress);
       let pkt = rsp.pkt;
       roundRespFifo.deq;
       $display("(%0d) round table response", $time);
-      if (meta.paxos_packet_meta$round matches tagged Valid .round) begin
+      if (meta.paxos_packet_meta$rnd matches tagged Valid .round) begin
          if (round <= fromMaybe(?, meta.paxos$rnd)) begin
             $display("(%0d) Round: Acceptor %h, round=%h, rnd=%h", $time, pkt.id, round, fromMaybe(?, meta.paxos$rnd));
             MetadataRequest req = MetadataRequest {pkt: pkt, meta: meta};

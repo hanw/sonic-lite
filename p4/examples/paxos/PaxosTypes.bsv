@@ -109,7 +109,11 @@ endinstance
 
 instance FShow#(Ipv6T);
     function Fmt fshow(Ipv6T p);
-        return $format("Ipv6T: version=%h, trafficClass=%h, flowLabel=%h, payloadLen=%h, nextHdr=%h, hopLimit=%h, srcAddr=%h, dstAddr=%h" , p.version, p.trafficClass, p.flowLabel, p.payloadLen, p.nextHdr, p.hopLimit, p.srcAddr, p.dstAddr);
+        return $format("Ipv6T: version=%h, trafficClass=%h, flowLabel=%h",
+                p.version, p.trafficClass, p.flowLabel)
+                +
+              $format("payloadLen=%h, nextHdr=%h, hopLimit=%h, srcAddr=%h, dstAddr=%h",
+                p.payloadLen, p.nextHdr, p.hopLimit, p.srcAddr, p.dstAddr);
     endfunction
 endinstance
 
@@ -151,7 +155,8 @@ endinstance
 
 instance FShow#(UdpT);
     function Fmt fshow(UdpT p);
-        return $format("UdpT: srcPort=%h, dstPort=%h, length_=%h, checksum=%h" , p.srcPort, p.dstPort, p.length_, p.checksum);
+        return $format("UdpT: srcPort=%h, dstPort=%h, length_=%h, checksum=%h",
+                    p.srcPort, p.dstPort, p.length_, p.checksum);
     endfunction
 endinstance
 
@@ -188,7 +193,10 @@ endinstance
 
 instance FShow#(PaxosT);
     function Fmt fshow(PaxosT p);
-        return $format("PaxosT: msgtype=%h, inst=%h, rnd=%h, vrnd=%h, acptid=%h, valuelen=%h, paxosval=%h" , p.msgtype, p.inst, p.rnd, p.vrnd, p.acptid, p.valuelen, p.paxosval);
+        return $format("PaxosT: msgtype=%h, inst=%h, rnd=%h, vrnd=%h, acptid=%h,",
+                      p.msgtype, p.inst, p.rnd, p.vrnd, p.acptid)
+                +
+                $format("valuelen=%h, paxosval=%h", p.valuelen, p.paxosval);
     endfunction
 endinstance
 
@@ -233,7 +241,10 @@ endinstance
 
 instance FShow#(ArpT);
     function Fmt fshow(ArpT p);
-        return $format("ArpT: hrd=%h, pro=%h, hln=%h, pln=%h, op=%h, sha=%h, spa=%h, tha=%h, tpa=%h" , p.hrd, p.pro, p.hln, p.pln, p.op, p.sha, p.spa, p.tha, p.tpa);
+        return $format("ArpT: hrd=%h, pro=%h, hln=%h, pln=%h, op=%h, sha=%h,",
+                  p.hrd, p.pro, p.hln, p.pln, p.op, p.sha)
+              +
+              $format("spa=%h, tha=%h, tpa=%h", p.spa, p.tha, p.tpa);
     endfunction
 endinstance
 
@@ -285,7 +296,14 @@ endinstance
 
 instance FShow#(Ipv4T);
     function Fmt fshow(Ipv4T p);
-        return $format("Ipv4T: version=%h, ihl=%h, diffserv=%h, totalLen=%h, identification=%h, flags=%h, fragOffset=%h, ttl=%h, protocol=%h, hdrChecksum=%h, srcAddr=%h, dstAddr=%h" , p.version, p.ihl, p.diffserv, p.totalLen, p.identification, p.flags, p.fragOffset, p.ttl, p.protocol, p.hdrChecksum, p.srcAddr, p.dstAddr);
+        return $format("Ipv4T: version=%h, ihl=%h, diffserv=%h, totalLen=%h,",
+                  p.version, p.ihl, p.diffserv, p.totalLen)
+                +
+                $format("identification=%h, flags=%h, fragOffset=%h, ttl=%h,"
+                  p.identification, p.flags, p.fragOffset, p.ttl)
+                 +
+                 $format("protocol=%h, hdrChecksum=%h, srcAddr=%h, dstAddr=%h",
+                  p.protocol, p.hdrChecksum, p.srcAddr, p.dstAddr);
     endfunction
 endinstance
 
@@ -320,7 +338,7 @@ function Ipv4T extract_ipv4(Bit#(160) data);
 endfunction
 
 typedef struct {
-    Bit#(RoundSize) round;
+    Bit#(RoundSize) rnd;
 } IngressMetadataT deriving (Bits, Eq);
 
 instance DefaultValue#(IngressMetadataT);
@@ -332,7 +350,7 @@ endinstance
 
 instance FShow#(IngressMetadataT);
     function Fmt fshow(IngressMetadataT p);
-        return $format("IngressMetadataT: round=%h" , p.round);
+        return $format("IngressMetadataT: round=%h" , p.rnd);
     endfunction
 endinstance
 
@@ -340,7 +358,7 @@ function IngressMetadataT extract_ingress_metadata(Bit#(16) data);
     Vector#(16, Bit#(1)) dataVec=unpack(data);
     Vector#(16, Bit#(1)) round = takeAt(0, dataVec);
     IngressMetadataT ingress_metadata_t = defaultValue;
-    ingress_metadata_t.round = pack(round);
+    ingress_metadata_t.rnd = pack(round);
     return ingress_metadata_t;
 endfunction
 
@@ -359,7 +377,8 @@ endinstance
 
 instance FShow#(EthernetT);
     function Fmt fshow(EthernetT p);
-        return $format("EthernetT: dstAddr=%h, srcAddr=%h, etherType=%h" , p.dstAddr, p.srcAddr, p.etherType);
+        return $format("EthernetT: dstAddr=%h, srcAddr=%h, etherType=%h",
+          p.dstAddr, p.srcAddr, p.etherType);
     endfunction
 endinstance
 
@@ -395,7 +414,14 @@ endinstance
 
 instance FShow#(StandardMetadataT);
     function Fmt fshow(StandardMetadataT p);
-        return $format("StandardMetadataT: ingress_port=%h, packet_length=%h, egress_spec=%h, egress_port=%h, egress_instance=%h, instance_type=%h, clone_spec=%h, _padding=%h" , p.ingress_port, p.packet_length, p.egress_spec, p.egress_port, p.egress_instance, p.instance_type, p.clone_spec, p._padding);
+        return $format("StandardMetadataT: ingress_port=%h, packet_length=%h",
+                  p.ingress_port, p.packet_length)
+                +
+                $format("egress_spec=%h, egress_port=%h, egress_instance=%h",
+                  p.egress_spec, p.egress_port, p.egress_instance)
+                +
+                $format("instance_type=%h,clone_spec=%h, _padding=%h",
+                p.instance_type, p.clone_spec, p._padding);
     endfunction
 endinstance
 
@@ -459,7 +485,7 @@ typedef struct {
    Maybe#(Bit#(16)) paxos$acptid;
    Maybe#(Bit#(32)) paxos$valuelen;
    Maybe#(Bit#(256)) paxos$paxosval;
-   Maybe#(Bit#(16)) paxos_packet_meta$round;
+   Maybe#(Bit#(16)) paxos_packet_meta$rnd;
    Maybe#(Role) switch_metadata$role;
    Maybe#(Bool) valid_ethernet;
    Maybe#(Bool) valid_arp;
@@ -484,7 +510,7 @@ MetadataT {
    paxos$valuelen: tagged Invalid,
    paxos$acptid: tagged Invalid,
    paxos$msgtype: tagged Invalid,
-   paxos_packet_meta$round: tagged Invalid,
+   paxos_packet_meta$rnd: tagged Invalid,
    switch_metadata$role: tagged Invalid,
    valid_ethernet: tagged Invalid,
    valid_arp: tagged Invalid,
@@ -503,7 +529,7 @@ instance FShow#(MetadataT);
              $format("protocol=", fshow(p.protocol), ",")+
              $format("dstPort=", fshow(p.dstPort), ",")+
              $format("role=", fshow(p.switch_metadata$role), ",")+
-             $format("round=", fshow(p.paxos_packet_meta$round), ",")+
+             $format("round=", fshow(p.paxos_packet_meta$rnd), ",")+
              $format("paxos$msgtype=", fshow(p.paxos$msgtype))+
              $format("paxos$inst=", fshow(p.paxos$inst), ",")+
              $format("paxos$rnd=", fshow(p.paxos$rnd), ",")+
@@ -571,14 +597,18 @@ module mkMatchTable_256_dmacTable(MatchTable#(0, 256, SizeOf#(DmacTblReqT), Size
 endmodule
 
 (* synthesize *)
-module mkMatchTable_256_acceptorTable(MatchTable#(0, 256, SizeOf#(AcceptorTblReqT), SizeOf#(AcceptorTblRespT)));
-   MatchTable#(0, 256, SizeOf#(AcceptorTblReqT), SizeOf#(AcceptorTblRespT)) ifc <- mkMatchTable("acceptor_tbl");
+module mkMatchTable_256_acceptorTable(MatchTable#(0, 256,
+          SizeOf#(AcceptorTblReqT), SizeOf#(AcceptorTblRespT)));
+   MatchTable#(0, 256, SizeOf#(AcceptorTblReqT), SizeOf#(AcceptorTblRespT)) ifc;
+   ifc <- mkMatchTable("acceptor_tbl");
    return ifc;
 endmodule
 
 (* synthesize *)
-module mkMatchTable_256_sequenceTable(MatchTable#(0, 256, SizeOf#(SequenceTblReqT), SizeOf#(SequenceTblRespT)));
-   MatchTable#(0, 256, SizeOf#(SequenceTblReqT), SizeOf#(SequenceTblRespT)) ifc <- mkMatchTable("sequence_tbl");
+module mkMatchTable_256_sequenceTable(MatchTable#(0, 256,
+          SizeOf#(SequenceTblReqT),SizeOf#(SequenceTblRespT)));
+   MatchTable#(0, 256, SizeOf#(SequenceTblReqT), SizeOf#(SequenceTblRespT)) ifc;
+   ifc <- mkMatchTable("sequence_tbl");
    return ifc;
 endmodule
 

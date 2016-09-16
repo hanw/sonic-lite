@@ -256,6 +256,7 @@ module mkAcceptorTable#(MetadataClient md)(AcceptorTable);
                req = tagged BBHandle2aRequest {pkt: pkt,
                                                inst: fromMaybe(?, meta.paxos$inst),
                                                rnd: fromMaybe(?, meta.paxos$rnd),
+                                               valuelen: fromMaybe(?, meta.paxos$valuelen),
                                                paxosval: fromMaybe(?, meta.paxos$paxosval)};
                bbReqFifo[1].enq(req);
             end
