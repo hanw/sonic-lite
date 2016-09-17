@@ -186,11 +186,11 @@ module mkMemoryTest#(
       rxchan.macRx.put(v);
    endrule
 `else
-   // process p0 -> p1
-   mkConnection(txchan.macTx, mac[1].packet_tx);
+   // process p0 -> p0
+   mkConnection(txchan.macTx, mac[0].packet_tx);
    mkConnection(mac[0].packet_rx, rxchan.macRx);
    // bypass p1 -> p0
-   mkConnectionWithClocks(mac[1].packet_rx, mac[0].packet_tx, rxClock, rxReset, txClock, txReset);
+   // mkConnectionWithClocks(mac[1].packet_rx, mac[0].packet_tx, rxClock, rxReset, txClock, txReset);
    // pktgen p2
    mkConnection(pktgen.macTx, mac[2].packet_tx);
    // pktcap p3
