@@ -222,9 +222,24 @@ module mkAcceptorTable#(MetadataClient md)(AcceptorTable);
    ConfigCounter#(64) pktIn <- mkConfigCounter(0);
    ConfigCounter#(64) pktOut <- mkConfigCounter(0);
 
+   let learner_addr = 'hE0031D49; // 224.3.29.73
+   let learner_port = 'h8889;     // 34953
+
+    function Bit#(48) mac_from_ip(Bit#(32) ip_addr);
+        Bit#(23) bits_ip = ip_addr[22:0];
+        Bit#(24) lower_part = zeroExtend(bits_ip);
+        Bit#(24) upper_part = 'h01005E;
+        return {upper_part, lower_part};
+    endfunction
+
    rule lookup_request;
       let v <- md.request.get;
       let meta = v.meta;
+      // Update address and port
+      meta.dstIP = tagged Valid learner_addr;
+      meta.dstPort = tagged Valid learner_port;
+      meta.dstAddr = tagged Valid mac_from_ip(learner_addr);
+
       let pkt = v.pkt;
       AcceptorTblReqT req = AcceptorTblReqT {msgtype: fromMaybe(?, meta.paxos$msgtype), padding:0};
       matchTable.lookupPort.request.put(pack(req));

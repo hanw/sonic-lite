@@ -97,10 +97,25 @@ module mkSequenceTable#(MetadataClient md)(SequenceTable);
 
    MatchTable#(0, 256, SizeOf#(SequenceTblReqT), SizeOf#(SequenceTblRespT)) matchTable <- mkMatchTable_256_sequenceTable();
 
+   let acceptor_addr = 'hE0031D48; // 224.3.29.72
+   let acceptor_port = 'h8888;     // 34952
+
+    function Bit#(48) mac_from_ip(Bit#(32) ip_addr);
+        Bit#(23) bits_ip = ip_addr[22:0];
+        Bit#(24) lower_part = zeroExtend(bits_ip);
+        Bit#(24) upper_part = 'h01005E;
+        return {upper_part, lower_part};
+    endfunction
+
    rule lookup_request;
       let v <- md.request.get;
       let meta = v.meta;
       let pkt = v.pkt;
+      // Update address and port
+      meta.dstIP = tagged Valid acceptor_addr;
+      meta.dstPort = tagged Valid acceptor_port;
+      meta.dstAddr = tagged Valid mac_from_ip(acceptor_addr);
+
       SequenceTblReqT req = SequenceTblReqT {msgtype: fromMaybe(?, meta.paxos$msgtype), padding:0};
       matchTable.lookupPort.request.put(pack(req));
       if (verbose) $display("(%0d) Sequence: %h", $time, pkt.id, fshow(meta.paxos$msgtype));
