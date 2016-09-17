@@ -63,6 +63,8 @@ function Tuple2#(Ipv4T, Ipv4T) toIpv4(MetadataT meta);
    Ipv4T mask = defaultMask;
    ipv4.protocol = fromMaybe(?, meta.protocol);
    mask.protocol = 0;
+   // ipv4.dstAddr = fromMaybe(?, meta.dstIP);
+   // mask.dstAddr = 0;
    return tuple2(ipv4, mask);
 endfunction
 
@@ -274,6 +276,7 @@ module mkStateDeparseIpv4#(Reg#(DeparserState) state,
       Vector#(128, Bit#(1)) curr_mask = takeAt(16, unpack(byteSwap(pack(ipv4_mask.first))));
       let masked_data = data_this_cycle.data & pack(curr_mask);
       let curr_data = masked_data | pack(curr_meta);
+      $display("LOOK AT THIS : (%0d) %h", $time, fshow(curr_data));
       data_this_cycle.data = curr_data;
       dataout.enq(data_this_cycle);
       $display("(%0d) IPv4: [2] ", $time, fshow(data_this_cycle));

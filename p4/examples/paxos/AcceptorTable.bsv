@@ -236,9 +236,9 @@ module mkAcceptorTable#(MetadataClient md)(AcceptorTable);
       let v <- md.request.get;
       let meta = v.meta;
       // Update address and port
-      meta.dstIP = tagged Valid learner_addr;
+      // meta.dstIP = tagged Valid learner_addr;
+      // meta.dstAddr = tagged Valid mac_from_ip(learner_addr);
       meta.dstPort = tagged Valid learner_port;
-      meta.dstAddr = tagged Valid mac_from_ip(learner_addr);
 
       let pkt = v.pkt;
       AcceptorTblReqT req = AcceptorTblReqT {msgtype: fromMaybe(?, meta.paxos$msgtype), padding:0};

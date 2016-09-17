@@ -112,9 +112,9 @@ module mkSequenceTable#(MetadataClient md)(SequenceTable);
       let meta = v.meta;
       let pkt = v.pkt;
       // Update address and port
-      meta.dstIP = tagged Valid acceptor_addr;
+      // meta.dstIP = tagged Valid acceptor_addr;
+      // meta.dstAddr = tagged Valid mac_from_ip(acceptor_addr);
       meta.dstPort = tagged Valid acceptor_port;
-      meta.dstAddr = tagged Valid mac_from_ip(acceptor_addr);
 
       SequenceTblReqT req = SequenceTblReqT {msgtype: fromMaybe(?, meta.paxos$msgtype), padding:0};
       matchTable.lookupPort.request.put(pack(req));

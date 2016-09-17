@@ -23,12 +23,12 @@ class Paxos(Packet):
                 ]
 
 
-def paxos_packet(inst, rnd, vrnd, acpt, typ, value):
-    eth = Ether(dst="08:00:27:10:a8:80")
-    ip = IP(src="192.168.4.95", dst="224.3.29.71")
-    udp = UDP(sport=34949, dport=34951)
-    paxos_value = PaxosValue(vlen=32, value=value)
-    paxos =  Paxos(msgtype=typ, inst=inst, rnd=rnd, vrnd=vrnd, acpt=acpt)
+def paxos_packet(args):
+    eth = Ether()
+    ip = IP(src="192.168.4.95", dst="224.3.29.73")
+    udp = UDP(sport=34949, dport=args.dport)
+    paxos_value = PaxosValue(vlen=32, value=args.value)
+    paxos =  Paxos(msgtype=args.type, inst=args.inst, rnd=args.rnd, vrnd=args.vrnd, acpt=args.acpt)
     print "paxos len", len(paxos)
     hexdump(paxos)
     pkt = eth / ip / udp / paxos / paxos_value
@@ -37,7 +37,7 @@ def paxos_packet(inst, rnd, vrnd, acpt, typ, value):
 def store_pkts_in_pcap(args):
     pkts = []
     for i in range(args.count):
-        pkt = paxos_packet(args.inst, i, args.vrnd, args.acpt, args.type, args.value)
+        pkt = paxos_packet(args)
         pkts.append(pkt)
     wrpcap("%s" % args.output, pkts)
 
@@ -51,6 +51,7 @@ if __name__=='__main__':
     parser.add_argument('-r', '--rnd', help='Paxos round', type=int, default=1)
     parser.add_argument('-v', '--vrnd', help='Paxos value round', type=int, default=1)
     parser.add_argument('-a', '--acpt', help='Paxos acceptor id', type=int, default=0)
+    parser.add_argument('-d', '--dport', help='UDP dest port', type=int, default=0x8887)
     parser.add_argument('-c', '--count', help='number of packets', type=int, default=1)
     parser.add_argument('-s', '--store', help='store in pcap file', default=False, action='store_true')
     parser.add_argument('-V', '--value', help='Paxos value', type=int, default=0x48656c6c6f)
@@ -61,6 +62,6 @@ if __name__=='__main__':
         store_pkts_in_pcap(args)
         sys.exit(0)
 
-    pkt = paxos_packet(args.inst, args.rnd, args.vrnd, args.acpt, args.type, args.value)
+    pkt = paxos_packet(args)
     pkt.show()
     sendp(pkt, iface=args.interface, count=args.count)
