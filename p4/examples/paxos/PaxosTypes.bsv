@@ -477,6 +477,7 @@ endfunction
 typedef struct {
    Maybe#(Bit#(16)) msgtype; // ethernet$msgtype
    Maybe#(Bit#(48)) dstAddr; // ethernet$dstAddr
+   Maybe#(Bit#(32)) dstIP; // ipv4$dstAddr
    Maybe#(Bit#(16)) etherType; // ethernet$etherType
    Maybe#(Bit#(8))  protocol; // ipv4$protocol
    Maybe#(Bit#(16)) dstPort; // ipv4$dstPort
@@ -502,6 +503,7 @@ defaultValue =
 MetadataT {
    msgtype: tagged Invalid,
    dstAddr: tagged Invalid,
+   dstIP: tagged Invalid,
    etherType: tagged Invalid,
    protocol: tagged Invalid,
    dstPort: tagged Invalid,
@@ -528,6 +530,7 @@ instance FShow#(MetadataT);
       return $format("\n")+
              $format("msgtype=", fshow(p.msgtype), ",")+
              $format("dstAddr=", fshow(p.dstAddr), ",")+
+             $format("dstIP=", fshow(p.dstIP), ",")+
              $format("etherType=", fshow(p.etherType), ",")+
              $format("protocol=", fshow(p.protocol), ",")+
              $format("dstPort=", fshow(p.dstPort), ",")+

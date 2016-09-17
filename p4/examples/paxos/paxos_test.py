@@ -25,8 +25,8 @@ class Paxos(Packet):
 
 def paxos_packet(inst, rnd, vrnd, acpt, typ, value):
     eth = Ether(dst="08:00:27:10:a8:80")
-    ip = IP(src="192.168.4.95", dst="224.3.29.73")
-    udp = UDP(sport=34949, dport=34952)
+    ip = IP(src="192.168.4.95", dst="224.3.29.71")
+    udp = UDP(sport=34949, dport=34951)
     paxos_value = PaxosValue(vlen=32, value=value)
     paxos =  Paxos(msgtype=typ, inst=inst, rnd=rnd, vrnd=vrnd, acpt=acpt)
     print "paxos len", len(paxos)

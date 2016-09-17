@@ -613,6 +613,13 @@ module mkParser(Parser);
             parser_end_time <= clk_cnt;
         end
     endrule
+
+    function Bit#(48) mac_from_ip(Bit#(32) ip_addr);
+        Bit#(23) bits_ip = ip_addr[22:0];
+        Bit#(24) lower_part = zeroExtend(bits_ip);
+        Bit#(24) upper_part = 'h01005E;
+        return {upper_part, lower_part};
+    endfunction
    // new packet, issue metadata processing request to ingress pipeline
    // request issue after packet is committed to memory.
    rule handle_paxos_packet if (parse_state_out_fifo.first == StateParsePaxos);
@@ -628,7 +635,8 @@ module mkParser(Parser);
             $display("(%0d) HostChannel: msgtype=%h", $time, paxos.msgtype);
       MetadataT meta = defaultValue;
       meta.etherType = tagged Valid etherType;
-      meta.dstAddr = tagged Valid dstAddr;
+      meta.dstIP = tagged Valid 'hE0031D49;
+      meta.dstAddr = tagged Valid mac_from_ip('hE0031D49);
       meta.dstPort = tagged Valid dstPort;
       meta.protocol = tagged Valid protocol;
       meta.paxos$msgtype = tagged Valid paxos.msgtype;
