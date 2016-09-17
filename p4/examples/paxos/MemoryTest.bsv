@@ -35,6 +35,7 @@ import Clocks::*;
 import Gearbox::*;
 import Pipe::*;
 import GetPutWithClocks::*;
+import SpecialFIFOs::*;
 
 `include "ConnectalProjectConfig.bsv"
 import MemServerIndication::*;
@@ -175,10 +176,18 @@ module mkMemoryTest#(
    PktCapChannel pktcap <- mkPktCapChannel(rxClock, rxReset);
 
 `ifdef SIMULATION
+   SyncFIFOIfc#(PacketDataT#(64)) recvFifo <- mkSyncFIFO(4, rxClock, rxReset, defaultClock);
    rule drain_mac;
       let v <- toGet(txchan.macTx).get;
-      if (verbose) $display("(%0d) tx data ", $time, fshow(v));
-      pktcap.macRx.put(v);
+      //if (verbose) $display("(%0d) tx data ", $time, fshow(v));
+      // NOTE: indication might be a slow path
+      recvFifo.enq(v);
+      // pktcap is a faster path
+      //pktcap.macRx.put(v);
+   endrule
+   rule writePcap;
+      let v <- toGet(recvFifo).get;
+      indication.writePacketData(v.data, v.mask, v.sop, v.eop);
    endrule
    rule drain_pktgen;
       let v <- toGet(pktgen.macTx).get;

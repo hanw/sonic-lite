@@ -37,6 +37,19 @@ uint16_t flowid;
 
 bool hwpktgen = false;
 
+static int pktlen = 0;
+
+// http://gurmeet.net/puzzles/fast-bit-counting-routines/
+#define MASK_01010101 (((unsigned int)(-1))/3)
+#define MASK_00110011 (((unsigned int)(-1))/5)
+#define MASK_00001111 (((unsigned int)(-1))/17)
+int bitcount (unsigned int n) {
+    n = (n & MASK_01010101) + ((n >> 1) & MASK_01010101) ;
+    n = (n & MASK_00110011) + ((n >> 2) & MASK_00110011) ;
+    n = (n & MASK_00001111) + ((n >> 4) & MASK_00001111) ;
+    return n % 255 ;
+}
+
 void device_writePacketData(uint64_t* data, uint8_t* mask, int sop, int eop) {
     if (hwpktgen) {
         device->writePktGenData(data, mask, sop, eop);
@@ -83,6 +96,19 @@ public:
     }
     virtual void read_pktcap_perf_info_resp(PktCapRec a) {
         fprintf(stderr, "perf: pktcap data_bytes=%ld idle_cycle=%ld total_cycle=%ld\n", a.data_bytes, a.idle_cycles, a.total_cycles);
+    }
+    virtual void writePacketData(const uint64_t data, const uint8_t mask, const uint8_t sop, const uint8_t eop) {
+      int nbytes = bitcount(mask);
+      if (pktlen % 16 == 0) {
+        fprintf(stderr, "%06x", pktlen);
+      }
+      pktlen += nbytes;
+      for (int i=0; i < nbytes; i++) {
+        fprintf(stderr, " %02x", (unsigned int)(data >> (i*8) & 0xFF));
+      }
+      if (pktlen % 16 == 0 || nbytes != 8) {
+        fprintf(stderr, "\n");
+      }
     }
     MemoryTestIndication(unsigned int id) : MemoryTestIndicationWrapper(id) {}
 };

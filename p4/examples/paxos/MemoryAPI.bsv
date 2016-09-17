@@ -51,6 +51,7 @@ interface MemoryTestIndication;
    method Action read_parser_perf_info_resp(ParserPerfRec rec);
    method Action read_pktcap_perf_info_resp(PktCapRec rec);
    method Action read_deparser_perf_info_resp(DeparserPerfRec rec);
+   method Action writePacketData(Bit#(64) data, Bit#(8) mask, Bit#(1) sop, Bit#(1) eop);
 endinterface
 
 interface MemoryTestRequest;
