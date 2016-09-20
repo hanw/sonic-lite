@@ -2,6 +2,8 @@
 
 void device_writePacketData(uint64_t* data, uint8_t* mask, int sop, int eop);
 
+//static struct write_pcap_desc* writeFiles[32];
+
 void load_pcap_file(const char *filename, struct pcap_trace_info *info) {
     char errbuf[PCAP_ERRBUF_SIZE];
     const unsigned char *packet;
@@ -10,13 +12,34 @@ void load_pcap_file(const char *filename, struct pcap_trace_info *info) {
     pcap = pcap_open_offline(filename, errbuf);
     if (pcap == NULL) {
         fprintf(stderr, "error reading pcap file: %s\n", errbuf);
-        exit(1);
+        exit(-1);
     }
     while ((packet = pcap_next(pcap, &header)) != NULL) {
         fprintf(stderr, "packet %p len %d\n", packet, header.caplen);
         mem_copy(packet, header.caplen);
+        info->byte_count += header.len;
+        info->packet_count ++;
     }
 }
+
+//void open_pcap_dump_file(char* fn_p) {
+//    pcap_t* pcap_desc = pcap_open_dead(1, 65535);
+//    if (pcap_desc == NULL) {
+//        fprintf(stderr, "pcap_open_dead: failed: \n");
+//        exit(-1);
+//    }
+//    pcap_dumper_t* pdumper = pcap_dump_open(pcap_desc, fn_p);
+//    if (pdumper == NULL) {
+//        fprintf(stderr, "pcap_dump_open: failed:\n");
+//        exit(-1);
+//    }
+//    struct write_pcap_desc *desc = calloc(1, sizeof(struct write_pcap_desc));
+//    desc->pdesc = pcap_desc;
+//    desc->pdumper = pdumper;
+//    desc->packetLen = 0;
+//    desc->queued = 0;
+//    memset(&desc->packetHeader.ts, -1, 8);
+//}
 
 const char* get_exe_name(const char* argv0) {
     if (const char *last_slash = strrchr(argv0, '/')) {

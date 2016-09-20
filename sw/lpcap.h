@@ -21,10 +21,21 @@
 
 #include "lutils.h"
 
+//#define MAX_PKTSIZE (17 * 1024)
+
 struct pcap_trace_info {
     unsigned long packet_count;
     unsigned long long byte_count;
 };
+
+//struct write_pcap_desc {
+//  pcap_t              *pdesc;
+//  pcap_dumper_t       *pdumper;
+//  struct pcap_pkthdr  packetHeader;
+//  unsigned            packetLen;
+//  unsigned            queued;
+//  u_char              cap_data[MAX_PKTSIZE];
+//};
 
 /* mem_copy must be provided by each test */
 void mem_copy(const void *buff, int length);
