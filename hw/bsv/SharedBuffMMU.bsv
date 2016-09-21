@@ -167,7 +167,7 @@ module mkSharedBuffMMU#(Integer iid, MMUIndication mmuIndication)(MMU#(addrWidth
      );
    
 	    
-   let verbose = True;
+   let verbose = False;
    TagGen#(MaxNumSGLists) sglId_gen <- mkTagGen();
    rule complete_sglId_gen;
       let __x <- sglId_gen.complete;

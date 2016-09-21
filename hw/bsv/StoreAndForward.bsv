@@ -32,7 +32,8 @@ import Cntrs::*;
 import ConfigReg::*;
 import ClientServer::*;
 import DefaultValue::*;
-import DbgTypes::*;
+//import DbgTypes::*;
+import DbgDefs::*;
 import Ethernet::*;
 import EthMac::*;
 import FIFO::*;
@@ -49,7 +50,7 @@ import SharedBuffMMU::*;
 import SpecialFIFOs::*;
 import Vector::*;
 import Pipe::*;
-import DbgTypes::*;
+//import DbgTypes::*;
 import PrintTrace::*;
 import ConnectalConfig::*;
  `include "ConnectalProjectConfig.bsv"

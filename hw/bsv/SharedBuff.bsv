@@ -39,7 +39,8 @@ import SharedBuffMMU::*;
 import MemMgmt::*;
 import PhysMemSlaveFromBram::*;
 import Ethernet::*;
-import DbgTypes::*;
+//import DbgTypes::*;
+import DbgDefs::*;
 import ConnectalConfig::*;
  `include "ConnectalProjectConfig.bsv"
 

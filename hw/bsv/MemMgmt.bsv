@@ -38,7 +38,8 @@ import ConnectalBram::*;
 import ConnectalMemory::*;
 import Ethernet::*;
 import SharedBuffMMU::*;
-import DbgTypes::*;
+//import DbgTypes::*;
+import DbgDefs::*;
 
  `include "ConnectalProjectConfig.bsv"
 typedef enum {

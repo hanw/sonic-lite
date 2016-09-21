@@ -37,7 +37,6 @@ import StoreAndForward::*;
 import SharedBuff::*;
 import SpecialFIFOs ::*;
 import Deparser::*;
-import PaxosTypes::*;
 
 // Encapsulate a packet generator inside a channel
 interface PktGenChannel;

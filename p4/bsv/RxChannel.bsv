@@ -31,13 +31,14 @@ import FIFO::*;
 import MemMgmt::*;
 import MemTypes::*;
 import PacketBuffer::*;
-import PaxosTypes::*;
 import Pipe::*;
 import StoreAndForward::*;
 import SharedBuff::*;
 import Tap::*;
 import HostChannel::*;
 `include "ConnectalProjectConfig.bsv"
+import `PARSER::*;
+import `TYPEDEF::*;
 
 interface RxChannel;
    interface Put#(PacketDataT#(64)) macRx;

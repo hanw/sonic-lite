@@ -38,7 +38,6 @@ import StoreAndForward::*;
 import SharedBuff::*;
 import SpecialFIFOs ::*;
 import Deparser::*;
-import PaxosTypes::*;
 
 interface PktCapChannel;
    method Action start(Bit#(32) iter);

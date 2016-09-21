@@ -29,7 +29,8 @@ import GetPut::*;
 import DefaultValue::*;
 import Clocks::*;
 
-import DbgTypes::*;
+//import DbgTypes::*;
+import DbgDefs::*;
 import Ethernet::*;
 import GenericMatchTable::*;
 import MemTypes::*;

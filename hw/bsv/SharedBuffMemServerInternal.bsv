@@ -122,7 +122,7 @@ module mkMemReadInternal#(MemServerIndication ind,
    // stage 3: read data 
    FIFO#(MemData#(busWidth)) serverData <- mkFIFO;
    
-   let verbose = True;
+   let verbose = False;
    
    RegFile#(Bit#(TLog#(numTags)),Tuple2#(Bool,Bit#(BurstLenSize))) clientBurstLen <- mkRegFileFull();
    Reg#(Bit#(BurstLenSize)) burstReg <- mkReg(0);
