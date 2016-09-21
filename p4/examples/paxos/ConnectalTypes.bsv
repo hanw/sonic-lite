@@ -93,10 +93,10 @@ typedef enum {
 } SequenceTblActionT deriving (Bits, Eq, FShow);
 
 typedef enum {
+    Unused,
     Handle1A,
     Handle2A,
-    Drop,
-    Unused
+    Drop
 } AcceptorTblActionT deriving (Bits, Eq, FShow);
 
 //typedef struct {
