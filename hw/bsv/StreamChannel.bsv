@@ -42,13 +42,14 @@ import StoreAndForward::*;
 import SpecialFIFOs::*;
 import SharedBuff::*;
 import HeaderSerializer::*;
-
+`include "ConnectalProjectConfig.bsv"
 import `PARSER::*;
 import `DEPARSER::*;
 import `TYPEDEF::*;
 
 interface StreamOutChannel;
    interface PktWriteServer writeServer;
+   // Put#
    interface Server#(MetadataRequest, MetadataResponse) prev;
    interface Get#(PacketDataT#(64)) macTx;
    method Action set_verbosity (int verbosity);
@@ -136,14 +137,13 @@ endmodule
 interface StreamInChannel;
    interface PktWriteServer writeServer;
    interface PktWriteClient writeClient;
-   interface Client#(MetadataRequest, MetadataResponse) next;
+   interface PipeOut#(MetadataRequest) next;
    method Action set_verbosity (int verbosity);
 endinterface
 
 module mkStreamInChannel(StreamInChannel);
    Reg#(int) cf_verbosity <- mkConfigRegU;
-   FIFO#(MetadataRequest) outReqFifo <- mkFIFO;
-   FIFO#(MetadataResponse) inRespFifo <- mkFIFO;
+   FIFOF#(MetadataRequest) outReqFifo <- mkFIFOF;
 
    // RingBuffer Read Client
    FIFO#(EtherData) readDataFifo <- mkFIFO;
@@ -203,12 +203,10 @@ module mkStreamInChannel(StreamInChannel);
    interface writeClient = (interface PktWriteClient;
       interface writeData = toGet(writeDataFifo);
    endinterface);
-   interface next = (interface Client#(MetadataRequest, MetadataResponse);
-      interface request = toGet(outReqFifo);
-      interface response = toPut(inRespFifo);
-   endinterface);
+   interface next = toPipeOut(outReqFifo);
    method Action set_verbosity (int verbosity);
       parser.set_verbosity(verbosity);
       cf_verbosity <= verbosity;
+      $display("set verbosity ", verbosity);
    endmethod
 endmodule

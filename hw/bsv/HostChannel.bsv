@@ -25,7 +25,7 @@ import ClientServer::*;
 import DbgDefs::*;
 import Ethernet::*;
 import GetPut::*;
-import FIFO::*;
+import FIFOF::*;
 import MemMgmt::*;
 import MemTypes::*;
 import PacketBuffer::*;
@@ -41,7 +41,7 @@ interface HostChannel;
    interface PktWriteServer writeServer;
    interface MemWriteClient#(`DataBusWidth) writeClient;
    interface MemAllocClient mallocClient;
-   interface Client#(MetadataRequest, MetadataResponse) next;
+   interface PipeOut#(MetadataRequest) next;
    method HostChannelDbgRec read_debug_info;
    method ParserPerfRec read_parser_perf_info;
    method Action set_verbosity (int verbosity);
@@ -49,8 +49,7 @@ endinterface
 
 module mkHostChannel(HostChannel);
    let verbose = True;
-   FIFO#(MetadataRequest) outReqFifo <- mkFIFO;
-   FIFO#(MetadataResponse) inRespFifo <- mkFIFO;
+   FIFOF#(MetadataRequest) outReqFifo <- mkFIFOF;
 
    Reg#(LUInt) paxosCount <- mkReg(0);
    Reg#(LUInt) ipv6Count <- mkReg(0);
@@ -74,10 +73,7 @@ module mkHostChannel(HostChannel);
 
    interface writeServer = pktBuff.writeServer;
    interface writeClient = ingress.writeClient;
-   interface next = (interface Client#(MetadataRequest, MetadataResponse);
-      interface request = toGet(outReqFifo);
-      interface response = toPut(inRespFifo);
-   endinterface);
+   interface next = toPipeOut(outReqFifo);
    interface mallocClient = ingress.malloc;
    method HostChannelDbgRec read_debug_info;
       return HostChannelDbgRec {

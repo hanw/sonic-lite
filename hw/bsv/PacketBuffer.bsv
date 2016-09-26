@@ -32,13 +32,25 @@ import GetPut::*;
 import Pipe::*;
 import SpecialFIFOs::*;
 import Vector::*;
-//import DbgTypes::*;
 import DbgDefs::*;
 import Ethernet::*;
+import TieOff::*;
 
 interface PktWriteClient;
    interface Get#(EtherData) writeData;
 endinterface
+
+instance TieOff#(Get#(EtherData));
+   module mkTieOff(Get#(EtherData) ifc, Empty unused);
+      let verbose = True;
+      // pipe to /dev/null
+      rule tieoff(True);
+         let v <- ifc.get;
+         if (verbose) $display("PktWriteClient ", fshow(v), " > /dev/null");
+      endrule
+   endmodule
+endinstance
+
 
 interface PktReadClient;
    interface Put#(EtherData) readData;
