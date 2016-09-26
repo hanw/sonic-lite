@@ -22,7 +22,6 @@
 
 import Connectable::*;
 import ClientServer::*;
-//import DbgTypes::*;
 import DbgDefs::*;
 import Ethernet::*;
 import GetPut::*;

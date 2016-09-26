@@ -25,16 +25,16 @@ package EthMac;
 
 import Clocks::*;
 import Vector::*;
-import Connectable                   ::*;
-import Pipe                          ::*;
-import FIFOF                         ::*;
-import GetPut                        ::*;
+import Connectable::*;
+import Pipe::*;
+import FIFOF::*;
+import GetPut::*;
 import Pipe::*;
 import DefaultValue::*;
 import OInt::*;
 import Ethernet::*;
-
- `include "ConnectalProjectConfig.bsv"
+import TieOff::*;
+`include "ConnectalProjectConfig.bsv"
 
 typedef struct {
    Bit#(n) data;
@@ -49,6 +49,16 @@ instance DefaultValue#(PacketDataT#(64));
         sop : 0,
         eop : 0
     };
+endinstance
+
+instance TieOff#(Get#(PacketDataT#(n)));
+   module mkTieOff(Get#(PacketDataT#(n)) ifc, Empty unused);
+      // sink, /dev/null
+      rule tieoff(True);
+         let v <- ifc.get;
+         // optional print
+      endrule
+   endmodule
 endinstance
 
 `ifdef ALTERA
