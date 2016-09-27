@@ -36,7 +36,7 @@ module mkTestAPI#(TestIndication indication, Vector#(4, PacketBuffer) txPktbuf, 
    Clock defaultClock <- exposeCurrentClock();
    FIFO#(Tuple2#(Bit#(32), Bit#(32))) startReqFifo <- mkFIFO;
    FIFO#(Bit#(1)) stopReqFifo <- mkFIFO;
-   FIFO#(EtherData) etherDataFifo <- mkFIFO;
+   FIFO#(ByteStream#(16)) etherDataFifo <- mkFIFO;
 
    Vector#(4, SyncFIFOIfc#(PktBuffDbgRec)) txPktBuffDbgFifo <- replicateM(mkSyncFIFO(8, txClock, txReset, defaultClock));
    Vector#(4, Reg#(PktBuffDbgRec)) txPktbufDbg <- replicateM(mkRegU);

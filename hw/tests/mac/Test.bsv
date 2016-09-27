@@ -50,7 +50,7 @@ module mkTest#(TestIndication indication) (Test);
    SyncFIFOIfc#(Bit#(72)) lpbk_fifo1 <- mkSyncFIFO(5, txClock, txReset, rxClock);
    SyncFIFOIfc#(Bit#(72)) lpbk_fifo2 <- mkSyncFIFO(5, txClock, txReset, rxClock);
 
-   SyncFIFOIfc#(EtherData) tx_fifo <- mkSyncFIFO(5, defaultClock, defaultReset, txClock);
+   SyncFIFOIfc#(ByteStream#(16)) tx_fifo <- mkSyncFIFO(5, defaultClock, defaultReset, txClock);
 
    rule every1;
       cycle <= cycle + 1;
@@ -82,7 +82,7 @@ module mkTest#(TestIndication indication) (Test);
       buff.readServer.readReq.put(EtherReq{len: truncate(pktLen)});
    endrule
 
-   function Vector#(2, PacketDataT#(64)) split(EtherData in);
+   function Vector#(2, PacketDataT#(64)) split(ByteStream#(16) in);
       Vector#(2, PacketDataT#(64)) v = defaultValue;
       Vector#(8, Bit#(8)) v0_data = unpack(in.data[63:0]);
       Vector#(8, Bit#(8)) v1_data = unpack(in.data[127:64]);
@@ -123,7 +123,7 @@ module mkTest#(TestIndication indication) (Test);
 
    interface TestRequest request;
       method Action writePacketData(Vector#(2, Bit#(64)) data, Vector#(2, Bit#(8)) mask, Bit#(1) sop, Bit#(1) eop);
-         EtherData beat = defaultValue;
+         ByteStream#(16) beat = defaultValue;
          beat.data = pack(reverse(data));
          beat.mask = pack(reverse(mask));
          beat.sop = unpack(sop);

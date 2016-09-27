@@ -144,7 +144,7 @@ module mkDtpPktGenTop#(DtpIndication indication1, DtpPktGenIndication indication
    // PktGen start/stop
    SyncFIFOIfc#(Tuple2#(Bit#(32),Bit#(32))) pktGenStartSyncFifo <- mkSyncFIFO(4, defaultClock, defaultReset, txClock);
    SyncFIFOIfc#(Bit#(1)) pktGenStopSyncFifo <- mkSyncFIFO(4, defaultClock, defaultReset, txClock);
-   SyncFIFOIfc#(EtherData) pktGenWriteSyncFifo <- mkSyncFIFO(4, defaultClock, defaultReset, txClock);
+   SyncFIFOIfc#(ByteStream#(16)) pktGenWriteSyncFifo <- mkSyncFIFO(4, defaultClock, defaultReset, txClock);
    mkConnection(api.pktGenStart, toPut(pktGenStartSyncFifo));
    mkConnection(api.pktGenStop, toPut(pktGenStopSyncFifo));
    mkConnection(api.pktGenWrite, toPut(pktGenWriteSyncFifo));

@@ -37,13 +37,14 @@ import PktGen::*;
 import StoreAndForward::*;
 import SharedBuff::*;
 import SpecialFIFOs ::*;
+import Stream::*;
 import Deparser::*;
 
 interface PktCapChannel;
    method Action start(Bit#(32) iter);
    method Action stop();
    method PktCapRec read_perf_info();
-   interface Put#(PacketDataT#(64)) macRx;
+   interface Put#(ByteStream#(8)) macRx;
 endinterface
 
 module mkPktCapChannel#(Clock rxClock, Reset rxReset)(PktCapChannel);

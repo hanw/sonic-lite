@@ -31,39 +31,28 @@ import FIFOF::*;
 import GetPut::*;
 import Pipe::*;
 import SpecialFIFOs::*;
+import Stream::*;
 import Vector::*;
 import DbgDefs::*;
 import Ethernet::*;
 import TieOff::*;
 
 interface PktWriteClient;
-   interface Get#(EtherData) writeData;
+   interface Get#(ByteStream#(16)) writeData;
 endinterface
 
-instance TieOff#(Get#(EtherData));
-   module mkTieOff(Get#(EtherData) ifc, Empty unused);
-      let verbose = True;
-      // pipe to /dev/null
-      rule tieoff(True);
-         let v <- ifc.get;
-         if (verbose) $display("PktWriteClient ", fshow(v), " > /dev/null");
-      endrule
-   endmodule
-endinstance
-
-
 interface PktReadClient;
-   interface Put#(EtherData) readData;
+   interface Put#(ByteStream#(16)) readData;
    interface Put#(Bit#(EtherLen)) readLen;
    interface Get#(EtherReq) readReq;
 endinterface
 
 interface PktWriteServer;
-   interface Put#(EtherData) writeData;
+   interface Put#(ByteStream#(16)) writeData;
 endinterface
 
 interface PktReadServer;
-   interface Get#(EtherData) readData;
+   interface Get#(ByteStream#(16)) readData;
    interface Get#(Bit#(EtherLen)) readLen;
    interface Put#(EtherReq) readReq;
 endinterface
@@ -117,9 +106,9 @@ module mkPacketBuffer(PacketBuffer);
    // Memory
    BRAM_Configure bramConfig = defaultValue;
    bramConfig.latency = 1;
-   BRAM2Port#(Bit#(PktAddrWidth), EtherData) memBuffer <- mkBRAM2Server(bramConfig);
+   BRAM2Port#(Bit#(PktAddrWidth), ByteStream#(16)) memBuffer <- mkBRAM2Server(bramConfig);
 
-   FIFO#(EtherData) fifoWriteData <- mkFIFO;
+   FIFO#(ByteStream#(16)) fifoWriteData <- mkFIFO;
    FIFOF#(Bit#(EtherLen)) fifoEop <- mkFIFOF;
    FIFO#(AddrTransRequest) incomingReqs     <- mkFIFO;
 
@@ -129,14 +118,14 @@ module mkPacketBuffer(PacketBuffer);
 
    FIFOF#(Bit#(EtherLen))    fifoLen     <- mkSizedFIFOF(16);
    FIFOF#(Bit#(EtherLen))    fifoReadReq <- mkSizedFIFOF(4);
-   FIFOF#(EtherData)         fifoReadData <- mkBypassFIFOF();
+   FIFOF#(ByteStream#(16))         fifoReadData <- mkBypassFIFOF();
 
    rule every1 if (verbose);
       cycle <= cycle + 1;
    endrule
 
    rule enq_stage1;
-      EtherData d <- toGet(fifoWriteData).get;
+      ByteStream#(16) d <- toGet(fifoWriteData).get;
       incomingReqs.enq(AddrTransRequest{addr: wrCurrPtr, data:d});
       wrCurrPtr <= wrCurrPtr + 1;
       let newPacketLen = packetLen + zeroExtend(pack(countOnes(d.mask)));
@@ -204,7 +193,7 @@ module mkPacketBuffer(PacketBuffer);
    // Big-endianess
    interface PktWriteServer writeServer;
       interface Put writeData;
-         method Action put(EtherData d);
+         method Action put(ByteStream#(16) d);
             if (verbose) $display("PacketBuffer::writeData %d: Packet data %x", cycle, d.data);
             fifoWriteData.enq(d);
          endmethod
@@ -212,7 +201,7 @@ module mkPacketBuffer(PacketBuffer);
    endinterface
    interface PktReadServer readServer;
       interface Get readData;
-         method ActionValue#(EtherData) get if (fifoReadData.notEmpty);
+         method ActionValue#(ByteStream#(16)) get if (fifoReadData.notEmpty);
             let v = fifoReadData.first;
             fifoReadData.deq;
             return v;

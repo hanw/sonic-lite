@@ -75,6 +75,27 @@ typedef struct {
    Bit#(64) reserved;
 } RxMeta deriving (Eq, Bits);
 
+// little endianess
+typedef struct {
+   Bool                    sop;
+   Bool                    eop;
+   Bit#(1)                 err;
+   Bit#(3)                 empty; //FIXME: use TLog and shift
+   Bit#(dataT_width)       data;
+   Bool                    valid;
+} PacketData#(numeric type dataT_width) deriving (Bits, Eq);
+instance DefaultValue#(PacketData#(n));
+   defaultValue =
+   PacketData {
+      sop : False,
+      eop : False,
+      err : 0,
+      empty : 0,
+      data : 0,
+      valid : False
+      };
+endinstance
+
 interface SonicTopRequest;
    method Action sonic_read_version();
    method Action startRead(Bit#(32) pointer, Bit#(32) offset, Bit#(32) numBytes, Bit#(32) burstLen);
@@ -153,7 +174,12 @@ module mkSonicTop#(Clock derivedClock, Reset derivedReset, SonicTopIndication in
    rule readData;
       if (re.readServers[0].data.notEmpty()) begin
          let v <- toGet(re.readServers[0].data).get;
-         txPktBuff.writeServer.writeData.put(EtherData{sop: v.first, eop: v.last, data:v.data});
+         ByteStream#(16) d = defaultValue;
+         d.sop = v.first;
+         d.eop = v.last;
+         d.data = v.data;
+         d.mask = 'hffff;
+         txPktBuff.writeServer.writeData.put(d);
       end
    endrule
 
@@ -164,7 +190,7 @@ module mkSonicTop#(Clock derivedClock, Reset derivedReset, SonicTopIndication in
    endrule
 
    //FIXME::
-   function Vector#(2, PacketData#(64)) split(EtherData in);
+   function Vector#(2, PacketData#(64)) split(ByteStream#(16) in);
       Vector#(2, PacketData#(64)) v = defaultValue;
       v[0].sop = in.sop;
       v[0].eop = False;
@@ -259,8 +285,13 @@ module mkSonicTop#(Clock derivedClock, Reset derivedReset, SonicTopIndication in
       $display("SonicTop::dmaWriteFinish");
    endrule
    // rule to clock crossing from 156.25MHz to 250MHz with 64bit
-   function EtherData combine(Vector#(2, PacketData#(64)) in);
-      return EtherData {sop: in[0].sop, eop: in[1].eop, data: {in[1].data, in[0].data}};
+   function ByteStream#(16) combine(Vector#(2, PacketData#(64)) in);
+      ByteStream#(16) d = defaultValue;
+      d.sop = in[0].sop;
+      d.eop = in[1].eop;
+      d.data = {in[1].data, in[0].data};
+      d.mask = 'hffff;
+      return d;
    endfunction
 
    rule rxWriteData;
@@ -298,7 +329,7 @@ module mkSonicTop#(Clock derivedClock, Reset derivedReset, SonicTopIndication in
          newRxDesc <= RxDesc{sglId:rp, offset:extend(off), len:nb, burstLen:truncate(bl), nDesc:1};
       endmethod
       method Action writePacketData(Vector#(2, Bit#(64)) data, Vector#(2, Bit#(8)) mask, Bit#(1) sop, Bit#(1) eop);
-         EtherData beat = defaultValue;
+         ByteStream#(16) beat = defaultValue;
          beat.data = pack(reverse(data));
          beat.mask = pack(reverse(mask));
          beat.sop = unpack(sop);

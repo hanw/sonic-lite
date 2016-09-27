@@ -42,7 +42,7 @@ typedef enum {
 } ParserState deriving (Bits, Eq);
 
 interface Parser;
-   interface Put#(EtherData) frameIn;
+   interface Put#(ByteStream#(16)) frameIn;
    interface Get#(MetadataT) meta;
    method ParserPerfRec read_perf_info;
    method Action set_verbosity(int verbosity);
@@ -60,7 +60,7 @@ module mkParser(Parser);
       cr_verbosity[1] <= x;
    endrule
 
-   FIFOF#(EtherData) data_in_ff <- mkFIFOF;
+   FIFOF#(ByteStream#(16)) data_in_ff <- mkFIFOF;
    FIFOF#(MetadataT) meta_out_ff <- mkFIFOF;
    Reg#(ParserState) rg_parse_state <- mkReg(StateParseStart);
    Reg#(Bit#(32)) rg_offset <- mkReg(0);

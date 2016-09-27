@@ -32,34 +32,10 @@ import GetPut::*;
 import Pipe::*;
 import DefaultValue::*;
 import OInt::*;
+import Stream::*;
 import Ethernet::*;
 import TieOff::*;
 `include "ConnectalProjectConfig.bsv"
-
-typedef struct {
-   Bit#(n) data;
-   Bit#(TDiv#(n, 8)) mask;
-   Bit#(1) sop;
-   Bit#(1) eop;
-} PacketDataT#(numeric type n) deriving (Bits,Eq, FShow);
-instance DefaultValue#(PacketDataT#(64));
-    defaultValue = PacketDataT {
-        data : 0,
-        mask : 0,
-        sop : 0,
-        eop : 0
-    };
-endinstance
-
-instance TieOff#(Get#(PacketDataT#(n)));
-   module mkTieOff(Get#(PacketDataT#(n)) ifc, Empty unused);
-      // sink, /dev/null
-      rule tieoff(True);
-         let v <- ifc.get;
-         // optional print
-      endrule
-   endmodule
-endinstance
 
 `ifdef ALTERA
 import AlteraMacWrap::*;
@@ -69,8 +45,8 @@ interface EthMacIfc;
    interface Get#(Bit#(72)) tx;
    (* always_ready, always_enabled *)
    interface Put#(Bit#(72)) rx;
-   interface Put#(PacketDataT#(64)) packet_tx;
-   interface Get#(PacketDataT#(64)) packet_rx;
+   interface Put#(ByteStream#(8)) packet_tx;
+   interface Get#(ByteStream#(8)) packet_rx;
 endinterface
 
 // Mac Wrapper
@@ -89,7 +65,7 @@ module mkEthMac#(Clock clk_50, Clock clk_156_25, Clock rx_clk, Reset rst_156_25_
    Wire#(Bit#(1)) tx_sop_w <- mkDWire(0, clocked_by clk_156_25, reset_by rst_156_25_n);
    Wire#(Bit#(1)) tx_eop_w <- mkDWire(0, clocked_by clk_156_25, reset_by rst_156_25_n);
 
-   FIFOF#(PacketDataT#(64)) rx_fifo <- mkFIFOF(clocked_by rx_clk, reset_by rx_rst_n);
+   FIFOF#(ByteStream#(8)) rx_fifo <- mkFIFOF(clocked_by rx_clk, reset_by rx_rst_n);
 
    MacWrap mac <- mkMacWrap(clk_50, clk_156_25, rx_clk, rst_50_n, rst_156_25_n, rx_rst_n, clocked_by clk_156_25, reset_by rst_156_25_n);
 
@@ -124,10 +100,10 @@ module mkEthMac#(Clock clk_50, Clock clk_156_25, Clock rx_clk, Reset rst_156_25_
    rule rx_data;
       let valid = mac.rx.fifo_out_valid();
 
-      PacketDataT#(64) packet = defaultValue;
+      ByteStream#(8) packet = defaultValue;
       packet.data = mac.rx.fifo_out_data();
-      packet.sop = mac.rx.fifo_out_startofpacket();
-      packet.eop = mac.rx.fifo_out_endofpacket();
+      packet.sop = unpack(mac.rx.fifo_out_startofpacket());
+      packet.eop = unpack(mac.rx.fifo_out_endofpacket());
       packet.mask =  ('hff >> mac.rx.fifo_out_empty());
 
       if (valid == 1'b1) begin
@@ -150,7 +126,7 @@ module mkEthMac#(Clock clk_50, Clock clk_156_25, Clock rx_clk, Reset rst_156_25_
       endmethod
    endinterface
    interface Put packet_tx;
-      method Action put(PacketDataT#(64) d) if (tx_ready_w != 0);
+      method Action put(ByteStream#(8) d) if (tx_ready_w != 0);
          Bit#(3) tx_empty = truncate(pack(countOnes(maxBound-unpack(d.mask))));
          //Bit#(3) tx_empty = truncate(fromOInt(unpack(d.mask + 1)));
          tx_data_w <= tagged Valid pack(d.data);
@@ -172,8 +148,8 @@ interface EthMacIfc;
    interface Get#(XGMIIData) tx;
    (* always_ready, always_enabled *)
    interface Put#(XGMIIData) rx;
-   interface Put#(PacketDataT#(64)) packet_tx;
-   interface Get#(PacketDataT#(64)) packet_rx;
+   interface Put#(ByteStream#(8)) packet_tx;
+   interface Get#(ByteStream#(8)) packet_rx;
 endinterface
 
 // Mac Wrapper
@@ -190,8 +166,8 @@ module mkEthMac#(Clock clk_50, Clock clk_156_25, Reset rst_156_25_n)(EthMacIfc);
    Reg#(Bit#(64)) cntr <- mkReg(0, clocked_by clk_156_25, reset_by rst_156_25_n);
 
    MacWrap mac <- mkMacWrap(clk_50, clk_156_25, rx_clk, rst_50, rst_50_n, rst_156_25_n, rx_rst_n);
-   FIFOF#(PacketDataT#(64)) rx_fifo <- mkSizedFIFOF(4, clocked_by rx_clk, reset_by rx_rst_n);
-   FIFOF#(PacketDataT#(64)) tx_fifo <- mkSizedFIFOF(4, clocked_by clk_156_25, reset_by rst_156_25_n);
+   FIFOF#(ByteStream#(8)) rx_fifo <- mkSizedFIFOF(4, clocked_by rx_clk, reset_by rx_rst_n);
+   FIFOF#(ByteStream#(8)) tx_fifo <- mkSizedFIFOF(4, clocked_by clk_156_25, reset_by rst_156_25_n);
    Reg#(Bit#(1)) rx_valid <- mkReg(0, clocked_by rx_clk, reset_by rx_rst_n);
 
    Wire#(Bit#(1)) tx_ready_w <- mkDWire(0, clocked_by clk_156_25, reset_by rst_156_25_n);
@@ -253,10 +229,10 @@ module mkEthMac#(Clock clk_50, Clock clk_156_25, Reset rst_156_25_n)(EthMacIfc);
 
    rule rx_data;
       let valid = mac.rx_axis.tvalid();
-      PacketDataT#(64) packet = defaultValue;
+      ByteStream#(8) packet = defaultValue;
       packet.data = mac.rx_axis.tdata();
-      packet.sop = pack((rx_valid==0)&&(valid==1));
-      packet.eop = mac.rx_axis.tlast();
+      packet.sop = (rx_valid==0) && (valid==1);
+      packet.eop = unpack(mac.rx_axis.tlast());
       packet.mask =  mac.rx_axis.tkeep();
       if (valid == 1'b1) begin
          rx_fifo.enq(packet);

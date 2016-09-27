@@ -40,6 +40,7 @@ import PacketBuffer::*;
 import PrintTrace::*;
 import StoreAndForward::*;
 import SpecialFIFOs::*;
+import Stream::*;
 import SharedBuff::*;
 import HeaderSerializer::*;
 `include "ConnectalProjectConfig.bsv"
@@ -51,7 +52,7 @@ interface StreamOutChannel;
    interface PktWriteServer writeServer;
    // Put#
    interface Server#(MetadataRequest, MetadataResponse) prev;
-   interface Get#(PacketDataT#(64)) macTx;
+   interface Get#(ByteStream#(8)) macTx;
    method Action set_verbosity (int verbosity);
 endinterface
 
@@ -61,10 +62,10 @@ module mkStreamOutChannel#(Clock txClock, Reset txReset)(StreamOutChannel);
    Reg#(int) cf_verbosity <- mkConfigRegU;
 
    // RingBuffer Read Client
-   FIFO#(EtherData) readDataFifo <- mkFIFO;
+   FIFO#(ByteStream#(16)) readDataFifo <- mkFIFO;
    FIFO#(Bit#(EtherLen)) readLenFifo <- mkFIFO;
    FIFO#(EtherReq) readReqFifo <- mkFIFO;
-   FIFO#(EtherData) writeDataFifo <- mkFIFO;
+   FIFO#(ByteStream#(16)) writeDataFifo <- mkFIFO;
    Reg#(Bool) readStarted <- mkReg(False);
 
    PacketBuffer pktBuff <- mkPacketBuffer();
@@ -146,10 +147,10 @@ module mkStreamInChannel(StreamInChannel);
    FIFOF#(MetadataRequest) outReqFifo <- mkFIFOF;
 
    // RingBuffer Read Client
-   FIFO#(EtherData) readDataFifo <- mkFIFO;
+   FIFO#(ByteStream#(16)) readDataFifo <- mkFIFO;
    FIFO#(Bit#(EtherLen)) readLenFifo <- mkFIFO;
    FIFO#(EtherReq) readReqFifo <- mkFIFO;
-   FIFO#(EtherData) writeDataFifo <- mkFIFO;
+   FIFO#(ByteStream#(16)) writeDataFifo <- mkFIFO;
    Reg#(Bool) readStarted <- mkReg(False);
    FIFO#(Bit#(EtherLen)) pktLenFifo <- mkFIFO;
 

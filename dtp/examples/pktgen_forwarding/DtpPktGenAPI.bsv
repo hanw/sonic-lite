@@ -9,6 +9,7 @@ import BuildVector::*;
 
 import PktGen::*;
 import Ethernet::*;
+import Stream::*;
 import PacketBuffer::*;
 import GetPut::*;
 import DbgTypes::*;
@@ -29,14 +30,14 @@ interface DtpPktGenAPI;
    interface DtpPktGenRequest request;
    interface Get#(Tuple2#(Bit#(32), Bit#(32))) pktGenStart;
    interface Get#(Bit#(1)) pktGenStop;
-   interface Get#(EtherData) pktGenWrite;
+   interface Get#(ByteStream#(16)) pktGenWrite;
 endinterface
 
 module mkDtpPktGenAPI#(DtpPktGenIndication indication, PktGen pktgen, Vector#(4, PacketBuffer) pktbuf, Clock txClock, Reset txReset)(DtpPktGenAPI);
    Clock defaultClock <- exposeCurrentClock();
    FIFO#(Tuple2#(Bit#(32), Bit#(32))) startReqFifo <- mkFIFO;
    FIFO#(Bit#(1)) stopReqFifo <- mkFIFO;
-   FIFO#(EtherData) etherDataFifo <- mkFIFO;
+   FIFO#(ByteStream#(16)) etherDataFifo <- mkFIFO;
 
    Vector#(4, SyncFIFOIfc#(PktBuffDbgRec)) pktBuffDbgFifo <- replicateM(mkSyncFIFO(8, txClock, txReset, defaultClock));
    Vector#(4, Reg#(Bit#(64))) pktbuf_sop_enq <- replicateM(mkReg(0));
@@ -61,7 +62,7 @@ module mkDtpPktGenAPI#(DtpPktGenIndication indication, PktGen pktgen, Vector#(4,
 
    interface DtpPktGenRequest request;
       method Action writePacketData(Vector#(2, Bit#(64)) data, Vector#(2, Bit#(8)) mask, Bit#(1) sop, Bit#(1) eop);
-         EtherData beat = defaultValue;
+         ByteStream#(16) beat = defaultValue;
          beat.data = pack(reverse(data));
          beat.mask = pack(reverse(mask));
          beat.sop = unpack(sop);

@@ -38,6 +38,7 @@ import Pipe::*;
 import PacketBuffer::*;
 import PrintTrace::*;
 import StoreAndForward::*;
+import Stream::*;
 import SpecialFIFOs::*;
 import SharedBuff::*;
 
@@ -62,8 +63,8 @@ module mkHeaderSerializer(HeaderSerializer);
          end
       endaction
    endfunction
-   FIFOF#(EtherData) data_in_ff <- mkFIFOF;
-   FIFOF#(EtherData) data_out_ff <- mkFIFOF;
+   FIFOF#(ByteStream#(16)) data_in_ff <- mkFIFOF;
+   FIFOF#(ByteStream#(16)) data_out_ff <- mkFIFOF;
 
    Array#(Reg#(Bool)) sop_buff <- mkCReg(3, False);
    Array#(Reg#(Bool)) eop_buff <- mkCReg(3, False);
@@ -134,7 +135,11 @@ module mkHeaderSerializer(HeaderSerializer);
       n_bits_buffered <= n_bits[1] - n_bits_used;
       data_buffered <= data_buff[1] >> n_bits_used;
       mask_buffered <= mask_buff[1] >> n_bytes_used;
-      let eth = EtherData {sop: sop_buff[1], eop: False, mask: 'hffff, data: data};
+      ByteStream#(16) eth;
+      eth.sop = sop_buff[1];
+      eth.eop = False;
+      eth.mask = 'hffff;
+      eth.data = data;
       sop_buff[1] <= False;
       data_out_ff.enq(eth);
       dbprint(3, $format("HeaderSerializer:rl_send_full_frame n_bytes_buffered=%d", n_bytes[1] - n_bytes_used, fshow(eth)));
@@ -158,7 +163,11 @@ module mkHeaderSerializer(HeaderSerializer);
       UInt#(NumBits) n_bits_used = cExtend(n_bytes_used) << 3;
       n_bytes_buffered <= n_bytes[1] - n_bytes_used;
       n_bits_buffered <= n_bits[1] - n_bits_used;
-      let eth = EtherData {sop: False, eop: True, mask: 'hffff, data: data};
+      ByteStream#(16) eth = defaultValue;
+      eth.sop = False;
+      eth.eop = True;
+      eth.mask = 'hffff;
+      eth.data = data;
       data_out_ff.enq(eth);
       dbprint(3, $format("HeaderSerializer:rl_eop_full_frame n_bytes_buffered=%d", n_bytes[1] - n_bytes_used));
    endrule
@@ -168,7 +177,11 @@ module mkHeaderSerializer(HeaderSerializer);
       let mask = (mask_buff[1] << n_bytes_buffered) | mask_buffered;
       n_bytes_buffered <= 0;
       n_bits_buffered <= 0;
-      let eth = EtherData {sop: False, eop: True, mask: mask, data: data};
+      ByteStream#(16) eth = defaultValue;
+      eth.sop = False;
+      eth.eop = True;
+      eth.mask = mask;
+      eth.data = data;
       data_out_ff.enq(eth);
       dbprint(3, $format("HeaderSerializer:rl_eop_partial_frame ", fshow(eth)));
    endrule

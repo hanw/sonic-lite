@@ -54,14 +54,14 @@ interface MemoryAPI;
    interface MemoryTestRequest request;
    interface Get#(Tuple2#(Bit#(32), Bit#(32))) pktGenStart;
    interface Get#(void) pktGenStop;
-   interface Get#(EtherData) pktGenWrite;
+   interface Get#(ByteStream#(16)) pktGenWrite;
 endinterface
 
 module mkMemoryAPI#(MemoryTestIndication indication, TdmPipeline tdm)(MemoryAPI);
    
    FIFO#(Tuple2#(Bit#(32), Bit#(32))) startReqFifo <- mkFIFO;
    FIFO#(void) stopReqFifo <- mkFIFO;
-   FIFO#(EtherData) etherDataFifo <- mkFIFO;
+   FIFO#(ByteStream#(16)) etherDataFifo <- mkFIFO;
 
    interface MemoryTestRequest request;
       method Action read_version();
@@ -69,7 +69,7 @@ module mkMemoryAPI#(MemoryTestIndication indication, TdmPipeline tdm)(MemoryAPI)
          indication.read_version_resp(v);
       endmethod
       method Action writePacketData(Vector#(2, Bit#(64)) data, Vector#(2, Bit#(8)) mask, Bit#(1) sop, Bit#(1) eop);
-         EtherData beat = defaultValue;
+         ByteStream#(16) beat = defaultValue;
          beat.data = pack(reverse(data));
          beat.mask = pack(reverse(mask));
          beat.sop = unpack(sop);

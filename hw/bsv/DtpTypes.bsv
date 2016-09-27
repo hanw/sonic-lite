@@ -1,4 +1,4 @@
-// Copyright (c) 2016 Cornell University.
+// Copyright (c) 2014 Cornell University.
 
 // Permission is hereby granted, free of charge, to any person
 // obtaining a copy of this software and associated documentation
@@ -19,36 +19,30 @@
 // ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
-import Vector::*;
-import Ethernet::*;
-import DefaultValue::*;
 
-interface NullTestIndication;
-   method Action read_version_resp(Bit#(32) version);
+
+interface DtpToPhyIfc;
+   interface PipeOut#(Bit#(32)) delayOut;
+   interface PipeOut#(Bit#(32)) stateOut;
+   interface PipeOut#(Bit#(64)) jumpCount;
+   interface PipeOut#(Bit#(53)) cLocalOut;
+   interface PipeOut#(Bit#(53)) toHost;
+   interface PipeIn#(Bit#(53))  fromHost;
+   interface PipeIn#(Bit#(32))  interval;
+   interface PipeOut#(Bit#(32)) dtpErrCnt;
 endinterface
 
-interface NullTestRequest;
-   method Action read_version();
-   method Action writePacketData(Vector#(2, Bit#(64)) data, Vector#(2, Bit#(8)) mask, Bit#(1) sop, Bit#(1) eop);
+interface DtpPhyApiIfc;
+   interface PipeOut#(Bit#(128)) timestamp;
+   interface PipeOut#(Bit#(53)) globalOut;
+   interface PipeIn#(Bit#(1)) switchMode;
+   interface Vector#(NumPorts, DtpToPhyIfc) phys;
+   interface Vector#(NumPorts, PipeOut#(PcsDbgRec)) tx_dbg;
+   interface Vector#(NumPorts, PipeOut#(PcsDbgRec)) rx_dbg;
 endinterface
 
-interface NullAPI;
-   interface NullTestRequest request;
-endinterface
+typedef struct {
+   Bit#(3)  e; //event
+   Bit#(53) t; //timestamp
+} DtpEvent deriving (Eq, Bits, FShow);
 
-module mkNullAPI#(NullTestIndication indication)(NullAPI);
-
-   interface NullTestRequest request;
-      method Action read_version();
-         let v= `NicVersion;
-         indication.read_version_resp(v);
-      endmethod
-      method Action writePacketData(Vector#(2, Bit#(64)) data, Vector#(2, Bit#(8)) mask, Bit#(1) sop, Bit#(1) eop);
-         ByteStream#(16) beat = defaultValue;
-         beat.data = pack(reverse(data));
-         beat.mask = pack(reverse(mask));
-         beat.sop = unpack(sop);
-         beat.eop = unpack(eop);
-      endmethod
-   endinterface
-endmodule

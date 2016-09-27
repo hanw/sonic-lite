@@ -19,36 +19,34 @@
 // ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
-import Vector::*;
-import Ethernet::*;
-import DefaultValue::*;
 
-interface NullTestIndication;
-   method Action read_version_resp(Bit#(32) version);
-endinterface
+typeclass StreamGearbox#(type ifc);
+   
+endtypeclass
 
-interface NullTestRequest;
-   method Action read_version();
-   method Action writePacketData(Vector#(2, Bit#(64)) data, Vector#(2, Bit#(8)) mask, Bit#(1) sop, Bit#(1) eop);
-endinterface
 
-interface NullAPI;
-   interface NullTestRequest request;
-endinterface
+instance StreamGearbox;
+   module 
+endinstance
 
-module mkNullAPI#(NullTestIndication indication)(NullAPI);
+// toHost
 
-   interface NullTestRequest request;
-      method Action read_version();
-         let v= `NicVersion;
-         indication.read_version_resp(v);
-      endmethod
-      method Action writePacketData(Vector#(2, Bit#(64)) data, Vector#(2, Bit#(8)) mask, Bit#(1) sop, Bit#(1) eop);
-         ByteStream#(16) beat = defaultValue;
-         beat.data = pack(reverse(data));
-         beat.mask = pack(reverse(mask));
-         beat.sop = unpack(sop);
-         beat.eop = unpack(eop);
-      endmethod
-   endinterface
-endmodule
+// toNetwork
+
+// assume PacketDataT in host order
+// m = 2n
+function StreamerData#(m) combine(Vector#(2, StreamerData#(n)) v);
+   StreamerData data = defaultValue;
+   data.data = {v[1].data, v[0].data};
+   data.mask = {v[1].mask, v[0].mask};
+   data.sop = unpack(v[0].sop);
+   data.eop = unpack(v[0].eop) || unpack(v[1].eop);
+   return data;
+endfunction
+
+// rule handle sop
+
+// rule handle odd flit
+
+// rule handle even flit
+

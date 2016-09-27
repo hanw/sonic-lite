@@ -100,7 +100,7 @@ module mkMemoryAPI#(MemoryTestIndication indication, HostChannel hostchan, TxCha
          indication.read_version_resp(v);
       endmethod
       method Action writePacketData(Vector#(2, Bit#(64)) data, Vector#(2, Bit#(8)) mask, Bit#(1) sop, Bit#(1) eop);
-         EtherData beat = defaultValue;
+         ByteStream#(16) beat = defaultValue;
          beat.data = pack(reverse(data));
          beat.mask = pack(reverse(mask));
          beat.sop = unpack(sop);
@@ -108,7 +108,7 @@ module mkMemoryAPI#(MemoryTestIndication indication, HostChannel hostchan, TxCha
          hostchan.writeServer.writeData.put(beat);
       endmethod
       method Action writePktGenData(Vector#(2, Bit#(64)) data, Vector#(2, Bit#(8)) mask, Bit#(1) sop, Bit#(1) eop);
-         EtherData beat = defaultValue;
+         ByteStream#(16) beat = defaultValue;
          beat.data = pack(reverse(data));
          beat.mask = pack(reverse(mask));
          beat.sop = unpack(sop);

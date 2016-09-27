@@ -41,6 +41,7 @@ import PacketBuffer::*;
 import PrintTrace::*;
 import StoreAndForward::*;
 import SpecialFIFOs::*;
+import Stream::*;
 import SharedBuff::*;
 import HeaderSerializer::*;
 `include "ConnectalProjectConfig.bsv"
@@ -52,7 +53,7 @@ interface TxChannel;
    interface MemReadClient#(`DataBusWidth) readClient;
    interface MemFreeClient freeClient;
    interface PipeIn#(MetadataRequest) prev;
-   interface Get#(PacketDataT#(64)) macTx;
+   interface Get#(ByteStream#(8)) macTx;
    method TxChannelDbgRec read_debug_info;
    method DeparserPerfRec read_deparser_perf_info;
    method Action set_verbosity (int verbosity);

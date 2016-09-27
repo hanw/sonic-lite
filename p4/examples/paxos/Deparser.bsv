@@ -30,6 +30,7 @@ import GetPut::*;
 import List::*;
 import StmtFSM::*;
 import SpecialFIFOs::*;
+import Stream::*;
 import Vector::*;
 import Pipe::*;
 import Ethernet::*;
@@ -101,7 +102,7 @@ function Tuple2#(PaxosT, PaxosT) toPaxos(MetadataT meta);
    return tuple2(paxos, mask);
 endfunction
 
-module mkStateDeparseIdle#(Reg#(DeparserState) state, FIFOF#(EtherData) datain, FIFOF#(EtherData) dataout, Wire#(Bool) start_fsm)(Empty);
+module mkStateDeparseIdle#(Reg#(DeparserState) state, FIFOF#(ByteStream#(16)) datain, FIFOF#(ByteStream#(16)) dataout, Wire#(Bool) start_fsm)(Empty);
 
    rule load_packet if (state == StateDeparseIdle);
       let v = datain.first;
@@ -120,24 +121,24 @@ module mkStateDeparseIdle#(Reg#(DeparserState) state, FIFOF#(EtherData) datain, 
 endmodule
 
 interface DeparseEthernet;
-   interface Get#(EtherData) deparse_arp;
-   interface Get#(EtherData) deparse_ipv4;
-   interface Get#(EtherData) deparse_ipv6;
+   interface Get#(ByteStream#(16)) deparse_arp;
+   interface Get#(ByteStream#(16)) deparse_ipv4;
+   interface Get#(ByteStream#(16)) deparse_ipv6;
    method Action start;
    method Action clear;
 endinterface
 
 module mkStateDeparseEthernet#(Reg#(DeparserState) state,
-                               FIFOF#(EtherData) datain,
-                               FIFOF#(EtherData) dataout,
+                               FIFOF#(ByteStream#(16)) datain,
+                               FIFOF#(ByteStream#(16)) dataout,
                                FIFOF#(EthernetT) ethernet_meta,
                                FIFOF#(EthernetT) ethernet_mask)
                                (DeparseEthernet);
    let verbose = False;
-   Wire#(EtherData) packet_in_wire <- mkDWire(defaultValue);
-   FIFO#(EtherData) parse_arp_fifo <- mkFIFO;
-   FIFO#(EtherData) parse_ipv4_fifo <- mkFIFO;
-   FIFO#(EtherData) parse_ipv6_fifo <- mkFIFO;
+   Wire#(ByteStream#(16)) packet_in_wire <- mkDWire(defaultValue);
+   FIFO#(ByteStream#(16)) parse_arp_fifo <- mkFIFO;
+   FIFO#(ByteStream#(16)) parse_ipv4_fifo <- mkFIFO;
+   FIFO#(ByteStream#(16)) parse_ipv6_fifo <- mkFIFO;
 
    PulseWire start_wire <- mkPulseWire;
    PulseWire clear_wire <- mkPulseWire;
@@ -215,21 +216,21 @@ module mkStateDeparseEthernet#(Reg#(DeparserState) state,
 endmodule
 
 interface DeparseIpv4;
-   interface Put#(EtherData) deparse_ethernet;
-   interface Get#(EtherData) deparse_udp;
+   interface Put#(ByteStream#(16)) deparse_ethernet;
+   interface Get#(ByteStream#(16)) deparse_udp;
    method Action start;
    method Action clear;
 endinterface
 module mkStateDeparseIpv4#(Reg#(DeparserState) state,
-                           FIFOF#(EtherData) datain,
-                           FIFOF#(EtherData) dataout,
+                           FIFOF#(ByteStream#(16)) datain,
+                           FIFOF#(ByteStream#(16)) dataout,
                            FIFOF#(Ipv4T) ipv4_meta,
                            FIFOF#(Ipv4T) ipv4_mask)
                            (DeparseIpv4);
 
-   Wire#(EtherData) packet_in_wire <- mkDWire(defaultValue);
-   FIFOF#(EtherData) deparse_ethernet_fifo <- mkBypassFIFOF;
-   FIFO#(EtherData) deparse_udp_fifo <- mkFIFO;
+   Wire#(ByteStream#(16)) packet_in_wire <- mkDWire(defaultValue);
+   FIFOF#(ByteStream#(16)) deparse_ethernet_fifo <- mkBypassFIFOF;
+   FIFO#(ByteStream#(16)) deparse_udp_fifo <- mkFIFO;
    PulseWire start_wire <- mkPulseWire();
    PulseWire clear_wire <- mkPulseWire();
 
@@ -315,22 +316,22 @@ module mkStateDeparseIpv4#(Reg#(DeparserState) state,
 endmodule
 
 interface DeparseUdp;
-   interface Put#(EtherData) deparse_ipv4;
-   interface Get#(EtherData) deparse_paxos;
+   interface Put#(ByteStream#(16)) deparse_ipv4;
+   interface Get#(ByteStream#(16)) deparse_paxos;
    method Action start;
    method Action clear;
 endinterface
 module mkStateDeparseUdp#(Reg#(DeparserState) state,
-                          FIFOF#(EtherData) datain,
-                          FIFOF#(EtherData) dataout,
+                          FIFOF#(ByteStream#(16)) datain,
+                          FIFOF#(ByteStream#(16)) dataout,
                           FIFOF#(UdpT) udp_meta,
                           FIFOF#(UdpT) udp_mask)
                           (DeparseUdp);
 
    let verbose = False;
-   Wire#(EtherData) packet_in_wire <- mkDWire(defaultValue);
-   FIFOF#(EtherData) deparse_ipv4_fifo <- mkBypassFIFOF;
-   FIFO#(EtherData) deparse_paxos_fifo <- mkFIFO;
+   Wire#(ByteStream#(16)) packet_in_wire <- mkDWire(defaultValue);
+   FIFOF#(ByteStream#(16)) deparse_ipv4_fifo <- mkBypassFIFOF;
+   FIFO#(ByteStream#(16)) deparse_paxos_fifo <- mkFIFO;
 
    PulseWire start_wire <- mkPulseWire();
    PulseWire clear_wire <- mkPulseWire();
@@ -390,19 +391,19 @@ module mkStateDeparseUdp#(Reg#(DeparserState) state,
 endmodule
 
 interface DeparsePaxos;
-   interface Put#(EtherData) deparse_udp;
+   interface Put#(ByteStream#(16)) deparse_udp;
    method Action start;
    method Action clear;
 endinterface
 module mkStateDeparsePaxos#(Reg#(DeparserState) state,
-                            FIFOF#(EtherData) datain,
-                            FIFOF#(EtherData) dataout,
+                            FIFOF#(ByteStream#(16)) datain,
+                            FIFOF#(ByteStream#(16)) dataout,
                             FIFOF#(PaxosT) paxos_meta,
                             FIFOF#(PaxosT) paxos_mask)
                             (DeparsePaxos);
 
-   Wire#(EtherData) packet_in_wire <- mkDWire(defaultValue);
-   FIFOF#(EtherData) deparse_udp_fifo <- mkBypassFIFOF;
+   Wire#(ByteStream#(16)) packet_in_wire <- mkDWire(defaultValue);
+   FIFOF#(ByteStream#(16)) deparse_udp_fifo <- mkBypassFIFOF;
 
    PulseWire start_wire <- mkPulseWire();
    PulseWire clear_wire <- mkPulseWire();
@@ -481,18 +482,18 @@ module mkStateDeparsePaxos#(Reg#(DeparserState) state,
 endmodule
 
 interface DeparseIpv6;
-   interface Put#(EtherData) deparse_ethernet;
+   interface Put#(ByteStream#(16)) deparse_ethernet;
    method Action start;
    method Action clear;
 endinterface
 module mkStateDeparseIpv6#(Reg#(DeparserState) state,
-                           FIFOF#(EtherData) datain,
-                           FIFOF#(EtherData) dataout,
+                           FIFOF#(ByteStream#(16)) datain,
+                           FIFOF#(ByteStream#(16)) dataout,
                            FIFOF#(Ipv6T) ipv6_meta,
                            FIFOF#(Ipv6T) ipv6_mask)
                            (DeparseIpv6);
-   Wire#(EtherData) packet_in_wire <- mkDWire(defaultValue);
-   FIFOF#(EtherData) deparse_ethernet_fifo <- mkBypassFIFOF;
+   Wire#(ByteStream#(16)) packet_in_wire <- mkDWire(defaultValue);
+   FIFOF#(ByteStream#(16)) deparse_ethernet_fifo <- mkBypassFIFOF;
    PulseWire start_wire <- mkPulseWire;
    PulseWire clear_wire <- mkPulseWire;
 
@@ -589,8 +590,8 @@ module mkDeparser(Deparser);
       cr_verbosity[1] <= x;
    endrule
 
-   FIFOF#(EtherData) data_in_fifo <- mkSizedFIFOF(4);
-   FIFOF#(EtherData) data_out_fifo <- mkFIFOF;
+   FIFOF#(ByteStream#(16)) data_in_fifo <- mkSizedFIFOF(4);
+   FIFOF#(ByteStream#(16)) data_out_fifo <- mkFIFOF;
    FIFOF#(MetadataT) metadata_in_fifo <- mkFIFOF;
 
    Reg#(Bool) started <- mkReg(False);

@@ -28,6 +28,7 @@ import GetPut::*;
 import Pipe::*;
 import GetPut::*;
 import SpecialFIFOs::*;
+import Stream::*;
 import Vector::*;
 import PacketBuffer::*;
 import Ethernet::*;
@@ -35,13 +36,13 @@ import Ethernet::*;
 interface TapPktRead;
    interface PktReadClient readClient;
    interface PktReadServer readServer;
-   interface Get#(EtherData) tap_out;
+   interface Get#(ByteStream#(16)) tap_out;
 endinterface
 
 module mkTapPktRead(TapPktRead);
-   FIFO#(EtherData) readDataFifoIn <- mkFIFO;
-   FIFO#(EtherData) readDataFifoOut <- mkBypassFIFO;
-   FIFO#(EtherData) readDataFifoTap <- mkBypassFIFO;
+   FIFO#(ByteStream#(16)) readDataFifoIn <- mkFIFO;
+   FIFO#(ByteStream#(16)) readDataFifoOut <- mkBypassFIFO;
+   FIFO#(ByteStream#(16)) readDataFifoTap <- mkBypassFIFO;
    FIFO#(Bit#(EtherLen)) readLenFifo <- mkBypassFIFO;
    FIFO#(EtherReq) readReqFifo <- mkBypassFIFO;
 

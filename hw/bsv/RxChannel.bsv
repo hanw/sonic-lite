@@ -34,6 +34,7 @@ import PacketBuffer::*;
 import Pipe::*;
 import StoreAndForward::*;
 import SharedBuff::*;
+import Stream::*;
 import Tap::*;
 import HostChannel::*;
 `include "ConnectalProjectConfig.bsv"
@@ -41,7 +42,7 @@ import `PARSER::*;
 import `TYPEDEF::*;
 
 interface RxChannel;
-   interface Put#(PacketDataT#(64)) macRx;
+   interface Put#(ByteStream#(8)) macRx;
    interface MemWriteClient#(`DataBusWidth) writeClient;
    interface MemAllocClient mallocClient;
    interface PipeOut#(MetadataRequest) next;

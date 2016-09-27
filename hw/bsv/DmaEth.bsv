@@ -41,6 +41,7 @@ import HostInterface::*;
 import DefaultValue::*;
 
 import Ethernet::*;
+import Stream::*;
 import PacketBuffer::*;
 `include "ConnectalProjectConfig.bsv"
 
@@ -114,16 +115,16 @@ module mkDmaController#(Vector#(numChannels,DmaIndication) indication, Clock txC
    Vector#(numChannels, FIFO#(Tuple3#(Bit#(32),Bit#(32),Bit#(32)))) readReqs <- replicateM(mkSizedFIFO(valueOf(NumOutstandingRequests)));
    Vector#(numChannels, FIFO#(Tuple3#(Bit#(32),Bit#(32),Bit#(32)))) writeReqs <- replicateM(mkSizedFIFO(valueOf(NumOutstandingRequests)));
 
-   Vector#(numChannels, FIFOF#(EtherData)) transferToFpgaFifo <- replicateM(mkFIFOF());
+   Vector#(numChannels, FIFOF#(ByteStream#(16))) transferToFpgaFifo <- replicateM(mkFIFOF());
 
    Vector#(numChannels, FIFO#(Bit#(8))) writeTags <- replicateM(mkSizedFIFO(valueOf(NumOutstandingRequests)));
    Vector#(numChannels, FIFO#(Bit#(8))) readTags <- replicateM(mkSizedFIFO(valueOf(NumOutstandingRequests)));
 
-   Vector#(numChannels, SyncFIFOIfc#(EtherData)) dmaToRing <- replicateM(mkSyncFIFO(8, defaultClock, defaultReset, txClock));
+   Vector#(numChannels, SyncFIFOIfc#(ByteStream#(16))) dmaToRing <- replicateM(mkSyncFIFO(8, defaultClock, defaultReset, txClock));
    Vector#(numChannels, FIFO#(Bit#(32))) readLens <- replicateM(mkSizedFIFO(valueOf(NumOutstandingRequests)));
 
-   Vector#(numChannels, SyncFIFOIfc#(EtherData)) ringToDma <- replicateM(mkSyncFIFO(8, txClock, txReset, defaultClock));
-   Vector#(numChannels, FIFO#(EtherData)) ringToDmaData <- replicateM(mkFIFO(clocked_by txClock, reset_by txReset));
+   Vector#(numChannels, SyncFIFOIfc#(ByteStream#(16))) ringToDma <- replicateM(mkSyncFIFO(8, txClock, txReset, defaultClock));
+   Vector#(numChannels, FIFO#(ByteStream#(16))) ringToDmaData <- replicateM(mkFIFO(clocked_by txClock, reset_by txReset));
    Vector#(numChannels, FIFO#(Bit#(EtherLen))) ringToDmaLen <- replicateM(mkFIFO(clocked_by txClock, reset_by txReset));
    Vector#(numChannels, FIFO#(EtherReq)) ringToDmaReq <- replicateM(mkFIFO(clocked_by txClock, reset_by txReset));
    Vector#(numChannels, SyncFIFOIfc#(Bit#(32)))   writeLens <- replicateM(mkSyncFIFO(valueOf(NumOutstandingRequests), txClock, txReset, defaultClock));
@@ -181,7 +182,7 @@ module mkDmaController#(Vector#(numChannels,DmaIndication) indication, Clock txC
             $display ("readDataRule last %d", bytes);
          end
          let mask = generateBitMask(bytes);
-         EtherData etherData = defaultValue;
+         ByteStream#(16) etherData = defaultValue;
          etherData.sop = (count == 1 ? True : False);//mdf.first;
          etherData.eop = mdf.last;
          etherData.data = mdf.data;
@@ -212,7 +213,7 @@ module mkDmaController#(Vector#(numChannels,DmaIndication) indication, Clock txC
       endrule
       // From DMA to packet buffer
       rule transferToNetwork;
-         EtherData v <- toGet(transferToFpgaFifo[channel]).get;
+         ByteStream#(16) v <- toGet(transferToFpgaFifo[channel]).get;
          if (v.mask!=0) begin
             dmaToRing[channel].enq(v);
          end
@@ -231,7 +232,7 @@ module mkDmaController#(Vector#(numChannels,DmaIndication) indication, Clock txC
       endrule
       // From Packet buffer to DMA
       rule transferFromNetwork;
-         EtherData v <- toGet(ringToDma[channel]).get;
+         ByteStream#(16) v <- toGet(ringToDma[channel]).get;
          if (verbose) $display ("writeData %x %d %d", v.data, v.sop, v.eop);
          toPut(we.writeServers[channel].data).put(v.data);
          if (v.sop) begin     // parallalize dma
