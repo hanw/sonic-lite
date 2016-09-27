@@ -32,6 +32,9 @@ import PacketBuffer::*;
 import Pipe::*;
 import StoreAndForward::*;
 import SharedBuff::*;
+import Stream::*;
+import StreamGearbox::*;
+import TieOff::*;
 import Tap::*;
 `include "ConnectalProjectConfig.bsv"
 import `PARSER::*;

@@ -41,7 +41,9 @@ import PrintTrace::*;
 import StoreAndForward::*;
 import SpecialFIFOs::*;
 import Stream::*;
+import StreamGearbox::*;
 import SharedBuff::*;
+import TieOff::*;
 import HeaderSerializer::*;
 `include "ConnectalProjectConfig.bsv"
 import `PARSER::*;

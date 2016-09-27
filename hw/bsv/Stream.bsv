@@ -46,13 +46,35 @@ endinstance
 
 typedef StreamData#(TMul#(bw, 8), bw) ByteStream#(numeric type bw);
 
+instance TieOff#(Get#(ByteStream#(64)));
+   module mkTieOff(Get#(ByteStream#(64)) ifc, Empty unused);
+      let verbose = True;
+      // pipe to /dev/null
+      rule tieoff(True);
+         let v <- ifc.get;
+         if (verbose) $display("(%0d) PktWriteClient ", $time, fshow(v), " > /dev/null");
+      endrule
+   endmodule
+endinstance
+
+instance TieOff#(Get#(ByteStream#(32)));
+   module mkTieOff(Get#(ByteStream#(32)) ifc, Empty unused);
+      let verbose = True;
+      // pipe to /dev/null
+      rule tieoff(True);
+         let v <- ifc.get;
+         if (verbose) $display("(%0d) PktWriteClient ", $time, fshow(v), " > /dev/null");
+      endrule
+   endmodule
+endinstance
+
 instance TieOff#(Get#(ByteStream#(16)));
    module mkTieOff(Get#(ByteStream#(16)) ifc, Empty unused);
       let verbose = True;
       // pipe to /dev/null
       rule tieoff(True);
          let v <- ifc.get;
-         if (verbose) $display("PktWriteClient ", fshow(v), " > /dev/null");
+         if (verbose) $display("(%0d) PktWriteClient ", $time, fshow(v), " > /dev/null");
       endrule
    endmodule
 endinstance
@@ -63,7 +85,7 @@ instance TieOff#(Get#(ByteStream#(8)));
       // pipe to /dev/null
       rule tieoff(True);
          let v <- ifc.get;
-         if (verbose) $display("PktWriteClient ", fshow(v), " > /dev/null");
+         if (verbose) $display("(%0d) PktWriteClient ", $time, fshow(v), " > /dev/null");
       endrule
    endmodule
 endinstance

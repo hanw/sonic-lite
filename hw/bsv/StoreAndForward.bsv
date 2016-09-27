@@ -32,7 +32,6 @@ import Cntrs::*;
 import ConfigReg::*;
 import ClientServer::*;
 import DefaultValue::*;
-//import DbgTypes::*;
 import DbgDefs::*;
 import Ethernet::*;
 import EthMac::*;
@@ -49,9 +48,9 @@ import SharedBuff::*;
 import SharedBuffMMU::*;
 import SpecialFIFOs::*;
 import Stream::*;
+import StreamGearbox::*;
 import Vector::*;
 import Pipe::*;
-//import DbgTypes::*;
 import PrintTrace::*;
 import ConnectalConfig::*;
  `include "ConnectalProjectConfig.bsv"
@@ -407,12 +406,9 @@ endinterface
 // store data from network to ring buffer
 // little-endianess -> big-endianess
 module mkStoreAndFwdFromMacToRing#(Clock rxClock, Reset rxReset)(StoreAndFwdFromMacToRing);
-   let verbose = False;
+   let verbose = True;
    Clock defaultClock <- exposeCurrentClock();
    Reset defaultReset <- exposeCurrentReset();
-
-   // Ring Buffer WriteClient
-   FIFO#(ByteStream#(16)) writeDataFifo <- mkFIFO;
 
    // stats
    Reg#(Bit#(64)) total_cycles <- mkReg(0, clocked_by rxClock, reset_by rxReset);
@@ -421,91 +417,27 @@ module mkStoreAndFwdFromMacToRing#(Clock rxClock, Reset rxReset)(StoreAndFwdFrom
    Reg#(Bit#(64)) eopCount <- mkReg(0, clocked_by rxClock, reset_by rxReset);
    Reg#(Bit#(64)) data_bytes <- mkReg(0, clocked_by rxClock, reset_by rxReset);
 
-   // Mac facing fifos
-   Reg#(Bool) inProgress <- mkReg(False, clocked_by rxClock, reset_by rxReset);
-   Reg#(Bool) oddBeat    <- mkReg(True, clocked_by rxClock, reset_by rxReset);
-   Reg#(ByteStream#(8)) v_prev <- mkReg(defaultValue, clocked_by rxClock, reset_by rxReset);
-
-   FIFO#(ByteStream#(8)) readMacFifo <- mkFIFO(clocked_by rxClock, reset_by rxReset);
-   SyncFIFOIfc#(ByteStream#(16)) rx_fifo <- mkSyncFIFO(5, rxClock, rxReset, defaultClock);
-
    rule total_cycle;
       total_cycles <= total_cycles + 1;
    endrule
 
-   // gearbox has to work with 128 and 512 bits..
-   // EthGearbox(readMacFifo);
-   function ByteStream#(16) combine(Vector#(2, ByteStream#(8)) v);
-      ByteStream#(16) data = defaultValue;
-      Vector#(8, Bit#(8)) v0_data = unpack(v[0].data);
-      Vector#(8, Bit#(8)) v1_data = unpack(v[1].data);
-`ifdef ALTERA
-      data.data = {pack(reverse(v1_data)), pack(reverse(v0_data))};
-`else
-      data.data = {pack(v1_data), pack(v0_data)};
-`endif
-      data.mask = {v[1].mask, v[0].mask};
-      data.sop = v[0].sop;
-      data.eop = v[0].eop || v[1].eop;
-      return data;
-   endfunction
+   StreamGearbox#(8) gearbox <- mkStreamGearbox(clocked_by rxClock, reset_by rxReset);
+   SyncFIFOIfc#(ByteStream#(16)) writeDataFifo <- mkSyncFIFO(5, rxClock, rxReset, defaultClock);
 
-   rule startOfPacket if (!inProgress);
-      let v = readMacFifo.first;
-      inProgress <= v.sop;
-      if (!v.sop)
-         readMacFifo.deq;
-      else 
-         sopCount <= sopCount + 1;
-      if (verbose) $display("macToRing:: start");
-   endrule
-
-   rule readPacketOdd if (inProgress && oddBeat);
-      let v <- toGet(readMacFifo).get;
-      let bytes = zeroExtend(pack(countOnes(v.mask)));
-      data_bytes <= data_bytes + bytes;
-      if (verbose) $display("macToRing:: read odd beat %h", v.data);
-      if (v.eop) begin
-         ByteStream#(8) vo = defaultValue;
-         rx_fifo.enq(combine(vec(v, vo)));
-         if (verbose) $display("macToRing:: odd eop %h %h", v.data, v.mask);
-         inProgress <= False;
-         eopCount <= eopCount +1;
-      end
-      else begin
-         oddBeat <= !oddBeat;
-      end
-      v_prev <= v;
-   endrule
-
-   rule readPacketEven if (inProgress && !oddBeat);
-      let v <- toGet(readMacFifo).get;
-      let bytes = zeroExtend(pack(countOnes(v.mask)));
-      data_bytes <= data_bytes + bytes;
-      rx_fifo.enq(combine(vec(v_prev, v)));
-      if (verbose) $display("macToRing:: read even beat %h", v.data);
-      if (v.eop) begin
-         inProgress <= False;
-         if (verbose) $display("macToRing:: even eop %h %h %h %h", v.data, v.mask, v_prev.data, v_prev.mask);
-         eopCount <= eopCount +1;
-      end
-      oddBeat <= !oddBeat;
-   endrule
-
-   rule write_data;
-      let v <- toGet(rx_fifo).get;
+   rule writeData;
+      let v <- gearbox.dataout.get;
       writeDataFifo.enq(v);
       if (verbose) $display("macToRing:: writeToFifo");
    endrule
 
-   rule count_idle_cycles (!inProgress);
-      idle_cycles <= idle_cycles + 1;
-   endrule
+//   rule count_idle_cycles (!inProgress);
+//      idle_cycles <= idle_cycles + 1;
+//   endrule
 
    interface PktWriteClient writeClient;
       interface writeData = toGet(writeDataFifo);
    endinterface
-   interface Put macRx = toPut(readMacFifo);
+   interface macRx = gearbox.datain;
    method ThruDbgRec sdbg;
       return ThruDbgRec {data_bytes: data_bytes, sops: sopCount, eops: eopCount, idle_cycles: idle_cycles, total_cycles: total_cycles};
    endmethod
