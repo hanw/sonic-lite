@@ -19,36 +19,27 @@
 // ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
-import DefaultValue::*;
-import TieOff::*;
-import GetPut::*;
-`include "TieOff.defines"
 
-typedef struct {
-   Bit#(td)    data;
-   Bit#(tm)    mask;
-   Bool        sop;
-   Bool        eop;
-} StreamData#(numeric type td, numeric type tm) deriving (Eq, Bits);
-StreamData#(td, tm) streamDefault = StreamData{data:0, mask:0, sop:False, eop:False};
-
-instance FShow#(StreamData#(td, tm));
-   function Fmt fshow (StreamData#(td, tm) d);
-      return ($format(" data=0x%x", d.data)
-             +$format(" mask=0x%x", d.mask)
-             +$format(" sop=%d", d.sop)
-             +$format(" eop=%d", d.eop));
-   endfunction
+`define TIEOFF_GET(PARAM) \
+instance TieOff#(Get#(PARAM)); \
+   module mkTieOff(Get#(PARAM) ifc, Empty unused); \
+      let verbose = True; \
+      rule tieoff(True); \
+         let v <- ifc.get; \
+         if (verbose) $display("(%0d) ", $time, fshow(v), " > /dev/null"); \
+      endrule \
+   endmodule \
 endinstance
 
-instance DefaultValue#(StreamData#(td, tm));
-   function defaultValue = streamDefault;
+`define TIEOFF_PIPEOUT(CONSTR, PARAM) \
+instance TieOff#(PipeOut#(PARAM)); \
+   module mkTieOff(PipeOut#(PARAM) ifc, Empty unused); \
+      let verbose = True; \
+      rule tieoff(True); \
+         let v <- toGet(ifc).get; \
+         if (verbose) $display("(%0d) ", $time, CONSTR, fshow(v), " > /dev/null"); \
+      endrule \
+   endmodule \
 endinstance
 
-typedef StreamData#(TMul#(bw, 8), bw) ByteStream#(numeric type bw);
-
-`TIEOFF_GET(ByteStream#(64))
-`TIEOFF_GET(ByteStream#(32))
-`TIEOFF_GET(ByteStream#(16))
-`TIEOFF_GET(ByteStream#(8))
 

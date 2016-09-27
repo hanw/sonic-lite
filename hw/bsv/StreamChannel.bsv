@@ -144,7 +144,7 @@ interface StreamInChannel;
    method Action set_verbosity (int verbosity);
 endinterface
 
-module mkStreamInChannel(StreamInChannel);
+module mkStreamInChannel#(Integer id)(StreamInChannel);
    Reg#(int) cf_verbosity <- mkConfigRegU;
    FIFOF#(MetadataRequest) outReqFifo <- mkFIFOF;
 
@@ -157,7 +157,7 @@ module mkStreamInChannel(StreamInChannel);
    FIFO#(Bit#(EtherLen)) pktLenFifo <- mkFIFO;
 
    PacketBuffer pktBuff <- mkPacketBuffer();
-   Parser parser <- mkParser();
+   Parser parser <- mkParser(id);
 
    PktReadClient readClient = (interface PktReadClient;
       interface readData = toPut(readDataFifo);

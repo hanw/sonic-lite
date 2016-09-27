@@ -60,7 +60,7 @@ module mkHostChannel(HostChannel);
 
    PacketBuffer pktBuff <- mkPacketBuffer();
    TapPktRead tap <- mkTapPktRead();
-   Parser parser <- mkParser();
+   Parser parser <- mkParser(0);
    StoreAndFwdFromRingToMem ingress <- mkStoreAndFwdFromRingToMem();
 
    mkConnection(tap.readClient, pktBuff.readServer);

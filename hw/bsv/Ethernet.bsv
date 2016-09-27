@@ -39,7 +39,7 @@ typedef 4 NumPorts;
 
 typedef 10   PktAddrWidth;
 typedef 128  PktDataWidth;
-typedef 16   EtherLen;
+typedef 16   EtherLen; //14 bits is enough!
 
 interface EthPhyIfc;
    (*always_ready, always_enabled*)

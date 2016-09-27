@@ -20,6 +20,12 @@
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+/**
+   Simple Packet Buffer
+   TODO: handle error cases
+      - buffer filled
+*/
+
 package PacketBuffer;
 
 import BRAM::*;
@@ -56,7 +62,6 @@ interface PktReadServer;
    interface Get#(Bit#(EtherLen)) readLen;
    interface Put#(EtherReq) readReq;
 endinterface
-
 
 interface PacketBuffer;
    interface PktWriteServer writeServer;
