@@ -42,4 +42,14 @@ instance TieOff#(PipeOut#(PARAM)); \
    endmodule \
 endinstance
 
+`define TIEOFF_CLIENT(PARAM1, PARAM2) \
+instance TieOff#(Client#(PARAM1, PARAM2)); \
+   module mkTieOff(Client#(PARAM1, PARAM2) ifc, Empty unused); \
+      rule tieoff; \
+         let v <- toGet(ifc.request).get; \
+         $display("(%0d) ", $time, fshow(v), " > /dev/null"); \
+      endrule \
+   endmodule \
+endinstance
+
 
