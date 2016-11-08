@@ -35,7 +35,6 @@ import MemTypes::*;
 import MemReadEngine::*;
 import MemWriteEngine::*;
 import HostInterface::*;
-
 `include "ConnectalProjectConfig.bsv"
 
 interface DmaRequest;
@@ -85,8 +84,8 @@ interface DmaController#(numeric type numChannels);
    interface Vector#(1,MemWriteClient#(DataBusWidth))     writeClient;
 endinterface
 
-typedef 15 NumOutstandingRequests;
-typedef TMul#(NumOutstandingRequests,TMul#(32,4)) BufferSizeBytes;
+typedef 31 NumOutstandingRequests;
+typedef TMul#(NumOutstandingRequests,1024) BufferSizeBytes;
 
 function Bit#(dsz) memdatafToData(MemDataF#(dsz) mdf); return mdf.data; endfunction
 
@@ -109,7 +108,6 @@ module mkDmaController#(Vector#(numChannels,DmaIndication) indication)(DmaContro
    Vector#(numChannels, FIFO#(Tuple3#(Bit#(32),Bit#(32),Bit#(32)))) writeReqs <- replicateM(mkSizedFIFO(valueOf(NumOutstandingRequests)));
    Vector#(numChannels, FIFOF#(MemDataF#(DataBusWidth))) transferToFpgaFifo <- replicateM(mkFIFOF());
    Vector#(numChannels, FIFO#(Bit#(8))) writeTags <- replicateM(mkSizedFIFO(valueOf(NumOutstandingRequests)));
-   Vector#(numChannels, FIFO#(Bit#(8))) readTags <- replicateM(mkSizedFIFO(valueOf(NumOutstandingRequests)));
    Reg#(Bit#(BurstLenSize)) writeRequestSizeReg <- mkReg(64);
    Reg#(Bit#(BurstLenSize)) readRequestSizeReg <- mkReg(256);
    Reg#(Bit#(32)) cyclesReg <- mkReg(0);
@@ -118,63 +116,56 @@ module mkDmaController#(Vector#(numChannels,DmaIndication) indication)(DmaContro
    endrule
 
    Vector#(numChannels, Probe#(Bit#(MemTagSize))) probe_readReq <- replicateM(mkProbe);
-   Vector#(numChannels, Probe#(Bool)) probe_readLast <- replicateM(mkProbe);
    Vector#(numChannels, Probe#(Bit#(8))) probe_readDone <- replicateM(mkProbe);
-   Vector#(numChannels, Probe#(Bit#(32))) probe_readCount <- replicateM(mkProbe);
 
    for (Integer channel = 0; channel < valueOf(numChannels); channel = channel + 1) begin
+      FIFO#(Bit#(8)) readTags <- mkSizedFIFO(valueOf(NumOutstandingRequests));
       Reg#(Bit#(32)) readCount <- mkReg(0);
 
       rule transferToFpgaReqRule;
-         let cmd <- toGet(readCmds[channel]).get();
-         $display ("transferToFpgaReqRule [%d / %d]", channel, valueOf(numChannels));
-         readReqs[channel].enq(tuple3(cmd.sglId, cmd.base, cyclesReg));
-         probe_readReq[channel] <= cmd.tag;
-         re.readServers[channel].request.put(cmd);
+	 let cmd <- toGet(readCmds[channel]).get();
+	 readReqs[channel].enq(tuple3(cmd.sglId, cmd.base, cyclesReg));
+	 probe_readReq[channel] <= cmd.tag;
+	 re.readServers[channel].request.put(cmd);
       endrule
-      rule readDataRule;
-         let mdf <- toGet(re.readServers[channel].data).get();
-         probe_readLast[channel] <= mdf.last;
-         Bit#(32) count = readCount + 1;
-         if (mdf.last) begin
-            $display ("readDataRule [%d] mdf.last", channel);
-            readTags[channel].enq(extend(mdf.tag));
-            count = 0;
-         end
-         probe_readCount[channel] <= count;
-         readCount <= count;
-         transferToFpgaFifo[channel].enq(mdf);
-      endrule
-      rule transferToFpgaDoneRule;
-         match { .objId, .base, .cycles } <- toGet(readReqs[channel]).get();
-         cycles = cycles - cyclesReg;
+       rule readDataRule;
+	  let mdf <- toGet(re.readServers[channel].data).get();
+	  Bit#(32) count = readCount + 1;
+	  if (mdf.last) begin
+	     readTags.enq(extend(mdf.tag));
+	     count = 0;
+	  end
+	  readCount <= count;
+	  transferToFpgaFifo[channel].enq(mdf);
+       endrule
+       rule transferToFpgaDoneRule;
+	  match { .objId, .base, .cycles } <- toGet(readReqs[channel]).get();
+	  cycles = cycles - cyclesReg;
 `ifdef MEMENGINE_REQUEST_CYCLES
-         let tagcycles <- toGet(re.readServers[channel].requestCycles).get();
-         cycles = tagcycles.cycles;
+	  let tagcycles <- toGet(re.readServers[channel].requestCycles).get();
+	  cycles = tagcycles.cycles;
 `endif
-         //let done <- re.readServers[channel].done.get();
-         let tag <- toGet(readTags[channel]).get();
-         probe_readDone[channel] <= tag;
-         indication[channel].transferToFpgaDone(objId, base, tag, cycles);
-      endrule
+	  let tag <- toGet(readTags).get();
+	  probe_readDone[channel] <= tag;
+	  indication[channel].transferToFpgaDone(objId, base, tag, cycles);
+       endrule
       rule transferFromFpgaReqRule;
-         let cmd <- toGet(writeCmds[channel]).get();
-         $display ("transferfromFpgaReqRule [%d]", channel);
-         writeReqs[channel].enq(tuple3(cmd.sglId, cmd.base, cyclesReg));
-         we.writeServers[channel].request.put(cmd);
-         writeTags[channel].enq(extend(cmd.tag));
+	 let cmd <- toGet(writeCmds[channel]).get();
+	 writeReqs[channel].enq(tuple3(cmd.sglId, cmd.base, cyclesReg));
+	 we.writeServers[channel].request.put(cmd);
+	 writeTags[channel].enq(extend(cmd.tag));
       endrule
-      rule transferFromFpgaDoneRule;
-         match { .objId, .base, .cycles } <- toGet(writeReqs[channel]).get();
-         cycles = cycles - cyclesReg;
+       rule transferFromFpgaDoneRule;
+	  match { .objId, .base, .cycles } <- toGet(writeReqs[channel]).get();
+	  cycles = cycles - cyclesReg;
 `ifdef MEMENGINE_REQUEST_CYCLES
-         let tagcycles <- toGet(we.writeServers[channel].requestCycles).get();
-         cycles = tagcycles.cycles;
+	  let tagcycles <- toGet(we.writeServers[channel].requestCycles).get();
+	  cycles = tagcycles.cycles;
 `endif
-         let done <- we.writeServers[channel].done.get();
-         let tag <- toGet(writeTags[channel]).get();
-         indication[channel].transferFromFpgaDone(objId, base, tag, cycles);
-      endrule
+	  let done <- we.writeServers[channel].done.get();
+	  let tag <- toGet(writeTags[channel]).get();
+	  indication[channel].transferFromFpgaDone(objId, base, tag, cycles);
+       endrule
    end
 
    function DmaRequest dmaRequestInterface(Integer channel);
