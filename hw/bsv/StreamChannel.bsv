@@ -40,17 +40,21 @@ import PacketBuffer::*;
 import PrintTrace::*;
 import StoreAndForward::*;
 import SpecialFIFOs::*;
+import Stream::*;
+import StreamGearbox::*;
 import SharedBuff::*;
+import TieOff::*;
 import HeaderSerializer::*;
-
+`include "ConnectalProjectConfig.bsv"
 import `PARSER::*;
 import `DEPARSER::*;
 import `TYPEDEF::*;
 
 interface StreamOutChannel;
    interface PktWriteServer writeServer;
+   // Put#
    interface Server#(MetadataRequest, MetadataResponse) prev;
-   interface Get#(PacketDataT#(64)) macTx;
+   interface Get#(ByteStream#(8)) macTx;
    method Action set_verbosity (int verbosity);
 endinterface
 
@@ -60,10 +64,10 @@ module mkStreamOutChannel#(Clock txClock, Reset txReset)(StreamOutChannel);
    Reg#(int) cf_verbosity <- mkConfigRegU;
 
    // RingBuffer Read Client
-   FIFO#(EtherData) readDataFifo <- mkFIFO;
+   FIFO#(ByteStream#(16)) readDataFifo <- mkFIFO;
    FIFO#(Bit#(EtherLen)) readLenFifo <- mkFIFO;
    FIFO#(EtherReq) readReqFifo <- mkFIFO;
-   FIFO#(EtherData) writeDataFifo <- mkFIFO;
+   FIFO#(ByteStream#(16)) writeDataFifo <- mkFIFO;
    Reg#(Bool) readStarted <- mkReg(False);
 
    PacketBuffer pktBuff <- mkPacketBuffer();
@@ -136,25 +140,24 @@ endmodule
 interface StreamInChannel;
    interface PktWriteServer writeServer;
    interface PktWriteClient writeClient;
-   interface Client#(MetadataRequest, MetadataResponse) next;
+   interface PipeOut#(MetadataRequest) next;
    method Action set_verbosity (int verbosity);
 endinterface
 
-module mkStreamInChannel(StreamInChannel);
+module mkStreamInChannel#(Integer id)(StreamInChannel);
    Reg#(int) cf_verbosity <- mkConfigRegU;
-   FIFO#(MetadataRequest) outReqFifo <- mkFIFO;
-   FIFO#(MetadataResponse) inRespFifo <- mkFIFO;
+   FIFOF#(MetadataRequest) outReqFifo <- mkFIFOF;
 
    // RingBuffer Read Client
-   FIFO#(EtherData) readDataFifo <- mkFIFO;
+   FIFO#(ByteStream#(16)) readDataFifo <- mkFIFO;
    FIFO#(Bit#(EtherLen)) readLenFifo <- mkFIFO;
    FIFO#(EtherReq) readReqFifo <- mkFIFO;
-   FIFO#(EtherData) writeDataFifo <- mkFIFO;
+   FIFO#(ByteStream#(16)) writeDataFifo <- mkFIFO;
    Reg#(Bool) readStarted <- mkReg(False);
    FIFO#(Bit#(EtherLen)) pktLenFifo <- mkFIFO;
 
    PacketBuffer pktBuff <- mkPacketBuffer();
-   Parser parser <- mkParser();
+   Parser parser <- mkParser(id);
 
    PktReadClient readClient = (interface PktReadClient;
       interface readData = toPut(readDataFifo);
@@ -203,12 +206,10 @@ module mkStreamInChannel(StreamInChannel);
    interface writeClient = (interface PktWriteClient;
       interface writeData = toGet(writeDataFifo);
    endinterface);
-   interface next = (interface Client#(MetadataRequest, MetadataResponse);
-      interface request = toGet(outReqFifo);
-      interface response = toPut(inRespFifo);
-   endinterface);
+   interface next = toPipeOut(outReqFifo);
    method Action set_verbosity (int verbosity);
       parser.set_verbosity(verbosity);
       cf_verbosity <= verbosity;
+      $display("set verbosity ", verbosity);
    endmethod
 endmodule

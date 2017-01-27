@@ -49,6 +49,10 @@ typeclass MatchTableSim#(numeric type id, numeric type ksz, numeric type vsz);
    function Action matchtable_write(Bit#(id) v, Bit#(ksz) key, Bit#(vsz) data);
 endtypeclass
 
+// typeclass MatchTable#(numeric type id, numeric type ksz, numeric type vsz, numeric type nentry);
+//    module mkMatchTable(MatchTable#(id, nentry, ksz, vsz));
+// endtypeclass
+
 module mkMatchTable#(String name)(MatchTable#(id, depth, keySz, actionSz))
    provisos(Mul#(c__, 256, d__),
             Add#(c__, 7, TLog#(depth)),

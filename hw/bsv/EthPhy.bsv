@@ -38,6 +38,7 @@ import EthPcsTx                      ::*;
 import EthPcsRx                      ::*;
 import DtpTx                         ::*;
 import DtpRx                         ::*;
+import DtpTypes                      ::*;
 import DtpSwitch                     ::*;
 import DtpDCFifo            ::*;
 import ALTERA_SI570_WRAPPER          ::*;
@@ -55,6 +56,10 @@ typedef 4 NumPorts;
 interface DtpPhyIfc;
    interface EthPhyIfc phys;
    interface DtpPhyApiIfc api;
+endinterface
+
+interface LoopbackIfc;
+   method Action lpbk_en(Bool en);
 endinterface
 
 function Bit#(n) reverseBits(Bit#(n) x);

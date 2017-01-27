@@ -33,6 +33,7 @@ import Clocks::*;
 import Gearbox::*;
 import Pipe::*;
 import Ethernet::*;
+import Stream::*;
 import PacketBuffer::*;
 
 typedef 1 MinimumIPG; // 1 beat == 16 bytes.
@@ -58,7 +59,7 @@ module mkPktGen(PktGen)
    Reg#(Bool) started <- mkReg(False);
    Reg#(Bool) infiniteLoop <- mkReg(False);
 
-   FIFO#(EtherData) outgoing_fifo <- mkFIFO();
+   FIFO#(ByteStream#(16)) outgoing_fifo <- mkFIFO();
    PacketBuffer buff <- mkPacketBuffer();
 
    rule prepare_packet if (pktCount>0 && !idle);
@@ -114,7 +115,7 @@ module mkPktGen(PktGen)
 
    interface PktWriteServer writeServer;
       interface Put writeData;
-         method Action put (EtherData d);
+         method Action put (ByteStream#(16) d);
             buff.writeServer.writeData.put(d);
             if (verbose) $display("Pktgen:: write data", fshow(d));
             if (d.eop) begin

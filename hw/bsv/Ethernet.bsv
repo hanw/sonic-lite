@@ -1,4 +1,3 @@
-
 // Copyright (c) 2014 Cornell University.
 
 // Permission is hereby granted, free of charge, to any person
@@ -28,6 +27,7 @@ import DefaultValue          ::*;
 import Connectable           ::*;
 import GetPut                ::*;
 import Pipe                  ::*;
+import Stream                ::*;
 
 `include "ConnectalProjectConfig.bsv"
 
@@ -37,33 +37,9 @@ typedef `NUMBER_OF_10G_PORTS NumPorts;
 typedef 4 NumPorts;
 `endif
 
-typedef 64 AVALON_DATA_WIDTH;
-typedef 8  SYMBOL_SIZE;
-typedef TLog#(AVALON_DATA_WIDTH) AVALON_EMPTY_WIDTH;
 typedef 10   PktAddrWidth;
 typedef 128  PktDataWidth;
-typedef 16   EtherLen;
-
-// little endianess
-typedef struct {
-   Bool                    sop;
-   Bool                    eop;
-   Bit#(1)                 err;
-   Bit#(3)                 empty; //FIXME: use TLog and shift
-   Bit#(dataT_width)       data;
-   Bool                    valid;
-} PacketData#(numeric type dataT_width) deriving (Bits, Eq);
-instance DefaultValue#(PacketData#(n));
-   defaultValue =
-   PacketData {
-      sop : False,
-      eop : False,
-      err : 0,
-      empty : 0,
-      data : 0,
-      valid : False
-      };
-endinstance
+typedef 16   EtherLen; //14 bits is enough!
 
 interface EthPhyIfc;
    (*always_ready, always_enabled*)
@@ -77,39 +53,9 @@ interface EthPhyIfc;
    interface Vector#(NumPorts, Clock) rx_clkout;
 endinterface
 
-interface LoopbackIfc;
-   method Action lpbk_en(Bool en);
-endinterface
-
-typedef struct {
-   Bit#(53) ts_host;
-   Bit#(53) ts_local_nic;
-   Bit#(53) ts_global;
-} LogUnit deriving (Bits);
-
-interface DtpToPhyIfc;
-   interface PipeOut#(Bit#(32)) delayOut;
-   interface PipeOut#(Bit#(32)) stateOut;
-   interface PipeOut#(Bit#(64)) jumpCount;
-   interface PipeOut#(Bit#(53)) cLocalOut;
-   interface PipeOut#(Bit#(53)) toHost;
-   interface PipeIn#(Bit#(53))  fromHost;
-   interface PipeIn#(Bit#(32))  interval;
-   interface PipeOut#(Bit#(32)) dtpErrCnt;
-endinterface
-
-interface DtpPhyApiIfc;
-   interface PipeOut#(Bit#(128)) timestamp;
-   interface PipeOut#(Bit#(53)) globalOut;
-   interface PipeIn#(Bit#(1)) switchMode;
-   interface Vector#(NumPorts, DtpToPhyIfc) phys;
-   interface Vector#(NumPorts, PipeOut#(PcsDbgRec)) tx_dbg;
-   interface Vector#(NumPorts, PipeOut#(PcsDbgRec)) rx_dbg;
-endinterface
-
 typedef struct {
    Bit#(PktAddrWidth) addr;
-   EtherData          data;
+   ByteStream#(16)     data;
 } AddrTransRequest deriving (Eq, Bits);
 instance FShow#(AddrTransRequest);
    function Fmt fshow (AddrTransRequest req);
@@ -118,36 +64,6 @@ instance FShow#(AddrTransRequest);
               + $format(" sop= %d ", req.data.sop)
               + $format(" eop= %d ", req.data.eop));
    endfunction
-endinstance
-
-typedef struct {
-   Bit#(3)  e; //event
-   Bit#(53) t; //timestamp
-} DtpEvent deriving (Eq, Bits, FShow);
-
-// Big-endianess
-typedef struct {
-   Bit#(PktDataWidth) data;
-   Bit#(TDiv#(PktDataWidth, 8)) mask;
-   Bool sop;
-   Bool eop;
-} EtherData deriving (Eq, Bits);
-instance FShow#(EtherData);
-   function Fmt fshow (EtherData v);
-      return ($format("sop=%x ", v.sop)
-              + $format("eop=%x ", v.eop)
-              + $format("mask=%x ", v.mask)
-              + $format("data=%x", v.data));
-   endfunction
-endinstance
-instance DefaultValue#(EtherData);
-   defaultValue =
-   EtherData {
-   data : 0,
-   mask : 0,
-   sop : False,
-   eop : False
-   };
 endinstance
 
 typedef struct {

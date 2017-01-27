@@ -38,10 +38,9 @@ import ConnectalBram::*;
 import ConnectalMemory::*;
 import Ethernet::*;
 import SharedBuffMMU::*;
-//import DbgTypes::*;
 import DbgDefs::*;
 
- `include "ConnectalProjectConfig.bsv"
+`include "ConnectalProjectConfig.bsv"
 typedef enum {
    MemMgmtErrorNone,
    MemMgmtErrorInvalidPacketId,

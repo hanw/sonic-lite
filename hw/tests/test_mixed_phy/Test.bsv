@@ -62,7 +62,7 @@ module mkTest#(TestIndication indication) (Test);
    Vector#(3, EthMacIfc) mac <- replicateM(mkEthMac(mgmtClock, txClock, rxClock, txReset));
    EthMacIfc dtpMac <- mkEthMac(mgmtClock, txClock, dtpPhy.rx_clkout[0], txReset);
 
-   SyncFIFOIfc#(EtherData) tx_fifo <- mkSyncFIFO(5, defaultClock, defaultReset, txClock);
+   SyncFIFOIfc#(ByteStream#(16)) tx_fifo <- mkSyncFIFO(5, defaultClock, defaultReset, txClock);
 
    // DE5 Pins
    De5Leds leds <- mkDe5Leds(defaultClock, txClock, mgmtClock, phyClock);
@@ -83,7 +83,7 @@ module mkTest#(TestIndication indication) (Test);
       buff.readServer.readReq.put(EtherReq{len: truncate(pktLen)});
    endrule
 
-   function Vector#(2, PacketDataT#(64)) split(EtherData in);
+   function Vector#(2, PacketDataT#(64)) split(ByteStream#(16) in);
       Vector#(2, PacketDataT#(64)) v = defaultValue;
       Vector#(8, Bit#(8)) v0_data = unpack(in.data[63:0]);
       Vector#(8, Bit#(8)) v1_data = unpack(in.data[127:64]);
@@ -124,7 +124,7 @@ module mkTest#(TestIndication indication) (Test);
 
    interface TestRequest request;
       method Action writePacketData(Vector#(2, Bit#(64)) data, Vector#(2, Bit#(8)) mask, Bit#(1) sop, Bit#(1) eop);
-         EtherData beat = defaultValue;
+         ByteStream#(16) beat = defaultValue;
          beat.data = pack(reverse(data));
          beat.mask = pack(reverse(mask));
          beat.sop = unpack(sop);

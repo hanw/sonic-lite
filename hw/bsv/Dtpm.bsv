@@ -37,6 +37,7 @@ import Ethernet::*;
 import Connectable::*;
 import DtpRx::*;
 import DtpTx::*;
+import DtpTypes::*;
 
 interface Dtpm;
    interface PipeIn#(Bit#(66))  dtpRxIn;

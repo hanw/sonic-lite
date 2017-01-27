@@ -109,7 +109,7 @@ module mkMemoryTest#(MemoryTestIndication indication
 
    // Host Packet Generator
    PktGen pktgen <- mkPktGen(clocked_by txClock, reset_by txReset);
-   SyncFIFOIfc#(EtherData) txSyncFifo <- mkSyncBRAMFIFO(6, txClock, txReset, defaultClock, defaultReset);
+   SyncFIFOIfc#(ByteStream#(16)) txSyncFifo <- mkSyncBRAMFIFO(6, txClock, txReset, defaultClock, defaultReset);
 
    TdmPipeline tdm <- mkTdmPipeline(txClock, txReset
                                  ,rxClock, rxReset
@@ -146,7 +146,7 @@ module mkMemoryTest#(MemoryTestIndication indication
    // PktGen start/stop
    SyncFIFOIfc#(Tuple2#(Bit#(32),Bit#(32))) pktGenStartSyncFifo <- mkSyncFIFO(4, defaultClock, defaultReset, txClock);
    SyncFIFOIfc#(void) pktGenStopSyncFifo <- mkSyncFIFO(4, defaultClock, defaultReset, txClock);
-   SyncFIFOIfc#(EtherData) pktGenWriteSyncFifo <- mkSyncFIFO(4, defaultClock, defaultReset, txClock);
+   SyncFIFOIfc#(ByteStream#(16)) pktGenWriteSyncFifo <- mkSyncFIFO(4, defaultClock, defaultReset, txClock);
    mkConnection(api.pktGenStart, toPut(pktGenStartSyncFifo));
    mkConnection(api.pktGenStop, toPut(pktGenStopSyncFifo));
    mkConnection(api.pktGenWrite, toPut(pktGenWriteSyncFifo));

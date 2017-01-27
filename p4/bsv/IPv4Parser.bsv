@@ -38,7 +38,7 @@ import Ethernet::*;
 import P4Types::*;
 
 interface Parser;
-   interface PipeIn#(EtherData) frameIn;
+   interface PipeIn#(ByteStream#(16)) frameIn;
    interface PipeOut#(Bit#(32)) parsedOut_ipv4_dstAddr;
 endinterface
 
@@ -72,7 +72,7 @@ instance FShow#(ParserState);
    endfunction
 endinstance
 
-module mkStart#(Reg#(ParserState) state, FIFOF#(EtherData) datain, Wire#(Bool) start_fsm)(Empty);
+module mkStart#(Reg#(ParserState) state, FIFOF#(ByteStream#(16)) datain, Wire#(Bool) start_fsm)(Empty);
    let verbose = True;
    Reg#(Cycle_t) cycle <- mkReg(defaultValue);
    rule every if (verbose);
@@ -94,7 +94,7 @@ module mkStart#(Reg#(ParserState) state, FIFOF#(EtherData) datain, Wire#(Bool) s
    endrule
 endmodule
 
-module mkParseEthernet#(Reg#(ParserState) state, FIFOF#(EtherData) datain)(ParseEthernet);
+module mkParseEthernet#(Reg#(ParserState) state, FIFOF#(ByteStream#(16)) datain)(ParseEthernet);
    FIFOF#(Bit#(16))  unparsed_out_parse_ipv4_fifo <- mkSizedFIFOF(1);
    FIFOF#(Bit#(16))  unparsed_out_parse_vlan_fifo <- mkSizedFIFOF(1);
 
@@ -189,7 +189,7 @@ module mkParseEthernet#(Reg#(ParserState) state, FIFOF#(EtherData) datain)(Parse
 endmodule
 
 // Parse second VLAN
-module mkParseVlan#(Reg#(ParserState) state, FIFOF#(EtherData) datain)(ParseVlan);
+module mkParseVlan#(Reg#(ParserState) state, FIFOF#(ByteStream#(16)) datain)(ParseVlan);
    FIFOF#(Bit#(16)) unparsed_in_fifo <- mkBypassFIFOF;
    FIFOF#(Bit#(16)) unparsed_in_fifo_vlan0 <- mkBypassFIFOF;
    FIFOF#(Bit#(112)) unparsed_out_parse_vlan0_fifo <- mkSizedFIFOF(1);
@@ -287,7 +287,7 @@ module mkParseVlan#(Reg#(ParserState) state, FIFOF#(EtherData) datain)(ParseVlan
    interface unparsedOutVlan0 = toPipeOut(unparsed_out_parse_vlan0_fifo);
 endmodule
 
-module mkParseIpv4#(Reg#(ParserState) state, FIFOF#(EtherData) datain)(ParseIpv4);
+module mkParseIpv4#(Reg#(ParserState) state, FIFOF#(ByteStream#(16)) datain)(ParseIpv4);
 
    FIFOF#(Bit#(16)) unparsed_in_fifo <- mkBypassFIFOF;
    FIFOF#(Bit#(112)) unparsed_in_vlan0_fifo <- mkBypassFIFOF;
@@ -382,7 +382,7 @@ endmodule
 module mkParser(Parser);
    Reg#(ParserState) curr_state <- mkReg(S0);
    Reg#(Bool) started <- mkReg(False);
-   FIFOF#(EtherData) data_in_fifo <- mkFIFOF;
+   FIFOF#(ByteStream#(16)) data_in_fifo <- mkFIFOF;
    Wire#(Bool) start_fsm <- mkDWire(False);
 
    Empty init_state <- mkStart(curr_state, data_in_fifo, start_fsm);

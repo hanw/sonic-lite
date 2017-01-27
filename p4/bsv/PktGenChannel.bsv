@@ -36,14 +36,15 @@ import PktGen::*;
 import StoreAndForward::*;
 import SharedBuff::*;
 import SpecialFIFOs ::*;
+import Stream::*;
 import Deparser::*;
 
 // Encapsulate a packet generator inside a channel
 interface PktGenChannel;
-   interface Put#(EtherData) writeData;
+   interface Put#(ByteStream#(16)) writeData;
    method Action start (Bit#(32) iter, Bit#(32) ipg);
    method Action stop ();
-   interface Get#(PacketDataT#(64)) macTx;
+   interface Get#(ByteStream#(8)) macTx;
 endinterface
 
 module mkPktGenChannel#(Clock txClock, Reset txReset)(PktGenChannel);
@@ -59,7 +60,7 @@ module mkPktGenChannel#(Clock txClock, Reset txReset)(PktGenChannel);
 
    SyncFIFOIfc#(Tuple2#(Bit#(32),Bit#(32))) pktGenStartSyncFifo <- mkSyncFIFO(4, defaultClock, defaultReset, txClock);
    SyncFIFOIfc#(void) pktGenStopSyncFifo <- mkSyncFIFO(4, defaultClock, defaultReset, txClock);
-   SyncFIFOIfc#(EtherData) pktGenWriteSyncFifo <- mkSyncFIFO(4, defaultClock, defaultReset, txClock);
+   SyncFIFOIfc#(ByteStream#(16)) pktGenWriteSyncFifo <- mkSyncFIFO(4, defaultClock, defaultReset, txClock);
 
    rule r_write_data;
       let v <- toGet(pktGenWriteSyncFifo).get;

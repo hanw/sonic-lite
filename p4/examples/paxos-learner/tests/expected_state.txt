@@ -1,0 +1,27 @@
+### ACCEPTOR Handle 2a ###
+### BEFORE ###
+rnd[9]: 0
+vrnd[9]: 0
+values[9]: 0
+###[ PaxosPacket  ]###
+  inst      = 0x9
+  rnd       = 0x1
+  vrnd      = 0x0
+  acpt      = 0x1
+  msgtype   = 0x3
+  val       = 0x50757420286b65792c2076616c29000000000000000000000000000000000000L
+###[ Raw ]###
+     load      = '\x02\x00\xed\xf6\xc0\xa8\x03F\x00\x00\x00\x00\x00\x00\x00\x00'
+### AFTER ###
+rnd[9]: 1
+vrnd[9]: 1
+values[9]: 50757420286b65792c2076616c29000000000000000000000000000000000000
+###[ PaxosPacket  ]###
+  inst      = 0x9
+  rnd       = 0x1
+  vrnd      = 0x0
+  acpt      = 0x1
+  msgtype   = 0x3
+  val       = 0x50757420286b65792c2076616c29000000000000000000000000000000000000L
+###[ Raw ]###
+     load      = '\x02\x00\xed\xf6\xc0\xa8\x03F\x00\x00\x00\x00\x00\x00\x00\x00'

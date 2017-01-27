@@ -32,7 +32,7 @@ instance FShow#(ParserState);
     endfunction
 endinstance
 
-module mkStateStart#(Reg#(ParserState) state, FIFOF#(EtherData) datain, Wire#(Bool) start_fsm)(Empty);
+module mkStateStart#(Reg#(ParserState) state, FIFOF#(ByteStream#(16)) datain, Wire#(Bool) start_fsm)(Empty);
 
     rule load_packet if (state==StateStart);
         let v = datain.first;
@@ -55,7 +55,7 @@ interface ParseEthernet;
     method Action start;
     method Action clear;
 endinterface
-module mkStateParseEthernet#(Reg#(ParserState) state, FIFOF#(EtherData) datain)(ParseEthernet);
+module mkStateParseEthernet#(Reg#(ParserState) state, FIFOF#(ByteStream#(16)) datain)(ParseEthernet);
     FIFOF#(Bit#(16)) unparsed_parse_arp_fifo <- mkSizedFIFOF(1);
     FIFOF#(Bit#(16)) unparsed_parse_ipv4_fifo <- mkSizedFIFOF(1);
     FIFOF#(Bit#(16)) unparsed_parse_ipv6_fifo <- mkSizedFIFOF(1);
@@ -150,7 +150,7 @@ interface ParseArp;
     method Action start;
     method Action clear;
 endinterface
-module mkStateParseArp#(Reg#(ParserState) state, FIFOF#(EtherData) datain)(ParseArp);
+module mkStateParseArp#(Reg#(ParserState) state, FIFOF#(ByteStream#(16)) datain)(ParseArp);
     FIFOF#(Bit#(144)) internal_fifo <- mkSizedFIFOF(1);
     FIFOF#(Bit#(16)) unparsed_parse_ethernet_fifo <- mkBypassFIFOF;
     Wire#(Bit#(128)) packet_in_wire <- mkDWire(0);
@@ -215,7 +215,7 @@ interface ParseIpv4;
     method Action start;
     method Action clear;
 endinterface
-module mkStateParseIpv4#(Reg#(ParserState) state, FIFOF#(EtherData) datain)(ParseIpv4);
+module mkStateParseIpv4#(Reg#(ParserState) state, FIFOF#(ByteStream#(16)) datain)(ParseIpv4);
     FIFOF#(Bit#(16)) unparsed_parse_ethernet_fifo <- mkBypassFIFOF;
     FIFOF#(Bit#(112)) unparsed_parse_udp_fifo <- mkSizedFIFOF(1);
     FIFOF#(Bit#(8)) parsed_ipv4_protocol_fifo <- mkFIFOF;
@@ -301,7 +301,7 @@ interface ParseIpv6;
     method Action start;
     method Action clear;
 endinterface
-module mkStateParseIpv6#(Reg#(ParserState) state, FIFOF#(EtherData) datain, FIFOF#(ParserState) parseStateFifo)(ParseIpv6);
+module mkStateParseIpv6#(Reg#(ParserState) state, FIFOF#(ByteStream#(16)) datain, FIFOF#(ParserState) parseStateFifo)(ParseIpv6);
     FIFOF#(Bit#(16)) unparsed_parse_ethernet_fifo <- mkBypassFIFOF;
     FIFOF#(Bit#(144)) internal_fifo <- mkSizedFIFOF(1);
     FIFOF#(Bit#(272)) internal_fifo2 <- mkSizedFIFOF(1);
@@ -374,7 +374,7 @@ interface ParseUdp;
     method Action start;
     method Action clear;
 endinterface
-module mkStateParseUdp#(Reg#(ParserState) state, FIFOF#(EtherData) datain, FIFOF#(ParserState) parseStateFifo)(ParseUdp);
+module mkStateParseUdp#(Reg#(ParserState) state, FIFOF#(ByteStream#(16)) datain, FIFOF#(ParserState) parseStateFifo)(ParseUdp);
     FIFOF#(Bit#(112)) unparsed_parse_ipv4_fifo <- mkBypassFIFOF;
     FIFOF#(Bit#(176)) unparsed_parse_paxos_fifo <- mkSizedFIFOF(1);
     FIFOF#(Bit#(16)) parsed_udp_dstPort_fifo <- mkFIFOF;
@@ -456,7 +456,7 @@ interface ParsePaxos;
     method Action start;
     method Action clear;
 endinterface
-module mkStateParsePaxos#(Reg#(ParserState) state, FIFOF#(EtherData) datain, FIFOF#(ParserState) parseStateFifo)(ParsePaxos);
+module mkStateParsePaxos#(Reg#(ParserState) state, FIFOF#(ByteStream#(16)) datain, FIFOF#(ParserState) parseStateFifo)(ParsePaxos);
     FIFOF#(Bit#(304)) internal_fifo <- mkSizedFIFOF(1);
     FIFOF#(Bit#(176)) unparsed_parse_udp_fifo <- mkBypassFIFOF;
     FIFOF#(PaxosT) parsed_paxos_fifo <- mkFIFOF;
@@ -519,7 +519,7 @@ module mkStateParsePaxos#(Reg#(ParserState) state, FIFOF#(EtherData) datain, FIF
     interface parsedOut_paxos_msgtype = toGet(parsed_paxos_fifo);
 endmodule
 interface Parser;
-    interface Put#(EtherData) frameIn;
+    interface Put#(ByteStream#(16)) frameIn;
     //interface Get#(Bit#(48)) parsedOut_ethernet_dstAddr;
     //interface Get#(Bit#(16)) parsedOut_paxos_msgtype;
     //interface PipeOut#(ParserState) parserState;
@@ -533,7 +533,7 @@ module mkParser(Parser);
     let verbose = True;
     Reg#(ParserState) curr_state <- mkReg(StateStart);
     Reg#(Bool) started <- mkReg(False);
-    FIFOF#(EtherData) data_in_fifo <- mkFIFOF;
+    FIFOF#(ByteStream#(16)) data_in_fifo <- mkFIFOF;
     Wire#(Bool) start_fsm <- mkDWire(False);
 
     Vector#(PortMax, FIFOF#(ParserState)) parse_state_in_fifo <- replicateM(mkGFIFOF(False, True)); // unguarded deq

@@ -33,6 +33,7 @@ import FShow::*;
 import Probe::*;
 import Pipe::*;
 import Ethernet::*;
+import DtpTypes::*;
 
 typedef 8  CmdLen;
 typedef 32 ParamLen;

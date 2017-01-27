@@ -41,6 +41,7 @@ import PacketBuffer::*;
 import PrintTrace::*;
 import StoreAndForward::*;
 import SpecialFIFOs::*;
+import Stream::*;
 import SharedBuff::*;
 import HeaderSerializer::*;
 `include "ConnectalProjectConfig.bsv"
@@ -51,8 +52,8 @@ import `TYPEDEF::*;
 interface TxChannel;
    interface MemReadClient#(`DataBusWidth) readClient;
    interface MemFreeClient freeClient;
-   interface Server#(MetadataRequest, MetadataResponse) prev;
-   interface Get#(PacketDataT#(64)) macTx;
+   interface PipeIn#(MetadataRequest) prev;
+   interface Get#(ByteStream#(8)) macTx;
    method TxChannelDbgRec read_debug_info;
    method DeparserPerfRec read_deparser_perf_info;
    method Action set_verbosity (int verbosity);
@@ -60,9 +61,7 @@ endinterface
 
 module mkTxChannel#(Clock txClock, Reset txReset)(TxChannel);
    RX #(MetadataRequest)  rx_prev_req <- mkRX;
-   TX #(MetadataResponse) tx_prev_rsp <- mkTX;
    let rx_prev_req_info = rx_prev_req.u;
-   let tx_prev_rsp_info = tx_prev_rsp.u;
    PacketBuffer pktBuff <- mkPacketBuffer();
    Deparser deparser <- mkDeparser();
    HeaderSerializer serializer <- mkHeaderSerializer();
@@ -87,7 +86,7 @@ module mkTxChannel#(Clock txClock, Reset txReset)(TxChannel);
    interface macTx = ringToMac.macTx;
    interface readClient = egress.readClient;
    interface freeClient = egress.free;
-   interface prev = toServer(rx_prev_req.e, tx_prev_rsp.e);
+   interface prev = rx_prev_req.e;
    method TxChannelDbgRec read_debug_info;
       return TxChannelDbgRec {
          egressCount : 0,
